@@ -130,15 +130,20 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
 
   // 4. The team sees the answers and accepts the new date
   await p.goto('http://localhost:8765/#planning'); await p.waitForTimeout(1200);
+  ok('planning shows a banner to the new answers', await p.isVisible('#answersBanner'));
+  ok('Retours tab and window title show the count', /^\d+$/.test(await p.textContent('#retoursBadge')) && /^\(\d+\) /.test(await p.title()));
+  await p.click('#answersBanner'); await p.waitForTimeout(300);
   const panel = await p.textContent('#answers');
-  ok('team sees Khalid answers', panel.includes('GH-111-AA') && panel.includes('Autre date proposée'));
-  ok('planning tab shows the count', (await p.textContent('#tab-planning')).includes('('));
+  ok('team sees Khalid answers on the Retours page', await p.isVisible('#view-retours') && panel.includes('GH-111-AA') && panel.includes('Autre date proposée'));
+  if (process.env.SHOTS) { await p.setViewportSize({ width: 1280, height: 800 }); await p.screenshot({ path: process.env.SHOTS + '/7-retours.png' }); }
   await p.click('[data-proof]'); await p.waitForTimeout(800);
   ok('team opens the proof photo', ((await p.getAttribute('#lightImg', 'src')) || '').startsWith('data:image/jpeg'));
   await p.click('#lightbox');
   await p.click('[data-accept-date="lav2"]'); await p.waitForTimeout(1000);
   const lav2 = (await list('demandes')).find((d) => d.id === 'lav2');
   ok('accepting moves the request to the proposed date and confirms it', lav2.date === day(3) && lav2.debut === '14:00' && lav2.statut === 'confirmee');
+  await p.click('#allSeenBtn'); await p.waitForTimeout(800);
+  ok('"Tout marquer comme vu" empties the list and the badge', await p.isHidden('#retoursBadge') && (await p.textContent('#answersSeen')).includes('GH-111-AA'));
   ok('no page errors (team)', p.errs.length === 0); if (p.errs.length) console.log(p.errs);
 
   // 5. Someone signed in without access

@@ -307,6 +307,13 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* ---------- provider answers (team) ---------- */
+.tab-badge { display: inline-block; min-width: 20px; height: 20px; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--st-todo); color: #fff; font: 700 12px/20px var(--f-body); text-align: center; font-variant-numeric: tabular-nums; vertical-align: 1px; }
+.answers-banner { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding: 12px 16px; border-radius: 12px; background: color-mix(in srgb, var(--st-todo) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--st-todo) 35%, transparent); color: var(--ink); text-decoration: none; font-size: 14px; }
+.answers-banner .icon { color: var(--st-todo); flex: none; }
+.answers-banner .go { margin-left: auto; font-weight: 700; color: var(--accent); }
+.daybar .spacer { flex: 1; }
+#answersSeen { border-color: var(--line); }
+.answer-row.seen { color: var(--ink-2); }
 .answers { margin-bottom: 16px; border-color: var(--accent, #0f6f8f); }
 .answer-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
 .answer-row:first-of-type { border-top: 0; padding-top: 0; }
@@ -416,6 +423,7 @@ body.presta-mode main { padding-top: 16px; }
     <div class="brand"><svg class="brand-logo" aria-hidden="true" viewBox="0 0 512 512"><defs><linearGradient id="hbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22B5F2"/><stop offset=".55" stop-color="#009FE3"/><stop offset="1" stop-color="#0079BF"/></linearGradient><radialGradient id="hglow" cx=".3" cy=".18" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><linearGradient id="hbody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#E4EEF5"/><stop offset=".25" stop-color="#FFFFFF"/><stop offset=".75" stop-color="#FFFFFF"/><stop offset="1" stop-color="#D5E3EE"/></linearGradient><linearGradient id="hbox" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E3EDF4"/></linearGradient><linearGradient id="hglass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0E3553"/><stop offset="1" stop-color="#1F6E99"/></linearGradient><linearGradient id="hpin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD84D"/><stop offset="1" stop-color="#F7A600"/></linearGradient><filter id="hsh" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#00335A" flood-opacity=".35"/></filter><clipPath id="hws"><path d="M160 262 Q256 252 352 262 L368 318 Q256 326 144 318 Z"/></clipPath></defs><rect width="512" height="512" rx="112" fill="url(#hbg)"/><rect width="512" height="512" rx="112" fill="url(#hglow)"/><ellipse cx="256" cy="436" rx="178" ry="16" fill="#003B66" opacity=".28"/><g filter="url(#hsh)"><rect x="140" y="384" width="48" height="46" rx="12" fill="#0B2235"/><rect x="324" y="384" width="48" height="46" rx="12" fill="#0B2235"/><rect x="96" y="270" width="26" height="40" rx="9" fill="#12324D"/><rect x="390" y="270" width="26" height="40" rx="9" fill="#12324D"/><path d="M116 286 H132 M380 286 H396" stroke="#12324D" stroke-width="7" stroke-linecap="round"/><path d="M132 252 Q132 240 146 240 H366 Q380 240 380 252 L388 380 Q388 394 374 394 H138 Q124 394 124 380 Z" fill="url(#hbody)"/><rect x="108" y="96" width="296" height="156" rx="20" fill="url(#hbox)"/><rect x="108" y="96" width="296" height="156" rx="20" fill="url(#hbody)" opacity=".55"/><rect x="118" y="102" width="276" height="8" rx="4" fill="#fff"/><rect x="108" y="232" width="296" height="20" rx="0" fill="#C9DAE6"/><rect x="132" y="150" width="248" height="10" rx="5" fill="#FFC21A"/><path d="M160 262 Q256 252 352 262 L368 318 Q256 326 144 318 Z" fill="url(#hglass)" stroke="#0B2235" stroke-width="6" stroke-linejoin="round"/><g clip-path="url(#hws)"><path d="M196 250 L236 250 L196 330 L156 330 Z" fill="#fff" opacity=".42"/><path d="M248 250 L262 250 L222 330 L208 330 Z" fill="#fff" opacity=".28"/></g><path d="M196 314 L250 309 M272 314 L326 309" stroke="#0B2235" stroke-width="6" stroke-linecap="round"/><rect x="142" y="336" width="46" height="20" rx="8" fill="#FFF4CF" stroke="#0B2235" stroke-width="5"/><rect x="324" y="336" width="46" height="20" rx="8" fill="#FFF4CF" stroke="#0B2235" stroke-width="5"/><rect x="206" y="334" width="100" height="26" rx="9" fill="#12324D"/><path d="M220 343 H292 M220 351 H292" stroke="#2E5A7A" stroke-width="4" stroke-linecap="round"/><rect x="116" y="368" width="280" height="24" rx="11" fill="#12324D"/></g><g filter="url(#hsh)"><path d="M392 238 L339.2 167.6 A66 66 0 1 1 444.8 167.6 Z" fill="url(#hpin)" stroke="#fff" stroke-width="12" stroke-linejoin="round"/><path d="M362 130 L384 152 L424 108" fill="none" stroke="#0A3D62" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/></g><path d="M88 84 l7 19 19 7 -19 7 -7 19 -7 -19 -19 -7 19 -7 Z" fill="#fff" opacity=".9"/><path d="M92 196 l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4 Z" fill="#fff" opacity=".7"/></svg><span class="brand-word"><b>City-Drop</b><i>×</i><em>Presta</em></span></div>
     <nav class="tabs" role="tablist" aria-label="Vues">
       <button role="tab" id="tab-planning" aria-selected="true" data-view="planning">Planning</button>
+      <button role="tab" id="tab-retours" aria-selected="false" data-view="retours">Retours<span class="tab-badge" id="retoursBadge" hidden></span></button>
       <button role="tab" id="tab-demande" aria-selected="false" data-view="demande">Nouvelle demande</button>
       <button role="tab" id="tab-photos" aria-selected="false" data-view="photos">Photos</button>
       <button role="tab" id="tab-verif" aria-selected="false" data-view="verif">Vérification</button>
@@ -432,7 +440,7 @@ body.presta-mode main { padding-top: 16px; }
 
   <!-- PLANNING -->
   <section id="view-planning">
-    <div class="panel answers" id="answers" hidden></div>
+    <a class="answers-banner" id="answersBanner" href="#retours" hidden></a>
     <div class="daybar">
       <h1 id="dayTitle">Aujourd'hui</h1>
       <button class="ghost" id="prevDay" aria-label="Jour précédent"><svg class="icon"><use href="#i-chev-l"/></svg></button>
@@ -453,6 +461,19 @@ body.presta-mode main { padding-top: 16px; }
   </section>
 
   <!-- FORM -->
+  <section id="view-retours" hidden>
+    <div class="daybar">
+      <h1>Retours des prestataires</h1>
+      <span class="spacer"></span>
+      <button type="button" class="ghost" id="notifBtn" hidden>Activer les notifications</button>
+      <button type="button" id="allSeenBtn" hidden>Tout marquer comme vu</button>
+    </div>
+    <p class="hint">Chaque réponse d'un prestataire arrive ici : acceptation, passage fait (avec la photo), autre date proposée, véhicule absent ou « pas possible ». Les passages faits et les acceptations sont déjà appliqués à la demande ; « Vu » range simplement le retour.</p>
+    <div class="panel answers" id="answers"></div>
+    <h2 class="section-title">Déjà vus</h2>
+    <div class="panel answers" id="answersSeen"></div>
+  </section>
+
   <section id="view-demande" hidden>
     <div class="work">
       <form class="panel" id="form" autocomplete="off" novalidate>
@@ -1233,6 +1254,8 @@ window.SUIVI_FIREBASE_CONFIG = {
     return null;
   }
   // Answers the team has not looked at yet, newest first.
+  // Every answer already seen, newest first: the "Déjà vus" list of the Retours page.
+  const seenAnswers = (demandes, limit = 40) => demandes.filter((d) => d.retour?.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || "")).slice(0, limit);
   const unseenAnswers = (demandes) => demandes.filter((d) => d.retour && !d.retour.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || ""));
 
   // ---------- search ----------
@@ -1252,7 +1275,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
-    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers,
+    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
   };
 });
 </script>
@@ -1973,7 +1996,7 @@ function page(texte) {
   }
 
   // ================= navigation =================
-  const VIEWS = ["planning", "demande", "photos", "verif", "bilan", "historique", "reglages"];
+  const VIEWS = ["planning", "retours", "demande", "photos", "verif", "bilan", "historique", "reglages"];
   function show(view) {
     if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
@@ -2667,21 +2690,48 @@ function page(texte) {
     const signature = (d) => d.id + "|" + d.retour.at;
     const fresh = D.unseenAnswers(rows).filter((d) => knownAnswers && !knownAnswers.has(signature(d)));
     knownAnswers = new Set(D.unseenAnswers(rows).map(signature));
-    if (fresh.length) toast(fresh.length > 1 ? `${fresh.length} nouvelles réponses des prestataires` : `${fresh[0].prestataire} ${D.answerOf(fresh[0].retour.etat)?.team || "a répondu pour"} ${fresh[0].plaque}`);
+    if (fresh.length) { toast(fresh.length > 1 ? `${fresh.length} nouveaux retours des prestataires` : answerSentence(fresh[0])); notifyAnswers(fresh); }
+  }
+  // ---------- answers from providers: Retours page, tab badge, window title, desktop notifications ----------
+  const answerSentence = (d) => `${d.prestataire} ${D.answerOf(d.retour.etat)?.team || "a répondu pour"} ${d.plaque}`;
+  function answerRow(d, { seen = false } = {}) {
+    const r = d.retour;
+    return `<div class="answer-row${seen ? " seen" : ""}">${plateTag(d.plaque)}
+      <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(r))}<br><span class="muted">${esc([D.serviceOf(d.service).label, d.tache, D.vehicleLabel(d), D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(D.numericDate(r.at.slice(0, 10)))} ${esc(r.at.slice(11, 16))}</span></span>
+      <span class="row">${r.preuve ? `<button type="button" data-proof="${esc(r.preuve)}">${icon("image")}Photo</button>` : ""}
+      ${!seen && r.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
+      ${!seen && state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
+      <button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button></span></div>`;
   }
   function renderAnswers() {
     const rows = D.unseenAnswers(state.demandes);
-    $("#tab-planning").textContent = rows.length ? `Planning (${rows.length})` : "Planning";
-    $("#answers").hidden = !rows.length;
-    $("#answers").innerHTML = `<div class="panel-head"><h2>Réponses des prestataires</h2><span class="muted">${plural(rows.length, "nouvelle")}</span></div>` +
-      rows.map((d) => `<div class="answer-row">${plateTag(d.plaque)}
-        <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(d.retour))}<br><span class="muted">${esc(D.vehicleLabel(d))} · ${esc(D.siteOf(d))} · ${esc(D.numericDate(d.retour.at.slice(0, 10)))} ${esc(d.retour.at.slice(11, 16))}</span></span>
-        <span class="row">${d.retour.preuve ? `<button type="button" data-proof="${esc(d.retour.preuve)}">${icon("image")}Photo</button>` : ""}
-        ${d.retour.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
-        ${state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
-        <button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button></span></div>`).join("");
+    const n = rows.length;
+    $("#retoursBadge").hidden = !n; $("#retoursBadge").textContent = n;
+    document.title = (n ? `(${n}) ` : "") + "City-Drop × Presta";
+    try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
+    $("#answersBanner").hidden = !n;
+    $("#answersBanner").innerHTML = `${icon("alert")}<span><b>${n > 1 ? `${n} nouveaux retours` : "1 nouveau retour"}</b> des prestataires</span><span class="go">Voir</span>`;
+    $("#allSeenBtn").hidden = !n || !state.canWrite;
+    $("#notifBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
+    $("#answers").innerHTML = n ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
+    const seen = D.seenAnswers(state.demandes);
+    $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
   }
-  $("#answers").addEventListener("click", (e) => {
+  // A system notification for answers that arrive while the app is open in another tab or window.
+  function notifyAnswers(fresh) {
+    if (!("Notification" in window) || Notification.permission !== "granted" || document.visibilityState === "visible") return;
+    const n = new Notification(fresh.length > 1 ? `${fresh.length} nouveaux retours des prestataires` : "Nouveau retour d'un prestataire", {
+      body: fresh.slice(0, 3).map(answerSentence).join("\n"), icon: "assets/icon-180.png", tag: "retours",
+    });
+    n.onclick = () => { window.focus(); show("retours"); n.close(); };
+  }
+  $("#notifBtn").onclick = () => Notification.requestPermission().then((p) => { renderAnswers(); toast(p === "granted" ? "Notifications activées sur cet ordinateur" : "Notifications refusées par le navigateur"); });
+  $("#allSeenBtn").onclick = async () => {
+    if (!requireStore()) return;
+    try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
+    catch (err) { reportWriteError(err); }
+  };
+  ["#answers", "#answersSeen"].forEach((sel) => $(sel).addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
     const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
     if (!d) return;
@@ -2689,7 +2739,7 @@ function page(texte) {
     if (!requireStore()) return;
     (b.dataset.seen ? state.store.markAnswerSeen(d) : state.store.acceptProposedDate(d))
       .then(() => b.dataset.acceptDate && toast(`Date changée pour ${d.plaque}`), reportWriteError);
-  });
+  }));
 
   // ================= render & boot =================
   function renderAll() {

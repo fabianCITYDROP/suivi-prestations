@@ -279,7 +279,7 @@
   }
 
   // ================= navigation =================
-  const VIEWS = ["planning", "demande", "photos", "verif", "bilan", "historique", "reglages"];
+  const VIEWS = ["planning", "retours", "demande", "photos", "verif", "bilan", "historique", "reglages"];
   function show(view) {
     if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
@@ -973,21 +973,48 @@
     const signature = (d) => d.id + "|" + d.retour.at;
     const fresh = D.unseenAnswers(rows).filter((d) => knownAnswers && !knownAnswers.has(signature(d)));
     knownAnswers = new Set(D.unseenAnswers(rows).map(signature));
-    if (fresh.length) toast(fresh.length > 1 ? `${fresh.length} nouvelles réponses des prestataires` : `${fresh[0].prestataire} ${D.answerOf(fresh[0].retour.etat)?.team || "a répondu pour"} ${fresh[0].plaque}`);
+    if (fresh.length) { toast(fresh.length > 1 ? `${fresh.length} nouveaux retours des prestataires` : answerSentence(fresh[0])); notifyAnswers(fresh); }
+  }
+  // ---------- answers from providers: Retours page, tab badge, window title, desktop notifications ----------
+  const answerSentence = (d) => `${d.prestataire} ${D.answerOf(d.retour.etat)?.team || "a répondu pour"} ${d.plaque}`;
+  function answerRow(d, { seen = false } = {}) {
+    const r = d.retour;
+    return `<div class="answer-row${seen ? " seen" : ""}">${plateTag(d.plaque)}
+      <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(r))}<br><span class="muted">${esc([D.serviceOf(d.service).label, d.tache, D.vehicleLabel(d), D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(D.numericDate(r.at.slice(0, 10)))} ${esc(r.at.slice(11, 16))}</span></span>
+      <span class="row">${r.preuve ? `<button type="button" data-proof="${esc(r.preuve)}">${icon("image")}Photo</button>` : ""}
+      ${!seen && r.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
+      ${!seen && state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
+      <button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button></span></div>`;
   }
   function renderAnswers() {
     const rows = D.unseenAnswers(state.demandes);
-    $("#tab-planning").textContent = rows.length ? `Planning (${rows.length})` : "Planning";
-    $("#answers").hidden = !rows.length;
-    $("#answers").innerHTML = `<div class="panel-head"><h2>Réponses des prestataires</h2><span class="muted">${plural(rows.length, "nouvelle")}</span></div>` +
-      rows.map((d) => `<div class="answer-row">${plateTag(d.plaque)}
-        <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(d.retour))}<br><span class="muted">${esc(D.vehicleLabel(d))} · ${esc(D.siteOf(d))} · ${esc(D.numericDate(d.retour.at.slice(0, 10)))} ${esc(d.retour.at.slice(11, 16))}</span></span>
-        <span class="row">${d.retour.preuve ? `<button type="button" data-proof="${esc(d.retour.preuve)}">${icon("image")}Photo</button>` : ""}
-        ${d.retour.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
-        ${state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
-        <button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button></span></div>`).join("");
+    const n = rows.length;
+    $("#retoursBadge").hidden = !n; $("#retoursBadge").textContent = n;
+    document.title = (n ? `(${n}) ` : "") + "City-Drop × Presta";
+    try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
+    $("#answersBanner").hidden = !n;
+    $("#answersBanner").innerHTML = `${icon("alert")}<span><b>${n > 1 ? `${n} nouveaux retours` : "1 nouveau retour"}</b> des prestataires</span><span class="go">Voir</span>`;
+    $("#allSeenBtn").hidden = !n || !state.canWrite;
+    $("#notifBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
+    $("#answers").innerHTML = n ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
+    const seen = D.seenAnswers(state.demandes);
+    $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
   }
-  $("#answers").addEventListener("click", (e) => {
+  // A system notification for answers that arrive while the app is open in another tab or window.
+  function notifyAnswers(fresh) {
+    if (!("Notification" in window) || Notification.permission !== "granted" || document.visibilityState === "visible") return;
+    const n = new Notification(fresh.length > 1 ? `${fresh.length} nouveaux retours des prestataires` : "Nouveau retour d'un prestataire", {
+      body: fresh.slice(0, 3).map(answerSentence).join("\n"), icon: "assets/icon-180.png", tag: "retours",
+    });
+    n.onclick = () => { window.focus(); show("retours"); n.close(); };
+  }
+  $("#notifBtn").onclick = () => Notification.requestPermission().then((p) => { renderAnswers(); toast(p === "granted" ? "Notifications activées sur cet ordinateur" : "Notifications refusées par le navigateur"); });
+  $("#allSeenBtn").onclick = async () => {
+    if (!requireStore()) return;
+    try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
+    catch (err) { reportWriteError(err); }
+  };
+  ["#answers", "#answersSeen"].forEach((sel) => $(sel).addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
     const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
     if (!d) return;
@@ -995,7 +1022,7 @@
     if (!requireStore()) return;
     (b.dataset.seen ? state.store.markAnswerSeen(d) : state.store.acceptProposedDate(d))
       .then(() => b.dataset.acceptDate && toast(`Date changée pour ${d.plaque}`), reportWriteError);
-  });
+  }));
 
   // ================= render & boot =================
   function renderAll() {

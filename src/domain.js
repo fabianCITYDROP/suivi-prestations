@@ -480,6 +480,8 @@
     return null;
   }
   // Answers the team has not looked at yet, newest first.
+  // Every answer already seen, newest first: the "Déjà vus" list of the Retours page.
+  const seenAnswers = (demandes, limit = 40) => demandes.filter((d) => d.retour?.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || "")).slice(0, limit);
   const unseenAnswers = (demandes) => demandes.filter((d) => d.retour && !d.retour.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || ""));
 
   // ---------- search ----------
@@ -499,6 +501,6 @@
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
-    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers,
+    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
   };
 });
