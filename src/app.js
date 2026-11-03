@@ -300,7 +300,7 @@
     $("#provFilter").hidden = state.providers.length < 2;
     ["#h-prest", "#v-prest", "#b-prest"].forEach((s) => setSelectOptions($(s), allProviders));
     setSelectOptions($("#f-prest"), options(state.providers));
-    $("#provRow").hidden = state.providers.length < 2;
+    $("#provRow").hidden = state.providers.length === 0;
     document.querySelectorAll("#form .m-base").forEach((base) => {
       setSelectOptions(base, baseOptions());
       fillVariants(base, variantSelectOf(base));

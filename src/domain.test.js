@@ -241,7 +241,7 @@ test("accounts are keyed by lower-case e-mail", () => {
 
 test("the provider validates new requests, then sees accepted ones each day the vehicle is on site", () => {
   const rows = [
-    { id: "a", ...demande({ statut: "a_envoyer" }) },
+    { id: "a", ...demande({ date: "2026-11-04", statut: "a_envoyer" }) },
     { id: "b", ...demande({ date: "2026-11-05" }) },
     { id: "c", ...demande({ date: "2026-11-02", dateFin: "2026-11-04", statut: "confirmee" }) },
     { id: "g", ...demande({ date: "2026-11-06", retour: { etat: "confirme" } }) },
@@ -251,7 +251,7 @@ test("the provider validates new requests, then sees accepted ones each day the 
     { id: "f", ...demande({ date: "2026-10-20", statut: "realisee", doneAt: "2026-10-21T09:00:00Z" }) },
   ];
   const lists = D.providerLists(rows, "2026-11-03");
-  assert.deepEqual(lists.validate.map((d) => d.id), ["b"]);
+  assert.deepEqual(lists.validate.map((d) => d.id), ["a", "b"], "shown as soon as saved, even before the WhatsApp message");
   assert.deepEqual(lists.today.map((d) => d.id), ["h", "c"], "on site today, and late ones");
   assert.deepEqual(lists.upcoming.map((d) => d.id), ["g"]);
   assert.deepEqual(lists.done.map((d) => d.id), ["d", "f"]);

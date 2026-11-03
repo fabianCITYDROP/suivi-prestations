@@ -416,8 +416,9 @@
     { id: "refuse", label: "Pas possible", team: "ne peut pas faire" },
   ];
   const answerOf = (id) => ANSWERS.find((a) => a.id === id) || null;
-  const HIDDEN_FROM_PROVIDER = ["a_envoyer", "annulee"];
-  const isForProvider = (d) => !HIDDEN_FROM_PROVIDER.includes(d.statut || "a_envoyer");
+  // A request shows on the provider's screen as soon as it is saved: the app is the channel,
+  // the WhatsApp message is optional. Only cancelled requests are hidden.
+  const isForProvider = (d) => d.statut !== "annulee";
   const isDoneByProvider = (d) => d.retour?.etat === "fait" || d.statut === "realisee";
   const doneDay = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || "")?.slice(0, 10) || d.date || "";
 
