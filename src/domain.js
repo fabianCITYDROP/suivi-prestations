@@ -237,13 +237,22 @@
   }
 
   // Photo sheet: lays out every photo in one image, each tile captioned with its plate.
-  // Row height that puts about √n photos on each row, so the whole sheet stays close to a square.
-  function squareSheetOptions(groups, base) {
+  // WhatsApp shrinks a pasted image so that its longest side is about 1600 px. Pick how many photos go
+  // on each row so that each photo keeps the most pixels after that shrink (2 photos: one above the other).
+  function squareSheetOptions(groups, base, longSide = 1600) {
     const ratios = groups.flatMap((g) => g.ratios).map((r) => (r > 0 ? r : 4 / 3));
-    const perRow = Math.max(1, Math.ceil(Math.sqrt(ratios.length)));
-    const average = ratios.reduce((sum, r) => sum + r, 0) / (ratios.length || 1);
+    const count = ratios.length || 1;
+    const average = ratios.reduce((sum, r) => sum + r, 0) / count;
     const inner = base.width - 2 * base.pad;
-    const rowHeight = Math.floor((inner - base.gap * (perRow - 1)) / (perRow * average));
+    let best = { perRow: 1, size: 0 };
+    for (let perRow = 1; perRow <= count; perRow++) {
+      const tileWidth = (inner - base.gap * (perRow - 1)) / perRow;
+      const rows = Math.ceil(count / perRow);
+      const height = 2 * base.pad + groups.length * (base.header + base.gap) + rows * (tileWidth / average + base.gap);
+      const size = tileWidth * Math.min(1, longSide / Math.max(base.width, height));
+      if (size > best.size) best = { perRow, size };
+    }
+    const rowHeight = Math.floor((inner - base.gap * (best.perRow - 1)) / (best.perRow * average));
     return { ...base, targetHeight: rowHeight + 1, maxHeight: rowHeight };
   }
 

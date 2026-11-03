@@ -136,6 +136,12 @@ test("the photo sheet stays close to a square so WhatsApp keeps each photo large
   assert.ok(Math.min(...layout.tiles.map((t) => t.width)) > 900, "each photo keeps about half the width");
 });
 
+test("two photos go one above the other, where WhatsApp keeps them largest", () => {
+  const groups = [{ label: "Master", ratios: [4 / 3, 4 / 3] }];
+  const layout = D.photoSheetLayout(groups, D.squareSheetOptions(groups, { width: 2048, pad: 20, gap: 12, header: 72 }));
+  assert.equal(new Set(layout.tiles.map((t) => t.y)).size, 2);
+});
+
 test("photoSheetLayout keeps proportions, fills rows and never overlaps", () => {
   const layout = D.photoSheetLayout([{ label: "Master", ratios: [4 / 3, 3 / 4, 4 / 3] }, { label: "Maxus", ratios: [16 / 9] }]);
   assert.equal(layout.headers.length, 2);
