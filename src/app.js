@@ -75,31 +75,41 @@
   const canvasToBlob = (canvas, type, quality) => new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("blob"))), type, quality));
   const dataUrlToBlob = (dataUrl) => fetch(dataUrl).then((r) => r.blob());
 
-  // One image holding every photo, each captioned with its plate and model, so photos never get mixed up.
+  // One image holding every photo, grouped under the name of their model; photos are never cropped.
   async function buildPhotoSheet(entries, type = "image/png") {
-    const layout = D.collageLayout(entries.length);
+    const images = await Promise.all(entries.map((e) => state.store.loadPhoto(e.key).then(loadImage)));
+    const groups = [];
+    entries.forEach((entry, i) => {
+      let group = groups.find((g) => g.label === entry.plate);
+      if (!group) groups.push((group = { label: entry.plate, items: [] }));
+      group.items.push(images[i]);
+    });
+    const layout = D.photoSheetLayout(groups.map((g) => ({ label: g.label, ratios: g.items.map((img) => img.naturalWidth / img.naturalHeight) })),
+      { width: 2400, pad: 32, gap: 16, header: 96, targetHeight: 680, maxHeight: 980 });
     const canvas = document.createElement("canvas");
     canvas.width = layout.width; canvas.height = layout.height;
     const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const images = await Promise.all(entries.map((e) => state.store.loadPhoto(e.key).then(loadImage)));
-    layout.tiles.forEach((tile, i) => {
-      const { plate, label } = entries[i];
-      ctx.fillStyle = "#12212b"; ctx.fillRect(tile.x, tile.y, tile.width, tile.caption);
-      ctx.fillStyle = "#ffffff"; ctx.font = "600 30px 'IBM Plex Mono', monospace"; ctx.textBaseline = "middle";
-      ctx.fillText(plate, tile.x + 16, tile.y + tile.caption / 2);
-      ctx.font = "500 22px 'IBM Plex Sans', sans-serif"; ctx.textAlign = "right";
-      ctx.fillText(label, tile.x + tile.width - 16, tile.y + tile.caption / 2, tile.width * 0.55);
-      ctx.textAlign = "left";
-      drawCover(ctx, images[i], tile.x, tile.y + tile.caption, tile.width, tile.height);
+    ctx.fillStyle = "#eef2f5"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+    layout.headers.forEach((h) => {
+      ctx.fillStyle = "#0f6f8f"; roundRect(ctx, h.x, h.y, h.width, h.height, 16); ctx.fill();
+      ctx.fillStyle = "#ffffff"; ctx.textBaseline = "middle";
+      ctx.font = "700 48px 'IBM Plex Sans', sans-serif";
+      ctx.fillText("Pare-brise · " + h.label, h.x + 32, h.y + h.height / 2);
     });
-    return canvasToBlob(canvas, type, 0.85);
+    layout.tiles.forEach((t) => {
+      ctx.save(); roundRect(ctx, t.x, t.y, t.width, t.height, 14); ctx.clip();
+      ctx.drawImage(groups[t.group].items[t.index], t.x, t.y, t.width, t.height);
+      ctx.restore();
+    });
+    return canvasToBlob(canvas, type, 0.92);
   }
-  function drawCover(ctx, img, x, y, w, h) {
-    const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
-    const sw = w / scale, sh = h / scale;
-    ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, x, y, w, h);
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
   }
+
   // Photos of every distinct model among the given vehicles, captioned with the model.
   const photoEntries = (vehicles) => D.uniqueModels(vehicles).flatMap((v) =>
     modelPhotos(v).map((p) => ({ key: p.key, plate: D.fleetLabel(v), label: "" })));
@@ -136,11 +146,12 @@
       return canvas.toDataURL("image/jpeg", quality);
     }).finally(() => URL.revokeObjectURL(url));
   }
-  const MAX_PHOTO_CHARS = 240000; // keeps each photo document under the 256 KiB store limit
+  // Each photo is one document: 256 KiB max inside claude.ai, 1 MiB on Firebase (the platform raises the limit).
+  const MAX_PHOTO_CHARS = window.SUIVI_MAX_PHOTO_CHARS || 240000;
   async function prepareImage(file) {
-    for (const [side, quality] of [[1400, 0.72], [1000, 0.6], [800, 0.5]]) {
+    for (const [side, quality] of [[2400, 0.9], [2000, 0.86], [1600, 0.82], [1400, 0.72], [1000, 0.6], [800, 0.5]]) {
       const full = await shrinkImage(file, side, quality);
-      if (full.length <= MAX_PHOTO_CHARS) return { full, thumb: await shrinkImage(file, 200, 0.6) };
+      if (full.length <= MAX_PHOTO_CHARS) return { full, thumb: await shrinkImage(file, 360, 0.75) };
     }
     throw new Error("too_big");
   }

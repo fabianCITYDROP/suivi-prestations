@@ -237,19 +237,40 @@
   }
 
   // Photo sheet: lays out every photo in one image, each tile captioned with its plate.
-  function collageLayout(count, { tileWidth = 640, tileHeight = 480, caption = 56, gap = 12 } = {}) {
-    const columns = count <= 1 ? 1 : count <= 4 ? 2 : 3;
-    const rows = Math.ceil(count / columns);
-    const cellHeight = caption + tileHeight;
-    return {
-      width: columns * tileWidth + (columns + 1) * gap,
-      height: rows * cellHeight + (rows + 1) * gap,
-      tiles: Array.from({ length: count }, (_, i) => ({
-        x: gap + (i % columns) * (tileWidth + gap),
-        y: gap + Math.floor(i / columns) * (cellHeight + gap),
-        width: tileWidth, height: tileHeight, caption,
-      })),
-    };
+  // Photo sheet: one header per model, then its photos in justified rows that keep each photo's
+  // proportions (nothing is cropped) and fill the width without empty cells.
+  function photoSheetLayout(groups, { width = 1600, pad = 24, gap = 12, header = 72, targetHeight = 440, maxHeight = 640 } = {}) {
+    const inner = width - 2 * pad;
+    const headers = [];
+    const tiles = [];
+    let y = pad;
+    groups.forEach((group, g) => {
+      headers.push({ label: group.label, x: pad, y, width: inner, height: header });
+      y += header + gap;
+      let row = [];
+      const flush = (isLast) => {
+        const ratioSum = row.reduce((sum, item) => sum + item.ratio, 0);
+        const fullHeight = (inner - gap * (row.length - 1)) / ratioSum;
+        const height = Math.round(isLast ? Math.min(fullHeight, maxHeight) : fullHeight);
+        const rowWidth = row.reduce((sum, item) => sum + item.ratio * height, 0) + gap * (row.length - 1);
+        let x = pad + Math.round((inner - rowWidth) / 2);
+        row.forEach((item) => {
+          const w = Math.round(item.ratio * height);
+          tiles.push({ group: g, index: item.index, x, y, width: w, height });
+          x += w + gap;
+        });
+        y += height + gap;
+        row = [];
+      };
+      group.ratios.forEach((ratio, index) => {
+        row.push({ ratio: ratio > 0 ? ratio : 4 / 3, index });
+        const ratioSum = row.reduce((sum, item) => sum + item.ratio, 0);
+        if ((inner - gap * (row.length - 1)) / ratioSum <= targetHeight) flush(false);
+      });
+      if (row.length) flush(true);
+      y += gap;
+    });
+    return { width, height: Math.round(y - gap + pad - gap), headers, tiles };
   }
 
   // ---------- monthly report ----------
@@ -311,7 +332,7 @@
     fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress,
     serviceOf, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
-    requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, collageLayout,
+    requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
   };

@@ -5,6 +5,7 @@
   const config = window.SUIVI_FIREBASE_CONFIG;
   if (!config || !config.apiKey || !window.firebase) return;
   firebase.initializeApp(config);
+  window.SUIVI_MAX_PHOTO_CHARS = 950000; // Firestore documents can hold up to 1 MiB: photos keep much more detail.
   const auth = firebase.auth();
 
   // Each person has their own Firebase account (e-mail + password); the browser stays signed in.

@@ -127,12 +127,21 @@ test("whatsappLink converts French numbers and encodes text", () => {
   assert.equal(D.whatsappLink("x", "", "web"), "https://web.whatsapp.com/send?text=x");
 });
 
-test("collageLayout puts tiles on a grid without overlap", () => {
-  const one = D.collageLayout(1);
-  assert.equal(one.tiles.length, 1);
-  const five = D.collageLayout(5);
-  assert.equal(new Set(five.tiles.map((t) => t.x)).size, 3);
-  five.tiles.forEach((t) => assert.ok(t.x + t.width <= five.width && t.y + t.caption + t.height <= five.height));
+test("photoSheetLayout keeps proportions, fills rows and never overlaps", () => {
+  const layout = D.photoSheetLayout([{ label: "Master", ratios: [4 / 3, 3 / 4, 4 / 3] }, { label: "Maxus", ratios: [16 / 9] }]);
+  assert.equal(layout.headers.length, 2);
+  assert.equal(layout.tiles.length, 4);
+  layout.tiles.forEach((t) => {
+    assert.ok(t.x >= 0 && t.x + t.width <= layout.width && t.y + t.height <= layout.height);
+    const ratio = [[4 / 3, 3 / 4, 4 / 3], [16 / 9]][t.group][t.index];
+    assert.ok(Math.abs(t.width / t.height - ratio) < 0.02, "no crop");
+  });
+  const sorted = [...layout.tiles].sort((a, b) => a.y - b.y || a.x - b.x);
+  for (let i = 1; i < sorted.length; i++) {
+    const a = sorted[i - 1], b = sorted[i];
+    assert.ok(b.y >= a.y + a.height || b.x >= a.x + a.width, "no overlap");
+  }
+  assert.ok(layout.headers[1].y > Math.max(...layout.tiles.filter((t) => t.group === 0).map((t) => t.y + t.height)));
 });
 
 test("monthlyReport counts requested, done, cancelled, overdue and upcoming", () => {
