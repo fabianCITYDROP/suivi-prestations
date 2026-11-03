@@ -22,7 +22,8 @@
     const box = document.createElement("div");
     box.id = "login";
     box.innerHTML = `<form class="panel login-card">
-        <h2>Suivi prestations</h2>
+        <img src="assets/logo-full.svg" alt="" width="64" height="64" style="display:block;border-radius:14px">
+        <h2>CityDrop × Presta</h2>
         <p class="hint">Connecte-toi avec ton adresse et ton mot de passe. C'est demandé une seule fois sur cet ordinateur.</p>
         <label class="field"><span>Adresse e-mail</span><input type="email" name="email" autocomplete="username" required></label>
         <label class="field"><span>Mot de passe</span><input type="password" name="password" autocomplete="current-password" required></label>
