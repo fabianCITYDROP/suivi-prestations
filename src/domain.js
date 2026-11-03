@@ -91,6 +91,12 @@
         label: [f.cubage ? `${f.cubage} m³` : "cubage non précisé", sameCubage(f) && modelYear(f.modele)].filter(Boolean).join(" · "),
       }));
   }
+  // Windshield photos belong to a fleet model (same windshield for every van of that model).
+  const modelKey = (v) => (v && v.modele ? plateKey(`${v.modele} ${v.cubage ?? ""}`) : "");
+  function uniqueModels(list) {
+    const seen = new Set();
+    return list.filter((v) => { const k = modelKey(v); if (!k || seen.has(k)) return false; seen.add(k); return true; });
+  }
   const fleetIndex = (fleet, v) => fleet.findIndex((f) => f.modele === v.modele && +f.cubage === +v.cubage);
   function normalizeSites(raw) {
     const list = (Array.isArray(raw) ? raw : []).map((s) => (typeof s === "string" ? { nom: s, adresse: "" } : { nom: s.nom || "", adresse: s.adresse || "" }));
@@ -302,7 +308,7 @@
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
     plateKey, normalizePlate, platesInText,
-    fleetLabel, fleetIndex, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress,
+    fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress,
     serviceOf, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, collageLayout,

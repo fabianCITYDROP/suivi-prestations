@@ -20,6 +20,8 @@
     editingId: null,
     checkedForVerification: new Set(),
     openVehicleKey: null,
+    models: new Map(), // modelKey -> {modele, cubage, photos}
+    openModelKey: null,
   };
   const today = () => D.toIsoDate(new Date());
   const siteNames = () => state.sites.map((s) => s.nom);
@@ -98,10 +100,9 @@
     const sw = w / scale, sh = h / scale;
     ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, x, y, w, h);
   }
-  const photoEntries = (plates) => plates.flatMap((plate) => {
-    const vehicle = vehicleOf(plate);
-    return (vehicle?.photos || []).map((p) => ({ key: p.key, plate: vehicle.plaque, label: D.vehicleLabel(vehicle) }));
-  });
+  // Photos of every distinct model among the given vehicles, captioned with the model.
+  const photoEntries = (vehicles) => D.uniqueModels(vehicles).flatMap((v) =>
+    modelPhotos(v).map((p) => ({ key: p.key, plate: D.fleetLabel(v), label: "" })));
 
   // Must start synchronously from the click: ClipboardItem accepts a promise so the gesture is kept.
   async function copyImage(makePng, fallbackName, makeJpeg) {
@@ -146,48 +147,50 @@
 
   // ================= vehicles & photos =================
   const vehicleOf = (plate) => state.vehicles.get(D.plateKey(plate));
-  const photosOf = (plate) => vehicleOf(plate)?.photos || [];
+  const albumOf = (v) => state.models.get(D.modelKey(v));
+  const modelPhotos = (v) => albumOf(v)?.photos || [];
   const photoFileName = (plate, index) => `${D.plateKey(plate)}-pare-brise-${index + 1}.jpg`;
 
-  let pendingPhotoPlate = null;
-  function pickPhotosFor(plate) {
-    if (!D.plateKey(plate)) return toast("Saisis d'abord la plaque du véhicule");
-    pendingPhotoPlate = D.normalizePlate(plate);
+  let pendingPhotoModel = null;
+  function pickPhotosFor(model) {
+    if (!D.modelKey(model)) return toast("Choisis d'abord le modèle et le cubage");
+    pendingPhotoModel = { modele: model.modele, cubage: model.cubage ?? null };
     $("#photoInput").click();
   }
-  async function addPhotoFiles(plate, files) {
-    if (!requireStore() || !D.plateKey(plate)) return;
+  async function addPhotoFiles(model, files) {
+    if (!requireStore() || !D.modelKey(model)) return;
     let added = 0;
     for (const file of files) {
       try {
-        await state.store.addPhoto(vehicleOf(plate), plate, await prepareImage(file));
+        // Re-read the album each time: the snapshot listener updates it between two uploads.
+        await state.store.addModelPhoto(albumOf(model), model, await prepareImage(file));
         added++;
       } catch (err) {
         if (err instanceof Error) toast("Cette image n'a pas pu être lue");
         else { reportWriteError(err); break; }
       }
     }
-    if (added) toast(`${plural(added, "photo")} ajoutée${added > 1 ? "s" : ""} à ${plate}`);
+    if (added) toast(`${plural(added, "photo")} ajoutée${added > 1 ? "s" : ""} pour ${D.fleetLabel(model)}`);
   }
   $("#photoInput").addEventListener("change", async (e) => {
     const files = [...e.target.files]; e.target.value = "";
-    if (pendingPhotoPlate && files.length) await addPhotoFiles(pendingPhotoPlate, files);
+    if (pendingPhotoModel && files.length) await addPhotoFiles(pendingPhotoModel, files);
   });
   document.addEventListener("paste", (e) => {
     const file = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"))?.getAsFile();
     if (!file) return;
-    if (!$("#view-demande").hidden) addPhotoFiles(D.normalizePlate($("#f-plaque").value), [file]);
-    else if (!$("#view-photos").hidden && state.openVehicleKey) addPhotoFiles(state.vehicles.get(state.openVehicleKey).plaque, [file]);
+    if (!$("#view-demande").hidden) addPhotoFiles(selectedFleetModel(), [file]);
+    else if (!$("#view-photos").hidden && state.openModelKey) addPhotoFiles(openModel(), [file]);
   });
 
   // ================= share block (text + WhatsApp + photos) =================
   let shareCount = 0;
   const shareRegistry = new Map(); // block id -> plates whose photos it sends
   // Two buttons only: a WhatsApp link can carry text but never photos, so the text and the photo image are pasted one after the other.
-  function shareBlock({ text, plates = [] }) {
+  function shareBlock({ text, vehicles = [] }) {
     const id = "share-" + ++shareCount;
-    const entries = photoEntries(plates);
-    shareRegistry.set(id, plates);
+    const entries = photoEntries(vehicles);
+    shareRegistry.set(id, vehicles);
     const copy = `<button type="button" class="primary big" data-copy="#${id}">${icon("copy")}Copier le texte</button>`;
     const photos = entries.length
       ? `<button type="button" class="primary big" data-copy-sheet="${id}">${icon("image")}${entries.length > 1 ? `Copier les ${entries.length} photos d'un coup` : "Copier la photo"}</button>`
@@ -195,7 +198,7 @@
     return `<div class="share">
       <pre class="msg" id="${id}">${esc(text)}</pre>
       <div class="actions">${copy}${photos}</div>
-      ${entries.length ? `<p class="small muted">Colle le texte (Ctrl+V), puis les photos (Ctrl+V). Chaque photo porte sa plaque.</p>
+      ${entries.length ? `<p class="small muted">Colle le texte (Ctrl+V), puis les photos (Ctrl+V). Chaque photo porte le nom du modèle.</p>
       <div class="photo-strip">${entries.map((e) => photoMini(e)).join("")}</div>` : ""}
     </div>`;
   }
@@ -282,7 +285,7 @@
       : `<div class="empty"><b>Aucun véhicule prévu ce jour-là.</b><span>Les véhicules disponibles ce jour apparaissent ici, classés par site, avec la liste prête à envoyer.</span></div>`;
     const active = ofDay.filter(D.isActive);
     $("#dayShare").innerHTML = active.length
-      ? shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }), provider: providerFilter || defaultProvider(), plates: active.filter(D.isWindshield).map((d) => d.plaque) })
+      ? shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }), provider: providerFilter || defaultProvider(), vehicles: active.filter(D.isWindshield) })
       : `<p class="muted">Rien à envoyer pour ce jour.</p>`;
   }
   function renderWeekStrip() {
@@ -300,7 +303,7 @@
       ${items.map(vehicleRow).join("")}</section>`;
   }
   function vehicleRow(d) {
-    const thumb = photosOf(d.plaque)[0]?.thumb;
+    const thumb = D.isWindshield(d) ? modelPhotos(d)[0]?.thumb : null;
     const sub = [d.adresse !== D.siteAddress(state.sites, d.site) ? d.adresse : "", D.isMultiDay(d) ? `dispo ${D.availabilityLabel(d)}` : "", d.notes].filter(Boolean).join(" · ");
     return `<button class="veh-row ${D.isActive(d) ? "" : "cancel"}" data-open="${esc(d.id)}">
       ${plateTag(d.plaque)}
@@ -437,18 +440,25 @@
   function renderFormSide() {
     const d = readForm();
     const others = readExtras().map((x) => groupMember(d, x));
-    const photos = photosOf(d.plaque);
-    const plates = D.isWindshield(d) ? [d, ...others].map((v) => v.plaque).filter(D.plateKey) : [];
-    const photoCount = plates.reduce((n, plate) => n + photosOf(plate).length, 0);
+    const vehicles = D.isWindshield(d) ? [d, ...others] : [];
+    const photoCount = photoEntries(vehicles).length;
     $("#photosSet").hidden = !D.isWindshield(d);
     $("#msgTitle").textContent = others.length ? `Envoyer la demande (${others.length + 1} véhicules)` : "Envoyer la demande";
-    $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others), provider: d.prestataire, plates });
-    $("#formPhotos").innerHTML = photos.map((p, i) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo ${i + 1} du pare-brise">`).join("")
-      + `<button type="button" class="drop" data-add-photo>${icon("plus")}Ajouter une photo</button>`;
+    $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others), vehicles });
+    renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
-    $("#vehHint").textContent = vehicle && D.plateKey(d.plaque) ? `Véhicule connu : modèle et ${plural(photos.length, "photo")} repris automatiquement.` : "";
+    $("#vehHint").textContent = vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "";
     const current = state.demandes.find((x) => x.id === state.editingId);
     $("#formSheet").innerHTML = current && ["confirmee", "realisee"].includes(current.statut) ? sheetLink([d.plaque]) : "";
+  }
+  // The windshield photos shown here are those of the chosen model: added once, sent with every request.
+  function renderFormPhotos(d) {
+    const photos = modelPhotos(d);
+    $("#formPhotosHint").textContent = D.modelKey(d)
+      ? `Photos du modèle ${D.fleetLabel(d)} : ajoutées une fois, elles partent avec chaque demande de ce modèle.`
+      : "Choisis le modèle : ses photos s'affichent ici et partent avec la demande.";
+    $("#formPhotos").innerHTML = photos.map((p, i) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo ${i + 1} du pare-brise">`).join("")
+      + (D.modelKey(d) ? `<button type="button" class="drop" data-add-photo>${icon("plus")}Ajouter une photo</button>` : "");
   }
   function fillFromVehicle() {
     field("plaque").value = D.normalizePlate(field("plaque").value);
@@ -467,7 +477,7 @@
   field("debut").addEventListener("change", () => {
     if (field("debut").value && !field("fin").value) { field("fin").value = D.defaultEndTime(field("debut").value); renderFormSide(); }
   });
-  $("#formPhotos").addEventListener("click", (e) => { if (e.target.closest("[data-add-photo]")) pickPhotosFor(field("plaque").value); });
+  $("#formPhotos").addEventListener("click", (e) => { if (e.target.closest("[data-add-photo]")) pickPhotosFor(selectedFleetModel()); });
 
   function resetForm() {
     state.editingId = null;
@@ -558,73 +568,53 @@
     }
   });
 
-  // ================= photo library =================
+  // ================= photo library (one album per fleet model) =================
+  const openModel = () => state.fleet.find((f) => D.modelKey(f) === state.openModelKey) || state.models.get(state.openModelKey);
   function renderPhotoLibrary() {
     const query = $("#p-q").value;
-    const vehicles = [...state.vehicles.values()]
-      .filter((v) => D.matchesSearch([v.plaque, D.vehicleLabel(v)], query))
-      .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
-    $("#p-list").innerHTML = vehicles.length
-      ? `<div class="veh-grid">${vehicles.map(vehicleCard).join("")}</div>`
-      : `<div class="empty"><b>${state.vehicles.size ? "Aucun véhicule ne correspond." : "La photothèque est vide."}</b><span>Chaque véhicule saisi dans une demande arrive ici avec ses photos de pare-brise. Tu peux aussi ajouter une plaque en haut à droite.</span></div>`;
-    renderVehicleDetail();
+    const models = D.uniqueModels(state.fleet).filter((f) => D.matchesSearch([D.fleetLabel(f)], query));
+    $("#p-list").innerHTML = models.length
+      ? `<div class="veh-grid">${models.map(modelCard).join("")}</div>`
+      : `<div class="empty"><b>Aucun modèle ne correspond.</b><span>Les modèles viennent de la flotte, dans Réglages.</span></div>`;
+    renderModelDetail();
   }
-  function vehicleCard(v) {
-    const key = D.plateKey(v.plaque);
-    const photos = v.photos || [];
+  function modelCard(f) {
+    const key = D.modelKey(f);
+    const photos = modelPhotos(f);
     const thumbs = Array.from({ length: 4 }, (_, i) => photos[i] ? `<img src="${safeImageSrc(photos[i].thumb)}" alt="">` : "<span></span>").join("");
-    return `<button class="veh-card" data-vehicle="${esc(key)}" aria-current="${key === state.openVehicleKey}">
-      <span class="row">${plateTag(v.plaque)}<span class="muted small">${plural(photos.length, "photo")}</span></span>
-      <span>${esc(D.vehicleLabel(v) || "Modèle non renseigné")}</span>
+    return `<button class="veh-card" data-model="${esc(key)}" aria-current="${key === state.openModelKey}">
+      <span class="row"><b>${esc(f.modele)}</b><span class="muted small">${photos.length ? plural(photos.length, "photo") : "aucune photo"}</span></span>
+      <span>${f.cubage ? esc(f.cubage) + " m³" : ""}</span>
       <span class="thumbs">${thumbs}</span></button>`;
   }
-  function renderVehicleDetail() {
-    const v = state.vehicles.get(state.openVehicleKey);
-    if (!v) { $("#p-detail").innerHTML = ""; return; }
-    const photos = v.photos || [];
-    const history = state.demandes.filter((d) => D.plateKey(d.plaque) === state.openVehicleKey).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  function renderModelDetail() {
+    const model = state.openModelKey ? openModel() : null;
+    if (!model) { $("#p-detail").innerHTML = ""; return; }
+    const photos = modelPhotos(model);
+    const label = D.fleetLabel(model);
     $("#p-detail").innerHTML = `<div class="panel" style="margin-bottom:24px">
-      <div class="panel-head"><h2>${plateTag(v.plaque)}</h2><button type="button" class="ghost" data-close-vehicle aria-label="Fermer">${icon("x")}</button></div>
-      <div class="row"><label class="field" style="flex:1 1 280px"><span>Modèle et cubage</span><select id="pv-modele">${fleetOptions()}</select></label>
-        <button type="button" class="primary" data-new-for-vehicle style="align-self:flex-end">${icon("plus")}Nouvelle demande pour ce véhicule</button></div>
+      <div class="panel-head"><h2>${esc(label)}</h2><button type="button" class="ghost" data-close-model aria-label="Fermer">${icon("x")}</button></div>
+      <p class="hint">Ces photos partent avec chaque demande de pare-brise pour un ${esc(model.modele)}${model.cubage ? ` de ${esc(model.cubage)} m³` : ""}. Tu peux aussi coller une capture (Ctrl+V).</p>
       <h3>Photos du pare-brise · ${photos.length}/${MAX_PHOTOS_PER_VEHICLE}</h3>
-      <div class="ph-grid">${photos.map((p, i) => photoTile(v.plaque, p, i)).join("")}<button type="button" class="drop" style="width:auto;height:auto;min-height:150px" data-add-vehicle-photo>${icon("plus")}Ajouter des photos</button></div>
-      ${history.length ? `<h3>Demandes · ${history.length}</h3><div class="tablewrap"><table><tbody>${history.map((d) => `<tr class="click" data-open="${esc(d.id)}"><td class="date">${esc(D.shortDate(d.date))}</td><td>${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td><td>${statusChip(d.statut)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+      <div class="ph-grid">${photos.map((p, i) => photoTile(label, p, i)).join("")}<button type="button" class="drop" style="width:auto;height:auto;min-height:150px" data-add-model-photo>${icon("plus")}Ajouter des photos</button></div>
     </div>`;
-    $("#pv-modele").value = String(D.fleetIndex(state.fleet, v));
   }
   $("#p-q").addEventListener("input", renderPhotoLibrary);
-  $("#p-add").onclick = async () => {
-    const plate = D.normalizePlate($("#p-newplate").value);
-    if (!D.plateKey(plate) || !requireStore()) return;
-    try {
-      if (!vehicleOf(plate)) await state.store.saveVehicle(null, { plaque: plate });
-      state.openVehicleKey = D.plateKey(plate); $("#p-newplate").value = "";
-      renderPhotoLibrary();
-    } catch (err) { reportWriteError(err); }
-  };
   $("#p-list").addEventListener("click", (e) => {
-    const card = e.target.closest("[data-vehicle]");
-    if (card) { state.openVehicleKey = card.dataset.vehicle; renderPhotoLibrary(); window.scrollTo({ top: 0 }); }
-  });
-  $("#p-detail").addEventListener("change", async (e) => {
-    const v = state.vehicles.get(state.openVehicleKey);
-    if (e.target.id !== "pv-modele" || !v || !requireStore()) return;
-    const model = e.target.value === "" ? { modele: "", cubage: null } : state.fleet[+e.target.value];
-    try { await state.store.updateVehicleModel(v, model); toast("Modèle enregistré"); } catch (err) { reportWriteError(err); }
+    const card = e.target.closest("[data-model]");
+    if (card) { state.openModelKey = card.dataset.model; renderPhotoLibrary(); window.scrollTo({ top: 0 }); }
   });
   $("#p-detail").addEventListener("click", async (e) => {
-    const v = state.vehicles.get(state.openVehicleKey);
-    if (!v) return;
-    if (e.target.closest("[data-close-vehicle]")) { state.openVehicleKey = null; renderPhotoLibrary(); }
-    else if (e.target.closest("[data-add-vehicle-photo]")) pickPhotosFor(v.plaque);
-    else if (e.target.closest("[data-new-for-vehicle]")) newDemandeFor(v);
-    else if (e.target.closest("[data-open]")) openDemande(e.target.closest("[data-open]").dataset.open);
-    else if (e.target.closest("[data-remove-photo]")) confirmPhotoRemoval(e.target.closest("[data-remove-photo]"), v);
+    const model = openModel();
+    if (!model) return;
+    if (e.target.closest("[data-close-model]")) { state.openModelKey = null; renderPhotoLibrary(); }
+    else if (e.target.closest("[data-add-model-photo]")) pickPhotosFor(model);
+    else if (e.target.closest("[data-remove-photo]")) confirmPhotoRemoval(e.target.closest("[data-remove-photo]"), albumOf(model));
   });
-  async function confirmPhotoRemoval(button, vehicle) {
+  async function confirmPhotoRemoval(button, album) {
+    if (!album) return;
     if (button.dataset.armed !== "1") { button.dataset.armed = "1"; button.textContent = "Confirmer"; return; }
-    try { await state.store.removePhoto(vehicle, button.dataset.removePhoto); toast("Photo supprimée"); }
+    try { await state.store.removeModelPhoto(album, button.dataset.removePhoto); toast("Photo supprimée"); }
     catch (err) { reportWriteError(err); }
   }
 
@@ -845,6 +835,7 @@
     state.store.subscribe({
       onDemandes: (rows) => { state.demandes = rows; renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
+      onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
       onSettings: (settings) => { applySettings(settings); renderAll(); },
       onError: () => setSync("Synchronisation interrompue, recharge la page", false),
     });

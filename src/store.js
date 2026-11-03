@@ -10,11 +10,14 @@
     const photoCache = new Map();
     const vehicleRef = (plate) => db.doc("vehicules/" + D.plateKey(plate));
 
-    function subscribe({ onDemandes, onVehicles, onSettings, onError }) {
+    const modelRef = (key) => db.doc("modeles/" + key);
+
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onError }) {
       const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const unsubs = [
         db.collection("demandes").onSnapshot((s) => onDemandes(toRows(s)), onError),
         db.collection("vehicules").onSnapshot((s) => onVehicles(toRows(s)), onError),
+        db.collection("modeles").onSnapshot((s) => onModels(toRows(s)), onError),
         db.doc("config/reglages").onSnapshot((s) => s.exists && onSettings(s.data()), onError),
       ];
       return () => unsubs.forEach((u) => u());
@@ -74,6 +77,25 @@
       photoCache.delete(key);
     }
 
+    // Model album: modeles/<modelKey> {modele, cubage, photos:[{key, thumb, addedAt}]}, full images in photos/<key>.
+    async function addModelPhoto(album, model, { full, thumb }) {
+      const photos = album?.photos || [];
+      if (photos.length >= MAX_PHOTOS_PER_VEHICLE) throw { code: "too_many_photos" };
+      const albumKey = D.modelKey(model);
+      const key = `${albumKey}_${Date.now().toString(36)}`;
+      await db.doc("photos/" + key).set({ modele: model.modele, cubage: model.cubage ?? null, data: full });
+      photoCache.set(key, full);
+      const entry = { key, thumb, addedAt: new Date().toISOString() };
+      await modelRef(albumKey).set({ modele: model.modele, cubage: model.cubage ?? null, photos: [...photos, entry], updatedAt: entry.addedAt });
+      return entry;
+    }
+
+    async function removeModelPhoto(album, key) {
+      await modelRef(D.modelKey(album)).update({ photos: album.photos.filter((p) => p.key !== key), updatedAt: new Date().toISOString() });
+      await db.doc("photos/" + key).delete();
+      photoCache.delete(key);
+    }
+
     async function loadPhoto(key) {
       if (!photoCache.has(key)) {
         const snap = await db.doc("photos/" + key).get();
@@ -82,7 +104,7 @@
       return photoCache.get(key);
     }
 
-    return { subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

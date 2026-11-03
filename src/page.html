@@ -125,7 +125,7 @@
           <fieldset id="photosSet">
             <legend>Photos du pare-brise</legend>
             <div class="photos" id="formPhotos"></div>
-            <span class="hint">Les photos restent rattachées au véhicule : la prochaine fois que tu saisis cette plaque, elles sont déjà là. Tu peux aussi coller une capture (Ctrl+V).</span>
+            <span class="hint" id="formPhotosHint"></span>
           </fieldset>
         </div>
         <div class="actions">
@@ -147,9 +147,7 @@
   <!-- PHOTO LIBRARY -->
   <section id="view-photos" hidden>
     <div class="tools">
-      <input type="search" id="p-q" placeholder="Rechercher une plaque ou un modèle (ex. Movano, 20 m³)…" aria-label="Rechercher un véhicule">
-      <input id="p-newplate" class="plate-input" placeholder="AB-123-CD" aria-label="Plaque du véhicule à ajouter" style="width:180px">
-      <button type="button" id="p-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter un véhicule</button>
+      <input type="search" id="p-q" placeholder="Rechercher un modèle (ex. Movano, 20 m³)…" aria-label="Rechercher un modèle">
     </div>
     <div id="p-detail"></div>
     <div id="p-list"></div>

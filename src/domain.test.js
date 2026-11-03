@@ -57,6 +57,13 @@ test("the fleet is picked by model, then by cubage, with the year only when need
   assert.equal(D.DEFAULT_FLEET[vivaro2025.index].modele, "Opel Vivaro 2025");
 });
 
+test("photos are shared by every van of the same model", () => {
+  assert.equal(D.modelKey({ modele: "Opel Movano 2023", cubage: 12 }), "OPELMOVANO202312");
+  assert.equal(D.modelKey({ modele: "" }), "");
+  const list = [{ modele: "Maxus", cubage: 20 }, { modele: "Maxus", cubage: "20" }, { modele: "Maxus", cubage: 12 }, { modele: "" }];
+  assert.deepEqual(D.uniqueModels(list).map(D.fleetLabel), ["Maxus – 20 m³", "Maxus – 12 m³"]);
+});
+
 test("missingFields checks the availability window", () => {
   assert.deepEqual(D.missingFields(demande({})), []);
   assert.deepEqual(D.missingFields(demande({ site: "", adresse: "" })), ["le site"]);
