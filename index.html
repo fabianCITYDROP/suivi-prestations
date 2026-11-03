@@ -1342,12 +1342,13 @@ function page(texte) {
     shareRegistry.set(id, vehicles);
     const copy = `<button type="button" class="primary big" data-copy="#${id}">${icon("copy")}Copier le texte</button>`;
     const photos = entries.length
-      ? `<button type="button" class="primary big" data-copy-sheet="${id}">${icon("image")}${entries.length > 1 ? `Copier les ${entries.length} photos d'un coup` : "Copier la photo"}</button>`
+      ? `<button type="button" class="primary big" data-copy-sheet="${id}">${icon("image")}${entries.length > 1 ? `Copier les ${entries.length} photos d'un coup` : "Copier la photo"}</button>
+        <button type="button" class="big" data-save-all="${id}">${icon("download")}${entries.length > 1 ? `Télécharger les ${entries.length} photos` : "Télécharger la photo"} en taille réelle</button>`
       : "";
     return `<div class="share">
       <pre class="msg" id="${id}">${esc(text)}</pre>
       <div class="actions">${copy}${photos}</div>
-      ${entries.length ? `<p class="small muted">Colle le texte (Ctrl+V), puis les photos (Ctrl+V). Chaque photo porte le nom du modèle.</p>
+      ${entries.length ? `<p class="small muted">Rapide : colle le texte (Ctrl+V), puis les photos en une image (Ctrl+V).<br>Meilleure qualité : télécharge les photos, puis glisse-les toutes ensemble dans la conversation WhatsApp. Chacune part en taille réelle et reste nette au zoom.</p>
       <div class="photo-strip">${entries.map((e) => photoMini(e)).join("")}</div>` : ""}
     </div>`;
   }
@@ -1362,6 +1363,15 @@ function page(texte) {
       <button type="button" class="ghost" data-save-photo="${esc(photo.key)}" data-name="${esc(name)}" aria-label="Enregistrer">${icon("download")}</button>
       ${state.canWrite ? `<button type="button" class="ghost danger" data-remove-photo="${esc(photo.key)}" aria-label="Supprimer">${icon("x")}</button>` : ""}</div></figure>`;
   }
+  // Each photo as its own full-size file: dropped together into WhatsApp they arrive as separate, sharp images.
+  async function saveAllPhotos(entries) {
+    if (!state.downloads) return toast("Téléchargement indisponible ici");
+    for (const [i, entry] of entries.entries()) {
+      await saveBlob(singlePhotoJpeg(entry.key), `${D.plateKey(entry.plate).toLowerCase()}-pare-brise-${i + 1}.jpg`);
+      await new Promise((r) => setTimeout(r, 300)); // browsers drop downloads fired in the same instant
+    }
+    toast(`${plural(entries.length, "photo")} téléchargée${entries.length > 1 ? "s" : ""} : glisse-les dans WhatsApp`);
+  }
   const sheetName = () => `photos-pare-brise-${today()}.jpg`;
   // Capture phase: read the text before a re-render triggered by the same click replaces it.
   document.addEventListener("click", (e) => {
@@ -1369,6 +1379,7 @@ function page(texte) {
     let el;
     if ((el = target("[data-copy]"))) { copyText($(el.dataset.copy).textContent).then((ok) => ok && toast("Texte copié, prêt à coller")); return; }
     if ((el = target("[data-copy-sheet]"))) { const entries = photoEntries(shareRegistry.get(el.dataset.copySheet) || []); copyImage(() => buildPhotoSheet(entries), sheetName(), () => buildPhotoSheet(entries, "image/jpeg")); return; }
+    if ((el = target("[data-save-all]"))) { saveAllPhotos(photoEntries(shareRegistry.get(el.dataset.saveAll) || [])); return; }
     if ((el = target("[data-save-sheet]"))) { saveBlob(buildPhotoSheet(photoEntries(shareRegistry.get(el.dataset.saveSheet) || []), "image/jpeg"), sheetName()); return; }
     if ((el = target("[data-copy-photo]"))) { const key = el.dataset.copyPhoto; copyImage(() => singlePhotoPng(key), el.dataset.name, () => singlePhotoJpeg(key)); return; }
     if ((el = target("[data-save-photo]"))) { saveBlob(singlePhotoJpeg(el.dataset.savePhoto), el.dataset.name); return; }
