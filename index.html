@@ -1,0 +1,1909 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Suivi prestations CityDrop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+[hidden]{display:none!important}
+#login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:100;padding:16px}
+.login-card{width:min(380px,100%);display:grid;gap:14px}
+.login-error{color:var(--danger);font-size:13px}
+
+/* Layout: full-width work surface. App bar with underline tabs; each view uses a main column plus a sticky "send" column on wide screens. */
+:root {
+  --bg: #eef2f5;
+  --surface: #ffffff;
+  --surface-2: #e6ecf1;
+  --line: #d2dbe2;
+  --line-strong: #b5c3ce;
+  --ink: #12212b;
+  --ink-2: #4a5d6b;
+  --accent: #0f6f8f;
+  --accent-ink: #ffffff;
+  --accent-soft: #d9ecf3;
+  --wa: #168a49;
+  --wa-ink: #ffffff;
+  --eu: #1d3f99;
+  --plate-bg: #ffffff;
+  --plate-ink: #111111;
+  --st-todo: #a65400;   --st-todo-bg: #fbe7cf;
+  --st-sent: #1d5fb8;   --st-sent-bg: #dbe6f7;
+  --st-ok: #6a3fb0;     --st-ok-bg: #ebe1f7;
+  --st-done: #1d7340;   --st-done-bg: #d7efe0;
+  --st-off: #5f6b75;    --st-off-bg: #e3e7ea;
+  --danger: #b3261e;
+  --shadow: 0 1px 2px rgba(18, 33, 43, .06), 0 6px 18px -8px rgba(18, 33, 43, .18);
+  --f-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 10px;
+  --r-sm: 6px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c151b; --surface: #142029; --surface-2: #1a2933; --line: #263845; --line-strong: #36505f;
+  --ink: #e3ebf0; --ink-2: #98acb9; --accent: #4bb6d6; --accent-ink: #052029; --accent-soft: #143543;
+  --wa: #25b062; --wa-ink: #04230f;
+  --eu: #3557b8; --plate-bg: #f4f4f0; --plate-ink: #111111;
+  --st-todo: #f0a54a; --st-todo-bg: #382812; --st-sent: #7fb0f0; --st-sent-bg: #162943;
+  --st-ok: #b79af0; --st-ok-bg: #282040; --st-done: #6fcf92; --st-done-bg: #142e1e;
+  --st-off: #94a1ab; --st-off-bg: #222d35; --danger: #f2827a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 22px -10px rgba(0, 0, 0, .6); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0c151b; --surface: #142029; --surface-2: #1a2933; --line: #263845; --line-strong: #36505f;
+  --ink: #e3ebf0; --ink-2: #98acb9; --accent: #4bb6d6; --accent-ink: #052029; --accent-soft: #143543;
+  --wa: #25b062; --wa-ink: #04230f;
+  --eu: #3557b8; --plate-bg: #f4f4f0; --plate-ink: #111111;
+  --st-todo: #f0a54a; --st-todo-bg: #382812; --st-sent: #7fb0f0; --st-sent-bg: #162943;
+  --st-ok: #b79af0; --st-ok-bg: #282040; --st-done: #6fcf92; --st-done-bg: #142e1e;
+  --st-off: #94a1ab; --st-off-bg: #222d35; --danger: #f2827a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 22px -10px rgba(0, 0, 0, .6); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; caret-color: var(--accent); }
+::selection { background: var(--accent-soft); color: var(--ink); }
+* { scrollbar-color: var(--line-strong) transparent; scrollbar-width: thin; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { max-width: 1680px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (min-width: 900px) { .wrap { padding-left: max(28px, env(safe-area-inset-left, 0px)); padding-right: max(28px, env(safe-area-inset-right, 0px)); } }
+.icon { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon.fill { fill: currentColor; stroke: none; }
+
+/* App bar */
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: stretch; gap: 0 28px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; padding-block: 12px; font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: .02em; text-transform: uppercase; line-height: 1; white-space: nowrap; }
+.brand-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
+.brand-mark .icon { width: 18px; height: 18px; }
+nav.tabs { display: flex; gap: 2px; flex-wrap: wrap; align-items: stretch; flex: 1 1 auto; }
+nav.tabs button { font: 600 14px var(--f-body); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--ink-2); padding: 0 12px; min-height: 52px; cursor: pointer; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+nav.tabs button:hover:not([aria-selected="true"]) { color: var(--ink); background: var(--surface-2); }
+.sync { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); margin-left: auto; white-space: nowrap; }
+.sync::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--st-done); }
+.sync.off::before { background: var(--st-todo); }
+
+main { padding-block: 24px 64px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 700; letter-spacing: .01em; text-wrap: balance; margin: 0; line-height: 1.1; }
+h1 { font-size: clamp(28px, 3vw, 38px); text-transform: uppercase; }
+h2 { font-size: 22px; text-transform: uppercase; }
+h3 { font-size: 18px; text-transform: uppercase; }
+p { margin: 0; }
+.muted { color: var(--ink-2); }
+.small { font-size: 13px; }
+.label { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.hint { font-size: 13px; color: var(--ink-2); max-width: 75ch; }
+
+/* Controls */
+button, .btn { font: 600 14px var(--f-body); border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); padding: 9px 14px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; transition: background-color .15s, border-color .15s, filter .15s; }
+button:hover, .btn:hover { border-color: var(--ink-2); }
+button.primary, .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.primary:hover, .btn.primary:hover { filter: brightness(1.08); }
+.btn.wa, button.wa { background: var(--wa); border-color: var(--wa); color: var(--wa-ink); }
+.btn.wa:hover, button.wa:hover { filter: brightness(1.08); }
+button.ghost { background: none; border-color: transparent; color: var(--ink-2); }
+button.ghost:hover { color: var(--ink); background: var(--surface-2); }
+button.danger, button.ghost.danger { color: var(--danger); }
+button.big, .btn.big { min-height: 48px; padding: 12px 18px; font-size: 15px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+input, select, textarea { font: 400 15px var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 9px 11px; width: 100%; min-width: 0; min-height: 42px; }
+input[type=checkbox] { width: 18px; height: 18px; min-height: 0; padding: 0; accent-color: var(--accent); flex: none; }
+textarea { resize: vertical; min-height: 72px; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field > span { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.grid { display: grid; gap: 14px; }
+.g2 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.sub-h { margin: 18px 0 8px; font-size: 14px; font-weight: 700; }
+.extra-list { display: grid; gap: 8px; }
+.extra-list:empty { display: none; }
+.extra-veh { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(130px, 1.1fr) minmax(100px, .9fr) minmax(112px, .8fr) minmax(112px, .8fr) auto; gap: 8px; align-items: end; padding: 10px 12px; background: var(--surface-2); border-radius: 10px; }
+.extra-veh .num { grid-column: 1 / -1; font-size: 12px; font-weight: 700; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
+.extra-veh .field > span { font-size: 12px; }
+@media (max-width: 720px) { .extra-veh { grid-template-columns: 1fr 1fr; } .extra-veh [data-remove-veh] { justify-self: start; } }
+button.add-veh { justify-self: start; width: fit-content; border-style: dashed; }
+.g3 { grid-template-columns: minmax(160px, 1fr) minmax(170px, 1.2fr) minmax(130px, .9fr); }
+@media (max-width: 720px) { .g3 { grid-template-columns: 1fr 1fr; } .g3 > :first-child { grid-column: 1 / -1; } }
+.g4 { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.actions .spacer { flex: 1; }
+.check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: 500; }
+
+/* Plate */
+.plate { display: inline-flex; align-items: stretch; border: 2px solid #1b1b1b; border-radius: 5px; background: var(--plate-bg); color: var(--plate-ink); font: 600 15px var(--f-mono); letter-spacing: .04em; overflow: hidden; line-height: 1; white-space: nowrap; }
+.plate::before, .plate::after { content: ""; width: 8px; background: var(--eu); flex: none; }
+.plate span { padding: 5px 7px; }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.st-a_envoyer { color: var(--st-todo); background: var(--st-todo-bg); }
+.st-envoyee { color: var(--st-sent); background: var(--st-sent-bg); }
+.st-confirmee { color: var(--st-ok); background: var(--st-ok-bg); }
+.st-realisee { color: var(--st-done); background: var(--st-done-bg); }
+.st-annulee { color: var(--st-off); background: var(--st-off-bg); }
+.tag { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); border: 1px solid var(--line-strong); border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
+
+/* Work layout: main column + sticky send column */
+.work { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1100px) { .work { grid-template-columns: minmax(0, 1fr) minmax(380px, 520px); } }
+.sticky { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); }
+@media (max-width: 1099px) { .sticky { position: static; } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; box-shadow: var(--shadow); }
+.panel-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.panel-head h2 { margin-right: auto; }
+.section-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+
+/* Planning */
+.daybar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.daybar h1 { margin-right: auto; }
+.daybar input[type=date], .daybar select { width: auto; }
+.strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-bottom: 24px; }
+.strip button { flex-direction: column; gap: 2px; padding: 8px 4px; font-weight: 500; min-height: 64px; }
+.strip button b { font-family: var(--f-display); font-size: 24px; line-height: 1; }
+.strip button small { font-size: 11px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .05em; }
+.strip button .cnt { font-size: 11px; font-weight: 600; color: var(--accent); min-height: 15px; }
+.strip button[aria-current="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.strip button.today small { color: var(--accent); font-weight: 700; }
+
+.site-block { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+.site-block + .site-block { margin-top: 16px; }
+.site-head { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; padding: 12px 16px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.site-head h3 { font-size: 19px; }
+.site-head .addr { color: var(--ink-2); font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+.site-head .count { margin-left: auto; font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.veh-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 16px; width: 100%; padding: 12px 16px; background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; text-align: left; font-weight: 400; min-height: 0; }
+.veh-row:last-child { border-bottom: 0; }
+.veh-row:hover { background: var(--accent-soft); border-color: var(--line); }
+.veh-row .what { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.veh-row .model { font-weight: 600; }
+.veh-row .sub { font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.veh-row .right { display: flex; align-items: center; gap: 10px; }
+.veh-row .time { font: 600 14px var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.veh-row .thumb { width: 56px; height: 42px; border-radius: 5px; object-fit: cover; background: var(--surface-2); }
+.veh-row.cancel { opacity: .55; }
+@media (max-width: 640px) { .veh-row { grid-template-columns: minmax(0, 1fr) auto; } .veh-row .what { grid-column: 1 / -1; grid-row: 2; } .veh-row .thumb { display: none; } }
+
+.empty { border: 1px dashed var(--line-strong); border-radius: var(--r); padding: 32px 20px; text-align: center; color: var(--ink-2); display: flex; flex-direction: column; align-items: center; gap: 12px; background: var(--surface); }
+.empty b { color: var(--ink); font-size: 16px; }
+
+/* Send panel */
+.share { display: flex; flex-direction: column; gap: 12px; }
+.msg { background: var(--surface-2); border-radius: var(--r-sm); padding: 14px; font: 400 14px/1.55 var(--f-body); white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 360px; overflow: auto; }
+.share .actions > * { flex: 1 1 180px; }
+.photo-strip { display: flex; gap: 8px; flex-wrap: wrap; }
+.photo-strip figure { margin: 0; display: flex; flex-direction: column; gap: 4px; width: 92px; }
+.photo-strip img { width: 92px; height: 69px; object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--line); cursor: zoom-in; background: var(--surface-2); }
+.photo-strip figcaption { font: 600 11px var(--f-mono); color: var(--ink-2); }
+.photo-strip .mini { display: flex; gap: 4px; }
+.photo-strip .mini button { min-height: 28px; padding: 3px 6px; flex: 1; }
+.photo-strip .mini .icon { width: 14px; height: 14px; }
+.steps-inline { display: grid; gap: 8px; counter-reset: s; }
+.steps-inline > div { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; }
+.steps-inline > div::before { counter-increment: s; content: counter(s); width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font: 700 13px var(--f-body); display: grid; place-items: center; }
+
+/* Form */
+fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+legend { float: left; width: 100%; padding: 0; margin-bottom: 2px; font-family: var(--f-display); font-weight: 700; font-size: 17px; text-transform: uppercase; letter-spacing: .02em; }
+.form-sections { display: flex; flex-direction: column; gap: 22px; }
+.form-sections > fieldset + fieldset { border-top: 1px solid var(--line); padding-top: 20px; }
+legend + * { clear: both; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 999px; width: fit-content; }
+.seg label { cursor: pointer; }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg span { display: inline-block; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.seg input:checked + span { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.plate-input { font: 600 18px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
+.photos { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.photos img { width: 120px; height: 90px; object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--line); display: block; cursor: zoom-in; }
+.drop { border: 1px dashed var(--line-strong); border-radius: var(--r-sm); width: 120px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; font-size: 12px; color: var(--ink-2); cursor: pointer; padding: 6px; background: none; font-weight: 600; }
+.drop:hover { border-color: var(--accent); color: var(--ink); }
+details.more > summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 14px; list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more[open] > summary { margin-bottom: 10px; }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 11px 18px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 20; max-width: calc(100% - 32px); box-shadow: var(--shadow); }
+.banner { background: var(--st-todo-bg); color: var(--ink); border-radius: var(--r-sm); padding: 10px 14px; font-size: 14px; margin-bottom: 16px; }
+.intro { max-width: 75ch; margin-bottom: 16px; color: var(--ink-2); }
+
+/* Tables */
+.tools { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: end; }
+.tools > input, .tools > select { flex: 0 1 auto; width: auto; }
+.tools > input[type=search] { flex: 1 1 260px; }
+.tools .field { flex: 0 1 auto; }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+table.wide { min-width: 760px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; background: var(--surface-2); }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover { background: var(--accent-soft); }
+td.num, th.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+td.date { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Report */
+.kpis { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 24px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+.kpi { background: var(--surface); padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
+.kpi b { font-family: var(--f-display); font-size: 42px; line-height: 1; font-variant-numeric: tabular-nums; }
+.kpi.done b { color: var(--st-done); }
+.kpi.wait b { color: var(--st-todo); }
+.kpi.off b { color: var(--st-off); }
+.section { margin-bottom: 28px; display: flex; flex-direction: column; gap: 10px; }
+.two { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+
+/* Photo library */
+.ph-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.ph { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 8px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ph img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--r-sm); background: var(--surface-2); cursor: zoom-in; display: block; }
+.ph .actions button { padding: 5px 8px; min-height: 32px; font-size: 13px; flex: 1 1 auto; }
+.veh-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.veh-card { text-align: left; display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; font-weight: 400; background: var(--surface); box-shadow: var(--shadow); border-color: var(--line); }
+.veh-card .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.veh-card .thumbs img, .veh-card .thumbs span { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; background: var(--surface-2); }
+.veh-card[aria-current="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* Settings */
+.list-edit { display: flex; flex-direction: column; gap: 8px; }
+.list-edit .item { display: grid; grid-template-columns: minmax(96px, 140px) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+@media (max-width: 560px) { .list-edit .item { grid-template-columns: minmax(0, 1fr) auto; } .list-edit .item > :nth-child(2) { grid-column: 1 / -1; grid-row: 2; } }
+pre.code { background: var(--surface-2); border-radius: var(--r-sm); padding: 14px; font: 500 12.5px/1.5 var(--f-mono); overflow-x: auto; margin: 0; max-height: 340px; }
+ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 75ch; }
+
+.lightbox { position: fixed; inset: 0; background: rgba(6, 12, 16, .86); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; }
+.lightbox img { max-height: 100%; max-width: 100%; border-radius: var(--r-sm); }
+
+@media (max-width: 640px) {
+  header.top { position: static; }
+  .sync { margin-left: 0; width: 100%; padding-bottom: 8px; }
+  nav.tabs button { min-height: 44px; padding: 0 8px; }
+  .strip { gap: 3px; }
+  .strip button { padding: 6px 1px; }
+  .strip button b { font-size: 19px; }
+  .daybar h1 { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+  <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+  <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+  <symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 17c2.5-6 5.5-9 9-9s6.5 3 9 9"/><path d="M3 17h18"/><path d="M8 14l3-3"/></symbol>
+  <symbol id="i-wa" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3z"/><path d="M9 10h6M9 14h4"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><span class="brand-mark"><svg class="icon"><use href="#i-wind"/></svg></span>Suivi prestations</div>
+    <nav class="tabs" role="tablist" aria-label="Vues">
+      <button role="tab" id="tab-planning" aria-selected="true" data-view="planning">Planning</button>
+      <button role="tab" id="tab-demande" aria-selected="false" data-view="demande">Nouvelle demande</button>
+      <button role="tab" id="tab-photos" aria-selected="false" data-view="photos">Photos</button>
+      <button role="tab" id="tab-verif" aria-selected="false" data-view="verif">Vérification</button>
+      <button role="tab" id="tab-bilan" aria-selected="false" data-view="bilan">Bilan du mois</button>
+      <button role="tab" id="tab-historique" aria-selected="false" data-view="historique">Historique</button>
+      <button role="tab" id="tab-reglages" aria-selected="false" data-view="reglages">Réglages</button>
+    </nav>
+    <div class="sync off" id="sync">Connexion…</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="banner" id="banner" hidden></div>
+
+  <!-- PLANNING -->
+  <section id="view-planning">
+    <div class="daybar">
+      <h1 id="dayTitle">Aujourd'hui</h1>
+      <button class="ghost" id="prevDay" aria-label="Jour précédent"><svg class="icon"><use href="#i-chev-l"/></svg></button>
+      <button id="todayBtn">Aujourd'hui</button>
+      <button class="ghost" id="nextDay" aria-label="Jour suivant"><svg class="icon"><use href="#i-chev-r"/></svg></button>
+      <input type="date" id="dayPick" aria-label="Choisir une date">
+      <select id="provFilter" aria-label="Prestataire"></select>
+      <button class="primary" id="newOnDay"><svg class="icon"><use href="#i-plus"/></svg>Nouvelle demande</button>
+    </div>
+    <div class="strip" id="strip"></div>
+    <div class="work">
+      <div id="dayList"></div>
+      <aside class="panel sticky" aria-labelledby="dayShareTitle">
+        <div class="panel-head"><h2 id="dayShareTitle">Liste des véhicules à faire</h2></div>
+        <div id="dayShare"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- FORM -->
+  <section id="view-demande" hidden>
+    <div class="work">
+      <form class="panel" id="form" autocomplete="off" novalidate>
+        <div class="panel-head">
+          <h2 id="formTitle">Nouvelle demande</h2>
+          <span class="chip" id="formStatusChip" hidden></span>
+        </div>
+        <div class="form-sections">
+          <fieldset>
+            <legend>Véhicule</legend>
+            <div class="seg" id="svcSeg" role="radiogroup" aria-label="Prestation"></div>
+            <div class="grid g3">
+              <label class="field"><span>Immatriculation *</span><input id="f-plaque" class="plate-input" placeholder="AB-123-CD" list="dl-plaques" required></label>
+              <label class="field"><span>Modèle</span><select id="f-base" class="m-base"></select></label>
+              <label class="field"><span>Cubage</span><select id="f-modele" class="m-var"></select></label>
+            </div>
+            <span class="hint" id="vehHint"></span>
+            <div id="extraVeh" class="extra-list"></div>
+            <button type="button" class="add-veh" id="addVeh"><svg class="icon"><use href="#i-plus"/></svg>Ajouter un véhicule au même endroit</button>
+            <span class="hint" id="groupHint">Pour une demande groupée : les véhicules ajoutés reprennent le site, les dates et le prestataire. Tu peux changer leurs horaires.</span>
+            <datalist id="dl-plaques"></datalist>
+          </fieldset>
+
+          <fieldset>
+            <legend>Où</legend>
+            <div class="grid g2">
+              <label class="field"><span>Site *</span><select id="f-site"></select></label>
+              <label class="field"><span>Adresse</span><input id="f-adresse" placeholder="Remplie avec l'adresse du site"></label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Disponibilité</legend>
+            <div class="grid g4">
+              <label class="field"><span>Dispo du *</span><input type="date" id="f-date"></label>
+              <label class="field"><span>Au</span><input type="date" id="f-dateFin"></label>
+              <label class="field"><span>De</span><input type="time" id="f-debut" step="900"></label>
+              <label class="field"><span>À</span><input type="time" id="f-fin" step="900"></label>
+            </div>
+            <div class="grid g2" id="provRow">
+              <label class="field"><span>Prestataire</span><select id="f-prest"></select></label>
+            </div>
+            <details class="more" id="notesBox"><summary><svg class="icon"><use href="#i-plus"/></svg>Ajouter une remarque</summary>
+              <label class="field"><span>Remarque (ajoutée au message)</span><textarea id="f-notes" placeholder="Clés à l'accueil…"></textarea></label>
+            </details>
+          </fieldset>
+
+          <fieldset id="photosSet">
+            <legend>Photos du pare-brise</legend>
+            <div class="photos" id="formPhotos"></div>
+            <span class="hint">Les photos restent rattachées au véhicule : la prochaine fois que tu saisis cette plaque, elles sont déjà là. Tu peux aussi coller une capture (Ctrl+V).</span>
+          </fieldset>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary" id="saveBtn">Enregistrer la demande</button>
+          <button type="button" class="ghost" id="resetBtn">Vider le formulaire</button>
+          <span class="spacer"></span>
+          <span id="delZone"></span>
+        </div>
+      </form>
+
+      <aside class="panel sticky" aria-labelledby="msgTitle">
+        <div class="panel-head"><h2 id="msgTitle">Envoyer la demande</h2></div>
+        <div id="formShare"></div>
+        <div id="formSheet"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- PHOTO LIBRARY -->
+  <section id="view-photos" hidden>
+    <div class="tools">
+      <input type="search" id="p-q" placeholder="Rechercher une plaque ou un modèle (ex. Movano, 20 m³)…" aria-label="Rechercher un véhicule">
+      <input id="p-newplate" class="plate-input" placeholder="AB-123-CD" aria-label="Plaque du véhicule à ajouter" style="width:180px">
+      <button type="button" id="p-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter un véhicule</button>
+    </div>
+    <div id="p-detail"></div>
+    <div id="p-list"></div>
+  </section>
+
+  <!-- VERIFICATION -->
+  <section id="view-verif" hidden>
+    <p class="intro">Pour relancer le prestataire : copie le message, envoie-le, puis colle sa réponse ici. Les plaques citées se cochent toutes seules et un clic les met à jour.</p>
+    <div class="tools">
+      <label class="field"><span>Prestataire</span><select id="v-prest"></select></label>
+      <label class="field"><span>Du</span><input type="date" id="v-from"></label>
+      <label class="field"><span>Au</span><input type="date" id="v-to"></label>
+      <label class="field"><span>Statuts</span><select id="v-st">
+        <option value="pending">Envoyées + confirmées</option>
+        <option value="envoyee">Envoyées seulement</option>
+        <option value="confirmee">Confirmées seulement</option>
+        <option value="all">Toutes sauf annulées</option>
+      </select></label>
+    </div>
+    <div class="work">
+      <div class="panel">
+        <div class="panel-head"><h2>Véhicules à vérifier</h2><span class="muted small" id="v-count"></span></div>
+        <div id="v-table"></div>
+        <label class="field"><span>Réponse du prestataire</span><textarea id="v-paste" placeholder="Colle ici sa réponse, ex. « AB-123-CD ok, EF-456-GH ok »"></textarea></label>
+        <div class="actions">
+          <button type="button" class="primary" data-bulk="realisee">Cochés → Réalisée</button>
+          <button type="button" data-bulk="confirmee">Cochés → Confirmée</button>
+          <button type="button" class="ghost" data-bulk="annulee">Cochés → Annulée</button>
+          <span id="v-sheet"></span>
+        </div>
+      </div>
+      <aside class="panel sticky">
+        <div class="panel-head"><h2>Message de rappel</h2></div>
+        <div class="seg" id="v-kind">
+          <label><input type="radio" name="vkind" value="faits" checked><span>Prestations faites ?</span></label>
+          <label><input type="radio" name="vkind" value="rdv"><span>RDV confirmés ?</span></label>
+        </div>
+        <div id="v-share"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- BILAN -->
+  <section id="view-bilan" hidden>
+    <div class="tools">
+      <label class="field"><span>Mois</span><input type="month" id="b-month"></label>
+      <label class="field"><span>Prestataire</span><select id="b-prest"></select></label>
+      <span style="flex:1"></span>
+      <button type="button" id="b-copy"><svg class="icon"><use href="#i-copy"/></svg>Copier le résumé</button>
+      <button type="button" id="b-tsv"><svg class="icon"><use href="#i-list"/></svg>Copier pour Google Sheets</button>
+      <button type="button" class="primary" id="b-csv" hidden><svg class="icon"><use href="#i-download"/></svg>Télécharger le CSV</button>
+    </div>
+    <div id="b-body"></div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="view-historique" hidden>
+    <div class="tools">
+      <input type="search" id="q" placeholder="Rechercher une plaque, un site, un modèle…" aria-label="Rechercher">
+      <select id="h-prest" aria-label="Prestataire"></select>
+      <select id="h-site" aria-label="Site"></select>
+      <select id="h-statut" aria-label="Statut"></select>
+      <select id="h-svc" aria-label="Prestation"></select>
+    </div>
+    <div id="histWrap"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="view-reglages" hidden>
+    <div class="two">
+      <div class="panel">
+        <h2>Sites et adresses</h2>
+        <p class="hint">L'adresse se remplit toute seule dans la demande quand on choisit le site.</p>
+        <div class="list-edit" id="s-sites"></div>
+        <div class="row"><input id="s-newsite" placeholder="Nom du nouveau site" style="flex:1 1 200px"><button type="button" id="s-addsite"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+      </div>
+      <div class="panel">
+        <h2>Flotte</h2>
+        <p class="hint">Modèles proposés dans la demande. Choisir un modèle remplit le cubage.</p>
+        <div class="list-edit" id="s-fleet"></div>
+        <div class="row"><input id="s-newmodel" placeholder="Modèle, ex. Opel Movano 2025" style="flex:2 1 200px"><input id="s-newcub" type="number" min="1" placeholder="m³" aria-label="Cubage en m³" style="flex:0 1 90px"><button type="button" id="s-addmodel"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+      </div>
+      <div class="panel">
+        <h2>Prestataires</h2>
+        <p class="hint">Le premier de la liste est choisi par défaut.</p>
+        <div class="list-edit" id="s-provs"></div>
+        <div class="row"><input id="s-newprov" placeholder="Nom du prestataire" style="flex:1 1 200px"><button type="button" id="s-addprov"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+      </div>
+      <div class="panel">
+        <h2>Liaison avec le Google Sheet</h2>
+        <p class="hint">Un bouton « Cocher dans le Google Sheet » coche la colonne « OK confirmé » des plaques confirmées. À installer une seule fois :</p>
+        <ol class="steps small">
+          <li>Dans ton Google Sheet pare-brise : <b>Extensions › Apps Script</b>.</li>
+          <li>Remplace tout le code par le script ci-dessous, puis enregistre.</li>
+          <li>Ajuste si besoin les 3 réglages en haut du script.</li>
+          <li><b>Déployer › Nouveau déploiement</b>, Application Web, exécuter en tant que <b>Moi</b>, accès <b>city-drop.com</b>.</li>
+          <li>Colle ici l'URL qui finit par /exec.</li>
+        </ol>
+        <div class="row"><input id="s-sheeturl" placeholder="https://script.google.com/macros/s/…/exec" style="flex:1 1 260px"><button type="button" class="primary" id="s-savesheet">Enregistrer l'URL</button></div>
+        <details class="more"><summary><svg class="icon"><use href="#i-list"/></svg>Voir le script</summary>
+          <div class="row" style="margin-bottom:8px"><button type="button" id="s-copyscript"><svg class="icon"><use href="#i-copy"/></svg>Copier le script</button></div>
+          <pre class="code" id="s-script"></pre>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<input type="file" id="photoInput" accept="image/*" multiple hidden>
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="lightbox" id="lightbox" hidden><img id="lightImg" alt="Photo du pare-brise"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+// Stand-alone hosting (GitHub Pages): gives the page the same `window.claude.use(...)` services
+// it has inside claude.ai, backed by Firebase. The Firestore compat API (doc, collection,
+// onSnapshot, set, update, delete) is the one store.js already speaks.
+(function () {
+  const config = window.SUIVI_FIREBASE_CONFIG;
+  if (!config || !config.apiKey || !window.firebase) return;
+  firebase.initializeApp(config);
+  const auth = firebase.auth();
+
+  // One shared team account: the page asks for the password once, then the browser remembers it.
+  function signedIn() {
+    return new Promise((resolve) => {
+      const stop = auth.onAuthStateChanged((user) => {
+        if (user) { stop(); resolve(user); return; }
+        showLogin();
+      });
+    });
+  }
+  function showLogin() {
+    if (document.getElementById("login")) return;
+    const box = document.createElement("div");
+    box.id = "login";
+    box.innerHTML = `<form class="panel login-card">
+        <h2>Suivi prestations</h2>
+        <p class="hint">Entre le mot de passe de l'équipe. Il est demandé une seule fois sur cet ordinateur.</p>
+        <label class="field"><span>Mot de passe</span><input type="password" autocomplete="current-password" required></label>
+        <p class="login-error" hidden>Mot de passe incorrect.</p>
+        <button class="primary big" type="submit">Ouvrir</button>
+      </form>`;
+    document.body.append(box);
+    box.querySelector("input").focus();
+    box.querySelector("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const password = box.querySelector("input").value;
+      try {
+        await auth.signInWithEmailAndPassword(config.teamEmail, password);
+        box.remove();
+      } catch { box.querySelector(".login-error").hidden = false; }
+    });
+  }
+
+  const ready = signedIn();
+  const downloads = {
+    async save({ filename, data }) {
+      const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([data]));
+      const a = Object.assign(document.createElement("a"), { href: url, download: filename });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    },
+  };
+  window.claude = {
+    async use(name) {
+      await ready;
+      if (name === "db") return firebase.firestore();
+      if (name === "downloads") return downloads;
+      if (name === "user") return { can: async () => true };
+      throw new Error("unknown service " + name);
+    },
+  };
+})();
+</script>
+<script>
+// Business rules of the tracker. Pure functions only: no DOM, no database.
+// Loaded in the page as window.SuiviDomain and in Node tests via require().
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) module.exports = factory();
+  else root.SuiviDomain = factory();
+})(typeof self !== "undefined" ? self : this, function () {
+  const SERVICES = [
+    { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise" },
+    { id: "lavage", label: "Lavage", title: "lavage véhicule" },
+  ];
+  const STATUSES = [
+    { id: "a_envoyer", label: "À envoyer" },
+    { id: "envoyee", label: "Envoyée" },
+    { id: "confirmee", label: "Confirmée" },
+    { id: "realisee", label: "Réalisée" },
+    { id: "annulee", label: "Annulée" },
+  ];
+  const CLOSED_STATUSES = ["realisee", "annulee"];
+  const NO_SITE = "Site non précisé";
+  const DEFAULT_PROVIDERS = ["ALLO pare-brise 78"];
+  const DEFAULT_SITES = ["Saint-Cloud", "La Défense", "Aulnay", "Coignières", "Paris-Centre"].map((nom) => ({ nom, adresse: "" }));
+  // CityDrop fleet as listed by the team on 2026-11-01; editable in Réglages.
+  const DEFAULT_FLEET = [
+    ["Renault Master 2023", 20], ["Renault Master 2025", 20],
+    ["Opel Movano 2023", 12], ["Opel Movano 2023", 17], ["Opel Movano 2024", 20], ["Opel Movano 2025", 12], ["Opel Movano 2026", 20],
+    ["Opel Vivaro 2023", 5], ["Opel Vivaro 2025", 5], ["Opel Combo", 3],
+    ["Citroën Jumper", 17], ["Toyota ProAce", 17], ["Maxus", 12], ["Maxus", 20], ["Iveco Daily", 20], ["MAN TGE", 20],
+  ].map(([modele, cubage]) => ({ modele, cubage }));
+  const SITE_RENAMES = { "Paris-Saint-Cloud": "Saint-Cloud", "Paris-Aulnay": "Aulnay", "Paris-Coignières": "Coignières" };
+
+  // ---------- dates (ISO "YYYY-MM-DD" strings, local time) ----------
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const toIsoDate = (date) => `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  const parseIsoDate = (iso) => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d || 1); };
+  const addDays = (iso, days) => { const d = parseIsoDate(iso); d.setDate(d.getDate() + days); return toIsoDate(d); };
+  const mondayOf = (iso) => addDays(iso, -((parseIsoDate(iso).getDay() + 6) % 7));
+  const formatDate = (iso, options) => (iso ? parseIsoDate(iso).toLocaleDateString("fr-FR", options) : "");
+  const longDate = (iso) => formatDate(iso, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const dayLabel = (iso) => formatDate(iso, { weekday: "long", day: "numeric", month: "long" });
+  const shortDate = (iso) => formatDate(iso, { weekday: "short", day: "numeric", month: "short" });
+  const numericDate = (iso) => formatDate(iso);
+  const monthLabel = (yearMonth) => formatDate(yearMonth + "-01", { month: "long", year: "numeric" });
+
+  const hourLabel = (time) => (time ? time.replace(":", "h") : "");
+  function timeSlotLabel({ debut, fin }) {
+    if (debut && fin) return `de ${hourLabel(debut)} à ${hourLabel(fin)}`;
+    if (debut) return `à partir de ${hourLabel(debut)}`;
+    if (fin) return `avant ${hourLabel(fin)}`;
+    return "toute la journée";
+  }
+  function defaultEndTime(start) {
+    const [h, m] = start.split(":").map(Number);
+    return `${pad2(Math.min(h + 3, 23))}:${pad2(m)}`;
+  }
+
+  // ---------- availability window (date .. dateFin) ----------
+  const lastDay = (d) => d.dateFin || d.date;
+  const isMultiDay = (d) => !!d.date && lastDay(d) !== d.date;
+  const isAvailableOn = (d, iso) => !!d.date && d.date <= iso && iso <= lastDay(d);
+  function availabilityLabel(d) {
+    if (!d.date) return "…";
+    return isMultiDay(d) ? `du ${dayLabel(d.date)} au ${dayLabel(lastDay(d))}` : `le ${longDate(d.date)}`;
+  }
+
+  // ---------- plates ----------
+  const plateKey = (plate) => String(plate || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  function normalizePlate(plate) {
+    const key = plateKey(plate);
+    const siv = key.match(/^([A-Z]{2})(\d{3})([A-Z]{2})$/);
+    return siv ? `${siv[1]}-${siv[2]}-${siv[3]}` : String(plate || "").toUpperCase().trim();
+  }
+  // SIV plates (AB-123-CD) and old FNI plates (123 ABC 45) found in free text.
+  const PLATE_IN_TEXT = /\b[A-Z]{2}[\s-]?\d{3}[\s-]?[A-Z]{2}\b|\b\d{1,4}[\s-]?[A-Z]{2,3}[\s-]?\d{2}\b/g;
+  const platesInText = (text) => (String(text || "").toUpperCase().match(PLATE_IN_TEXT) || []).map(plateKey);
+
+  // ---------- fleet & sites ----------
+  const fleetLabel = ({ modele, cubage }) => [modele, cubage ? `${cubage} m³` : ""].filter(Boolean).join(" – ");
+  // A fleet entry is "Opel Movano 2023": the brand + model is picked first, then the cubage.
+  // The year is shown only where the cubage alone is ambiguous (e.g. Vivaro 5 m³ 2023 / 2025).
+  const YEAR_SUFFIX = /\s+((?:19|20)\d{2})$/;
+  const baseModel = (modele) => String(modele || "").replace(YEAR_SUFFIX, "").trim();
+  const modelYear = (modele) => (String(modele || "").match(YEAR_SUFFIX) || [])[1] || "";
+  const fleetBases = (fleet) => [...new Set(fleet.map((f) => baseModel(f.modele)).filter(Boolean))];
+  function fleetVariants(fleet, base) {
+    const entries = fleet.map((f, index) => ({ ...f, index })).filter((f) => baseModel(f.modele) === base);
+    const sameCubage = (f) => entries.filter((g) => +g.cubage === +f.cubage).length > 1;
+    return entries
+      .sort((a, b) => (+a.cubage || 0) - (+b.cubage || 0) || modelYear(a.modele).localeCompare(modelYear(b.modele)))
+      .map((f) => ({
+        index: f.index,
+        label: [f.cubage ? `${f.cubage} m³` : "cubage non précisé", sameCubage(f) && modelYear(f.modele)].filter(Boolean).join(" · "),
+      }));
+  }
+  const fleetIndex = (fleet, v) => fleet.findIndex((f) => f.modele === v.modele && +f.cubage === +v.cubage);
+  function normalizeSites(raw) {
+    const list = (Array.isArray(raw) ? raw : []).map((s) => (typeof s === "string" ? { nom: s, adresse: "" } : { nom: s.nom || "", adresse: s.adresse || "" }));
+    return list.filter((s) => s.nom).map((s) => ({ ...s, nom: SITE_RENAMES[s.nom] || s.nom }));
+  }
+  const siteAddress = (sites, name) => sites.find((s) => s.nom === name)?.adresse || "";
+
+  // ---------- labels ----------
+  const serviceOf = (id) => SERVICES.find((s) => s.id === id) || SERVICES[0];
+  const statusOf = (id) => STATUSES.find((s) => s.id === id) || STATUSES[0];
+  const isWindshield = (d) => (d.service || "pare-brise") === "pare-brise";
+  const isActive = (d) => d.statut !== "annulee";
+  const isOpen = (d) => !CLOSED_STATUSES.includes(d.statut);
+  const siteOf = (d) => d.site || NO_SITE;
+  const vehicleLabel = (v) => fleetLabel(v);
+  const serviceSuffix = (d) => (isWindshield(d) ? "" : ` (${serviceOf(d.service).label.toLowerCase()})`);
+  const byStartTime = (a, b) => (a.debut || "99").localeCompare(b.debut || "99");
+  const byDateThenTime = (a, b) => (a.date || "").localeCompare(b.date || "") || byStartTime(a, b);
+
+  // ---------- grouping ----------
+  function groupBy(items, keyOf) {
+    const groups = new Map();
+    items.forEach((item) => {
+      const key = keyOf(item);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(item);
+    });
+    return groups;
+  }
+  function groupBySite(demandes, siteNames) {
+    const order = [...siteNames, NO_SITE];
+    const rank = (site) => { const i = order.indexOf(site); return i < 0 ? order.length : i; };
+    return [...groupBy(demandes, siteOf).entries()]
+      .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
+      .map(([site, items]) => [site, items.slice().sort(byStartTime)]);
+  }
+  const vehiclesOnDay = (demandes, iso, provider) =>
+    demandes.filter((d) => isAvailableOn(d, iso) && isActive(d) && (!provider || d.prestataire === provider));
+
+  // ---------- validation & status history ----------
+  function missingFields(d) {
+    const missing = [];
+    if (!d.plaque) missing.push("l'immatriculation");
+    if (!d.date) missing.push("la date de disponibilité");
+    if (d.date && d.dateFin && d.dateFin < d.date) missing.push("une date de fin après la date de début");
+    if (!d.site && !d.adresse) missing.push("le site");
+    if (!d.prestataire) missing.push("le prestataire");
+    return missing;
+  }
+  const SENT_OR_LATER = ["envoyee", "confirmee", "realisee"];
+  const CONFIRMED_OR_LATER = ["confirmee", "realisee"];
+  function statusTimestamps(previous, status, nowIso) {
+    return {
+      sentAt: previous?.sentAt || (SENT_OR_LATER.includes(status) ? nowIso : null),
+      confirmedAt: previous?.confirmedAt || (CONFIRMED_OR_LATER.includes(status) ? nowIso : null),
+      doneAt: status === "realisee" ? previous?.doneAt || nowIso : null,
+    };
+  }
+
+  // ---------- messages (WhatsApp and Slack both render *bold*) ----------
+  // One message for one vehicle, or for a group of vehicles sharing the same site and window (washes go 2 to 5 at a time).
+  function requestMessage(d, photoCount, others = []) {
+    const group = others.length > 0;
+    const count = others.length + 1;
+    const all = [d, ...others];
+    const sameSlot = all.every((v) => timeSlotLabel(v) === timeSlotLabel(d));
+    const lines = group
+      ? [
+          `*Demande ${serviceOf(d.service).title} – ${count} véhicules*`,
+          `Disponibles ${availabilityLabel(d)}${sameSlot ? `, ${timeSlotLabel(d)}` : ""}`,
+          `Site : ${d.site || "…"}${d.adresse ? ` – ${d.adresse}` : ""}`,
+          "",
+          ...all.map((v) => `• *${v.plaque || "…"}* – ${vehicleLabel(v) || "modèle à préciser"}${sameSlot ? "" : ` – ${timeSlotLabel(v)}`}`),
+        ]
+      : [
+          `*Demande ${serviceOf(d.service).title}*`,
+          `Immatriculation : *${d.plaque || "…"}*`,
+          `Véhicule : ${vehicleLabel(d) || "…"}`,
+          `Disponible ${availabilityLabel(d)}, ${timeSlotLabel(d)}`,
+          `Site : ${d.site || "…"}${d.adresse ? ` – ${d.adresse}` : ""}`,
+        ];
+    if (d.notes) lines.push(group ? "" : null, `Remarque : ${d.notes}`);
+    if (isWindshield(d)) lines.push(photoCount ? `Photo${photoCount > 1 ? "s" : ""} du pare-brise ci-jointe${photoCount > 1 ? "s" : ""}.` : "Photo du pare-brise à suivre.");
+    lines.push("", group ? "Merci de confirmer le passage pour chaque véhicule." : "Merci de confirmer le passage.");
+    return lines.filter((l) => l !== null).join("\n");
+  }
+
+  // Plates typed twice in a group, so the same car is not sent twice.
+  function duplicatePlates(plates) {
+    const seen = new Set();
+    return plates.filter((p) => { const k = plateKey(p); if (!k) return false; if (seen.has(k)) return true; seen.add(k); return false; });
+  }
+
+  function dayVehicleLine(d, date, siteAddressText) {
+    const parts = [`*${d.plaque}*`, vehicleLabel(d) || "véhicule", timeSlotLabel(d)];
+    if (d.adresse && d.adresse !== siteAddressText) parts.push(d.adresse);
+    if (isMultiDay(d)) parts.push(`dispo jusqu'au ${shortDate(lastDay(d))}`);
+    return `• ${parts.join(" – ")}${serviceSuffix(d)}${d.notes ? `\n   ${d.notes}` : ""}`;
+  }
+
+  function dayListMessage(demandes, { date, provider, sites }) {
+    const items = vehiclesOnDay(demandes, date, provider);
+    const count = items.length;
+    if (!count) return `Aucun véhicule prévu le ${dayLabel(date)}.`;
+    const lines = [`*Véhicules à faire – ${dayLabel(date)}*`, `${count} véhicule${count > 1 ? "s" : ""}${provider ? ` pour ${provider}` : ""} :`];
+    groupBySite(items, sites.map((s) => s.nom)).forEach(([site, siteItems]) => {
+      const address = siteAddress(sites, site);
+      lines.push("", `*${site}*${address ? ` – ${address}` : ""}`, ...siteItems.map((d) => dayVehicleLine(d, date, address)));
+    });
+    if (items.some(isWindshield)) lines.push("", "Photos des pare-brises envoyées à la suite.");
+    return lines.join("\n");
+  }
+
+  function verificationMessage(demandes, { provider, kind, siteNames }) {
+    if (!demandes.length) return "Aucun véhicule sur la période choisie.";
+    const greeting = `Bonjour${provider ? " " + provider : ""}, `;
+    const lines = [kind === "rdv"
+      ? greeting + "pouvez-vous nous confirmer les rendez-vous suivants ?"
+      : greeting + "pouvez-vous nous confirmer les pare-brises remplacés parmi ces véhicules ?"];
+    groupBy(demandes.slice().sort(byDateThenTime), (d) => d.date).forEach((items, date) => {
+      lines.push("", `*${dayLabel(date)}*`);
+      groupBySite(items, siteNames).forEach(([site, siteItems]) =>
+        siteItems.forEach((d) => lines.push(`• ${d.plaque} – ${site}${serviceSuffix(d)}`)));
+    });
+    lines.push("", kind === "rdv" ? "Merci de nous indiquer ceux qui sont OK." : "Merci de nous indiquer ceux qui sont faits et ceux qui restent à faire.");
+    return lines.join("\n");
+  }
+
+  // WhatsApp click-to-chat: a number opens that chat, no number lets the user pick one.
+  // "app" opens the installed WhatsApp directly, "web" opens WhatsApp Web, "page" goes through the wa.me choice page.
+  const WHATSAPP_TARGETS = ["app", "web", "page"];
+  function whatsappLink(text, phone, target = "page") {
+    const digits = String(phone || "").replace(/\D/g, "").replace(/^0(\d{9})$/, "33$1");
+    const query = `${digits ? `phone=${digits}&` : ""}text=${encodeURIComponent(text)}`;
+    if (target === "app") return `whatsapp://send?${query}`;
+    if (target === "web") return `https://web.whatsapp.com/send?${query}`;
+    return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+  }
+
+  // Photo sheet: lays out every photo in one image, each tile captioned with its plate.
+  function collageLayout(count, { tileWidth = 640, tileHeight = 480, caption = 56, gap = 12 } = {}) {
+    const columns = count <= 1 ? 1 : count <= 4 ? 2 : 3;
+    const rows = Math.ceil(count / columns);
+    const cellHeight = caption + tileHeight;
+    return {
+      width: columns * tileWidth + (columns + 1) * gap,
+      height: rows * cellHeight + (rows + 1) * gap,
+      tiles: Array.from({ length: count }, (_, i) => ({
+        x: gap + (i % columns) * (tileWidth + gap),
+        y: gap + Math.floor(i / columns) * (cellHeight + gap),
+        width: tileWidth, height: tileHeight, caption,
+      })),
+    };
+  }
+
+  // ---------- monthly report ----------
+  function tally(demandes, todayIso) {
+    const done = demandes.filter((d) => d.statut === "realisee");
+    const pending = demandes.filter(isOpen);
+    return {
+      requested: demandes.length,
+      done: done.length,
+      cancelled: demandes.filter((d) => d.statut === "annulee").length,
+      overdue: pending.filter((d) => lastDay(d) < todayIso).length,
+      upcoming: pending.filter((d) => lastDay(d) >= todayIso).length,
+      amount: done.reduce((sum, d) => sum + (+d.montant || 0), 0),
+    };
+  }
+  function monthlyReport(demandes, { month, provider, todayIso }) {
+    const rows = demandes.filter((d) => d.date && d.date.slice(0, 7) === month && (!provider || d.prestataire === provider));
+    const tallyBy = (keyOf) => [...groupBy(rows, keyOf).entries()]
+      .map(([key, items]) => [key, tally(items, todayIso)])
+      .sort((a, b) => b[1].requested - a[1].requested);
+    return { rows, total: tally(rows, todayIso), byProvider: tallyBy((d) => d.prestataire || "—"), bySite: tallyBy(siteOf), byModel: tallyBy((d) => vehicleLabel(d) || "Modèle non précisé") };
+  }
+  function monthlySummaryMessage(report, { month, provider }) {
+    const t = report.total;
+    return [
+      `*Bilan prestations – ${monthLabel(month)}${provider ? " – " + provider : ""}*`,
+      `Demandés : ${t.requested}`, `Réalisés : ${t.done}`, `Annulés : ${t.cancelled}`,
+      `Non réalisés / à confirmer : ${t.overdue + t.upcoming}`,
+      "", "Par prestataire :",
+      ...report.byProvider.map(([k, a]) => `• ${k} : ${a.done} réalisés sur ${a.requested} demandés`),
+      "", "Par site :",
+      ...report.bySite.map(([k, a]) => `• ${k} : ${a.done} / ${a.requested}`),
+    ].join("\n");
+  }
+  const EXPORT_HEADER = ["Dispo du", "Dispo au", "Immatriculation", "Modèle", "Cubage (m³)", "Prestation", "Site", "Adresse", "Prestataire", "Statut", "Envoyée le", "Réalisée le"];
+  function exportRow(d) {
+    return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", serviceOf(d.service).label,
+      d.site, d.adresse, d.prestataire, statusOf(d.statut).label,
+      d.sentAt ? numericDate(d.sentAt.slice(0, 10)) : "", d.doneAt ? numericDate(d.doneAt.slice(0, 10)) : ""];
+  }
+  function toTsv(rows) {
+    const clean = (v) => String(v ?? "").replace(/[\t\r\n]/g, " ");
+    return rows.map((r) => r.map(clean).join("\t")).join("\n");
+  }
+  function toCsv(rows) {
+    const quote = (v) => { const s = String(v ?? ""); return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    return "﻿" + rows.map((r) => r.map(quote).join(";")).join("\r\n");
+  }
+
+  // ---------- search ----------
+  const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
+  const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
+
+  return {
+    SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
+    toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
+    lastDay, isMultiDay, isAvailableOn, availabilityLabel,
+    plateKey, normalizePlate, platesInText,
+    fleetLabel, fleetIndex, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress,
+    serviceOf, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
+    groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
+    requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, collageLayout,
+    monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
+    matchesSearch,
+  };
+});
+</script>
+<script>
+// Shared database access. The page talks to the data only through this object.
+// Layout: demandes/<id>, vehicules/<PLATEKEY>, photos/<key>, config/reglages.
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./domain.js"));
+  else root.SuiviStore = factory(root.SuiviDomain);
+})(typeof self !== "undefined" ? self : this, function (D) {
+  const MAX_PHOTOS_PER_VEHICLE = 12;
+
+  function createStore(db) {
+    const photoCache = new Map();
+    const vehicleRef = (plate) => db.doc("vehicules/" + D.plateKey(plate));
+
+    function subscribe({ onDemandes, onVehicles, onSettings, onError }) {
+      const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const unsubs = [
+        db.collection("demandes").onSnapshot((s) => onDemandes(toRows(s)), onError),
+        db.collection("vehicules").onSnapshot((s) => onVehicles(toRows(s)), onError),
+        db.doc("config/reglages").onSnapshot((s) => s.exists && onSettings(s.data()), onError),
+      ];
+      return () => unsubs.forEach((u) => u());
+    }
+
+    async function saveDemande(id, fields, previous) {
+      const ref = id ? db.doc("demandes/" + id) : db.collection("demandes").doc();
+      const now = new Date().toISOString();
+      await ref.set({
+        ...fields,
+        ...D.statusTimestamps(previous, fields.statut, now),
+        createdAt: previous?.createdAt || now,
+        updatedAt: now,
+      });
+      return ref.id;
+    }
+
+    async function setStatus(demande, status) {
+      const now = new Date().toISOString();
+      await db.doc("demandes/" + demande.id).update({ statut: status, ...D.statusTimestamps(demande, status, now), updatedAt: now });
+    }
+
+    const deleteDemande = (id) => db.doc("demandes/" + id).delete();
+    const saveSettings = (settings) => db.doc("config/reglages").set(settings);
+
+    // Vehicle sheet: fleet model from the latest request, plus its windshield photos.
+    async function saveVehicle(vehicle, identity) {
+      const body = {
+        plaque: identity.plaque,
+        modele: identity.modele || vehicle?.modele || "",
+        cubage: identity.cubage ?? vehicle?.cubage ?? null,
+        photos: vehicle?.photos || [],
+        updatedAt: new Date().toISOString(),
+      };
+      await vehicleRef(identity.plaque).set(body);
+      return body;
+    }
+
+    const updateVehicleModel = (vehicle, { modele, cubage }) =>
+      vehicleRef(vehicle.plaque).update({ modele, cubage, updatedAt: new Date().toISOString() });
+
+    async function addPhoto(vehicle, plate, { full, thumb }) {
+      const photos = vehicle?.photos || [];
+      if (photos.length >= MAX_PHOTOS_PER_VEHICLE) throw { code: "too_many_photos" };
+      const key = `${D.plateKey(plate)}_${Date.now().toString(36)}`;
+      await db.doc("photos/" + key).set({ plaque: plate, data: full });
+      photoCache.set(key, full);
+      const entry = { key, thumb, addedAt: new Date().toISOString() };
+      if (vehicle) await vehicleRef(plate).update({ photos: [...photos, entry], updatedAt: entry.addedAt });
+      else await vehicleRef(plate).set({ plaque: plate, modele: "", cubage: null, photos: [entry], updatedAt: entry.addedAt });
+      return entry;
+    }
+
+    async function removePhoto(vehicle, key) {
+      await vehicleRef(vehicle.plaque).update({ photos: vehicle.photos.filter((p) => p.key !== key), updatedAt: new Date().toISOString() });
+      await db.doc("photos/" + key).delete();
+      photoCache.delete(key);
+    }
+
+    async function loadPhoto(key) {
+      if (!photoCache.has(key)) {
+        const snap = await db.doc("photos/" + key).get();
+        if (snap.exists) photoCache.set(key, snap.data().data);
+      }
+      return photoCache.get(key);
+    }
+
+    return { subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+  }
+
+  return { createStore, MAX_PHOTOS_PER_VEHICLE };
+});
+</script>
+<script>
+// Screens of the tracker. Business rules live in domain.js, data access in store.js.
+(() => {
+  const D = window.SuiviDomain;
+  const { createStore, MAX_PHOTOS_PER_VEHICLE } = window.SuiviStore;
+  const SHEET_SCRIPT = `// Suivi prestations CityDrop -> coche "OK confirmé" dans ce Google Sheet
+// Collez ce code dans Extensions > Apps Script, puis Déployer > Application Web.
+
+const ONGLET = '';               // nom de l'onglet ('' = premier onglet)
+const TITRE_PLAQUE = 'imm';      // début du titre de la colonne immatriculation
+const TITRE_CONFIRME = 'confirm'; // début du titre de la colonne "OK confirmé"
+
+function doGet(e) {
+  const norm = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const plaques = String(e.parameter.plaques || '').split(',').map(norm).filter(String);
+  const classeur = SpreadsheetApp.getActive();
+  const feuille = ONGLET ? classeur.getSheetByName(ONGLET) : classeur.getSheets()[0];
+  const valeurs = feuille.getDataRange().getValues();
+  const iTitres = valeurs.findIndex((r) => r.some((c) => String(c).toLowerCase().includes(TITRE_PLAQUE)));
+  if (iTitres < 0) return page('Colonne immatriculation introuvable : vérifie TITRE_PLAQUE.');
+  const titres = valeurs[iTitres].map((t) => String(t).toLowerCase());
+  const cPlaque = titres.findIndex((t) => t.includes(TITRE_PLAQUE));
+  const cOk = titres.findIndex((t) => t.includes(TITRE_CONFIRME));
+  if (cOk < 0) return page('Colonne "OK confirmé" introuvable : vérifie TITRE_CONFIRME.');
+  const faites = [], absentes = [];
+  plaques.forEach((p) => {
+    const i = valeurs.findIndex((r, k) => k > iTitres && norm(r[cPlaque]) === p);
+    if (i < 0) { absentes.push(p); return; }
+    const cellule = feuille.getRange(i + 1, cOk + 1);
+    const regle = cellule.getDataValidation();
+    const caseACocher = regle && regle.getCriteriaType() === SpreadsheetApp.DataValidationCriteria.CHECKBOX;
+    cellule.setValue(caseACocher ? true : 'OK');
+    faites.push(p);
+  });
+  return page(faites.length + ' véhicule(s) coché(s) : ' + (faites.join(', ') || '—') +
+    (absentes.length ? '<br><br>Introuvables dans le tableau : ' + absentes.join(', ') : '') +
+    '<br><br>Tu peux fermer cet onglet.');
+}
+
+function page(texte) {
+  return HtmlService.createHtmlOutput('<p style="font:16px sans-serif;padding:20px;line-height:1.5">' + texte + '</p>');
+}`;
+
+  const state = {
+    store: null,
+    canWrite: true,
+    downloads: null,
+    demandes: [],
+    vehicles: new Map(),          // plateKey -> vehicle doc
+    providers: D.DEFAULT_PROVIDERS.slice(),
+    sites: D.DEFAULT_SITES.slice(), // [{nom, adresse}]
+    fleet: D.DEFAULT_FLEET.slice(), // [{modele, cubage}]
+    contacts: {},                 // provider -> WhatsApp number
+    sheetUrl: "",
+    day: D.toIsoDate(new Date()),
+    providerFilter: "",
+    editingId: null,
+    checkedForVerification: new Set(),
+    openVehicleKey: null,
+  };
+  const today = () => D.toIsoDate(new Date());
+  const siteNames = () => state.sites.map((s) => s.nom);
+  const defaultProvider = () => state.providers[0] || "";
+
+  // ================= DOM helpers =================
+  const $ = (selector) => document.querySelector(selector);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const safeImageSrc = (src) => (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(src || "") ? src : "");
+  const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+  const options = (values) => values.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+  const plateTag = (plate) => `<span class="plate"><span>${esc(plate || "—")}</span></span>`;
+  const statusChip = (status) => `<span class="chip st-${esc(status)}">${D.statusOf(status).label}</span>`;
+  const plural = (n, word) => `${n} ${word}${n > 1 ? "s" : ""}`;
+  function setSelectOptions(select, html) {
+    const previous = select.value;
+    select.innerHTML = html;
+    if ([...select.options].some((o) => o.value === previous)) select.value = previous;
+  }
+
+  let toastTimer;
+  function toast(text) {
+    const el = $("#toast");
+    el.textContent = text; el.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 3200);
+  }
+  function banner(text) { const el = $("#banner"); el.textContent = text || ""; el.hidden = !text; }
+  function reportWriteError(err) {
+    if (err?.code === "invalid_argument") {
+      state.canWrite = false;
+      banner("Tu as accès en lecture seule : demande au propriétaire de te passer en « Contributeur » pour saisir des demandes.");
+    } else if (err?.code === "quota_exceeded") toast("Stockage plein : supprime d'anciennes photos ou demandes");
+    else if (err?.code === "too_many_photos") toast(`Ce véhicule a déjà ${MAX_PHOTOS_PER_VEHICLE} photos : supprimes-en une dans l'onglet Photos`);
+    else toast("Enregistrement impossible pour le moment, réessaie dans un instant");
+  }
+  const requireStore = () => { if (!state.store) toast("La base n'est pas disponible depuis cette vue"); return !!state.store; };
+
+  // ================= clipboard & files =================
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch {}
+    const area = document.createElement("textarea");
+    area.value = text; area.style.position = "fixed"; area.style.opacity = "0";
+    document.body.appendChild(area); area.select();
+    let copied = false; try { copied = document.execCommand("copy"); } catch {}
+    area.remove();
+    if (!copied) toast("Copie bloquée par le navigateur : sélectionne le texte et copie-le à la main");
+    return copied;
+  }
+
+  const loadImage = (src) => new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = src; });
+  const canvasToBlob = (canvas, type, quality) => new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("blob"))), type, quality));
+  const dataUrlToBlob = (dataUrl) => fetch(dataUrl).then((r) => r.blob());
+
+  // One image holding every photo, each captioned with its plate and model, so photos never get mixed up.
+  async function buildPhotoSheet(entries, type = "image/png") {
+    const layout = D.collageLayout(entries.length);
+    const canvas = document.createElement("canvas");
+    canvas.width = layout.width; canvas.height = layout.height;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const images = await Promise.all(entries.map((e) => state.store.loadPhoto(e.key).then(loadImage)));
+    layout.tiles.forEach((tile, i) => {
+      const { plate, label } = entries[i];
+      ctx.fillStyle = "#12212b"; ctx.fillRect(tile.x, tile.y, tile.width, tile.caption);
+      ctx.fillStyle = "#ffffff"; ctx.font = "600 30px 'IBM Plex Mono', monospace"; ctx.textBaseline = "middle";
+      ctx.fillText(plate, tile.x + 16, tile.y + tile.caption / 2);
+      ctx.font = "500 22px 'IBM Plex Sans', sans-serif"; ctx.textAlign = "right";
+      ctx.fillText(label, tile.x + tile.width - 16, tile.y + tile.caption / 2, tile.width * 0.55);
+      ctx.textAlign = "left";
+      drawCover(ctx, images[i], tile.x, tile.y + tile.caption, tile.width, tile.height);
+    });
+    return canvasToBlob(canvas, type, 0.85);
+  }
+  function drawCover(ctx, img, x, y, w, h) {
+    const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+    const sw = w / scale, sh = h / scale;
+    ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, x, y, w, h);
+  }
+  const photoEntries = (plates) => plates.flatMap((plate) => {
+    const vehicle = vehicleOf(plate);
+    return (vehicle?.photos || []).map((p) => ({ key: p.key, plate: vehicle.plaque, label: D.vehicleLabel(vehicle) }));
+  });
+
+  // Must start synchronously from the click: ClipboardItem accepts a promise so the gesture is kept.
+  async function copyImage(makePng, fallbackName, makeJpeg) {
+    try {
+      if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) throw new Error("unsupported");
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": makePng() })]);
+      toast("Photos copiées : colle-les dans WhatsApp avec Ctrl+V");
+    } catch {
+      if (state.downloads) { toast("Copie d'image refusée ici : je te propose de l'enregistrer"); await saveBlob(makeJpeg(), fallbackName); }
+      else toast("Copie d'image refusée par le navigateur : clic droit sur la photo › Copier l'image");
+    }
+  }
+  async function saveBlob(blobPromise, filename) {
+    if (!state.downloads) return toast("Enregistrement indisponible ici : clic droit sur la photo › Enregistrer l'image");
+    try { await state.downloads.save({ filename, data: await blobPromise }); }
+    catch (e) { if (e?.code !== "declined") toast("Enregistrement impossible"); }
+  }
+  const singlePhotoPng = (key) => state.store.loadPhoto(key).then(loadImage).then((img) => {
+    const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
+    c.getContext("2d").drawImage(img, 0, 0); return canvasToBlob(c, "image/png");
+  });
+  const singlePhotoJpeg = (key) => state.store.loadPhoto(key).then(dataUrlToBlob);
+
+  function shrinkImage(file, maxSide, quality) {
+    const url = URL.createObjectURL(file);
+    return loadImage(url).then((img) => {
+      const ratio = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * ratio); canvas.height = Math.round(img.height * ratio);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", quality);
+    }).finally(() => URL.revokeObjectURL(url));
+  }
+  const MAX_PHOTO_CHARS = 240000; // keeps each photo document under the 256 KiB store limit
+  async function prepareImage(file) {
+    for (const [side, quality] of [[1400, 0.72], [1000, 0.6], [800, 0.5]]) {
+      const full = await shrinkImage(file, side, quality);
+      if (full.length <= MAX_PHOTO_CHARS) return { full, thumb: await shrinkImage(file, 200, 0.6) };
+    }
+    throw new Error("too_big");
+  }
+
+  // ================= vehicles & photos =================
+  const vehicleOf = (plate) => state.vehicles.get(D.plateKey(plate));
+  const photosOf = (plate) => vehicleOf(plate)?.photos || [];
+  const photoFileName = (plate, index) => `${D.plateKey(plate)}-pare-brise-${index + 1}.jpg`;
+
+  let pendingPhotoPlate = null;
+  function pickPhotosFor(plate) {
+    if (!D.plateKey(plate)) return toast("Saisis d'abord la plaque du véhicule");
+    pendingPhotoPlate = D.normalizePlate(plate);
+    $("#photoInput").click();
+  }
+  async function addPhotoFiles(plate, files) {
+    if (!requireStore() || !D.plateKey(plate)) return;
+    let added = 0;
+    for (const file of files) {
+      try {
+        await state.store.addPhoto(vehicleOf(plate), plate, await prepareImage(file));
+        added++;
+      } catch (err) {
+        if (err instanceof Error) toast("Cette image n'a pas pu être lue");
+        else { reportWriteError(err); break; }
+      }
+    }
+    if (added) toast(`${plural(added, "photo")} ajoutée${added > 1 ? "s" : ""} à ${plate}`);
+  }
+  $("#photoInput").addEventListener("change", async (e) => {
+    const files = [...e.target.files]; e.target.value = "";
+    if (pendingPhotoPlate && files.length) await addPhotoFiles(pendingPhotoPlate, files);
+  });
+  document.addEventListener("paste", (e) => {
+    const file = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"))?.getAsFile();
+    if (!file) return;
+    if (!$("#view-demande").hidden) addPhotoFiles(D.normalizePlate($("#f-plaque").value), [file]);
+    else if (!$("#view-photos").hidden && state.openVehicleKey) addPhotoFiles(state.vehicles.get(state.openVehicleKey).plaque, [file]);
+  });
+
+  // ================= share block (text + WhatsApp + photos) =================
+  let shareCount = 0;
+  const shareRegistry = new Map(); // block id -> plates whose photos it sends
+  // Two buttons only: a WhatsApp link can carry text but never photos, so the text and the photo image are pasted one after the other.
+  function shareBlock({ text, plates = [] }) {
+    const id = "share-" + ++shareCount;
+    const entries = photoEntries(plates);
+    shareRegistry.set(id, plates);
+    const copy = `<button type="button" class="primary big" data-copy="#${id}">${icon("copy")}Copier le texte</button>`;
+    const photos = entries.length
+      ? `<button type="button" class="primary big" data-copy-sheet="${id}">${icon("image")}${entries.length > 1 ? `Copier les ${entries.length} photos d'un coup` : "Copier la photo"}</button>`
+      : "";
+    return `<div class="share">
+      <pre class="msg" id="${id}">${esc(text)}</pre>
+      <div class="actions">${copy}${photos}</div>
+      ${entries.length ? `<p class="small muted">Colle le texte (Ctrl+V), puis les photos (Ctrl+V). Chaque photo porte sa plaque.</p>
+      <div class="photo-strip">${entries.map((e) => photoMini(e)).join("")}</div>` : ""}
+    </div>`;
+  }
+  function photoMini(entry) {
+    const thumb = (vehicleOf(entry.plate)?.photos || []).find((p) => p.key === entry.key)?.thumb;
+    return `<figure><img src="${safeImageSrc(thumb)}" data-zoom="${esc(entry.key)}" alt="Pare-brise ${esc(entry.plate)}"><figcaption>${esc(entry.plate)}</figcaption></figure>`;
+  }
+  function photoTile(plate, photo, index) {
+    const name = photoFileName(plate, index);
+    return `<figure class="ph"><img src="${safeImageSrc(photo.thumb)}" data-zoom="${esc(photo.key)}" alt="Pare-brise ${esc(plate)} photo ${index + 1}">
+      <div class="actions"><button type="button" data-copy-photo="${esc(photo.key)}" data-name="${esc(name)}">${icon("copy")}Copier</button>
+      <button type="button" class="ghost" data-save-photo="${esc(photo.key)}" data-name="${esc(name)}" aria-label="Enregistrer">${icon("download")}</button>
+      ${state.canWrite ? `<button type="button" class="ghost danger" data-remove-photo="${esc(photo.key)}" aria-label="Supprimer">${icon("x")}</button>` : ""}</div></figure>`;
+  }
+  const sheetName = () => `photos-pare-brise-${today()}.jpg`;
+  // Capture phase: read the text before a re-render triggered by the same click replaces it.
+  document.addEventListener("click", (e) => {
+    const target = (sel) => e.target.closest(sel);
+    let el;
+    if ((el = target("[data-copy]"))) { copyText($(el.dataset.copy).textContent).then((ok) => ok && toast("Texte copié, prêt à coller")); return; }
+    if ((el = target("[data-copy-sheet]"))) { const entries = photoEntries(shareRegistry.get(el.dataset.copySheet) || []); copyImage(() => buildPhotoSheet(entries), sheetName(), () => buildPhotoSheet(entries, "image/jpeg")); return; }
+    if ((el = target("[data-save-sheet]"))) { saveBlob(buildPhotoSheet(photoEntries(shareRegistry.get(el.dataset.saveSheet) || []), "image/jpeg"), sheetName()); return; }
+    if ((el = target("[data-copy-photo]"))) { const key = el.dataset.copyPhoto; copyImage(() => singlePhotoPng(key), el.dataset.name, () => singlePhotoJpeg(key)); return; }
+    if ((el = target("[data-save-photo]"))) { saveBlob(singlePhotoJpeg(el.dataset.savePhoto), el.dataset.name); return; }
+    if ((el = target("[data-zoom]"))) openLightbox(el.dataset.zoom, el.src);
+  }, true);
+  async function openLightbox(key, fallbackSrc) {
+    $("#lightImg").src = fallbackSrc; $("#lightbox").hidden = false;
+    const full = state.store ? await state.store.loadPhoto(key).catch(() => null) : null;
+    if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
+  }
+  $("#lightbox").onclick = () => ($("#lightbox").hidden = true);
+
+  // ================= Google Sheet link =================
+  function sheetLink(plates) {
+    if (!/^https:\/\/script\.google\.com\//.test(state.sheetUrl) || !plates.length) return "";
+    const href = state.sheetUrl + (state.sheetUrl.includes("?") ? "&" : "?") + "plaques=" + encodeURIComponent(plates.map(D.plateKey).join(","));
+    return `<a class="btn" href="${esc(href)}" target="_blank" rel="noopener">${icon("list")}Cocher dans le Google Sheet (${plates.length})</a>`;
+  }
+
+  // ================= navigation =================
+  const VIEWS = ["planning", "demande", "photos", "verif", "bilan", "historique", "reglages"];
+  function show(view) {
+    if (!VIEWS.includes(view)) view = "planning";
+    VIEWS.forEach((v) => { $("#view-" + v).hidden = v !== view; $("#tab-" + v).setAttribute("aria-selected", String(v === view)); });
+    if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
+  }
+  document.querySelectorAll("nav.tabs button").forEach((tab) => tab.addEventListener("click", () => {
+    if (tab.dataset.view === "demande" && !state.editingId) resetForm();
+    show(tab.dataset.view);
+  }));
+  window.addEventListener("hashchange", () => show(location.hash.slice(1)));
+
+  // ================= shared selects =================
+  const fleetOptions = () => `<option value="">Choisir le modèle…</option>` + state.fleet.map((f, i) => `<option value="${i}">${esc(D.fleetLabel(f))}</option>`).join("");
+  function renderSelects() {
+    const allProviders = `<option value="">Tous les prestataires</option>` + options(state.providers);
+    if (state.providerFilter && !state.providers.includes(state.providerFilter)) state.providerFilter = "";
+    setSelectOptions($("#provFilter"), allProviders); $("#provFilter").value = state.providerFilter;
+    $("#provFilter").hidden = state.providers.length < 2;
+    ["#h-prest", "#v-prest", "#b-prest"].forEach((s) => setSelectOptions($(s), allProviders));
+    setSelectOptions($("#f-prest"), options(state.providers));
+    $("#provRow").hidden = state.providers.length < 2;
+    document.querySelectorAll("#form .m-base").forEach((base) => {
+      setSelectOptions(base, baseOptions());
+      fillVariants(base, variantSelectOf(base));
+    });
+    setSelectOptions($("#f-site"), `<option value="">Choisir un site…</option>` + options(siteNames()));
+    setSelectOptions($("#h-site"), `<option value="">Tous les sites</option>` + options(siteNames()));
+  }
+  $("#h-statut").innerHTML = `<option value="">Tous les statuts</option><option value="ouvert">En cours (hors réalisées / annulées)</option>` + D.STATUSES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
+  $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
+  $("#svcSeg").innerHTML = D.SERVICES.map((s, i) => `<label><input type="radio" name="svc" id="svc-${s.id}" value="${s.id}" ${i === 0 ? "checked" : ""}><span>${s.label}</span></label>`).join("");
+
+  // ================= planning =================
+  function renderPlanning() {
+    const { day, providerFilter } = state;
+    $("#dayTitle").textContent = (day === today() ? "Aujourd'hui · " : "") + D.dayLabel(day);
+    $("#dayPick").value = day;
+    renderWeekStrip();
+    const ofDay = state.demandes.filter((d) => D.isAvailableOn(d, day) && (!providerFilter || d.prestataire === providerFilter));
+    $("#dayList").innerHTML = ofDay.length
+      ? D.groupBySite(ofDay, siteNames()).map(([site, items]) => siteBlockHtml(site, items)).join("")
+      : `<div class="empty"><b>Aucun véhicule prévu ce jour-là.</b><span>Les véhicules disponibles ce jour apparaissent ici, classés par site, avec la liste prête à envoyer.</span></div>`;
+    const active = ofDay.filter(D.isActive);
+    $("#dayShare").innerHTML = active.length
+      ? shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }), provider: providerFilter || defaultProvider(), plates: active.filter(D.isWindshield).map((d) => d.plaque) })
+      : `<p class="muted">Rien à envoyer pour ce jour.</p>`;
+  }
+  function renderWeekStrip() {
+    const monday = D.mondayOf(state.day);
+    $("#strip").innerHTML = Array.from({ length: 7 }, (_, i) => {
+      const iso = D.addDays(monday, i);
+      const date = D.parseIsoDate(iso);
+      const count = D.vehiclesOnDay(state.demandes, iso, state.providerFilter).length;
+      return `<button data-day="${iso}" aria-current="${iso === state.day}" class="${iso === today() ? "today" : ""}"><small>${date.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")}</small><b>${date.getDate()}</b><span class="cnt">${count ? count + " véh." : ""}</span></button>`;
+    }).join("");
+  }
+  function siteBlockHtml(site, items) {
+    const address = D.siteAddress(state.sites, site);
+    return `<section class="site-block"><div class="site-head"><h3>${esc(site)}</h3>${address ? `<span class="addr">${icon("pin")}${esc(address)}</span>` : ""}<span class="count">${plural(items.filter(D.isActive).length, "véhicule")}</span></div>
+      ${items.map(vehicleRow).join("")}</section>`;
+  }
+  function vehicleRow(d) {
+    const thumb = photosOf(d.plaque)[0]?.thumb;
+    const sub = [d.adresse !== D.siteAddress(state.sites, d.site) ? d.adresse : "", D.isMultiDay(d) ? `dispo ${D.availabilityLabel(d)}` : "", d.notes].filter(Boolean).join(" · ");
+    return `<button class="veh-row ${D.isActive(d) ? "" : "cancel"}" data-open="${esc(d.id)}">
+      ${plateTag(d.plaque)}
+      <span class="what"><span class="model">${esc(D.vehicleLabel(d) || "Modèle non précisé")}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span>
+      <span class="right"><span class="time">${esc(D.timeSlotLabel(d))}</span>${statusChip(d.statut)}${thumb ? `<img class="thumb" src="${safeImageSrc(thumb)}" alt="">` : ""}</span>
+    </button>`;
+  }
+  const goToDay = (day) => { state.day = day; renderPlanning(); };
+  $("#strip").addEventListener("click", (e) => { const b = e.target.closest("[data-day]"); if (b) goToDay(b.dataset.day); });
+  $("#prevDay").onclick = () => goToDay(D.addDays(state.day, -1));
+  $("#nextDay").onclick = () => goToDay(D.addDays(state.day, 1));
+  $("#todayBtn").onclick = () => goToDay(today());
+  $("#dayPick").onchange = (e) => e.target.value && goToDay(e.target.value);
+  $("#provFilter").onchange = (e) => {
+    state.providerFilter = e.target.value;
+    try { localStorage.setItem("suivi.provFilter", state.providerFilter); } catch {}
+    renderPlanning();
+  };
+  $("#newOnDay").onclick = () => { resetForm(); setAvailability(state.day); renderFormSide(); show("demande"); };
+  $("#dayList").addEventListener("click", (e) => { const row = e.target.closest("[data-open]"); if (row) openDemande(row.dataset.open); });
+
+  // ================= request form =================
+  const field = (name) => $("#f-" + name);
+  function selectedFleetModel() {
+    const index = field("modele").value;
+    return index === "" ? { modele: "", cubage: null } : state.fleet[+index];
+  }
+  function readForm() {
+    const model = selectedFleetModel();
+    return {
+      service: document.querySelector('input[name="svc"]:checked')?.value || "pare-brise",
+      plaque: D.normalizePlate(field("plaque").value),
+      modele: model.modele,
+      cubage: model.cubage,
+      site: field("site").value,
+      adresse: field("adresse").value.trim(),
+      date: field("date").value,
+      dateFin: field("dateFin").value || field("date").value,
+      debut: field("debut").value,
+      fin: field("fin").value,
+      prestataire: field("prest").value || defaultProvider(),
+      notes: field("notes").value.trim(),
+    };
+  }
+  // ----- model picker: brand + model first, then cubage (year shown only when the cubage is ambiguous) -----
+  const baseOptions = () => `<option value="">Choisir le modèle…</option>` + options(D.fleetBases(state.fleet));
+  const variantSelectOf = (base) => base.closest(".grid, .extra-veh").querySelector(".m-var");
+  function fillVariants(base, variant) {
+    const variants = D.fleetVariants(state.fleet, base.value);
+    setSelectOptions(variant, base.value
+      ? (variants.length > 1 ? `<option value="">Choisir…</option>` : "") + variants.map((v) => `<option value="${v.index}">${esc(v.label)}</option>`).join("")
+      : `<option value="">—</option>`);
+    if (variants.length === 1) variant.value = String(variants[0].index);
+    variant.disabled = !base.value;
+  }
+  function setModelPicker(base, variant, v) {
+    if (D.fleetIndex(state.fleet, v) < 0 && v.modele) { state.fleet.push({ modele: v.modele, cubage: v.cubage }); renderSelects(); }
+    base.value = D.baseModel(v.modele);
+    fillVariants(base, variant);
+    variant.value = String(D.fleetIndex(state.fleet, v));
+  }
+  const selectFleetModel = (v) => setModelPicker(field("base"), field("modele"), v);
+  $("#form").addEventListener("change", (e) => {
+    if (e.target.matches(".m-base")) fillVariants(e.target, variantSelectOf(e.target));
+  }, true);
+  // ----- grouped request: extra vehicles at the same place, own time window -----
+  const extraRows = () => [...document.querySelectorAll("#extraVeh .extra-veh")];
+  function renumberExtraRows() { extraRows().forEach((row, i) => (row.querySelector(".num").textContent = `Véhicule ${i + 2}`)); }
+  function addExtraRow(v = {}) {
+    const row = document.createElement("div");
+    row.className = "extra-veh";
+    row.dataset.id = v.id || "";
+    row.innerHTML = `<span class="num"></span>
+      <label class="field"><span>Immatriculation</span><input class="x-plaque plate-input" placeholder="AB-123-CD" list="dl-plaques" value="${esc(v.plaque || "")}"></label>
+      <label class="field"><span>Modèle</span><select class="x-base m-base">${baseOptions()}</select></label>
+      <label class="field"><span>Cubage</span><select class="x-modele m-var"></select></label>
+      <label class="field"><span>De</span><input type="time" class="x-debut" step="900" value="${esc(v.debut ?? field("debut").value)}"></label>
+      <label class="field"><span>À</span><input type="time" class="x-fin" step="900" value="${esc(v.fin ?? field("fin").value)}"></label>
+      <button type="button" class="ghost danger" data-remove-veh aria-label="Retirer ce véhicule">${icon("x")}</button>`;
+    $("#extraVeh").append(row);
+    fillVariants(row.querySelector(".x-base"), row.querySelector(".x-modele"));
+    if (v.modele) setModelPicker(row.querySelector(".x-base"), row.querySelector(".x-modele"), v);
+    renumberExtraRows();
+    return row;
+  }
+  function readExtras() {
+    return extraRows().map((row) => {
+      const index = row.querySelector(".x-modele").value;
+      const model = index === "" ? { modele: "", cubage: null } : state.fleet[+index];
+      return { row, id: row.dataset.id, plaque: D.normalizePlate(row.querySelector(".x-plaque").value), modele: model.modele, cubage: model.cubage,
+        debut: row.querySelector(".x-debut").value, fin: row.querySelector(".x-fin").value };
+    }).filter((x) => x.plaque);
+  }
+  const groupMember = (main, extra) => ({ ...main, plaque: extra.plaque, modele: extra.modele, cubage: extra.cubage, debut: extra.debut, fin: extra.fin });
+  $("#addVeh").onclick = () => { addExtraRow().querySelector(".x-plaque").focus(); renderFormSide(); };
+  $("#extraVeh").addEventListener("change", (e) => {
+    const input = e.target.closest(".x-plaque");
+    if (!input) return;
+    input.value = D.normalizePlate(input.value);
+    const vehicle = vehicleOf(input.value);
+    const row = input.closest(".extra-veh");
+    if (vehicle?.modele) setModelPicker(row.querySelector(".x-base"), row.querySelector(".x-modele"), vehicle);
+    renderFormSide();
+  });
+  $("#extraVeh").addEventListener("click", async (e) => {
+    const button = e.target.closest("[data-remove-veh]");
+    if (!button) return;
+    const row = button.closest(".extra-veh");
+    if (row.dataset.id) {
+      if (!requireStore()) return;
+      try { await state.store.deleteDemande(row.dataset.id); toast("Véhicule retiré de la demande"); }
+      catch (err) { reportWriteError(err); return; }
+    }
+    row.remove(); renumberExtraRows(); renderFormSide();
+  });
+
+  function setAvailability(start, end) { field("date").value = start; field("dateFin").value = end || start; }
+  function fillForm(d) {
+    (document.getElementById("svc-" + d.service) || document.getElementById("svc-pare-brise")).checked = true;
+    ["plaque", "adresse", "debut", "fin", "notes"].forEach((k) => (field(k).value = d[k] || ""));
+    setAvailability(d.date, d.dateFin);
+    if (d.prestataire && !state.providers.includes(d.prestataire)) state.providers.push(d.prestataire);
+    if (d.site && !siteNames().includes(d.site)) state.sites.push({ nom: d.site, adresse: "" });
+    renderSelects();
+    field("base").value = ""; fillVariants(field("base"), field("modele")); if (d.modele) selectFleetModel(d);
+    field("site").value = d.site || "";
+    field("prest").value = d.prestataire || defaultProvider();
+    $("#notesBox").open = !!d.notes;
+    $("#extraVeh").innerHTML = "";
+    state.groupe = d.groupe || "";
+    if (d.groupe) state.demandes.filter((x) => x.groupe === d.groupe && x.id !== d.id).sort(D.byStartTime).forEach(addExtraRow);
+  }
+
+  function renderFormSide() {
+    const d = readForm();
+    const others = readExtras().map((x) => groupMember(d, x));
+    const photos = photosOf(d.plaque);
+    const plates = D.isWindshield(d) ? [d, ...others].map((v) => v.plaque).filter(D.plateKey) : [];
+    const photoCount = plates.reduce((n, plate) => n + photosOf(plate).length, 0);
+    $("#photosSet").hidden = !D.isWindshield(d);
+    $("#msgTitle").textContent = others.length ? `Envoyer la demande (${others.length + 1} véhicules)` : "Envoyer la demande";
+    $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others), provider: d.prestataire, plates });
+    $("#formPhotos").innerHTML = photos.map((p, i) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo ${i + 1} du pare-brise">`).join("")
+      + `<button type="button" class="drop" data-add-photo>${icon("plus")}Ajouter une photo</button>`;
+    const vehicle = vehicleOf(d.plaque);
+    $("#vehHint").textContent = vehicle && D.plateKey(d.plaque) ? `Véhicule connu : modèle et ${plural(photos.length, "photo")} repris automatiquement.` : "";
+    const current = state.demandes.find((x) => x.id === state.editingId);
+    $("#formSheet").innerHTML = current && ["confirmee", "realisee"].includes(current.statut) ? sheetLink([d.plaque]) : "";
+  }
+  function fillFromVehicle() {
+    field("plaque").value = D.normalizePlate(field("plaque").value);
+    const vehicle = vehicleOf(field("plaque").value);
+    if (vehicle?.modele) selectFleetModel(vehicle);
+    renderFormSide();
+  }
+  $("#form").addEventListener("input", (e) => { if (e.target.id !== "f-plaque") renderFormSide(); });
+  $("#form").addEventListener("change", renderFormSide);
+  field("plaque").addEventListener("change", fillFromVehicle);
+  field("site").addEventListener("change", () => { field("adresse").value = D.siteAddress(state.sites, field("site").value); renderFormSide(); });
+  field("date").addEventListener("change", () => {
+    if (!field("dateFin").value || field("dateFin").value < field("date").value) field("dateFin").value = field("date").value;
+    renderFormSide();
+  });
+  field("debut").addEventListener("change", () => {
+    if (field("debut").value && !field("fin").value) { field("fin").value = D.defaultEndTime(field("debut").value); renderFormSide(); }
+  });
+  $("#formPhotos").addEventListener("click", (e) => { if (e.target.closest("[data-add-photo]")) pickPhotosFor(field("plaque").value); });
+
+  function resetForm() {
+    state.editingId = null;
+    $("#form").reset();
+    $("#extraVeh").innerHTML = "";
+    fillVariants(field("base"), field("modele"));
+    state.groupe = "";
+    setAvailability(D.addDays(today(), 1));
+    field("prest").value = state.providerFilter || defaultProvider();
+    $("#notesBox").open = false;
+    $("#formTitle").textContent = "Nouvelle demande";
+    $("#formStatusChip").hidden = true;
+    $("#saveBtn").textContent = "Enregistrer la demande";
+    $("#delZone").innerHTML = "";
+    renderFormSide();
+  }
+  $("#resetBtn").onclick = resetForm;
+
+  function openDemande(id) {
+    const d = state.demandes.find((x) => x.id === id);
+    if (!d) return;
+    state.editingId = id;
+    fillForm(d);
+    showSavedHeader(d);
+    renderFormSide(); show("demande"); window.scrollTo({ top: 0 });
+  }
+  function newDemandeFor(vehicle) {
+    resetForm();
+    field("plaque").value = vehicle.plaque;
+    fillFromVehicle(); show("demande");
+  }
+  function showSavedHeader(d) {
+    const count = extraRows().length + 1;
+    $("#formTitle").textContent = count > 1 ? `Demande groupée · ${count} véhicules` : "Demande " + (d.plaque || "");
+    const chip = $("#formStatusChip");
+    chip.hidden = false; chip.className = "chip st-" + d.statut; chip.textContent = D.statusOf(d.statut).label;
+    $("#saveBtn").textContent = "Enregistrer les modifications";
+    $("#delZone").innerHTML = state.canWrite ? `<button type="button" class="ghost danger" data-delete>Supprimer</button>` : "";
+  }
+
+  // Status is not edited in the form: a new request starts "à envoyer" and becomes "envoyée" once copied or opened in WhatsApp.
+  async function saveForm({ markSent = false } = {}) {
+    if (!requireStore()) return false;
+    const nextStatus = (previous) => {
+      const current = previous?.statut || "a_envoyer";
+      return markSent && current === "a_envoyer" ? "envoyee" : current;
+    };
+    const previous = state.demandes.find((x) => x.id === state.editingId) || null;
+    const extras = readExtras();
+    const main = readForm();
+    const missing = D.missingFields(main);
+    if (missing.length) { toast("Il manque " + missing.join(", ")); return false; }
+    const twice = D.duplicatePlates([main.plaque, ...extras.map((x) => x.plaque)]);
+    if (twice.length) { toast(`La plaque ${D.normalizePlate(twice[0])} est saisie deux fois`); return false; }
+    if (extras.length && !state.groupe) state.groupe = previous?.groupe || "g" + Date.now().toString(36);
+    const groupe = state.groupe || "";
+    try {
+      state.editingId = await state.store.saveDemande(state.editingId, { ...main, groupe, statut: nextStatus(previous) }, previous);
+      await state.store.saveVehicle(vehicleOf(main.plaque), main);
+      for (const extra of extras) {
+        const before = state.demandes.find((x) => x.id === extra.id) || null;
+        const member = { ...groupMember(main, extra), groupe, statut: nextStatus(before) };
+        extra.row.dataset.id = await state.store.saveDemande(extra.id || null, member, before);
+        await state.store.saveVehicle(vehicleOf(member.plaque), member);
+      }
+      showSavedHeader(main);
+      return true;
+    } catch (err) { reportWriteError(err); return false; }
+  }
+  $("#form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (await saveForm()) { toast(extraRows().length ? "Demande groupée enregistrée" : "Demande enregistrée"); state.day = field("date").value || state.day; }
+  });
+  $("#formShare").addEventListener("click", async (e) => {
+    if (!e.target.closest("[data-copy]")) return;
+    const wasNew = !state.editingId || state.demandes.find((x) => x.id === state.editingId)?.statut === "a_envoyer";
+    if (await saveForm({ markSent: true }) && wasNew) toast("Demande enregistrée et passée en « Envoyée »");
+  });
+  $("#delZone").addEventListener("click", async (e) => {
+    if (e.target.closest("[data-delete]")) {
+      $("#delZone").innerHTML = `<span class="row">Supprimer définitivement ? <button type="button" class="danger" data-delete-yes>Oui, supprimer</button><button type="button" class="ghost" data-delete-no>Non</button></span>`;
+    } else if (e.target.closest("[data-delete-no]")) {
+      $("#delZone").innerHTML = `<button type="button" class="ghost danger" data-delete>Supprimer</button>`;
+    } else if (e.target.closest("[data-delete-yes]") && state.editingId && requireStore()) {
+      const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id).filter(Boolean)];
+      try { await Promise.all(ids.map((id) => state.store.deleteDemande(id))); toast(ids.length > 1 ? "Demande groupée supprimée" : "Demande supprimée"); resetForm(); show("planning"); }
+      catch (err) { reportWriteError(err); }
+    }
+  });
+
+  // ================= photo library =================
+  function renderPhotoLibrary() {
+    const query = $("#p-q").value;
+    const vehicles = [...state.vehicles.values()]
+      .filter((v) => D.matchesSearch([v.plaque, D.vehicleLabel(v)], query))
+      .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+    $("#p-list").innerHTML = vehicles.length
+      ? `<div class="veh-grid">${vehicles.map(vehicleCard).join("")}</div>`
+      : `<div class="empty"><b>${state.vehicles.size ? "Aucun véhicule ne correspond." : "La photothèque est vide."}</b><span>Chaque véhicule saisi dans une demande arrive ici avec ses photos de pare-brise. Tu peux aussi ajouter une plaque en haut à droite.</span></div>`;
+    renderVehicleDetail();
+  }
+  function vehicleCard(v) {
+    const key = D.plateKey(v.plaque);
+    const photos = v.photos || [];
+    const thumbs = Array.from({ length: 4 }, (_, i) => photos[i] ? `<img src="${safeImageSrc(photos[i].thumb)}" alt="">` : "<span></span>").join("");
+    return `<button class="veh-card" data-vehicle="${esc(key)}" aria-current="${key === state.openVehicleKey}">
+      <span class="row">${plateTag(v.plaque)}<span class="muted small">${plural(photos.length, "photo")}</span></span>
+      <span>${esc(D.vehicleLabel(v) || "Modèle non renseigné")}</span>
+      <span class="thumbs">${thumbs}</span></button>`;
+  }
+  function renderVehicleDetail() {
+    const v = state.vehicles.get(state.openVehicleKey);
+    if (!v) { $("#p-detail").innerHTML = ""; return; }
+    const photos = v.photos || [];
+    const history = state.demandes.filter((d) => D.plateKey(d.plaque) === state.openVehicleKey).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    $("#p-detail").innerHTML = `<div class="panel" style="margin-bottom:24px">
+      <div class="panel-head"><h2>${plateTag(v.plaque)}</h2><button type="button" class="ghost" data-close-vehicle aria-label="Fermer">${icon("x")}</button></div>
+      <div class="row"><label class="field" style="flex:1 1 280px"><span>Modèle et cubage</span><select id="pv-modele">${fleetOptions()}</select></label>
+        <button type="button" class="primary" data-new-for-vehicle style="align-self:flex-end">${icon("plus")}Nouvelle demande pour ce véhicule</button></div>
+      <h3>Photos du pare-brise · ${photos.length}/${MAX_PHOTOS_PER_VEHICLE}</h3>
+      <div class="ph-grid">${photos.map((p, i) => photoTile(v.plaque, p, i)).join("")}<button type="button" class="drop" style="width:auto;height:auto;min-height:150px" data-add-vehicle-photo>${icon("plus")}Ajouter des photos</button></div>
+      ${history.length ? `<h3>Demandes · ${history.length}</h3><div class="tablewrap"><table><tbody>${history.map((d) => `<tr class="click" data-open="${esc(d.id)}"><td class="date">${esc(D.shortDate(d.date))}</td><td>${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td><td>${statusChip(d.statut)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    </div>`;
+    $("#pv-modele").value = String(D.fleetIndex(state.fleet, v));
+  }
+  $("#p-q").addEventListener("input", renderPhotoLibrary);
+  $("#p-add").onclick = async () => {
+    const plate = D.normalizePlate($("#p-newplate").value);
+    if (!D.plateKey(plate) || !requireStore()) return;
+    try {
+      if (!vehicleOf(plate)) await state.store.saveVehicle(null, { plaque: plate });
+      state.openVehicleKey = D.plateKey(plate); $("#p-newplate").value = "";
+      renderPhotoLibrary();
+    } catch (err) { reportWriteError(err); }
+  };
+  $("#p-list").addEventListener("click", (e) => {
+    const card = e.target.closest("[data-vehicle]");
+    if (card) { state.openVehicleKey = card.dataset.vehicle; renderPhotoLibrary(); window.scrollTo({ top: 0 }); }
+  });
+  $("#p-detail").addEventListener("change", async (e) => {
+    const v = state.vehicles.get(state.openVehicleKey);
+    if (e.target.id !== "pv-modele" || !v || !requireStore()) return;
+    const model = e.target.value === "" ? { modele: "", cubage: null } : state.fleet[+e.target.value];
+    try { await state.store.updateVehicleModel(v, model); toast("Modèle enregistré"); } catch (err) { reportWriteError(err); }
+  });
+  $("#p-detail").addEventListener("click", async (e) => {
+    const v = state.vehicles.get(state.openVehicleKey);
+    if (!v) return;
+    if (e.target.closest("[data-close-vehicle]")) { state.openVehicleKey = null; renderPhotoLibrary(); }
+    else if (e.target.closest("[data-add-vehicle-photo]")) pickPhotosFor(v.plaque);
+    else if (e.target.closest("[data-new-for-vehicle]")) newDemandeFor(v);
+    else if (e.target.closest("[data-open]")) openDemande(e.target.closest("[data-open]").dataset.open);
+    else if (e.target.closest("[data-remove-photo]")) confirmPhotoRemoval(e.target.closest("[data-remove-photo]"), v);
+  });
+  async function confirmPhotoRemoval(button, vehicle) {
+    if (button.dataset.armed !== "1") { button.dataset.armed = "1"; button.textContent = "Confirmer"; return; }
+    try { await state.store.removePhoto(vehicle, button.dataset.removePhoto); toast("Photo supprimée"); }
+    catch (err) { reportWriteError(err); }
+  }
+
+  // ================= verification =================
+  $("#v-from").value = D.addDays(today(), -14);
+  $("#v-to").value = D.addDays(today(), 7);
+  const VERIFICATION_FILTERS = {
+    pending: (d) => ["envoyee", "confirmee"].includes(d.statut),
+    envoyee: (d) => d.statut === "envoyee",
+    confirmee: (d) => d.statut === "confirmee",
+    all: D.isActive,
+  };
+  function verificationRows() {
+    const provider = $("#v-prest").value, from = $("#v-from").value, to = $("#v-to").value;
+    const statusFilter = VERIFICATION_FILTERS[$("#v-st").value];
+    return state.demandes
+      .filter((d) => (!provider || d.prestataire === provider) && (!from || D.lastDay(d) >= from) && (!to || d.date <= to) && statusFilter(d))
+      .sort(D.byDateThenTime);
+  }
+  function renderVerification() {
+    const rows = verificationRows();
+    const checked = state.checkedForVerification;
+    [...checked].forEach((id) => { if (!rows.some((r) => r.id === id)) checked.delete(id); });
+    $("#v-count").textContent = `${plural(rows.length, "véhicule")} · ${plural(checked.size, "coché")}`;
+    $("#v-table").innerHTML = rows.length ? `<div class="tablewrap"><table><thead><tr>
+        <th><input type="checkbox" id="v-all" aria-label="Tout cocher" ${checked.size && checked.size === rows.length ? "checked" : ""}></th><th>Dispo</th><th>Plaque</th><th>Site</th><th>Statut</th></tr></thead><tbody>
+      ${rows.map((d) => `<tr><td><input type="checkbox" data-check="${esc(d.id)}" aria-label="Cocher ${esc(d.plaque)}" ${checked.has(d.id) ? "checked" : ""}></td>
+        <td class="date">${esc(D.shortDate(d.date))}</td><td>${plateTag(d.plaque)}</td><td>${esc(D.siteOf(d))}</td><td>${statusChip(d.statut)}</td></tr>`).join("")}
+      </tbody></table></div>` : `<div class="empty"><b>Rien à vérifier sur cette période.</b><span>Les demandes envoyées ou confirmées dont la disponibilité tombe entre les deux dates s'affichent ici.</span></div>`;
+    const provider = $("#v-prest").value;
+    const kind = document.querySelector('input[name="vkind"]:checked')?.value;
+    $("#v-share").innerHTML = shareBlock({ text: D.verificationMessage(rows, { provider, kind, siteNames: siteNames() }), provider: provider || defaultProvider() });
+    $("#v-sheet").innerHTML = sheetLink(state.demandes.filter((d) => checked.has(d.id)).map((d) => d.plaque));
+  }
+  ["#v-prest", "#v-from", "#v-to", "#v-st"].forEach((s) => $(s).addEventListener("change", renderVerification));
+  $("#v-kind").addEventListener("change", renderVerification);
+  $("#v-table").addEventListener("change", (e) => {
+    const checked = state.checkedForVerification;
+    if (e.target.id === "v-all") { checked.clear(); if (e.target.checked) verificationRows().forEach((r) => checked.add(r.id)); }
+    else if (e.target.dataset.check) e.target.checked ? checked.add(e.target.dataset.check) : checked.delete(e.target.dataset.check);
+    renderVerification();
+  });
+  $("#v-paste").addEventListener("input", () => {
+    const cited = D.platesInText($("#v-paste").value);
+    const newlyChecked = verificationRows().filter((r) => cited.includes(D.plateKey(r.plaque)) && !state.checkedForVerification.has(r.id));
+    newlyChecked.forEach((r) => state.checkedForVerification.add(r.id));
+    if (newlyChecked.length) toast(`${plural(newlyChecked.length, "véhicule")} coché${newlyChecked.length > 1 ? "s" : ""}`);
+    renderVerification();
+  });
+  document.querySelectorAll("[data-bulk]").forEach((button) => button.addEventListener("click", async () => {
+    if (!requireStore()) return;
+    const status = button.dataset.bulk;
+    const targets = state.demandes.filter((d) => state.checkedForVerification.has(d.id));
+    if (!targets.length) return toast("Coche d'abord des véhicules");
+    try {
+      for (const d of targets) await state.store.setStatus(d, status);
+      toast(`${plural(targets.length, "véhicule")} passé${targets.length > 1 ? "s" : ""} en « ${D.statusOf(status).label} »`);
+      if (status === "annulee") state.checkedForVerification.clear();
+    } catch (err) { reportWriteError(err); }
+  }));
+
+  // ================= monthly report =================
+  $("#b-month").value = today().slice(0, 7);
+  const currentReport = () => D.monthlyReport(state.demandes, { month: $("#b-month").value, provider: $("#b-prest").value, todayIso: today() });
+  function tallyTable(title, list) {
+    return `<div class="section"><h3>${title}</h3><div class="tablewrap"><table><thead><tr><th></th><th class="num">Demandés</th><th class="num">Réalisés</th><th class="num">Annulés</th><th class="num">En attente</th></tr></thead><tbody>
+      ${list.map(([k, t]) => `<tr><td>${esc(k)}</td><td class="num">${t.requested}</td><td class="num">${t.done}</td><td class="num">${t.cancelled}</td><td class="num">${t.overdue + t.upcoming}</td></tr>`).join("")}
+      </tbody></table></div></div>`;
+  }
+  function reportLine(d) {
+    return `<tr class="click" data-open="${esc(d.id)}"><td class="date">${esc(D.numericDate(d.date))}</td><td>${plateTag(d.plaque)}</td><td>${esc(D.vehicleLabel(d))}</td><td>${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td><td>${statusChip(d.statut)}</td></tr>`;
+  }
+  function renderReport() {
+    const month = $("#b-month").value, provider = $("#b-prest").value;
+    const report = currentReport();
+    if (!report.rows.length) {
+      $("#b-body").innerHTML = `<div class="empty"><b>Aucune demande en ${esc(D.monthLabel(month))}${provider ? " avec " + esc(provider) : ""}.</b><span>Le bilan compte les demandes selon leur premier jour de disponibilité : demandées, réalisées, annulées et encore en attente.</span></div>`;
+      return;
+    }
+    const t = report.total;
+    const done = report.rows.filter((d) => d.statut === "realisee").sort(D.byDateThenTime);
+    const open = report.rows.filter(D.isOpen).sort(D.byDateThenTime);
+    const head = `<thead><tr><th>Dispo</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th></tr></thead>`;
+    $("#b-body").innerHTML = `
+      <div class="kpis">
+        <div class="kpi"><span class="label">Demandés</span><b>${t.requested}</b><span class="muted small">${esc(D.monthLabel(month))}</span></div>
+        <div class="kpi done"><span class="label">Réalisés</span><b>${t.done}</b><span class="muted small">${t.requested ? Math.round((t.done / t.requested) * 100) : 0} % des demandes</span></div>
+        <div class="kpi wait"><span class="label">À confirmer</span><b>${t.overdue}</b><span class="muted small">dispo passée, pas encore réalisé</span></div>
+        <div class="kpi"><span class="label">À venir</span><b>${t.upcoming}</b><span class="muted small">pas encore passé</span></div>
+        <div class="kpi off"><span class="label">Annulés</span><b>${t.cancelled}</b><span class="muted small">&nbsp;</span></div>
+      </div>
+      <div class="two">${tallyTable("Par prestataire", report.byProvider)}${tallyTable("Par site", report.bySite)}${tallyTable("Par modèle", report.byModel)}</div>
+      <div class="section"><h3>Véhicules réalisés · ${done.length}</h3>${done.length ? `<div class="tablewrap"><table class="wide">${head}<tbody>${done.map(reportLine).join("")}</tbody></table></div>` : `<p class="muted">Aucun véhicule marqué « Réalisée » ce mois-ci. Utilise l'onglet Vérification pour les cocher.</p>`}</div>
+      ${open.length ? `<div class="section"><h3>Pas encore réalisés · ${open.length}</h3><div class="tablewrap"><table class="wide">${head}<tbody>${open.map(reportLine).join("")}</tbody></table></div></div>` : ""}`;
+  }
+  $("#b-body").addEventListener("click", (e) => { const r = e.target.closest("[data-open]"); if (r) openDemande(r.dataset.open); });
+  ["#b-month", "#b-prest"].forEach((s) => $(s).addEventListener("change", renderReport));
+  $("#b-copy").onclick = async () => {
+    const text = D.monthlySummaryMessage(currentReport(), { month: $("#b-month").value, provider: $("#b-prest").value });
+    if (await copyText(text)) toast("Résumé copié");
+  };
+  const exportRows = () => [D.EXPORT_HEADER, ...currentReport().rows.slice().sort(D.byDateThenTime).map(D.exportRow)];
+  $("#b-tsv").onclick = async () => {
+    const rows = exportRows();
+    if (await copyText(D.toTsv(rows))) toast(`${plural(rows.length - 1, "ligne")} copiée${rows.length > 2 ? "s" : ""} : colle-les dans une feuille Google Sheets`);
+  };
+  $("#b-csv").onclick = () => {
+    const provider = $("#b-prest").value;
+    const filename = `bilan-prestations-${$("#b-month").value}${provider ? "-" + provider.replace(/[^\w-]+/g, "-") : ""}.csv`;
+    saveBlob(Promise.resolve(new Blob([D.toCsv(exportRows())], { type: "text/csv" })), filename);
+  };
+
+  // ================= history =================
+  const HISTORY_STATUS_FILTERS = { "": () => true, ouvert: D.isOpen };
+  function renderHistory() {
+    const query = $("#q").value, provider = $("#h-prest").value, status = $("#h-statut").value, service = $("#h-svc").value, site = $("#h-site").value;
+    const statusFilter = HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
+    const rows = state.demandes.filter((d) =>
+      (!provider || d.prestataire === provider) && (!service || d.service === service) && (!site || d.site === site) && statusFilter(d) &&
+      D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire], query)
+    ).sort((a, b) => (b.date || "").localeCompare(a.date || "") || D.byStartTime(a, b));
+    if (!rows.length) {
+      $("#histWrap").innerHTML = `<div class="empty"><b>${state.demandes.length ? "Aucune demande ne correspond à ces filtres." : "Aucune demande enregistrée pour l'instant."}</b><span>Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée.</span></div>`;
+      return;
+    }
+    $("#histWrap").innerHTML = `<div class="tablewrap"><table class="wide"><thead><tr><th>Dispo</th><th>Créneau</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th><th>Envoyée le</th></tr></thead><tbody>${rows.map(historyLine).join("")}</tbody></table></div>`;
+  }
+  function historyLine(d) {
+    const span = D.isMultiDay(d) ? `${D.shortDate(d.date)} → ${D.shortDate(D.lastDay(d))}` : D.shortDate(d.date);
+    return `<tr class="click" data-open="${esc(d.id)}"><td class="date">${esc(span)}</td><td class="date">${esc(D.timeSlotLabel(d))}</td><td>${plateTag(d.plaque)}</td>
+      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</td><td>${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
+      <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
+  }
+  ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site"].forEach((s) => $(s).addEventListener("input", renderHistory));
+  $("#histWrap").addEventListener("click", (e) => { const r = e.target.closest("[data-open]"); if (r) openDemande(r.dataset.open); });
+
+  // ================= settings =================
+  const currentSettings = () => ({ sites: state.sites, flotte: state.fleet, prestataires: state.providers, contacts: state.contacts, sheetUrl: state.sheetUrl });
+  async function persistSettings(message) {
+    if (!requireStore()) return;
+    try { await state.store.saveSettings(currentSettings()); if (message) toast(message); } catch (err) { reportWriteError(err); }
+  }
+  const removeButton = (attr, i, label) => `<button type="button" class="ghost" ${attr}="${i}" aria-label="Retirer ${esc(label)}">${icon("x")}</button>`;
+  function renderSettings() {
+    $("#s-sites").innerHTML = state.sites.map((s, i) => `<div class="item"><b>${esc(s.nom)}</b>
+      <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}">${removeButton("data-remove-site", i, s.nom)}</div>`).join("");
+    $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
+    $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
+      <span></span>${removeButton("data-remove-provider", i, p)}</div>`).join("");
+    $("#s-sheeturl").value = state.sheetUrl;
+  }
+  function addFromInput(input, list, make, message) {
+    const value = $(input).value.trim();
+    if (!value) return;
+    list.push(make(value)); $(input).value = ""; renderAll(); persistSettings(message);
+  }
+  $("#s-addsite").onclick = () => !siteNames().includes($("#s-newsite").value.trim()) && addFromInput("#s-newsite", state.sites, (nom) => ({ nom, adresse: "" }), "Site ajouté");
+  $("#s-addprov").onclick = () => !state.providers.includes($("#s-newprov").value.trim()) && addFromInput("#s-newprov", state.providers, (p) => p, "Prestataire ajouté");
+  $("#s-addmodel").onclick = () => {
+    const cubage = +$("#s-newcub").value || null;
+    addFromInput("#s-newmodel", state.fleet, (modele) => ({ modele, cubage }), "Modèle ajouté");
+    $("#s-newcub").value = "";
+  };
+  function removeAt(list, index) { list.splice(index, 1); renderAll(); persistSettings(); }
+  $("#view-reglages").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-remove-site], [data-remove-model], [data-remove-provider]");
+    if (!b) return;
+    if (b.dataset.removeSite) removeAt(state.sites, +b.dataset.removeSite);
+    else if (b.dataset.removeModel) removeAt(state.fleet, +b.dataset.removeModel);
+    else removeAt(state.providers, +b.dataset.removeProvider);
+  });
+  $("#view-reglages").addEventListener("change", (e) => {
+    const address = e.target.closest("[data-site-address]");
+    const phone = e.target.closest("[data-phone]");
+    if (address) { state.sites[+address.dataset.siteAddress].adresse = address.value.trim(); persistSettings("Adresse enregistrée"); }
+    if (phone) { state.contacts = { ...state.contacts, [phone.dataset.phone]: phone.value.trim() }; persistSettings("Numéro enregistré"); }
+  });
+  $("#s-savesheet").onclick = () => {
+    const url = $("#s-sheeturl").value.trim();
+    if (url && !/^https:\/\/script\.google\.com\/.+\/exec/.test(url)) return toast("L'URL doit commencer par https://script.google.com/ et finir par /exec");
+    state.sheetUrl = url; persistSettings(url ? "URL enregistrée" : "Liaison retirée"); renderAll();
+  };
+  $("#s-script").textContent = SHEET_SCRIPT;
+  $("#s-copyscript").onclick = async () => { if (await copyText(SHEET_SCRIPT)) toast("Script copié"); };
+
+  // ================= render & boot =================
+  function renderAll() {
+    shareRegistry.clear();
+    renderSelects();
+    renderPlanning(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
+    $("#dl-plaques").innerHTML = [...state.vehicles.values()].map((v) => `<option value="${esc(v.plaque)}">${esc(D.vehicleLabel(v))}</option>`).join("");
+    renderFormSide();
+  }
+
+  function applySettings(settings) {
+    if (Array.isArray(settings.sites)) state.sites = D.normalizeSites(settings.sites);
+    if (Array.isArray(settings.flotte)) state.fleet = settings.flotte.slice();
+    if (Array.isArray(settings.prestataires)) state.providers = settings.prestataires.slice();
+    state.contacts = settings.contacts || {};
+    state.sheetUrl = settings.sheetUrl || "";
+  }
+  function setSync(text, ok) { $("#sync").textContent = text; $("#sync").classList.toggle("off", !ok); }
+
+  async function connect() {
+    const db = window.claude?.use ? await window.claude.use("db").catch(() => null) : null;
+    if (!db) {
+      setSync("Hors ligne", false);
+      banner("La base de données n'est pas encore branchée : rien ne peut être enregistré pour l'instant.");
+      return;
+    }
+    state.store = createStore(db);
+    window.claude.use("downloads").then((d) => { state.downloads = d; $("#b-csv").hidden = !d; }).catch(() => {});
+    const user = await window.claude.use("user").catch(() => null);
+    if ((await user?.can("data.write")) === false) {
+      state.canWrite = false; $("#saveBtn").disabled = true;
+      banner("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
+    }
+    state.store.subscribe({
+      onDemandes: (rows) => { state.demandes = rows; renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
+      onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
+      onSettings: (settings) => { applySettings(settings); renderAll(); },
+      onError: () => setSync("Synchronisation interrompue, recharge la page", false),
+    });
+  }
+
+  try { state.providerFilter = localStorage.getItem("suivi.provFilter") || ""; } catch {}
+
+  renderSelects(); resetForm(); renderAll(); show(location.hash.slice(1) || "planning");
+  connect();
+})();
+</script>
+
+
+</body>
+</html>

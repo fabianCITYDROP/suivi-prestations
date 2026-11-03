@@ -1,0 +1,37 @@
+  const SCRIPT = `// Suivi prestations CityDrop -> coche "OK confirmé" dans ce Google Sheet
+// Collez ce code dans Extensions > Apps Script, puis Déployer > Application Web.
+
+const ONGLET = '';               // nom de l'onglet ('' = premier onglet)
+const TITRE_PLAQUE = 'imm';      // début du titre de la colonne immatriculation
+const TITRE_CONFIRME = 'confirm'; // début du titre de la colonne "OK confirmé"
+
+function doGet(e) {
+  const norm = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const plaques = String(e.parameter.plaques || '').split(',').map(norm).filter(String);
+  const classeur = SpreadsheetApp.getActive();
+  const feuille = ONGLET ? classeur.getSheetByName(ONGLET) : classeur.getSheets()[0];
+  const valeurs = feuille.getDataRange().getValues();
+  const iTitres = valeurs.findIndex((r) => r.some((c) => String(c).toLowerCase().includes(TITRE_PLAQUE)));
+  if (iTitres < 0) return page('Colonne immatriculation introuvable : vérifie TITRE_PLAQUE.');
+  const titres = valeurs[iTitres].map((t) => String(t).toLowerCase());
+  const cPlaque = titres.findIndex((t) => t.includes(TITRE_PLAQUE));
+  const cOk = titres.findIndex((t) => t.includes(TITRE_CONFIRME));
+  if (cOk < 0) return page('Colonne "OK confirmé" introuvable : vérifie TITRE_CONFIRME.');
+  const faites = [], absentes = [];
+  plaques.forEach((p) => {
+    const i = valeurs.findIndex((r, k) => k > iTitres && norm(r[cPlaque]) === p);
+    if (i < 0) { absentes.push(p); return; }
+    const cellule = feuille.getRange(i + 1, cOk + 1);
+    const regle = cellule.getDataValidation();
+    const caseACocher = regle && regle.getCriteriaType() === SpreadsheetApp.DataValidationCriteria.CHECKBOX;
+    cellule.setValue(caseACocher ? true : 'OK');
+    faites.push(p);
+  });
+  return page(faites.length + ' véhicule(s) coché(s) : ' + (faites.join(', ') || '—') +
+    (absentes.length ? '<br><br>Introuvables dans le tableau : ' + absentes.join(', ') : '') +
+    '<br><br>Tu peux fermer cet onglet.');
+}
+
+function page(texte) {
+  return HtmlService.createHtmlOutput('<p style="font:16px sans-serif;padding:20px;line-height:1.5">' + texte + '</p>');
+}`;

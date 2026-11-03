@@ -1,0 +1,249 @@
+<title>Suivi prestations CityDrop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<!--@style-->
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+  <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+  <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+  <symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 17c2.5-6 5.5-9 9-9s6.5 3 9 9"/><path d="M3 17h18"/><path d="M8 14l3-3"/></symbol>
+  <symbol id="i-wa" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3z"/><path d="M9 10h6M9 14h4"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><span class="brand-mark"><svg class="icon"><use href="#i-wind"/></svg></span>Suivi prestations</div>
+    <nav class="tabs" role="tablist" aria-label="Vues">
+      <button role="tab" id="tab-planning" aria-selected="true" data-view="planning">Planning</button>
+      <button role="tab" id="tab-demande" aria-selected="false" data-view="demande">Nouvelle demande</button>
+      <button role="tab" id="tab-photos" aria-selected="false" data-view="photos">Photos</button>
+      <button role="tab" id="tab-verif" aria-selected="false" data-view="verif">Vérification</button>
+      <button role="tab" id="tab-bilan" aria-selected="false" data-view="bilan">Bilan du mois</button>
+      <button role="tab" id="tab-historique" aria-selected="false" data-view="historique">Historique</button>
+      <button role="tab" id="tab-reglages" aria-selected="false" data-view="reglages">Réglages</button>
+    </nav>
+    <div class="sync off" id="sync">Connexion…</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="banner" id="banner" hidden></div>
+
+  <!-- PLANNING -->
+  <section id="view-planning">
+    <div class="daybar">
+      <h1 id="dayTitle">Aujourd'hui</h1>
+      <button class="ghost" id="prevDay" aria-label="Jour précédent"><svg class="icon"><use href="#i-chev-l"/></svg></button>
+      <button id="todayBtn">Aujourd'hui</button>
+      <button class="ghost" id="nextDay" aria-label="Jour suivant"><svg class="icon"><use href="#i-chev-r"/></svg></button>
+      <input type="date" id="dayPick" aria-label="Choisir une date">
+      <select id="provFilter" aria-label="Prestataire"></select>
+      <button class="primary" id="newOnDay"><svg class="icon"><use href="#i-plus"/></svg>Nouvelle demande</button>
+    </div>
+    <div class="strip" id="strip"></div>
+    <div class="work">
+      <div id="dayList"></div>
+      <aside class="panel sticky" aria-labelledby="dayShareTitle">
+        <div class="panel-head"><h2 id="dayShareTitle">Liste des véhicules à faire</h2></div>
+        <div id="dayShare"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- FORM -->
+  <section id="view-demande" hidden>
+    <div class="work">
+      <form class="panel" id="form" autocomplete="off" novalidate>
+        <div class="panel-head">
+          <h2 id="formTitle">Nouvelle demande</h2>
+          <span class="chip" id="formStatusChip" hidden></span>
+        </div>
+        <div class="form-sections">
+          <fieldset>
+            <legend>Véhicule</legend>
+            <div class="seg" id="svcSeg" role="radiogroup" aria-label="Prestation"></div>
+            <div class="grid g3">
+              <label class="field"><span>Immatriculation *</span><input id="f-plaque" class="plate-input" placeholder="AB-123-CD" list="dl-plaques" required></label>
+              <label class="field"><span>Modèle</span><select id="f-base" class="m-base"></select></label>
+              <label class="field"><span>Cubage</span><select id="f-modele" class="m-var"></select></label>
+            </div>
+            <span class="hint" id="vehHint"></span>
+            <div id="extraVeh" class="extra-list"></div>
+            <button type="button" class="add-veh" id="addVeh"><svg class="icon"><use href="#i-plus"/></svg>Ajouter un véhicule au même endroit</button>
+            <span class="hint" id="groupHint">Pour une demande groupée : les véhicules ajoutés reprennent le site, les dates et le prestataire. Tu peux changer leurs horaires.</span>
+            <datalist id="dl-plaques"></datalist>
+          </fieldset>
+
+          <fieldset>
+            <legend>Où</legend>
+            <div class="grid g2">
+              <label class="field"><span>Site *</span><select id="f-site"></select></label>
+              <label class="field"><span>Adresse</span><input id="f-adresse" placeholder="Remplie avec l'adresse du site"></label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Disponibilité</legend>
+            <div class="grid g4">
+              <label class="field"><span>Dispo du *</span><input type="date" id="f-date"></label>
+              <label class="field"><span>Au</span><input type="date" id="f-dateFin"></label>
+              <label class="field"><span>De</span><input type="time" id="f-debut" step="900"></label>
+              <label class="field"><span>À</span><input type="time" id="f-fin" step="900"></label>
+            </div>
+            <div class="grid g2" id="provRow">
+              <label class="field"><span>Prestataire</span><select id="f-prest"></select></label>
+            </div>
+            <details class="more" id="notesBox"><summary><svg class="icon"><use href="#i-plus"/></svg>Ajouter une remarque</summary>
+              <label class="field"><span>Remarque (ajoutée au message)</span><textarea id="f-notes" placeholder="Clés à l'accueil…"></textarea></label>
+            </details>
+          </fieldset>
+
+          <fieldset id="photosSet">
+            <legend>Photos du pare-brise</legend>
+            <div class="photos" id="formPhotos"></div>
+            <span class="hint">Les photos restent rattachées au véhicule : la prochaine fois que tu saisis cette plaque, elles sont déjà là. Tu peux aussi coller une capture (Ctrl+V).</span>
+          </fieldset>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary" id="saveBtn">Enregistrer la demande</button>
+          <button type="button" class="ghost" id="resetBtn">Vider le formulaire</button>
+          <span class="spacer"></span>
+          <span id="delZone"></span>
+        </div>
+      </form>
+
+      <aside class="panel sticky" aria-labelledby="msgTitle">
+        <div class="panel-head"><h2 id="msgTitle">Envoyer la demande</h2></div>
+        <div id="formShare"></div>
+        <div id="formSheet"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- PHOTO LIBRARY -->
+  <section id="view-photos" hidden>
+    <div class="tools">
+      <input type="search" id="p-q" placeholder="Rechercher une plaque ou un modèle (ex. Movano, 20 m³)…" aria-label="Rechercher un véhicule">
+      <input id="p-newplate" class="plate-input" placeholder="AB-123-CD" aria-label="Plaque du véhicule à ajouter" style="width:180px">
+      <button type="button" id="p-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter un véhicule</button>
+    </div>
+    <div id="p-detail"></div>
+    <div id="p-list"></div>
+  </section>
+
+  <!-- VERIFICATION -->
+  <section id="view-verif" hidden>
+    <p class="intro">Pour relancer le prestataire : copie le message, envoie-le, puis colle sa réponse ici. Les plaques citées se cochent toutes seules et un clic les met à jour.</p>
+    <div class="tools">
+      <label class="field"><span>Prestataire</span><select id="v-prest"></select></label>
+      <label class="field"><span>Du</span><input type="date" id="v-from"></label>
+      <label class="field"><span>Au</span><input type="date" id="v-to"></label>
+      <label class="field"><span>Statuts</span><select id="v-st">
+        <option value="pending">Envoyées + confirmées</option>
+        <option value="envoyee">Envoyées seulement</option>
+        <option value="confirmee">Confirmées seulement</option>
+        <option value="all">Toutes sauf annulées</option>
+      </select></label>
+    </div>
+    <div class="work">
+      <div class="panel">
+        <div class="panel-head"><h2>Véhicules à vérifier</h2><span class="muted small" id="v-count"></span></div>
+        <div id="v-table"></div>
+        <label class="field"><span>Réponse du prestataire</span><textarea id="v-paste" placeholder="Colle ici sa réponse, ex. « AB-123-CD ok, EF-456-GH ok »"></textarea></label>
+        <div class="actions">
+          <button type="button" class="primary" data-bulk="realisee">Cochés → Réalisée</button>
+          <button type="button" data-bulk="confirmee">Cochés → Confirmée</button>
+          <button type="button" class="ghost" data-bulk="annulee">Cochés → Annulée</button>
+          <span id="v-sheet"></span>
+        </div>
+      </div>
+      <aside class="panel sticky">
+        <div class="panel-head"><h2>Message de rappel</h2></div>
+        <div class="seg" id="v-kind">
+          <label><input type="radio" name="vkind" value="faits" checked><span>Prestations faites ?</span></label>
+          <label><input type="radio" name="vkind" value="rdv"><span>RDV confirmés ?</span></label>
+        </div>
+        <div id="v-share"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- BILAN -->
+  <section id="view-bilan" hidden>
+    <div class="tools">
+      <label class="field"><span>Mois</span><input type="month" id="b-month"></label>
+      <label class="field"><span>Prestataire</span><select id="b-prest"></select></label>
+      <span style="flex:1"></span>
+      <button type="button" id="b-copy"><svg class="icon"><use href="#i-copy"/></svg>Copier le résumé</button>
+      <button type="button" id="b-tsv"><svg class="icon"><use href="#i-list"/></svg>Copier pour Google Sheets</button>
+      <button type="button" class="primary" id="b-csv" hidden><svg class="icon"><use href="#i-download"/></svg>Télécharger le CSV</button>
+    </div>
+    <div id="b-body"></div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="view-historique" hidden>
+    <div class="tools">
+      <input type="search" id="q" placeholder="Rechercher une plaque, un site, un modèle…" aria-label="Rechercher">
+      <select id="h-prest" aria-label="Prestataire"></select>
+      <select id="h-site" aria-label="Site"></select>
+      <select id="h-statut" aria-label="Statut"></select>
+      <select id="h-svc" aria-label="Prestation"></select>
+    </div>
+    <div id="histWrap"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="view-reglages" hidden>
+    <div class="two">
+      <div class="panel">
+        <h2>Sites et adresses</h2>
+        <p class="hint">L'adresse se remplit toute seule dans la demande quand on choisit le site.</p>
+        <div class="list-edit" id="s-sites"></div>
+        <div class="row"><input id="s-newsite" placeholder="Nom du nouveau site" style="flex:1 1 200px"><button type="button" id="s-addsite"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+      </div>
+      <div class="panel">
+        <h2>Flotte</h2>
+        <p class="hint">Modèles proposés dans la demande. Choisir un modèle remplit le cubage.</p>
+        <div class="list-edit" id="s-fleet"></div>
+        <div class="row"><input id="s-newmodel" placeholder="Modèle, ex. Opel Movano 2025" style="flex:2 1 200px"><input id="s-newcub" type="number" min="1" placeholder="m³" aria-label="Cubage en m³" style="flex:0 1 90px"><button type="button" id="s-addmodel"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+      </div>
+      <div class="panel">
+        <h2>Prestataires</h2>
+        <p class="hint">Le premier de la liste est choisi par défaut.</p>
+        <div class="list-edit" id="s-provs"></div>
+        <div class="row"><input id="s-newprov" placeholder="Nom du prestataire" style="flex:1 1 200px"><button type="button" id="s-addprov"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+      </div>
+      <div class="panel">
+        <h2>Liaison avec le Google Sheet</h2>
+        <p class="hint">Un bouton « Cocher dans le Google Sheet » coche la colonne « OK confirmé » des plaques confirmées. À installer une seule fois :</p>
+        <ol class="steps small">
+          <li>Dans ton Google Sheet pare-brise : <b>Extensions › Apps Script</b>.</li>
+          <li>Remplace tout le code par le script ci-dessous, puis enregistre.</li>
+          <li>Ajuste si besoin les 3 réglages en haut du script.</li>
+          <li><b>Déployer › Nouveau déploiement</b>, Application Web, exécuter en tant que <b>Moi</b>, accès <b>city-drop.com</b>.</li>
+          <li>Colle ici l'URL qui finit par /exec.</li>
+        </ol>
+        <div class="row"><input id="s-sheeturl" placeholder="https://script.google.com/macros/s/…/exec" style="flex:1 1 260px"><button type="button" class="primary" id="s-savesheet">Enregistrer l'URL</button></div>
+        <details class="more"><summary><svg class="icon"><use href="#i-list"/></svg>Voir le script</summary>
+          <div class="row" style="margin-bottom:8px"><button type="button" id="s-copyscript"><svg class="icon"><use href="#i-copy"/></svg>Copier le script</button></div>
+          <pre class="code" id="s-script"></pre>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<input type="file" id="photoInput" accept="image/*" multiple hidden>
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="lightbox" id="lightbox" hidden><img id="lightImg" alt="Photo du pare-brise"></div>
+
+<!--@scripts-->
