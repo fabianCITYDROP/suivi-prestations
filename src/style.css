@@ -359,6 +359,8 @@ body.presta-mode .top .sync { display: none; }
 .done-row small { color: var(--ink-2); font-size: 13px; }
 .job-empty { display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; padding: 40px 20px; border: 1px dashed var(--line-strong); border-radius: 14px; color: var(--ink-2); }
 .job-empty b { color: var(--ink); font-size: 16px; }
+.job-task { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--ink); font-size: 14px; }
+.job-task .icon { color: var(--accent); flex: none; margin-top: 2px; }
 .presta-foot { margin-top: 28px; display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
 body.presta-mode .toast { width: max-content; border-radius: 14px; text-align: center; }
 body.presta-mode main { padding-top: 16px; }

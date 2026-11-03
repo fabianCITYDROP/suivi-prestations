@@ -381,6 +381,8 @@ body.presta-mode .top .sync { display: none; }
 .done-row small { color: var(--ink-2); font-size: 13px; }
 .job-empty { display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; padding: 40px 20px; border: 1px dashed var(--line-strong); border-radius: 14px; color: var(--ink-2); }
 .job-empty b { color: var(--ink); font-size: 16px; }
+.job-task { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--ink); font-size: 14px; }
+.job-task .icon { color: var(--accent); flex: none; margin-top: 2px; }
 .presta-foot { margin-top: 28px; display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
 body.presta-mode .toast { width: max-content; border-radius: 14px; text-align: center; }
 body.presta-mode main { padding-top: 16px; }
@@ -462,6 +464,10 @@ body.presta-mode main { padding-top: 16px; }
           <fieldset>
             <legend>Véhicule</legend>
             <div class="seg" id="svcSeg" role="radiogroup" aria-label="Prestation"></div>
+            <div class="grid g2" id="taskRow" hidden>
+              <label class="field"><span>Que faut-il faire ? *</span><input id="f-tache" list="dl-taches" placeholder="Ex. vérification, ampoule, AdBlue…"></label>
+              <datalist id="dl-taches"></datalist>
+            </div>
             <div class="grid g3">
               <label class="field"><span>Immatriculation *</span><input id="f-plaque" class="plate-input" placeholder="AB-123-CD" list="dl-plaques" required></label>
               <label class="field"><span>Modèle</span><select id="f-base" class="m-base"></select></label>
@@ -608,7 +614,7 @@ body.presta-mode main { padding-top: 16px; }
       </div>
       <div class="panel">
         <h2>Prestataires</h2>
-        <p class="hint">Le premier de la liste est choisi par défaut.</p>
+        <p class="hint">Le premier de la liste est choisi par défaut. Coche « Interventions » pour ceux à qui on peut demander autre chose qu'un pare-brise ou un lavage (vérification, ampoule, AdBlue…).</p>
         <div class="list-edit" id="s-provs"></div>
         <div class="row"><input id="s-newprov" placeholder="Nom du prestataire" style="flex:1 1 200px"><button type="button" id="s-addprov"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
       </div>
@@ -754,7 +760,13 @@ window.SUIVI_FIREBASE_CONFIG = {
   const SERVICES = [
     { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise" },
     { id: "lavage", label: "Lavage", title: "lavage véhicule" },
+    // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
+    { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: true },
   ];
+  const TASK_SUGGESTIONS = ["Vérification du véhicule", "Changer une ampoule", "Niveau d'huile", "AdBlue", "Pression des pneus"];
+  const isIntervention = (d) => d.service === "intervention";
+  // Services offered by a provider: windshield and washing for all, interventions when enabled in Réglages.
+  const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.interventions).map((s) => s.id);
   const STATUSES = [
     { id: "a_envoyer", label: "À envoyer" },
     { id: "envoyee", label: "Envoyée" },
@@ -893,6 +905,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (d.date && d.dateFin && d.dateFin < d.date) missing.push("une date de fin après la date de début");
     if (!d.site && !d.adresse) missing.push("le site");
     if (!d.prestataire) missing.push("le prestataire");
+    if (isIntervention(d) && !d.tache) missing.push("ce qu'il faut faire");
     return missing;
   }
   const SENT_OR_LATER = ["envoyee", "confirmee", "realisee"];
@@ -917,6 +930,7 @@ window.SUIVI_FIREBASE_CONFIG = {
           `*Demande ${serviceOf(d.service).title} – ${count} véhicules*`,
           `Disponibles ${availabilityLabel(d)}${sameSlot ? `, ${timeSlotLabel(d)}` : ""}`,
           `Site : ${d.site || "…"}${d.adresse ? ` – ${d.adresse}` : ""}`,
+          ...(d.tache ? [`À faire : *${d.tache}*`] : []),
           "",
           ...all.map((v) => `• *${v.plaque || "…"}* – ${vehicleLabel(v) || "modèle à préciser"}${sameSlot ? "" : ` – ${timeSlotLabel(v)}`}`),
         ]
@@ -926,6 +940,7 @@ window.SUIVI_FIREBASE_CONFIG = {
           `Véhicule : ${vehicleLabel(d) || "…"}`,
           `Disponible ${availabilityLabel(d)}, ${timeSlotLabel(d)}`,
           `Site : ${d.site || "…"}${d.adresse ? ` – ${d.adresse}` : ""}`,
+          ...(d.tache ? [`À faire : *${d.tache}*`] : []),
         ];
     if (d.notes) lines.push(group ? "" : null, `Remarque : ${d.notes}`);
     if (isWindshield(d)) lines.push(photoCount ? `Photo${photoCount > 1 ? "s" : ""} du pare-brise ci-jointe${photoCount > 1 ? "s" : ""}.` : "Photo du pare-brise à suivre.");
@@ -1212,7 +1227,7 @@ window.SUIVI_FIREBASE_CONFIG = {
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
   return {
-    DEFAULT_SLOT,
+    DEFAULT_SLOT, TASK_SUGGESTIONS, isIntervention, servicesFor,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
@@ -1457,7 +1472,7 @@ window.SUIVI_FIREBASE_CONFIG = {
         <li>${icon("clock")}<span>${esc(cap(slot(d)))}${!withDate && D.isMultiDay(d) ? ` · sur site jusqu'au ${esc(D.shortDate(D.lastDay(d)))}` : ""}</span></li>
         ${withSite ? `<li>${icon("pin")}<span>${esc([d.site, d.adresse].filter(Boolean).join(" · ") || "Site à préciser")}</span></li>` : ""}
         ${late ? `<li class="late">${icon("alert")}<span>En retard : prévu jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>` : ""}
-      </ul>${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}`;
+      </ul>${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}`;
     }
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
@@ -1977,6 +1992,7 @@ function page(texte) {
   }
   $("#h-statut").innerHTML = `<option value="">Tous les statuts</option><option value="ouvert">En cours (hors réalisées / annulées)</option>` + D.STATUSES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
   $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
+  $("#dl-taches").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<option value="${esc(t)}">`).join("");
   $("#svcSeg").innerHTML = D.SERVICES.map((s, i) => `<label><input type="radio" name="svc" id="svc-${s.id}" value="${s.id}" ${i === 0 ? "checked" : ""}><span>${s.label}</span></label>`).join("");
 
   // ================= planning =================
@@ -2033,6 +2049,15 @@ function page(texte) {
 
   // ================= request form =================
   const field = (name) => $("#f-" + name);
+  const chosenService = () => document.querySelector('input[name="svc"]:checked')?.value || "pare-brise";
+  // Shows only the services the chosen provider does; "Intervention" also asks what to do.
+  function renderServiceChoice() {
+    const allowed = D.servicesFor(state.providerDocs.get(D.providerId(field("prest").value)));
+    if (state.editingId) allowed.push(demandeById(state.editingId)?.service);
+    D.SERVICES.forEach((s) => ($("#svc-" + s.id).closest("label").hidden = !allowed.includes(s.id)));
+    if (!allowed.includes(chosenService())) $("#svc-pare-brise").checked = true;
+    $("#taskRow").hidden = chosenService() !== "intervention";
+  }
   function selectedFleetModel() {
     const index = field("modele").value;
     return index === "" ? { modele: "", cubage: null } : state.fleet[+index];
@@ -2040,7 +2065,7 @@ function page(texte) {
   function readForm() {
     const model = selectedFleetModel();
     return {
-      service: document.querySelector('input[name="svc"]:checked')?.value || "pare-brise",
+      service: chosenService(),
       plaque: D.normalizePlate(field("plaque").value),
       modele: model.modele,
       cubage: model.cubage,
@@ -2052,6 +2077,7 @@ function page(texte) {
       fin: field("fin").value || D.DEFAULT_SLOT.fin,
       prestataire: field("prest").value || defaultProvider(),
       notes: field("notes").value.trim(),
+      tache: chosenService() === "intervention" ? field("tache").value.trim() : "",
     };
   }
   // ----- model picker: brand + model first, then cubage (year shown only when the cubage is ambiguous) -----
@@ -2129,7 +2155,7 @@ function page(texte) {
   function setAvailability(start, end) { field("date").value = start; field("dateFin").value = end || start; }
   function fillForm(d) {
     (document.getElementById("svc-" + d.service) || document.getElementById("svc-pare-brise")).checked = true;
-    ["plaque", "adresse", "debut", "fin", "notes"].forEach((k) => (field(k).value = d[k] || ""));
+    ["plaque", "adresse", "debut", "fin", "notes", "tache"].forEach((k) => (field(k).value = d[k] || ""));
     setAvailability(d.date, d.dateFin);
     if (d.prestataire && !state.providers.includes(d.prestataire)) state.providers.push(d.prestataire);
     if (d.site && !siteNames().includes(d.site)) state.sites.push({ nom: d.site, adresse: "" });
@@ -2138,6 +2164,7 @@ function page(texte) {
     field("site").value = d.site || "";
     field("prest").value = d.prestataire || defaultProvider();
     $("#notesBox").open = !!d.notes;
+    renderServiceChoice();
     $("#extraVeh").innerHTML = "";
     state.groupe = d.groupe || "";
     if (d.groupe) state.demandes.filter((x) => x.groupe === d.groupe && x.id !== d.id).sort(D.byStartTime).forEach(addExtraRow);
@@ -2174,6 +2201,8 @@ function page(texte) {
   }
   $("#form").addEventListener("input", (e) => { if (e.target.id !== "f-plaque") renderFormSide(); });
   $("#form").addEventListener("change", renderFormSide);
+  field("prest").addEventListener("change", renderServiceChoice);
+  $("#svcSeg").addEventListener("change", renderServiceChoice);
   field("plaque").addEventListener("change", fillFromVehicle);
   field("site").addEventListener("change", () => { field("adresse").value = D.siteAddress(state.sites, field("site").value); renderFormSide(); });
   field("date").addEventListener("change", () => {
@@ -2195,6 +2224,7 @@ function page(texte) {
     field("debut").value = D.DEFAULT_SLOT.debut;
     field("fin").value = D.DEFAULT_SLOT.fin;
     field("prest").value = state.providerFilter || defaultProvider();
+    renderServiceChoice();
     $("#notesBox").open = false;
     $("#formTitle").textContent = "Nouvelle demande";
     $("#formStatusChip").hidden = true;
@@ -2474,7 +2504,7 @@ function page(texte) {
       <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}">${removeButton("data-remove-site", i, s.nom)}</div>`).join("");
     $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
     $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
-      <span></span>${removeButton("data-remove-provider", i, p)}</div>`).join("");
+      <label class="check"><input type="checkbox" data-prov-interventions="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.interventions ? "checked" : ""}>Interventions</label>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
     renderPrices(); renderAccounts();
   }
@@ -2560,6 +2590,13 @@ function page(texte) {
     list.push(make(value)); $(input).value = ""; renderAll(); persistSettings(message);
   }
   $("#s-addsite").onclick = () => !siteNames().includes($("#s-newsite").value.trim()) && addFromInput("#s-newsite", state.sites, (nom) => ({ nom, adresse: "" }), "Site ajouté");
+  $("#s-provs").addEventListener("change", async (e) => {
+    const box = e.target.closest("[data-prov-interventions]");
+    if (!box || !requireStore()) return;
+    const nom = box.dataset.provInterventions;
+    try { await state.store.saveProvider(D.providerId(nom), { nom, interventions: box.checked }); toast(box.checked ? `${nom} peut recevoir des interventions` : `${nom} ne reçoit plus d'interventions`); }
+    catch (err) { box.checked = !box.checked; reportWriteError(err); }
+  });
   $("#s-addprov").onclick = () => !state.providers.includes($("#s-newprov").value.trim()) && addFromInput("#s-newprov", state.providers, (p) => p, "Prestataire ajouté");
   $("#s-addmodel").onclick = () => {
     const cubage = +$("#s-newcub").value || null;
@@ -2687,7 +2724,7 @@ function page(texte) {
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
       onSettings: (settings) => { applySettings(settings); renderAll(); },
-      onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderAll(); },
+      onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);

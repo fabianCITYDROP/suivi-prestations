@@ -77,6 +77,10 @@
           <fieldset>
             <legend>Véhicule</legend>
             <div class="seg" id="svcSeg" role="radiogroup" aria-label="Prestation"></div>
+            <div class="grid g2" id="taskRow" hidden>
+              <label class="field"><span>Que faut-il faire ? *</span><input id="f-tache" list="dl-taches" placeholder="Ex. vérification, ampoule, AdBlue…"></label>
+              <datalist id="dl-taches"></datalist>
+            </div>
             <div class="grid g3">
               <label class="field"><span>Immatriculation *</span><input id="f-plaque" class="plate-input" placeholder="AB-123-CD" list="dl-plaques" required></label>
               <label class="field"><span>Modèle</span><select id="f-base" class="m-base"></select></label>
@@ -223,7 +227,7 @@
       </div>
       <div class="panel">
         <h2>Prestataires</h2>
-        <p class="hint">Le premier de la liste est choisi par défaut.</p>
+        <p class="hint">Le premier de la liste est choisi par défaut. Coche « Interventions » pour ceux à qui on peut demander autre chose qu'un pare-brise ou un lavage (vérification, ampoule, AdBlue…).</p>
         <div class="list-edit" id="s-provs"></div>
         <div class="row"><input id="s-newprov" placeholder="Nom du prestataire" style="flex:1 1 200px"><button type="button" id="s-addprov"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
       </div>

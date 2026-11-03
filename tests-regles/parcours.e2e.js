@@ -71,6 +71,20 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   await p.fill('.x-plaque', 'gr222bb'); await p.click('#saveBtn'); await p.waitForTimeout(1000);
   rows = await list('demandes'); const grouped = rows.filter(r => r.plaque === 'GR-111-AA' || r.plaque === 'GR-222-BB');
   ok('grouped request saves both vehicles in one group', grouped.length === 2 && grouped[0].groupe && grouped[0].groupe === grouped[1].groupe && grouped.every(r => r.debut === '08:30' && r.prestataireId && r.statut === 'a_envoyer'));
+  // 2c. Interventions: hidden for Allo, offered to Khalid once ticked in Réglages
+  await p.goto('http://localhost:8765/#planning'); await p.click('#newOnDay'); await p.waitForTimeout(100);
+  await p.selectOption('#f-prest', 'ALLO pare-brise 78'); await p.dispatchEvent('#f-prest', 'change');
+  ok('no "Intervention" for a windshield-only provider', await p.isHidden('label:has(#svc-intervention)'));
+  await p.goto('http://localhost:8765/#reglages'); await p.check('[data-prov-interventions="Khalid"]'); await p.waitForTimeout(800);
+  const provs = await list('prestataires');
+  ok('interventions saved on Khalid', provs.find(x => x.id === 'khalid')?.interventions?.booleanValue === true);
+  await p.goto('http://localhost:8765/#planning'); await p.click('#newOnDay'); await p.selectOption('#f-prest', 'Khalid'); await p.dispatchEvent('#f-prest', 'change');
+  await p.click('label:has(#svc-intervention)'); await p.waitForTimeout(100);
+  ok('task field shown for an intervention', await p.isVisible('#f-tache'));
+  if (process.env.SHOTS) { await p.setViewportSize({ width: 1280, height: 900 }); await (await p.$('#form')).screenshot({ path: process.env.SHOTS + '/6-intervention-equipe.png' }); }
+  await p.fill('#f-plaque', 'iv111aa'); await p.selectOption('#f-site', { index: 1 }); await p.fill('#f-tache', 'AdBlue'); await p.click('#saveBtn'); await p.waitForTimeout(900);
+  rows = await list('demandes'); const job = rows.find(r => r.plaque === 'IV-111-AA');
+  ok('intervention stored with what to do', job?.service === 'intervention' && job.tache === 'AdBlue' && job.prestataireId === 'khalid');
   ok('no page errors (admin)', p.errs.length === 0); if (p.errs.length) console.log(p.errs);
 
   // 3. Khalid answers from his own screen
@@ -81,7 +95,7 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   const k = await page(); await k.setViewportSize({ width: 390, height: 860 }); await login(k, 'khalid@lavage.fr');
   await k.waitForSelector('.job');
   const cards = await k.$$eval('.job', (els) => els.map((e) => e.textContent));
-  ok('Khalid opens on his 2 requests to validate, nothing from Allo', cards.length === 2 && cards.every((t) => !t.includes('AB-123-CD') && !t.includes('EF-456-GH')));
+  ok('Khalid opens on his requests to validate, nothing from Allo', cards.length === 3 && cards.some((t) => t.includes('AdBlue')) && cards.every((t) => !t.includes('AB-123-CD') && !t.includes('EF-456-GH')));
   ok('team tabs hidden for Khalid', await k.isHidden('nav.tabs'));
   if (process.env.SHOTS) await k.screenshot({ path: process.env.SHOTS + '/1-a-valider.png', fullPage: true });
   await k.click('[data-take="lav1"]'); await k.waitForTimeout(1500);
