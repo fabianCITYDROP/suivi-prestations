@@ -305,6 +305,86 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
   .daybar h1 { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- provider answers (team) ---------- */
+.answers { margin-bottom: 16px; border-color: var(--accent, #0f6f8f); }
+.answer-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
+.answer-row:first-of-type { border-top: 0; padding-top: 0; }
+@media (max-width: 640px) { .answer-row { grid-template-columns: auto 1fr; } .answer-row > .row { grid-column: 1 / -1; } }
+
+/* ---------- provider screen (phone first, used outdoors on car parks) ---------- */
+:root { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); }
+body.presta-mode .top .sync { display: none; }
+#view-presta { max-width: 560px; margin: 0 auto; padding-bottom: 40px; }
+.presta-top { padding: 4px 2px 14px; }
+.presta-who { margin: 0 0 2px; font-weight: 600; color: var(--accent); font-size: 14px; }
+.presta-top h1 { margin: 0; font: 700 34px/1.05 var(--f-display); letter-spacing: .005em; text-transform: none; }
+.presta-tabs { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; margin: 0 -2px 18px; background: var(--surface-2); border-radius: 12px; }
+.presta-tabs button { min-height: 42px; padding: 6px 4px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-2); font-size: 13.5px; gap: 5px; white-space: nowrap; transition: background-color .15s ease, color .15s ease, transform 160ms var(--ease-out); }
+.presta-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(18, 33, 43, .08), 0 2px 8px -4px rgba(18, 33, 43, .2); }
+.presta-tabs .count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--line); color: var(--ink); font: 700 12px/20px var(--f-body); font-variant-numeric: tabular-nums; }
+.presta-tabs .count.hot { background: var(--st-todo); color: #fff; }
+.presta-body { display: flex; flex-direction: column; gap: 12px; }
+.tab-intro { margin: 0 2px 2px; color: var(--ink-2); font-size: 14px; }
+
+.job { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 1px 2px rgba(18, 33, 43, .05), 0 8px 20px -14px rgba(18, 33, 43, .25); }
+.job-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.job-model { font-weight: 600; font-size: 15px; flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.job-model small { color: var(--ink-2); font-weight: 500; font-size: 13px; }
+.job-kind { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 3px 9px; border-radius: 999px; }
+.job-meta { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14.5px; }
+.job-meta li { display: flex; gap: 9px; align-items: flex-start; }
+.job-meta .icon { width: 17px; height: 17px; margin-top: 1px; color: var(--ink-2); }
+.job-meta li.late { color: var(--danger); font-weight: 600; }
+.job-meta li.late .icon { color: var(--danger); }
+.job-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 14px; }
+.job-photos { display: flex; gap: 8px; }
+.job-photos img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; cursor: zoom-in; border: 1px solid var(--line); }
+.job-answer { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; font-weight: 600; color: var(--st-todo); }
+.job-answer .icon { width: 17px; height: 17px; margin-top: 1px; }
+.job-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.job-actions .primary { grid-column: 1 / -1; }
+.job-actions button { min-height: 46px; border-radius: 10px; transition: transform 160ms var(--ease-out), background-color .15s ease, border-color .15s ease; }
+.job-actions button:active, .presta-tabs button:active, .job-form button:active { transform: scale(.97); }
+.job-actions .big { min-height: 54px; font-size: 16px; }
+.job-actions .big .icon { width: 21px; height: 21px; }
+.job-actions .ghost { border: 1px solid var(--line); }
+.job-form { display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 12px; background: var(--surface-2); }
+.job-form-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; }
+.job-form input { min-height: 44px; font-size: 16px; }
+.job-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.job-form-actions .primary { flex: 1; min-height: 46px; }
+.job-busy { margin: 0; display: flex; gap: 10px; align-items: center; color: var(--ink-2); font-weight: 600; min-height: 46px; }
+.spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line-strong); border-top-color: var(--accent); animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.spot { display: flex; flex-direction: column; gap: 10px; }
+.spot + .spot { margin-top: 14px; }
+.spot-head { display: flex; align-items: center; gap: 10px; padding: 0 2px; }
+.spot-head .icon { color: var(--accent); flex: none; }
+.spot-head span { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.spot-head b { font: 700 20px/1.1 var(--f-display); letter-spacing: .01em; }
+.spot-head small { color: var(--ink-2); font-size: 13px; }
+.spot-head em { font-style: normal; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
+.job-search { display: flex; align-items: center; gap: 10px; padding: 0 14px; min-height: 48px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); }
+.job-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.job-search .icon { color: var(--ink-2); }
+.job-search input { flex: 1; border: 0; outline: 0; background: none; font-size: 16px; min-height: 46px; padding: 0; box-shadow: none; }
+.tally { margin: 0 2px 4px; font-size: 15px; color: var(--ink-2); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.tally b { font: 700 26px/1 var(--f-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.done-list { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.done-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; }
+.done-row + .done-row { border-top: 1px solid var(--line); }
+.done-row span { display: flex; flex-direction: column; min-width: 0; }
+.done-row b { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.done-row small { color: var(--ink-2); font-size: 13px; }
+.job-empty { display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; padding: 40px 20px; border: 1px dashed var(--line-strong); border-radius: 14px; color: var(--ink-2); }
+.job-empty b { color: var(--ink); font-size: 16px; }
+.presta-foot { margin-top: 28px; display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
+body.presta-mode .toast { width: max-content; border-radius: 14px; text-align: center; }
+body.presta-mode main { padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { .job-actions button:active, .presta-tabs button:active, .job-form button:active { transform: none; } }
 </style>
 </head>
 <body>
@@ -315,6 +395,12 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.5M12 16h.01"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
   <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
   <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
@@ -344,6 +430,7 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 
   <!-- PLANNING -->
   <section id="view-planning">
+    <div class="panel answers" id="answers" hidden></div>
     <div class="daybar">
       <h1 id="dayTitle">Aujourd'hui</h1>
       <button class="ghost" id="prevDay" aria-label="Jour précédent"><svg class="icon"><use href="#i-chev-l"/></svg></button>
@@ -560,6 +647,8 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
       </div>
     </div>
   </section>
+  <!-- PROVIDER SCREEN (filled by presta.js) -->
+  <section id="view-presta" hidden></section>
 </main>
 
 <input type="file" id="photoInput" accept="image/*" multiple hidden>
@@ -1062,6 +1151,59 @@ window.SUIVI_FIREBASE_CONFIG = {
       .map(({ changed, ...u }) => u);
   }
 
+
+  // ---------- provider answers (field "retour" on a request, written by the provider) ----------
+  // retour = {etat, at, par, note?, date?, debut?, preuve?}; the team marks it {vu: true} once read,
+  // and {applique: true} once the request status follows it (done -> réalisée, taken -> confirmée).
+  const ANSWERS = [
+    { id: "confirme", label: "Pris en charge", team: "a confirmé le passage" },
+    { id: "fait", label: "Fait", team: "a fait" },
+    { id: "absent", label: "Véhicule absent", team: "n'a pas trouvé le véhicule" },
+    { id: "autre-date", label: "Autre date proposée", team: "propose une autre date pour" },
+    { id: "refuse", label: "Pas possible", team: "ne peut pas faire" },
+  ];
+  const answerOf = (id) => ANSWERS.find((a) => a.id === id) || null;
+  const HIDDEN_FROM_PROVIDER = ["a_envoyer", "annulee"];
+  const isForProvider = (d) => !HIDDEN_FROM_PROVIDER.includes(d.statut || "a_envoyer");
+  const isDoneByProvider = (d) => d.retour?.etat === "fait" || d.statut === "realisee";
+  const doneDay = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || "")?.slice(0, 10) || d.date || "";
+
+  // Provider screen. A new request is first accepted (or answered with another date / not possible);
+  // once accepted it shows on every day the vehicle is on site, so it can be done early.
+  const isAccepted = (d) => d.statut === "confirmee" || d.retour?.etat === "confirme";
+  function providerLists(demandes, todayIso) {
+    const mine = demandes.filter(isForProvider);
+    const open = mine.filter((d) => !isDoneByProvider(d));
+    const accepted = open.filter(isAccepted);
+    return {
+      validate: open.filter((d) => !isAccepted(d)).sort(byDateThenTime),
+      today: accepted.filter((d) => d.date && d.date <= todayIso).sort(byDateThenTime),
+      upcoming: accepted.filter((d) => !d.date || d.date > todayIso).sort(byDateThenTime),
+      done: mine.filter(isDoneByProvider).sort((a, b) => doneDay(b).localeCompare(doneDay(a))),
+    };
+  }
+  const isLate = (d, todayIso) => !!d.date && lastDay(d) < todayIso;
+  // Vehicles done this month and this year, for the provider's own count.
+  function providerCounts(demandes, todayIso) {
+    const done = demandes.filter((d) => isForProvider(d) && isDoneByProvider(d)).map(doneDay);
+    return { month: done.filter((day) => day.slice(0, 7) === todayIso.slice(0, 7)).length, year: done.filter((day) => day.slice(0, 4) === todayIso.slice(0, 4)).length };
+  }
+  function answerSummary(r) {
+    if (!r) return "";
+    const when = r.date ? ` : ${shortDate(r.date)}${r.debut ? " à " + hourLabel(r.debut) : ""}` : "";
+    return `${answerOf(r.etat)?.label || r.etat}${when}${r.note ? ` – ${r.note}` : ""}`;
+  }
+  // What the team's app writes when it sees a provider answer it has not applied yet (closes the request automatically).
+  function statusFromAnswer(d) {
+    const r = d.retour;
+    if (!r || r.applique) return null;
+    if (r.etat === "fait" && d.statut !== "realisee") return "realisee";
+    if (r.etat === "confirme" && ["a_envoyer", "envoyee"].includes(d.statut)) return "confirmee";
+    return null;
+  }
+  // Answers the team has not looked at yet, newest first.
+  const unseenAnswers = (demandes) => demandes.filter((d) => d.retour && !d.retour.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || ""));
+
   // ---------- search ----------
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
@@ -1078,6 +1220,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
+    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers,
   };
 });
 </script>
@@ -1140,6 +1283,50 @@ window.SUIVI_FIREBASE_CONFIG = {
       try { const snap = await db.doc("comptes/" + D.emailKey(email)).get(); return snap.exists ? snap.data() : null; }
       catch { return null; }
     }
+    // ----- provider side: only its own requests (the rules refuse an unfiltered list) -----
+    function subscribeProvider(prestataireId, { onDemandes, onModels, onError }) {
+      const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const unsubs = [
+        db.collection("demandes").where("prestataireId", "==", prestataireId).onSnapshot((s) => onDemandes(toRows(s)), onError),
+        db.collection("modeles").onSnapshot((s) => onModels(toRows(s)), onError),
+      ];
+      return () => unsubs.forEach((u) => u());
+    }
+    const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
+    async function addProof(demande, full) {
+      const key = `${demande.id}_${Date.now().toString(36)}`;
+      await db.doc("preuves/" + key).set({ prestataireId: demande.prestataireId, demandeId: demande.id, plaque: demande.plaque || "", data: full, at: new Date().toISOString() });
+      return key;
+    }
+    async function answer(demande, retour) {
+      const now = new Date().toISOString();
+      await db.doc("demandes/" + demande.id).update({ retour: { ...retour, at: now }, updatedAt: now });
+    }
+    async function loadProof(key) {
+      const cacheKey = "preuve:" + key;
+      if (!photoCache.has(cacheKey)) {
+        const snap = await db.doc("preuves/" + key).get();
+        if (snap.exists) photoCache.set(cacheKey, snap.data().data);
+      }
+      return photoCache.get(cacheKey);
+    }
+    // ----- team side: follow the answers -----
+    async function applyAnswer(demande, status) {
+      const now = new Date().toISOString();
+      const done = status === "realisee" && demande.retour?.at ? { ...D.statusTimestamps(demande, status, now), doneAt: demande.retour.at } : D.statusTimestamps(demande, status, now);
+      await db.doc("demandes/" + demande.id).update({ statut: status, ...done, retour: { ...demande.retour, applique: true }, updatedAt: now });
+    }
+    const markAnswerSeen = (demande) => db.doc("demandes/" + demande.id).update({ retour: { ...demande.retour, vu: true } });
+    // Accepting the provider's date also confirms the request: it moves to the provider's planning.
+    function acceptProposedDate(demande) {
+      const now = new Date().toISOString();
+      return db.doc("demandes/" + demande.id).update({
+        date: demande.retour.date, dateFin: demande.retour.date, debut: demande.retour.debut || demande.debut || "",
+        statut: "confirmee", ...D.statusTimestamps(demande, "confirmee", now),
+        retour: { ...demande.retour, vu: true }, updatedAt: now,
+      });
+    }
+
     // One-off preparation before the access rules are published: link every request to its provider.
     async function linkRequests(updates) {
       if (!db.batch) { for (const { id, ...fields } of updates) await db.doc("demandes/" + id).update(fields); return; }
@@ -1212,11 +1399,217 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { subscribeProvider, getProvider, addProof, answer, loadProof, applyAnswer, markAnswerSeen, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
 });
+</script>
+<script>
+// Provider screen: what a provider sees after signing in. Only its own requests are loaded
+// (the access rules refuse anything else).
+// 1. "À valider": a new request is accepted, refused, or answered with another date.
+// 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), done with a photo of the plate.
+// 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
+// 4. "Faits": history and counts.
+(function (root) {
+  const TABS = [
+    { id: "validate", label: "À valider" },
+    { id: "today", label: "Aujourd'hui" },
+    { id: "upcoming", label: "À venir" },
+    { id: "done", label: "Faits" },
+  ];
+
+  function start({ store, account, email, D, ui }) {
+    const { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } = ui;
+    const state = { demandes: [], models: new Map(), providerName: "", tab: null, openForm: null, busy: new Set(), query: "" };
+    const today = () => D.toIsoDate(new Date());
+    const view = $("#view-presta");
+
+    document.body.classList.add("presta-mode");
+    document.querySelector("nav.tabs").hidden = true;
+    document.querySelectorAll("main > section").forEach((s) => (s.hidden = s !== view));
+    view.hidden = false;
+
+    // ---------- pieces ----------
+    const modelPhotos = (d) => state.models.get(D.modelKey(d))?.photos || [];
+    const slot = (d) => D.timeSlotLabel(d).replace(/^de /, "").replace(" à ", " – ");
+    const when = (d) => (D.isMultiDay(d) ? `Du ${D.shortDate(d.date)} au ${D.shortDate(D.lastDay(d))}` : D.shortDate(d.date));
+    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+    function modelHtml(d) {
+      const [name, size] = (D.vehicleLabel(d) || "").split(" – ");
+      return `<span class="job-model">${esc(name || "Modèle non précisé")}${size ? `<small>${esc(size)}</small>` : ""}</span>`;
+    }
+    function jobHead(d) {
+      return `<div class="job-head">${plateTag(d.plaque)}
+        ${modelHtml(d)}
+        <span class="job-kind">${esc(D.serviceOf(d.service).label)}</span></div>`;
+    }
+    function jobMeta(d, { withDate = true, withSite = true } = {}) {
+      const late = D.isLate(d, today());
+      return `<ul class="job-meta">
+        ${withDate ? `<li>${icon("cal")}<span>${esc(cap(when(d)))}</span></li>` : ""}
+        <li>${icon("clock")}<span>${esc(cap(slot(d)))}${!withDate && D.isMultiDay(d) ? ` · sur site jusqu'au ${esc(D.shortDate(D.lastDay(d)))}` : ""}</span></li>
+        ${withSite ? `<li>${icon("pin")}<span>${esc([d.site, d.adresse].filter(Boolean).join(" · ") || "Site à préciser")}</span></li>` : ""}
+        ${late ? `<li class="late">${icon("alert")}<span>En retard : prévu jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>` : ""}
+      </ul>${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}`;
+    }
+    const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
+      ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
+    function answerLine(d) {
+      const r = d.retour;
+      if (!r || r.etat === "fait" || r.etat === "confirme") return "";
+      return `<p class="job-answer">${icon("alert")}<span>${esc(D.answerSummary(r))}${r.vu ? "" : " · en attente de l'équipe"}</span></p>`;
+    }
+
+    // ---------- inline forms (another date, missing vehicle, not possible) ----------
+    function formHtml(d) {
+      const cancel = (kind) => `<button type="button" class="ghost" data-form="${kind}:${esc(d.id)}">Annuler</button>`;
+      const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note placeholder="${placeholder}"></label>`;
+      if (state.openForm === "date:" + d.id) return `<div class="job-form">
+        <div class="job-form-row"><label class="field"><span>Date proposée</span><input type="date" data-date min="${today()}"></label>
+        <label class="field"><span>Heure</span><input type="time" data-time step="900"></label></div>
+        ${note("Un mot pour l'équipe (facultatif)", "Ex. complet jeudi matin")}
+        <div class="job-form-actions">${cancel("date")}<button type="button" class="primary" data-send="date:${esc(d.id)}">Proposer cette date</button></div></div>`;
+      if (state.openForm === "absent:" + d.id) return `<div class="job-form">
+        ${note("Un mot pour l'équipe (facultatif)", "Ex. pas sur le parking à 9 h")}
+        <div class="job-form-actions">${cancel("absent")}<button type="button" class="primary" data-send="absent:${esc(d.id)}">Signaler le véhicule absent</button></div></div>`;
+      if (state.openForm === "refuse:" + d.id) return `<div class="job-form">
+        ${note("Pourquoi ? (facultatif)", "Ex. pièce indisponible")}
+        <div class="job-form-actions">${cancel("refuse")}<button type="button" class="primary" data-send="refuse:${esc(d.id)}">Confirmer : pas possible</button></div></div>`;
+      return "";
+    }
+    const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
+    const formOpen = (d) => state.openForm?.endsWith(":" + d.id);
+
+    // ---------- cards per tab ----------
+    function validateCard(d) {
+      return `<article class="job">${jobHead(d)}${jobMeta(d)}${photosStrip(d)}${answerLine(d)}
+        ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
+          <button type="button" class="primary" data-take="${esc(d.id)}">${icon("check")}Accepter</button>
+          <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Autre date</button>
+          <button type="button" class="ghost" data-form="refuse:${esc(d.id)}">Pas possible</button></div>`}
+      </article>`;
+    }
+    function doCard(d, { early = false } = {}) {
+      return `<article class="job">${jobHead(d)}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
+        ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
+          <button type="button" class="primary big" data-done="${esc(d.id)}">${icon("camera")}${early ? "Fait en avance" : "Fait"} · photo de la plaque</button>
+          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button></div>`}
+      </article>`;
+    }
+    function doneRow(d) {
+      const day = (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
+      return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.serviceOf(d.service).label)}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
+        ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}</li>`;
+    }
+    // Today's vehicles grouped by site: the provider goes site by site.
+    function todayHtml(list) {
+      return [...D.groupBy(list, D.siteOf).entries()].map(([site, rows]) => `<section class="spot">
+        <header class="spot-head">${icon("pin")}<span><b>${esc(site)}</b>${rows[0].adresse ? `<small>${esc(rows[0].adresse)}</small>` : ""}</span><em>${rows.length}</em></header>
+        ${rows.map((d) => doCard(d)).join("")}</section>`).join("");
+    }
+    const searchBox = () => `<label class="job-search">${icon("search")}<input type="search" data-search value="${esc(state.query)}" placeholder="Chercher une plaque, un site…" aria-label="Chercher"></label>`;
+    const filtered = (list) => list.filter((d) => D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse], state.query));
+    const empty = (title, text) => `<div class="job-empty"><b>${title}</b><span>${text}</span></div>`;
+
+    function render() {
+      const lists = D.providerLists(state.demandes, today());
+      if (!state.tab && state.loaded) state.tab = lists.validate.length ? "validate" : "today";
+      const counts = D.providerCounts(state.demandes, today());
+      const tabs = TABS.map((t) => {
+        const n = t.id === "done" ? 0 : lists[t.id].length;
+        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${t.label}${n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : ""}</button>`;
+      }).join("");
+      let body = "";
+      if (!state.loaded) body = `<div class="job-empty" aria-busy="true"><span class="spinner"></span><span>Chargement de tes demandes…</span></div>`;
+      else if (state.tab === "validate") body = lists.validate.length
+        ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${lists.validate.map(validateCard).join("")}`
+        : empty("Aucune demande à valider", "Les nouvelles demandes de CityDrop arrivent ici.");
+      else if (state.tab === "today") body = lists.today.length ? todayHtml(lists.today) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site.");
+      else if (state.tab === "upcoming") {
+        const list = filtered(lists.upcoming);
+        body = searchBox() + (list.length ? `<p class="tab-intro">Un véhicule est déjà sur site ? Tu peux le faire en avance.</p>${list.map((d) => doCard(d, { early: true })).join("")}`
+          : empty(state.query ? "Aucun véhicule trouvé" : "Rien à venir", state.query ? "Vérifie la plaque ou le site." : "Tes demandes acceptées des prochains jours s'afficheront ici."));
+      } else {
+        const list = filtered(lists.done);
+        body = `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci<span aria-hidden="true">·</span><b>${counts.year}</b> cette année</p>${searchBox()}` +
+          (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque véhicule validé avec sa photo s'ajoute ici."));
+      }
+      const focusSearch = document.activeElement?.matches?.("[data-search]");
+      view.innerHTML = `<header class="presta-top">
+          <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
+          <h1>${esc(cap(D.dayLabel(today())))}</h1>
+        </header>
+        <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabs}</nav>
+        <div class="presta-body">${body}</div>
+        <footer class="presta-foot"><span>${esc(email)}</span><button type="button" class="ghost" data-signout>Se déconnecter</button></footer>`;
+      if (focusSearch) { const input = view.querySelector("[data-search]"); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+    }
+
+    // ---------- actions ----------
+    const byId = (id) => state.demandes.find((d) => d.id === id);
+    async function send(d, retour, message) {
+      state.busy.add(d.id); state.openForm = null; render();
+      try { await store.answer(d, { ...retour, par: email }); toast(message); }
+      catch { toast("Envoi impossible : vérifie ta connexion et réessaie"); }
+      finally { state.busy.delete(d.id); render(); }
+    }
+
+    // "Fait": the camera opens; the photo of the plate is the proof.
+    const camera = Object.assign(document.createElement("input"), { type: "file", accept: "image/*", hidden: true });
+    camera.setAttribute("capture", "environment");
+    document.body.append(camera);
+    let doneTarget = null;
+    camera.addEventListener("change", async () => {
+      const file = camera.files[0]; camera.value = "";
+      const d = doneTarget && byId(doneTarget);
+      if (!file || !d) return;
+      state.busy.add(d.id); render();
+      try {
+        const { full } = await prepareImage(file);
+        const preuve = await store.addProof(d, full);
+        state.busy.delete(d.id);
+        await send(d, { etat: "fait", preuve }, `${d.plaque} validé, merci !`);
+      } catch { state.busy.delete(d.id); render(); toast("La photo n'est pas partie : réessaie"); }
+    });
+
+    view.addEventListener("input", (e) => { if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); } });
+    view.addEventListener("click", (e) => {
+      const el = (sel) => e.target.closest(sel);
+      let b;
+      if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
+      else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
+      else if ((b = el("[data-done]"))) { doneTarget = b.dataset.done; camera.click(); }
+      else if ((b = el("[data-form]"))) { state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; render(); }
+      else if ((b = el("[data-send]"))) {
+        const [kind, id] = b.dataset.send.split(":");
+        const form = b.closest(".job-form");
+        const note = form.querySelector("[data-note]").value.trim();
+        const withNote = note ? { note } : {};
+        if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
+        else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");
+        else {
+          const date = form.querySelector("[data-date]").value;
+          if (!date) return toast("Choisis la date que tu proposes");
+          const debut = form.querySelector("[data-time]").value;
+          send(byId(id), { etat: "autre-date", date, ...(debut ? { debut } : {}), ...withNote }, "Date proposée à l'équipe");
+        }
+      }
+      else if (el("[data-signout]")) firebase.auth().signOut().then(() => location.reload());
+    });
+
+    render();
+    store.getProvider(account.prestataireId).then((p) => { state.providerName = p?.nom || ""; render(); }).catch(() => {});
+    store.subscribeProvider(account.prestataireId, {
+      onDemandes: (rows) => { state.demandes = rows; state.loaded = true; render(); },
+      onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); render(); },
+      onError: () => toast("Connexion interrompue : recharge la page"),
+    });
+  }
+  root.SuiviPresta = { start };
+})(typeof self !== "undefined" ? self : this);
 </script>
 <script>
 // Screens of the tracker. Business rules live in domain.js, data access in store.js.
@@ -1283,6 +1676,9 @@ function page(texte) {
     accounts: [],            // [{id: email, role, prestataireId}]
     userEmail: "",
   };
+  // Providers who have their own access get a link to answer in the app instead of WhatsApp.
+  const appLink = (providerName) => state.accounts.some((a) => a.role === "prestataire" && a.prestataireId === D.providerId(providerName))
+    ? `\n\nRéponds directement sur l'appli : ${location.origin}${location.pathname}` : "";
   const pricesOf = (providerId) => state.providerDocs.get(providerId)?.tarifs || [];
   const today = () => D.toIsoDate(new Date());
   const siteNames = () => state.sites.map((s) => s.nom);
@@ -1509,11 +1905,18 @@ function page(texte) {
     if ((el = target("[data-copy-photo]"))) { const key = el.dataset.copyPhoto; copyImage(() => singlePhotoPng(key), el.dataset.name, () => singlePhotoJpeg(key)); return; }
     if ((el = target("[data-save-photo]"))) { saveBlob(singlePhotoJpeg(el.dataset.savePhoto), el.dataset.name); return; }
     if ((el = target("[data-zoom]"))) openLightbox(el.dataset.zoom, el.src);
+    if ((el = target("[data-proof]"))) openProof(el.dataset.proof);
   }, true);
   async function openLightbox(key, fallbackSrc) {
     $("#lightImg").src = fallbackSrc; $("#lightbox").hidden = false;
     const full = state.store ? await state.store.loadPhoto(key).catch(() => null) : null;
     if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
+  }
+  async function openProof(key) {
+    $("#lightImg").removeAttribute("src"); $("#lightbox").hidden = false;
+    const full = state.store ? await state.store.loadProof(key).catch(() => null) : null;
+    if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
+    else if (!full) { $("#lightbox").hidden = true; toast("Photo introuvable"); }
   }
   $("#lightbox").onclick = () => ($("#lightbox").hidden = true);
 
@@ -1527,6 +1930,7 @@ function page(texte) {
   // ================= navigation =================
   const VIEWS = ["planning", "demande", "photos", "verif", "bilan", "historique", "reglages"];
   function show(view) {
+    if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
     VIEWS.forEach((v) => { $("#view-" + v).hidden = v !== view; $("#tab-" + v).setAttribute("aria-selected", String(v === view)); });
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
@@ -1570,7 +1974,7 @@ function page(texte) {
       : `<div class="empty"><b>Aucun véhicule prévu ce jour-là.</b><span>Les véhicules disponibles ce jour apparaissent ici, classés par site, avec la liste prête à envoyer.</span></div>`;
     const active = ofDay.filter(D.isActive);
     $("#dayShare").innerHTML = active.length
-      ? shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }), provider: providerFilter || defaultProvider(), vehicles: active.filter(D.isWindshield) })
+      ? shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }) + appLink(providerFilter || defaultProvider()), provider: providerFilter || defaultProvider(), vehicles: active.filter(D.isWindshield) })
       : `<p class="muted">Rien à envoyer pour ce jour.</p>`;
   }
   function renderWeekStrip() {
@@ -1729,7 +2133,7 @@ function page(texte) {
     const photoCount = photoEntries(vehicles).length;
     $("#photosSet").hidden = !D.isWindshield(d);
     $("#msgTitle").textContent = others.length ? `Envoyer la demande (${others.length + 1} véhicules)` : "Envoyer la demande";
-    $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others), vehicles });
+    $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others) + appLink(d.prestataire), vehicles });
     renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
     $("#vehHint").textContent = vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "";
@@ -2170,11 +2574,50 @@ function page(texte) {
   $("#s-script").textContent = SHEET_SCRIPT;
   $("#s-copyscript").onclick = async () => { if (await copyText(SHEET_SCRIPT)) toast("Script copié"); };
 
+  // ================= provider answers (team side) =================
+  // A "done" answer closes the request on its own; every answer is listed until someone marks it seen.
+  const applying = new Set();
+  let knownAnswers = null;
+  function followAnswers(rows) {
+    if (!state.canWrite) return;
+    rows.forEach((d) => {
+      const status = D.statusFromAnswer(d);
+      if (!status || applying.has(d.id)) return;
+      applying.add(d.id);
+      state.store.applyAnswer(d, status).catch(() => {}).finally(() => applying.delete(d.id));
+    });
+    const signature = (d) => d.id + "|" + d.retour.at;
+    const fresh = D.unseenAnswers(rows).filter((d) => knownAnswers && !knownAnswers.has(signature(d)));
+    knownAnswers = new Set(D.unseenAnswers(rows).map(signature));
+    if (fresh.length) toast(fresh.length > 1 ? `${fresh.length} nouvelles réponses des prestataires` : `${fresh[0].prestataire} ${D.answerOf(fresh[0].retour.etat)?.team || "a répondu pour"} ${fresh[0].plaque}`);
+  }
+  function renderAnswers() {
+    const rows = D.unseenAnswers(state.demandes);
+    $("#tab-planning").textContent = rows.length ? `Planning (${rows.length})` : "Planning";
+    $("#answers").hidden = !rows.length;
+    $("#answers").innerHTML = `<div class="panel-head"><h2>Réponses des prestataires</h2><span class="muted">${plural(rows.length, "nouvelle")}</span></div>` +
+      rows.map((d) => `<div class="answer-row">${plateTag(d.plaque)}
+        <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(d.retour))}<br><span class="muted">${esc(D.vehicleLabel(d))} · ${esc(D.siteOf(d))} · ${esc(D.numericDate(d.retour.at.slice(0, 10)))} ${esc(d.retour.at.slice(11, 16))}</span></span>
+        <span class="row">${d.retour.preuve ? `<button type="button" data-proof="${esc(d.retour.preuve)}">${icon("image")}Photo</button>` : ""}
+        ${d.retour.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
+        ${state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
+        <button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button></span></div>`).join("");
+  }
+  $("#answers").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
+    const d = b && state.demandes.find((x) => x.id === (b.dataset.seen || b.dataset.acceptDate || b.dataset.open));
+    if (!d) return;
+    if (b.dataset.open) return openDemande(d.id);
+    if (!requireStore()) return;
+    (b.dataset.seen ? state.store.markAnswerSeen(d) : state.store.acceptProposedDate(d))
+      .then(() => b.dataset.acceptDate && toast(`Date changée pour ${d.plaque}`), reportWriteError);
+  });
+
   // ================= render & boot =================
   function renderAll() {
     shareRegistry.clear();
     renderSelects();
-    renderPlanning(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
+    renderAnswers(); renderPlanning(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
     $("#dl-plaques").innerHTML = [...state.vehicles.values()].map((v) => `<option value="${esc(v.plaque)}">${esc(D.vehicleLabel(v))}</option>`).join("");
     renderFormSide();
   }
@@ -2201,8 +2644,10 @@ function page(texte) {
     state.userEmail = user?.email || "";
     const account = await state.store.getAccount(state.userEmail);
     if (account?.role === "prestataire") {
-      setSync("Accès prestataire", true);
-      banner("Ton espace prestataire arrive très bientôt : tes demandes s'afficheront ici.");
+      state.providerMode = true;
+      setSync("Connecté", true);
+      window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D,
+        ui: { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } });
       return;
     }
     if (account?.role === "lecture") { state.canWrite = false; $("#saveBtn").disabled = true; banner("Accès en lecture : tu vois tout mais tu ne modifies rien."); }
@@ -2211,7 +2656,7 @@ function page(texte) {
       banner("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
     }
     state.store.subscribe({
-      onDemandes: (rows) => { state.demandes = rows; renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
+      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
       onSettings: (settings) => { applySettings(settings); renderAll(); },

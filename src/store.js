@@ -56,6 +56,50 @@
       try { const snap = await db.doc("comptes/" + D.emailKey(email)).get(); return snap.exists ? snap.data() : null; }
       catch { return null; }
     }
+    // ----- provider side: only its own requests (the rules refuse an unfiltered list) -----
+    function subscribeProvider(prestataireId, { onDemandes, onModels, onError }) {
+      const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const unsubs = [
+        db.collection("demandes").where("prestataireId", "==", prestataireId).onSnapshot((s) => onDemandes(toRows(s)), onError),
+        db.collection("modeles").onSnapshot((s) => onModels(toRows(s)), onError),
+      ];
+      return () => unsubs.forEach((u) => u());
+    }
+    const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
+    async function addProof(demande, full) {
+      const key = `${demande.id}_${Date.now().toString(36)}`;
+      await db.doc("preuves/" + key).set({ prestataireId: demande.prestataireId, demandeId: demande.id, plaque: demande.plaque || "", data: full, at: new Date().toISOString() });
+      return key;
+    }
+    async function answer(demande, retour) {
+      const now = new Date().toISOString();
+      await db.doc("demandes/" + demande.id).update({ retour: { ...retour, at: now }, updatedAt: now });
+    }
+    async function loadProof(key) {
+      const cacheKey = "preuve:" + key;
+      if (!photoCache.has(cacheKey)) {
+        const snap = await db.doc("preuves/" + key).get();
+        if (snap.exists) photoCache.set(cacheKey, snap.data().data);
+      }
+      return photoCache.get(cacheKey);
+    }
+    // ----- team side: follow the answers -----
+    async function applyAnswer(demande, status) {
+      const now = new Date().toISOString();
+      const done = status === "realisee" && demande.retour?.at ? { ...D.statusTimestamps(demande, status, now), doneAt: demande.retour.at } : D.statusTimestamps(demande, status, now);
+      await db.doc("demandes/" + demande.id).update({ statut: status, ...done, retour: { ...demande.retour, applique: true }, updatedAt: now });
+    }
+    const markAnswerSeen = (demande) => db.doc("demandes/" + demande.id).update({ retour: { ...demande.retour, vu: true } });
+    // Accepting the provider's date also confirms the request: it moves to the provider's planning.
+    function acceptProposedDate(demande) {
+      const now = new Date().toISOString();
+      return db.doc("demandes/" + demande.id).update({
+        date: demande.retour.date, dateFin: demande.retour.date, debut: demande.retour.debut || demande.debut || "",
+        statut: "confirmee", ...D.statusTimestamps(demande, "confirmee", now),
+        retour: { ...demande.retour, vu: true }, updatedAt: now,
+      });
+    }
+
     // One-off preparation before the access rules are published: link every request to its provider.
     async function linkRequests(updates) {
       if (!db.batch) { for (const { id, ...fields } of updates) await db.doc("demandes/" + id).update(fields); return; }
@@ -128,7 +172,7 @@
       return photoCache.get(key);
     }
 
-    return { saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { subscribeProvider, getProvider, addProof, answer, loadProof, applyAnswer, markAnswerSeen, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

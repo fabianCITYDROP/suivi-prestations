@@ -26,6 +26,9 @@
     accounts: [],            // [{id: email, role, prestataireId}]
     userEmail: "",
   };
+  // Providers who have their own access get a link to answer in the app instead of WhatsApp.
+  const appLink = (providerName) => state.accounts.some((a) => a.role === "prestataire" && a.prestataireId === D.providerId(providerName))
+    ? `\n\nRéponds directement sur l'appli : ${location.origin}${location.pathname}` : "";
   const pricesOf = (providerId) => state.providerDocs.get(providerId)?.tarifs || [];
   const today = () => D.toIsoDate(new Date());
   const siteNames = () => state.sites.map((s) => s.nom);
@@ -252,11 +255,18 @@
     if ((el = target("[data-copy-photo]"))) { const key = el.dataset.copyPhoto; copyImage(() => singlePhotoPng(key), el.dataset.name, () => singlePhotoJpeg(key)); return; }
     if ((el = target("[data-save-photo]"))) { saveBlob(singlePhotoJpeg(el.dataset.savePhoto), el.dataset.name); return; }
     if ((el = target("[data-zoom]"))) openLightbox(el.dataset.zoom, el.src);
+    if ((el = target("[data-proof]"))) openProof(el.dataset.proof);
   }, true);
   async function openLightbox(key, fallbackSrc) {
     $("#lightImg").src = fallbackSrc; $("#lightbox").hidden = false;
     const full = state.store ? await state.store.loadPhoto(key).catch(() => null) : null;
     if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
+  }
+  async function openProof(key) {
+    $("#lightImg").removeAttribute("src"); $("#lightbox").hidden = false;
+    const full = state.store ? await state.store.loadProof(key).catch(() => null) : null;
+    if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
+    else if (!full) { $("#lightbox").hidden = true; toast("Photo introuvable"); }
   }
   $("#lightbox").onclick = () => ($("#lightbox").hidden = true);
 
@@ -270,6 +280,7 @@
   // ================= navigation =================
   const VIEWS = ["planning", "demande", "photos", "verif", "bilan", "historique", "reglages"];
   function show(view) {
+    if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
     VIEWS.forEach((v) => { $("#view-" + v).hidden = v !== view; $("#tab-" + v).setAttribute("aria-selected", String(v === view)); });
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
@@ -313,7 +324,7 @@
       : `<div class="empty"><b>Aucun véhicule prévu ce jour-là.</b><span>Les véhicules disponibles ce jour apparaissent ici, classés par site, avec la liste prête à envoyer.</span></div>`;
     const active = ofDay.filter(D.isActive);
     $("#dayShare").innerHTML = active.length
-      ? shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }), provider: providerFilter || defaultProvider(), vehicles: active.filter(D.isWindshield) })
+      ? shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }) + appLink(providerFilter || defaultProvider()), provider: providerFilter || defaultProvider(), vehicles: active.filter(D.isWindshield) })
       : `<p class="muted">Rien à envoyer pour ce jour.</p>`;
   }
   function renderWeekStrip() {
@@ -472,7 +483,7 @@
     const photoCount = photoEntries(vehicles).length;
     $("#photosSet").hidden = !D.isWindshield(d);
     $("#msgTitle").textContent = others.length ? `Envoyer la demande (${others.length + 1} véhicules)` : "Envoyer la demande";
-    $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others), vehicles });
+    $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others) + appLink(d.prestataire), vehicles });
     renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
     $("#vehHint").textContent = vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "";
@@ -913,11 +924,50 @@
   $("#s-script").textContent = SHEET_SCRIPT;
   $("#s-copyscript").onclick = async () => { if (await copyText(SHEET_SCRIPT)) toast("Script copié"); };
 
+  // ================= provider answers (team side) =================
+  // A "done" answer closes the request on its own; every answer is listed until someone marks it seen.
+  const applying = new Set();
+  let knownAnswers = null;
+  function followAnswers(rows) {
+    if (!state.canWrite) return;
+    rows.forEach((d) => {
+      const status = D.statusFromAnswer(d);
+      if (!status || applying.has(d.id)) return;
+      applying.add(d.id);
+      state.store.applyAnswer(d, status).catch(() => {}).finally(() => applying.delete(d.id));
+    });
+    const signature = (d) => d.id + "|" + d.retour.at;
+    const fresh = D.unseenAnswers(rows).filter((d) => knownAnswers && !knownAnswers.has(signature(d)));
+    knownAnswers = new Set(D.unseenAnswers(rows).map(signature));
+    if (fresh.length) toast(fresh.length > 1 ? `${fresh.length} nouvelles réponses des prestataires` : `${fresh[0].prestataire} ${D.answerOf(fresh[0].retour.etat)?.team || "a répondu pour"} ${fresh[0].plaque}`);
+  }
+  function renderAnswers() {
+    const rows = D.unseenAnswers(state.demandes);
+    $("#tab-planning").textContent = rows.length ? `Planning (${rows.length})` : "Planning";
+    $("#answers").hidden = !rows.length;
+    $("#answers").innerHTML = `<div class="panel-head"><h2>Réponses des prestataires</h2><span class="muted">${plural(rows.length, "nouvelle")}</span></div>` +
+      rows.map((d) => `<div class="answer-row">${plateTag(d.plaque)}
+        <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(d.retour))}<br><span class="muted">${esc(D.vehicleLabel(d))} · ${esc(D.siteOf(d))} · ${esc(D.numericDate(d.retour.at.slice(0, 10)))} ${esc(d.retour.at.slice(11, 16))}</span></span>
+        <span class="row">${d.retour.preuve ? `<button type="button" data-proof="${esc(d.retour.preuve)}">${icon("image")}Photo</button>` : ""}
+        ${d.retour.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
+        ${state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
+        <button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button></span></div>`).join("");
+  }
+  $("#answers").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
+    const d = b && state.demandes.find((x) => x.id === (b.dataset.seen || b.dataset.acceptDate || b.dataset.open));
+    if (!d) return;
+    if (b.dataset.open) return openDemande(d.id);
+    if (!requireStore()) return;
+    (b.dataset.seen ? state.store.markAnswerSeen(d) : state.store.acceptProposedDate(d))
+      .then(() => b.dataset.acceptDate && toast(`Date changée pour ${d.plaque}`), reportWriteError);
+  });
+
   // ================= render & boot =================
   function renderAll() {
     shareRegistry.clear();
     renderSelects();
-    renderPlanning(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
+    renderAnswers(); renderPlanning(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
     $("#dl-plaques").innerHTML = [...state.vehicles.values()].map((v) => `<option value="${esc(v.plaque)}">${esc(D.vehicleLabel(v))}</option>`).join("");
     renderFormSide();
   }
@@ -944,8 +994,10 @@
     state.userEmail = user?.email || "";
     const account = await state.store.getAccount(state.userEmail);
     if (account?.role === "prestataire") {
-      setSync("Accès prestataire", true);
-      banner("Ton espace prestataire arrive très bientôt : tes demandes s'afficheront ici.");
+      state.providerMode = true;
+      setSync("Connecté", true);
+      window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D,
+        ui: { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } });
       return;
     }
     if (account?.role === "lecture") { state.canWrite = false; $("#saveBtn").disabled = true; banner("Accès en lecture : tu vois tout mais tu ne modifies rien."); }
@@ -954,7 +1006,7 @@
       banner("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
     }
     state.store.subscribe({
-      onDemandes: (rows) => { state.demandes = rows; renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
+      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
       onSettings: (settings) => { applySettings(settings); renderAll(); },

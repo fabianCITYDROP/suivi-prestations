@@ -65,13 +65,57 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   ok('new request has a price when its cubage has one', created && (created.prixHT === 300 || (created.cubage < 12 && created.prixHT === null)));
   ok('no page errors (admin)', p.errs.length === 0); if (p.errs.length) console.log(p.errs);
 
-  // 3. Khalid signs in
-  const k = await page(); await login(k, 'khalid@lavage.fr');
-  ok('Khalid gets the provider banner', (await k.textContent('#banner')).includes('prestataire'));
-  const leak = await fetch(`${FS}/demandes/old1`, { headers: { Authorization: 'Bearer ' + khalid.idToken } });
-  ok('Khalid is refused the Allo request (HTTP ' + leak.status + ')', leak.status === 403);
+  // 3. Khalid answers from his own screen
+  const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  await put('demandes/lav1', { prestataire: 'Khalid', prestataireId: 'khalid', plaque: 'GH-111-AA', service: 'lavage', modele: 'Opel Movano 2023', cubage: 12, site: 'Saint-Cloud', date: day(1), debut: '09:00', fin: '12:00', statut: 'envoyee', prixHT: 37 });
+  await put('demandes/lav2', { prestataire: 'Khalid', prestataireId: 'khalid', plaque: 'GH-222-BB', service: 'lavage', site: 'Saint-Cloud', date: day(1), statut: 'envoyee', prixHT: 37 });
+  await put('demandes/lav3', { prestataire: 'Khalid', prestataireId: 'khalid', plaque: 'GH-333-CC', service: 'lavage', modele: 'Renault Master 2023', cubage: 20, site: 'La Défense', date: day(-1), dateFin: day(1), debut: '08:00', fin: '18:00', statut: 'confirmee', prixHT: 37, notes: "Clés à l'accueil" });
+  const k = await page(); await k.setViewportSize({ width: 390, height: 860 }); await login(k, 'khalid@lavage.fr');
+  await k.waitForSelector('.job');
+  const cards = await k.$$eval('.job', (els) => els.map((e) => e.textContent));
+  ok('Khalid opens on his 2 requests to validate, nothing from Allo', cards.length === 2 && cards.every((t) => !t.includes('AB-123-CD') && !t.includes('EF-456-GH')));
+  ok('team tabs hidden for Khalid', await k.isHidden('nav.tabs'));
+  if (process.env.SHOTS) await k.screenshot({ path: process.env.SHOTS + '/1-a-valider.png', fullPage: true });
+  await k.click('[data-take="lav1"]'); await k.waitForTimeout(1500);
+  let lav1 = (await list('demandes')).find((d) => d.id === 'lav1');
+  ok('"Accepter" confirms the request (team app applied it)', lav1.statut === 'confirmee');
+  await k.click('[data-form="date:lav2"]'); await k.fill('[data-date]', day(3)); await k.fill('[data-time]', '14:00');
+  if (process.env.SHOTS) await k.screenshot({ path: process.env.SHOTS + '/2-autre-date.png', fullPage: true });
+  await k.click('[data-send="date:lav2"]'); await k.waitForTimeout(1200);
+  await k.click('[data-tab="today"]'); await k.waitForTimeout(300);
+  ok('vehicle on site for several days shows today', (await k.textContent('#view-presta')).includes('GH-333-CC'));
+  if (process.env.SHOTS) await k.screenshot({ path: process.env.SHOTS + '/3-aujourdhui.png', fullPage: true });
+  await k.click('[data-tab="upcoming"]'); await k.waitForTimeout(300);
+  await k.fill('[data-search]', 'gh-111'); await k.waitForTimeout(300);
+  ok('search finds the accepted vehicle', (await k.$$('.job')).length === 1);
+  if (process.env.SHOTS) await k.screenshot({ path: process.env.SHOTS + '/4-a-venir.png', fullPage: true });
+  const photo = await k.screenshot({ type: 'jpeg', quality: 60 });
+  await k.click('[data-done="lav1"]');
+  await k.setInputFiles('input[type=file][capture]', { name: 'plaque.jpg', mimeType: 'image/jpeg', buffer: photo });
+  await k.waitForTimeout(2500);
+  lav1 = (await list('demandes')).find((d) => d.id === 'lav1');
+  ok('"Fait en avance" with photo closes the request automatically', lav1.statut === 'realisee');
+  const proofs = await list('preuves');
+  ok('proof photo stored for Khalid', proofs.length === 1 && proofs[0].prestataireId === 'khalid');
+  await k.click('[data-tab="done"]'); await k.waitForTimeout(300);
+  ok('done list shown to Khalid', (await k.textContent('#view-presta')).includes('GH-111-AA'));
+  if (process.env.SHOTS) await k.screenshot({ path: process.env.SHOTS + '/5-faits.png', fullPage: true });
   ok('no page errors (Khalid)', k.errs.length === 0); if (k.errs.length) console.log(k.errs);
-  // 4. Someone signed in without access
+
+  // 4. The team sees the answers and accepts the new date
+  await p.goto('http://localhost:8765/#planning'); await p.waitForTimeout(1200);
+  const panel = await p.textContent('#answers');
+  ok('team sees Khalid answers', panel.includes('GH-111-AA') && panel.includes('Autre date proposée'));
+  ok('planning tab shows the count', (await p.textContent('#tab-planning')).includes('('));
+  await p.click('[data-proof]'); await p.waitForTimeout(800);
+  ok('team opens the proof photo', ((await p.getAttribute('#lightImg', 'src')) || '').startsWith('data:image/jpeg'));
+  await p.click('#lightbox');
+  await p.click('[data-accept-date="lav2"]'); await p.waitForTimeout(1000);
+  const lav2 = (await list('demandes')).find((d) => d.id === 'lav2');
+  ok('accepting moves the request to the proposed date and confirms it', lav2.date === day(3) && lav2.debut === '14:00' && lav2.statut === 'confirmee');
+  ok('no page errors (team)', p.errs.length === 0); if (p.errs.length) console.log(p.errs);
+
+  // 5. Someone signed in without access
   await signUp('inconnu@exemple.fr'); const u = await page(); await login(u, 'inconnu@exemple.fr');
   ok('unknown account told it has no access', (await u.textContent('#banner')).includes("pas encore d'accès"));
   await b.close(); srv.close();
