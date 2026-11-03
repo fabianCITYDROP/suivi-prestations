@@ -63,6 +63,14 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   console.log('     new request:', created && { cubage: created.cubage, prestataireId: created.prestataireId, prixHT: created.prixHT });
   ok('new request has provider id', created?.prestataireId === 'allo-pare-brise-78');
   ok('new request has a price when its cubage has one', created && (created.prixHT === 300 || (created.cubage < 12 && created.prixHT === null)));
+  // 2b. A grouped request: two vans at the same place, both saved with the default 8h30–19h30 slot
+  await p.goto('http://localhost:8765/#planning'); await p.click('#newOnDay'); await p.waitForTimeout(100);
+  ok('new request defaults to 08:30-19:30', (await p.inputValue('#f-debut')) === '08:30' && (await p.inputValue('#f-fin')) === '19:30');
+  await p.fill('#f-plaque', 'gr111aa'); await p.dispatchEvent('#f-plaque', 'change');
+  await p.selectOption('#f-site', { index: 1 }); await p.click('#addVeh');
+  await p.fill('.x-plaque', 'gr222bb'); await p.click('#saveBtn'); await p.waitForTimeout(1000);
+  rows = await list('demandes'); const grouped = rows.filter(r => r.plaque === 'GR-111-AA' || r.plaque === 'GR-222-BB');
+  ok('grouped request saves both vehicles in one group', grouped.length === 2 && grouped[0].groupe && grouped[0].groupe === grouped[1].groupe && grouped.every(r => r.debut === '08:30' && r.prestataireId && r.statut === 'a_envoyer'));
   ok('no page errors (admin)', p.errs.length === 0); if (p.errs.length) console.log(p.errs);
 
   // 3. Khalid answers from his own screen
