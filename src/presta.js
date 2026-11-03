@@ -106,35 +106,47 @@
     const filtered = (list) => list.filter((d) => D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse], state.query));
     const empty = (title, text) => `<div class="job-empty"><b>${title}</b><span>${text}</span></div>`;
 
+    const loadingHtml = `<div class="job-empty" aria-busy="true"><span class="spinner"></span><span>Chargement de tes demandes…</span></div>`;
+    function tabsHtml(lists) {
+      return TABS.map((t) => {
+        const n = t.id === "done" ? 0 : lists[t.id].length;
+        const badge = n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : "";
+        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${t.label}${badge}</button>`;
+      }).join("");
+    }
+    function validateTab(list) {
+      return list.length
+        ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${list.map(validateCard).join("")}`
+        : empty("Aucune demande à valider", "Les nouvelles demandes de CityDrop arrivent ici.");
+    }
+    function todayTab(list) {
+      return list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site.");
+    }
+    function upcomingTab(all) {
+      const list = filtered(all);
+      return searchBox() + (list.length
+        ? `<p class="tab-intro">Un véhicule est déjà sur site ? Tu peux le faire en avance.</p>${list.map((d) => doCard(d, { early: true })).join("")}`
+        : state.query ? empty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.") : empty("Rien à venir", "Tes demandes acceptées des prochains jours s'afficheront ici."));
+    }
+    function doneTab(all) {
+      const counts = D.providerCounts(state.demandes, today());
+      const list = filtered(all);
+      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci<span aria-hidden="true">·</span><b>${counts.year}</b> cette année</p>${searchBox()}` +
+        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque véhicule validé avec sa photo s'ajoute ici."));
+    }
+    const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
+
+    // Re-renders the whole screen, keeping the cursor in the search box while the provider types.
     function render() {
       const lists = D.providerLists(state.demandes, today());
       if (!state.tab && state.loaded) state.tab = lists.validate.length ? "validate" : "today";
-      const counts = D.providerCounts(state.demandes, today());
-      const tabs = TABS.map((t) => {
-        const n = t.id === "done" ? 0 : lists[t.id].length;
-        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${t.label}${n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : ""}</button>`;
-      }).join("");
-      let body = "";
-      if (!state.loaded) body = `<div class="job-empty" aria-busy="true"><span class="spinner"></span><span>Chargement de tes demandes…</span></div>`;
-      else if (state.tab === "validate") body = lists.validate.length
-        ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${lists.validate.map(validateCard).join("")}`
-        : empty("Aucune demande à valider", "Les nouvelles demandes de CityDrop arrivent ici.");
-      else if (state.tab === "today") body = lists.today.length ? todayHtml(lists.today) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site.");
-      else if (state.tab === "upcoming") {
-        const list = filtered(lists.upcoming);
-        body = searchBox() + (list.length ? `<p class="tab-intro">Un véhicule est déjà sur site ? Tu peux le faire en avance.</p>${list.map((d) => doCard(d, { early: true })).join("")}`
-          : empty(state.query ? "Aucun véhicule trouvé" : "Rien à venir", state.query ? "Vérifie la plaque ou le site." : "Tes demandes acceptées des prochains jours s'afficheront ici."));
-      } else {
-        const list = filtered(lists.done);
-        body = `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci<span aria-hidden="true">·</span><b>${counts.year}</b> cette année</p>${searchBox()}` +
-          (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque véhicule validé avec sa photo s'ajoute ici."));
-      }
+      const body = state.loaded ? TAB_BODY[state.tab](lists[state.tab]) : loadingHtml;
       const focusSearch = document.activeElement?.matches?.("[data-search]");
       view.innerHTML = `<header class="presta-top">
           <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
           <h1>${esc(cap(D.dayLabel(today())))}</h1>
         </header>
-        <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabs}</nav>
+        <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
         <footer class="presta-foot"><span>${esc(email)}</span><button type="button" class="ghost" data-signout>Se déconnecter</button></footer>`;
       if (focusSearch) { const input = view.querySelector("[data-search]"); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
