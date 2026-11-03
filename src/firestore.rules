@@ -39,7 +39,7 @@ service cloud.firestore {
     function validAnswer(r) {
       return r is map
         && r.keys().hasOnly(['etat', 'at', 'par', 'note', 'date', 'debut', 'preuve'])
-        && r.etat in ['confirme', 'fait', 'absent', 'autre-date']
+        && r.etat in ['confirme', 'fait', 'absent', 'autre-date', 'refuse']
         && r.par == email();
     }
 

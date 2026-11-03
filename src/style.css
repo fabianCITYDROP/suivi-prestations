@@ -283,7 +283,6 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
   .daybar h1 { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-</style>
 
 /* ---------- provider answers (team) ---------- */
 .answers { margin-bottom: 16px; border-color: var(--accent, #0f6f8f); }
@@ -291,19 +290,77 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 .answer-row:first-of-type { border-top: 0; padding-top: 0; }
 @media (max-width: 640px) { .answer-row { grid-template-columns: auto 1fr; } .answer-row > .row { grid-column: 1 / -1; } }
 
-/* ---------- provider screen ---------- */
-#view-presta { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
-.presta-head { display: flex; flex-direction: column; gap: 8px; }
-.presta-head h1 { margin: 0; }
-.presta-tabs { display: flex; gap: 8px; }
-.presta-tabs button { flex: 1; }
-.presta-tabs button[aria-selected="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
-.presta-card { gap: 10px; }
-.presta-card p { margin: 0; }
-.presta-photos { display: flex; gap: 8px; flex-wrap: wrap; }
-.presta-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: zoom-in; }
-.presta-answer { font-weight: 600; }
-.presta-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.presta-actions .big { flex: 1 1 100%; justify-content: center; min-height: 52px; font-size: 16px; }
-.presta-actions button:not(.big) { flex: 1 1 30%; }
-.presta-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: var(--bg); }
+/* ---------- provider screen (phone first, used outdoors on car parks) ---------- */
+:root { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); }
+body.presta-mode .top .sync { display: none; }
+#view-presta { max-width: 560px; margin: 0 auto; padding-bottom: 40px; }
+.presta-top { padding: 4px 2px 14px; }
+.presta-who { margin: 0 0 2px; font-weight: 600; color: var(--accent); font-size: 14px; }
+.presta-top h1 { margin: 0; font: 700 34px/1.05 var(--f-display); letter-spacing: .005em; text-transform: none; }
+.presta-tabs { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; margin: 0 -2px 18px; background: var(--surface-2); border-radius: 12px; }
+.presta-tabs button { min-height: 42px; padding: 6px 4px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-2); font-size: 13.5px; gap: 5px; white-space: nowrap; transition: background-color .15s ease, color .15s ease, transform 160ms var(--ease-out); }
+.presta-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(18, 33, 43, .08), 0 2px 8px -4px rgba(18, 33, 43, .2); }
+.presta-tabs .count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--line); color: var(--ink); font: 700 12px/20px var(--f-body); font-variant-numeric: tabular-nums; }
+.presta-tabs .count.hot { background: var(--st-todo); color: #fff; }
+.presta-body { display: flex; flex-direction: column; gap: 12px; }
+.tab-intro { margin: 0 2px 2px; color: var(--ink-2); font-size: 14px; }
+
+.job { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 1px 2px rgba(18, 33, 43, .05), 0 8px 20px -14px rgba(18, 33, 43, .25); }
+.job-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.job-model { font-weight: 600; font-size: 15px; flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.job-model small { color: var(--ink-2); font-weight: 500; font-size: 13px; }
+.job-kind { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 3px 9px; border-radius: 999px; }
+.job-meta { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14.5px; }
+.job-meta li { display: flex; gap: 9px; align-items: flex-start; }
+.job-meta .icon { width: 17px; height: 17px; margin-top: 1px; color: var(--ink-2); }
+.job-meta li.late { color: var(--danger); font-weight: 600; }
+.job-meta li.late .icon { color: var(--danger); }
+.job-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 14px; }
+.job-photos { display: flex; gap: 8px; }
+.job-photos img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; cursor: zoom-in; border: 1px solid var(--line); }
+.job-answer { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; font-weight: 600; color: var(--st-todo); }
+.job-answer .icon { width: 17px; height: 17px; margin-top: 1px; }
+.job-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.job-actions .primary { grid-column: 1 / -1; }
+.job-actions button { min-height: 46px; border-radius: 10px; transition: transform 160ms var(--ease-out), background-color .15s ease, border-color .15s ease; }
+.job-actions button:active, .presta-tabs button:active, .job-form button:active { transform: scale(.97); }
+.job-actions .big { min-height: 54px; font-size: 16px; }
+.job-actions .big .icon { width: 21px; height: 21px; }
+.job-actions .ghost { border: 1px solid var(--line); }
+.job-form { display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 12px; background: var(--surface-2); }
+.job-form-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; }
+.job-form input { min-height: 44px; font-size: 16px; }
+.job-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.job-form-actions .primary { flex: 1; min-height: 46px; }
+.job-busy { margin: 0; display: flex; gap: 10px; align-items: center; color: var(--ink-2); font-weight: 600; min-height: 46px; }
+.spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line-strong); border-top-color: var(--accent); animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.spot { display: flex; flex-direction: column; gap: 10px; }
+.spot + .spot { margin-top: 14px; }
+.spot-head { display: flex; align-items: center; gap: 10px; padding: 0 2px; }
+.spot-head .icon { color: var(--accent); flex: none; }
+.spot-head span { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.spot-head b { font: 700 20px/1.1 var(--f-display); letter-spacing: .01em; }
+.spot-head small { color: var(--ink-2); font-size: 13px; }
+.spot-head em { font-style: normal; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
+.job-search { display: flex; align-items: center; gap: 10px; padding: 0 14px; min-height: 48px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); }
+.job-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.job-search .icon { color: var(--ink-2); }
+.job-search input { flex: 1; border: 0; outline: 0; background: none; font-size: 16px; min-height: 46px; padding: 0; box-shadow: none; }
+.tally { margin: 0 2px 4px; font-size: 15px; color: var(--ink-2); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.tally b { font: 700 26px/1 var(--f-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.done-list { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.done-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; }
+.done-row + .done-row { border-top: 1px solid var(--line); }
+.done-row span { display: flex; flex-direction: column; min-width: 0; }
+.done-row b { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.done-row small { color: var(--ink-2); font-size: 13px; }
+.job-empty { display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; padding: 40px 20px; border: 1px dashed var(--line-strong); border-radius: 14px; color: var(--ink-2); }
+.job-empty b { color: var(--ink); font-size: 16px; }
+.presta-foot { margin-top: 28px; display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
+body.presta-mode .toast { width: max-content; border-radius: 14px; text-align: center; }
+body.presta-mode main { padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { .job-actions button:active, .presta-tabs button:active, .job-form button:active { transform: none; } }
+</style>

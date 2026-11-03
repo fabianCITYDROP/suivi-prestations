@@ -65,6 +65,7 @@
       ];
       return () => unsubs.forEach((u) => u());
     }
+    const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
     async function addProof(demande, full) {
       const key = `${demande.id}_${Date.now().toString(36)}`;
       await db.doc("preuves/" + key).set({ prestataireId: demande.prestataireId, demandeId: demande.id, plaque: demande.plaque || "", data: full, at: new Date().toISOString() });
@@ -89,10 +90,15 @@
       await db.doc("demandes/" + demande.id).update({ statut: status, ...done, retour: { ...demande.retour, applique: true }, updatedAt: now });
     }
     const markAnswerSeen = (demande) => db.doc("demandes/" + demande.id).update({ retour: { ...demande.retour, vu: true } });
-    const acceptProposedDate = (demande) => db.doc("demandes/" + demande.id).update({
-      date: demande.retour.date, dateFin: demande.retour.date, debut: demande.retour.debut || demande.debut || "",
-      retour: { ...demande.retour, vu: true }, updatedAt: new Date().toISOString(),
-    });
+    // Accepting the provider's date also confirms the request: it moves to the provider's planning.
+    function acceptProposedDate(demande) {
+      const now = new Date().toISOString();
+      return db.doc("demandes/" + demande.id).update({
+        date: demande.retour.date, dateFin: demande.retour.date, debut: demande.retour.debut || demande.debut || "",
+        statut: "confirmee", ...D.statusTimestamps(demande, "confirmee", now),
+        retour: { ...demande.retour, vu: true }, updatedAt: now,
+      });
+    }
 
     // One-off preparation before the access rules are published: link every request to its provider.
     async function linkRequests(updates) {
@@ -166,7 +172,7 @@
       return photoCache.get(key);
     }
 
-    return { subscribeProvider, addProof, answer, loadProof, applyAnswer, markAnswerSeen, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { subscribeProvider, getProvider, addProof, answer, loadProof, applyAnswer, markAnswerSeen, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

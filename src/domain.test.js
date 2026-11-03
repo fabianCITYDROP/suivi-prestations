@@ -239,18 +239,24 @@ test("accounts are keyed by lower-case e-mail", () => {
   assert.equal(D.roleOf("chef"), null);
 });
 
-test("the provider sees requests once sent, split into to-do and done", () => {
+test("the provider validates new requests, then sees accepted ones each day the vehicle is on site", () => {
   const rows = [
     { id: "a", ...demande({ statut: "a_envoyer" }) },
     { id: "b", ...demande({ date: "2026-11-05" }) },
-    { id: "c", ...demande({ date: "2026-11-03" }) },
+    { id: "c", ...demande({ date: "2026-11-02", dateFin: "2026-11-04", statut: "confirmee" }) },
+    { id: "g", ...demande({ date: "2026-11-06", retour: { etat: "confirme" } }) },
+    { id: "h", ...demande({ date: "2026-10-30", statut: "confirmee" }) },
     { id: "d", ...demande({ date: "2026-11-01", retour: { etat: "fait", at: "2026-11-02T10:00:00Z" } }) },
     { id: "e", ...demande({ statut: "annulee" }) },
     { id: "f", ...demande({ date: "2026-10-20", statut: "realisee", doneAt: "2026-10-21T09:00:00Z" }) },
   ];
-  const { todo, done } = D.providerLists(rows);
-  assert.deepEqual(todo.map((d) => d.id), ["c", "b"]);
-  assert.deepEqual(done.map((d) => d.id), ["d", "f"]);
+  const lists = D.providerLists(rows, "2026-11-03");
+  assert.deepEqual(lists.validate.map((d) => d.id), ["b"]);
+  assert.deepEqual(lists.today.map((d) => d.id), ["h", "c"], "on site today, and late ones");
+  assert.deepEqual(lists.upcoming.map((d) => d.id), ["g"]);
+  assert.deepEqual(lists.done.map((d) => d.id), ["d", "f"]);
+  assert.ok(D.isLate(rows[4], "2026-11-03"));
+  assert.ok(!D.isLate(rows[2], "2026-11-03"));
   assert.deepEqual(D.providerCounts(rows, "2026-11-03"), { month: 1, year: 2 });
 });
 

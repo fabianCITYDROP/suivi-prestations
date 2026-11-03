@@ -413,6 +413,7 @@
     { id: "fait", label: "Fait", team: "a fait" },
     { id: "absent", label: "Véhicule absent", team: "n'a pas trouvé le véhicule" },
     { id: "autre-date", label: "Autre date proposée", team: "propose une autre date pour" },
+    { id: "refuse", label: "Pas possible", team: "ne peut pas faire" },
   ];
   const answerOf = (id) => ANSWERS.find((a) => a.id === id) || null;
   const HIDDEN_FROM_PROVIDER = ["a_envoyer", "annulee"];
@@ -420,14 +421,21 @@
   const isDoneByProvider = (d) => d.retour?.etat === "fait" || d.statut === "realisee";
   const doneDay = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || "")?.slice(0, 10) || d.date || "";
 
-  // Provider screen: what is still to do (soonest first) and what is done (latest first).
-  function providerLists(demandes) {
+  // Provider screen. A new request is first accepted (or answered with another date / not possible);
+  // once accepted it shows on every day the vehicle is on site, so it can be done early.
+  const isAccepted = (d) => d.statut === "confirmee" || d.retour?.etat === "confirme";
+  function providerLists(demandes, todayIso) {
     const mine = demandes.filter(isForProvider);
+    const open = mine.filter((d) => !isDoneByProvider(d));
+    const accepted = open.filter(isAccepted);
     return {
-      todo: mine.filter((d) => !isDoneByProvider(d)).sort(byDateThenTime),
+      validate: open.filter((d) => !isAccepted(d)).sort(byDateThenTime),
+      today: accepted.filter((d) => d.date && d.date <= todayIso).sort(byDateThenTime),
+      upcoming: accepted.filter((d) => !d.date || d.date > todayIso).sort(byDateThenTime),
       done: mine.filter(isDoneByProvider).sort((a, b) => doneDay(b).localeCompare(doneDay(a))),
     };
   }
+  const isLate = (d, todayIso) => !!d.date && lastDay(d) < todayIso;
   // Vehicles done this month and this year, for the provider's own count.
   function providerCounts(demandes, todayIso) {
     const done = demandes.filter((d) => isForProvider(d) && isDoneByProvider(d)).map(doneDay);
@@ -465,6 +473,6 @@
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
-    ANSWERS, answerOf, isForProvider, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers,
+    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers,
   };
 });
