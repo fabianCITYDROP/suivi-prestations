@@ -7,7 +7,7 @@ vérification, bilan du mois.
 Page en ligne : https://fabiancitydrop.github.io/suivi-prestations/
 
 - Les données (demandes, véhicules, photos, réglages) sont dans Firebase Firestore.
-  L'accès demande le mot de passe de l'équipe (compte Firebase partagé, voir `src/firestore.rules`).
+  Chaque membre de l'équipe se connecte avec son compte Firebase (adresse + mot de passe, voir `src/firestore.rules`).
 - `src/` contient le code : `domain.js` (règles métier, testées par `node --test src/domain.test.js`),
   `store.js` (accès aux données), `app.js` (interface), `firebase-platform.js` (branchement Firebase).
 - Après une modification : `node src/build.js` régénère `index.html`.

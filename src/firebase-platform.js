@@ -7,11 +7,11 @@
   firebase.initializeApp(config);
   const auth = firebase.auth();
 
-  // One shared team account: the page asks for the password once, then the browser remembers it.
+  // Each person has their own Firebase account (e-mail + password); the browser stays signed in.
   function signedIn() {
     return new Promise((resolve) => {
       const stop = auth.onAuthStateChanged((user) => {
-        if (user) { stop(); resolve(user); return; }
+        if (user) { stop(); resolve(user); addSignOut(user); return; }
         showLogin();
       });
     });
@@ -22,21 +22,31 @@
     box.id = "login";
     box.innerHTML = `<form class="panel login-card">
         <h2>Suivi prestations</h2>
-        <p class="hint">Entre le mot de passe de l'équipe. Il est demandé une seule fois sur cet ordinateur.</p>
-        <label class="field"><span>Mot de passe</span><input type="password" autocomplete="current-password" required></label>
-        <p class="login-error" hidden>Mot de passe incorrect.</p>
+        <p class="hint">Connecte-toi avec ton adresse et ton mot de passe. C'est demandé une seule fois sur cet ordinateur.</p>
+        <label class="field"><span>Adresse e-mail</span><input type="email" name="email" autocomplete="username" required></label>
+        <label class="field"><span>Mot de passe</span><input type="password" name="password" autocomplete="current-password" required></label>
+        <p class="login-error" hidden>Adresse ou mot de passe incorrect.</p>
         <button class="primary big" type="submit">Ouvrir</button>
       </form>`;
     document.body.append(box);
     box.querySelector("input").focus();
     box.querySelector("form").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const password = box.querySelector("input").value;
+      const form = e.target;
       try {
-        await auth.signInWithEmailAndPassword(config.teamEmail, password);
+        await auth.signInWithEmailAndPassword(form.email.value.trim(), form.password.value);
         box.remove();
       } catch { box.querySelector(".login-error").hidden = false; }
     });
+  }
+
+  function addSignOut(user) {
+    const sync = document.getElementById("sync");
+    if (!sync || document.getElementById("signOut")) return;
+    const button = Object.assign(document.createElement("button"), { id: "signOut", type: "button", className: "ghost small", textContent: "Se déconnecter" });
+    button.title = user.email || "";
+    button.onclick = () => auth.signOut().then(() => location.reload());
+    sync.after(button);
   }
 
   const ready = signedIn();

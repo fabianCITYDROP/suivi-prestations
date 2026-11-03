@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Only the signed-in team account can read or write.
+    // Only signed-in team members can read or write.
     match /{document=**} {
       allow read, write: if request.auth != null;
     }
