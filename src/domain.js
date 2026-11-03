@@ -201,6 +201,19 @@
     return plates.filter((p) => { const k = plateKey(p); if (!k) return false; if (seen.has(k)) return true; seen.add(k); return false; });
   }
 
+  // An open request that already asks the same thing for the same vehicle on an overlapping day
+  // (same plate, same service, same task for an intervention). Sending it twice is useless.
+  function existingDuplicate(candidate, demandes, ignoreIds = []) {
+    const key = plateKey(candidate.plaque);
+    if (!key || !candidate.date) return null;
+    return demandes.find((d) => !ignoreIds.includes(d.id)
+      && !["annulee", "realisee"].includes(d.statut)
+      && plateKey(d.plaque) === key
+      && (d.service || "pare-brise") === (candidate.service || "pare-brise")
+      && (!isIntervention(candidate) || (d.tache || "").trim().toLowerCase() === (candidate.tache || "").trim().toLowerCase())
+      && d.date <= lastDay(candidate) && candidate.date <= lastDay(d)) || null;
+  }
+
   function dayVehicleLine(d, date, siteAddressText) {
     const parts = [`*${d.plaque}*`, vehicleLabel(d) || "véhicule", timeSlotLabel(d)];
     if (d.adresse && d.adresse !== siteAddressText) parts.push(d.adresse);
@@ -474,7 +487,7 @@
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
   return {
-    DEFAULT_SLOT, TASK_SUGGESTIONS, isIntervention, servicesFor,
+    DEFAULT_SLOT, TASK_SUGGESTIONS, existingDuplicate, isIntervention, servicesFor,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,

@@ -954,6 +954,19 @@ window.SUIVI_FIREBASE_CONFIG = {
     return plates.filter((p) => { const k = plateKey(p); if (!k) return false; if (seen.has(k)) return true; seen.add(k); return false; });
   }
 
+  // An open request that already asks the same thing for the same vehicle on an overlapping day
+  // (same plate, same service, same task for an intervention). Sending it twice is useless.
+  function existingDuplicate(candidate, demandes, ignoreIds = []) {
+    const key = plateKey(candidate.plaque);
+    if (!key || !candidate.date) return null;
+    return demandes.find((d) => !ignoreIds.includes(d.id)
+      && !["annulee", "realisee"].includes(d.statut)
+      && plateKey(d.plaque) === key
+      && (d.service || "pare-brise") === (candidate.service || "pare-brise")
+      && (!isIntervention(candidate) || (d.tache || "").trim().toLowerCase() === (candidate.tache || "").trim().toLowerCase())
+      && d.date <= lastDay(candidate) && candidate.date <= lastDay(d)) || null;
+  }
+
   function dayVehicleLine(d, date, siteAddressText) {
     const parts = [`*${d.plaque}*`, vehicleLabel(d) || "véhicule", timeSlotLabel(d)];
     if (d.adresse && d.adresse !== siteAddressText) parts.push(d.adresse);
@@ -1227,7 +1240,7 @@ window.SUIVI_FIREBASE_CONFIG = {
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
   return {
-    DEFAULT_SLOT, TASK_SUGGESTIONS, isIntervention, servicesFor,
+    DEFAULT_SLOT, TASK_SUGGESTIONS, existingDuplicate, isIntervention, servicesFor,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
@@ -2262,7 +2275,13 @@ function page(texte) {
     const missing = D.missingFields(main);
     if (missing.length) return "Il manque " + missing.join(", ");
     const twice = D.duplicatePlates([main.plaque, ...extras.map((x) => x.plaque)]);
-    return twice.length ? `La plaque ${D.normalizePlate(twice[0])} est saisie deux fois` : "";
+    if (twice.length) return `La plaque ${D.normalizePlate(twice[0])} est saisie deux fois`;
+    const ownIds = [state.editingId, ...extras.map((x) => x.id)].filter(Boolean);
+    for (const vehicle of [main, ...extras.map((x) => groupMember(main, x))]) {
+      const same = D.existingDuplicate(vehicle, state.demandes, ownIds);
+      if (same) return `${D.normalizePlate(vehicle.plaque)} a déjà une demande ${D.serviceOf(same.service).label.toLowerCase()} le ${D.shortDate(same.date)} (${D.statusOf(same.statut || "a_envoyer").label.toLowerCase()}) : ouvre-la plutôt que d'en créer une deuxième`;
+    }
+    return "";
   }
   // Saves one vehicle of the request (alone or in a group) and remembers its plate; returns its id.
   async function saveRequest(id, fields, { groupe, markSent }) {

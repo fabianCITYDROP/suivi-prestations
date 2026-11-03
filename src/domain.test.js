@@ -293,3 +293,19 @@ test("interventions are offered only by the providers who do them, and say what 
   assert.match(D.requestMessage(ready, 0), /À faire : \*AdBlue\*/);
   assert.match(D.requestMessage(ready, 0, [{ ...ready, plaque: "ZZ-999-ZZ" }]), /À faire : \*AdBlue\*/);
 });
+
+test("the same job for the same vehicle on an overlapping day is caught as a duplicate", () => {
+  const rows = [
+    { id: "a", ...demande({ plaque: "AB-123-CD", service: "lavage", date: "2026-11-05", dateFin: "2026-11-07" }) },
+    { id: "b", ...demande({ plaque: "EF-456-GH", service: "lavage", date: "2026-11-05", statut: "annulee" }) },
+    { id: "c", ...demande({ plaque: "IJ-789-KL", service: "intervention", tache: "AdBlue", date: "2026-11-05" }) },
+  ];
+  const ask = (fields) => D.existingDuplicate({ ...demande(), ...fields }, rows)?.id || null;
+  assert.equal(ask({ plaque: "ab123cd", service: "lavage", date: "2026-11-06" }), "a", "same plate, same service, inside the window");
+  assert.equal(ask({ plaque: "AB-123-CD", service: "pare-brise", date: "2026-11-06" }), null, "another service is fine");
+  assert.equal(ask({ plaque: "AB-123-CD", service: "lavage", date: "2026-11-08" }), null, "another day is fine");
+  assert.equal(ask({ plaque: "EF-456-GH", service: "lavage", date: "2026-11-05" }), null, "a cancelled request does not count");
+  assert.equal(ask({ plaque: "IJ-789-KL", service: "intervention", tache: "adblue", date: "2026-11-05" }), "c");
+  assert.equal(ask({ plaque: "IJ-789-KL", service: "intervention", tache: "Ampoule", date: "2026-11-05" }), null, "another task is fine");
+  assert.equal(D.existingDuplicate({ ...demande(), plaque: "AB-123-CD", service: "lavage", date: "2026-11-06" }, rows, ["a"]), null, "the request being edited is ignored");
+});
