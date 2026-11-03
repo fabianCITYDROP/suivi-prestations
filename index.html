@@ -526,6 +526,23 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
         <div class="row"><input id="s-newprov" placeholder="Nom du prestataire" style="flex:1 1 200px"><button type="button" id="s-addprov"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
       </div>
       <div class="panel">
+        <h2>Tarifs hors taxe</h2>
+        <p class="hint">Le prix est figé sur chaque demande au moment où elle est enregistrée : changer un tarif ne modifie pas les demandes déjà faites. Laisse le cubage vide pour « toutes tailles ».</p>
+        <label class="field"><span>Prestataire</span><select id="t-prov"></select></label>
+        <div class="list-edit" id="t-list"></div>
+        <div class="row"><select id="t-svc" aria-label="Prestation" style="flex:1 1 120px"></select><input id="t-min" type="number" min="0" placeholder="de m³" aria-label="Cubage minimum" style="flex:0 1 80px"><input id="t-max" type="number" min="0" placeholder="à m³" aria-label="Cubage maximum" style="flex:0 1 80px"><input id="t-prix" inputmode="decimal" placeholder="€ HT" aria-label="Prix hors taxe" style="flex:0 1 90px"><button type="button" id="t-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+      </div>
+      <div class="panel">
+        <h2>Accès à l'appli</h2>
+        <p class="hint">Chaque personne se connecte avec sa propre adresse. Un prestataire ne voit que ses demandes ; l'équipe CityDrop voit tout ; « lecture » voit tout sans rien modifier. Crée d'abord son compte dans Firebase (Authentication), puis ajoute son adresse ici.</p>
+        <div class="list-edit" id="a-list"></div>
+        <div class="row"><input id="a-email" type="email" placeholder="adresse e-mail" aria-label="Adresse e-mail" style="flex:2 1 200px">
+          <select id="a-role" aria-label="Rôle" style="flex:1 1 140px"><option value="admin">Équipe CityDrop</option><option value="prestataire">Prestataire</option><option value="lecture">Lecture</option></select>
+          <select id="a-prov" aria-label="Prestataire du compte" style="flex:1 1 140px"></select>
+          <button type="button" id="a-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+        <div id="a-prepare" class="row" hidden style="margin-top:12px"><p class="hint" style="flex:1 1 220px">À faire une fois avant de publier les nouvelles règles : <span id="a-prepare-text"></span></p><button type="button" class="primary" id="a-prepare-btn">Préparer les accès</button></div>
+      </div>
+      <div class="panel">
         <h2>Liaison avec le Google Sheet</h2>
         <p class="hint">Un bouton « Cocher dans le Google Sheet » coche la colonne « OK confirmé » des plaques confirmées. À installer une seule fois :</p>
         <ol class="steps small">
@@ -632,7 +649,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       await ready;
       if (name === "db") return firebase.firestore();
       if (name === "downloads") return downloads;
-      if (name === "user") return { can: async () => true };
+      if (name === "user") return { can: async () => true, email: auth.currentUser?.email || "" };
       throw new Error("unknown service " + name);
     },
   };
@@ -980,6 +997,71 @@ window.SUIVI_FIREBASE_CONFIG = {
     return "﻿" + rows.map((r) => r.map(quote).join(";")).join("\r\n");
   }
 
+
+  // ---------- providers, accounts and prices (multi-provider access) ----------
+  // A provider's id is derived from its name, so existing requests (which store the name) can be linked without a lookup.
+  const providerId = (name) => String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const ROLES = [
+    { id: "admin", label: "Équipe CityDrop (tout voir, tout faire)" },
+    { id: "prestataire", label: "Prestataire (ses demandes seulement)" },
+    { id: "lecture", label: "Lecture (rapport, sans modifier)" },
+  ];
+  const roleOf = (id) => ROLES.find((r) => r.id === id) || null;
+  const emailKey = (email) => String(email || "").trim().toLowerCase();
+  const isEmail = (email) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailKey(email));
+  const VAT_RATE = 0.2;
+  const roundCents = (n) => Math.round(n * 100) / 100;
+  const withVat = (ht) => (ht == null ? null : roundCents(ht * (1 + VAT_RATE)));
+  const euros = (n) => (n == null ? "" : n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" }));
+
+  // A price line applies to one service, optionally to a cubage range (bounds included).
+  const priceMatches = (line, d) => {
+    if ((line.service || "pare-brise") !== (d.service || "pare-brise")) return false;
+    const cubage = d.cubage == null || d.cubage === "" ? null : +d.cubage;
+    if (line.cubageMin == null && line.cubageMax == null) return true;
+    if (cubage == null) return false;
+    return (line.cubageMin == null || cubage >= +line.cubageMin) && (line.cubageMax == null || cubage <= +line.cubageMax);
+  };
+  const boundCount = (line) => (line.cubageMin != null) + (line.cubageMax != null);
+  const rangeWidth = (line) => (line.cubageMax ?? Infinity) - (line.cubageMin ?? -Infinity);
+  const bySpecificity = (a, b) => boundCount(b) - boundCount(a) || rangeWidth(a) - rangeWidth(b);
+  // The most specific matching line wins (a 12–20 m³ price beats an "all sizes" price).
+  function priceFor(prices, d) {
+    const matches = (prices || []).filter((line) => priceMatches(line, d) && Number.isFinite(+line.prixHT));
+    if (!matches.length) return null;
+    return +matches.sort(bySpecificity)[0].prixHT;
+  }
+  function priceLineLabel(line) {
+    const { cubageMin: min, cubageMax: max } = line;
+    const range = min != null && max != null ? `${min} à ${max} m³` : min != null ? `${min} m³ et plus` : max != null ? `jusqu'à ${max} m³` : "toutes tailles";
+    return `${serviceOf(line.service).label} · ${range}`;
+  }
+
+  // Fields stored on each request so access rules and invoices never depend on a later price change:
+  // the provider id, and the price frozen when the request is first saved (kept while provider, service and cubage stay the same).
+  function providerFields(fields, previous, pricesOf) {
+    const prestataireId = providerId(fields.prestataire);
+    const same = previous && previous.prestataireId === prestataireId && (previous.service || "pare-brise") === (fields.service || "pare-brise")
+      && String(previous.cubage ?? "") === String(fields.cubage ?? "");
+    const prixHT = same && previous.prixHT != null ? previous.prixHT : priceFor(pricesOf(prestataireId), fields);
+    return { prestataireId, prixHT };
+  }
+
+  // What has to change so that requests created before multi-provider access can be read by the new rules.
+  // Also fills the price of requests saved before their provider had prices (prices can be entered later, e.g. by Jérôme).
+  function accessMigration(demandes, pricesOf) {
+    return demandes
+      .filter((d) => d.prestataire)
+      .map((d) => {
+        const prestataireId = providerId(d.prestataire);
+        const prixHT = d.prixHT != null ? d.prixHT : priceFor(pricesOf(prestataireId), d);
+        return { id: d.id, prestataireId, prixHT, changed: d.prestataireId !== prestataireId || d.prixHT !== prixHT };
+      })
+      .filter((u) => u.changed)
+      .map(({ changed, ...u }) => u);
+  }
+
   // ---------- search ----------
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
@@ -995,12 +1077,14 @@ window.SUIVI_FIREBASE_CONFIG = {
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
+    providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
   };
 });
 </script>
 <script>
 // Shared database access. The page talks to the data only through this object.
-// Layout: demandes/<id>, vehicules/<PLATEKEY>, photos/<key>, config/reglages.
+// Layout: demandes/<id>, vehicules/<PLATEKEY>, photos/<key>, config/reglages,
+//         prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId}.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./domain.js"));
   else root.SuiviStore = factory(root.SuiviDomain);
@@ -1013,14 +1097,17 @@ window.SUIVI_FIREBASE_CONFIG = {
 
     const modelRef = (key) => db.doc("modeles/" + key);
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onError }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onError }) {
       const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const unsubs = [
         db.collection("demandes").onSnapshot((s) => onDemandes(toRows(s)), onError),
         db.collection("vehicules").onSnapshot((s) => onVehicles(toRows(s)), onError),
         db.collection("modeles").onSnapshot((s) => onModels(toRows(s)), onError),
         db.doc("config/reglages").onSnapshot((s) => s.exists && onSettings(s.data()), onError),
+        db.collection("prestataires").onSnapshot((s) => onProviders(toRows(s)), onError),
       ];
+      // Only the team may list accounts: for anyone else this one simply stays empty.
+      if (onAccounts) unsubs.push(db.collection("comptes").onSnapshot((s) => onAccounts(toRows(s)), () => onAccounts([])));
       return () => unsubs.forEach((u) => u());
     }
 
@@ -1029,6 +1116,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       const now = new Date().toISOString();
       await ref.set({
         ...fields,
+        ...(previous?.retour ? { retour: previous.retour } : {}), // the provider's answer survives an edit by the team
         ...D.statusTimestamps(previous, fields.statut, now),
         createdAt: previous?.createdAt || now,
         updatedAt: now,
@@ -1042,6 +1130,25 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
 
     const deleteDemande = (id) => db.doc("demandes/" + id).delete();
+
+    // ----- providers, prices and accounts -----
+    const saveProvider = (id, fields) => db.doc("prestataires/" + id).set({ ...fields, updatedAt: new Date().toISOString() }, { merge: true });
+    const saveAccount = (email, fields) => db.doc("comptes/" + D.emailKey(email)).set({ ...fields, email: D.emailKey(email), updatedAt: new Date().toISOString() });
+    const deleteAccount = (email) => db.doc("comptes/" + D.emailKey(email)).delete();
+    async function getAccount(email) {
+      if (!email) return null;
+      try { const snap = await db.doc("comptes/" + D.emailKey(email)).get(); return snap.exists ? snap.data() : null; }
+      catch { return null; }
+    }
+    // One-off preparation before the access rules are published: link every request to its provider.
+    async function linkRequests(updates) {
+      if (!db.batch) { for (const { id, ...fields } of updates) await db.doc("demandes/" + id).update(fields); return; }
+      for (let i = 0; i < updates.length; i += 400) {
+        const batch = db.batch();
+        updates.slice(i, i + 400).forEach(({ id, ...fields }) => batch.update(db.doc("demandes/" + id), fields));
+        await batch.commit();
+      }
+    }
     const saveSettings = (settings) => db.doc("config/reglages").set(settings);
 
     // Vehicle sheet: fleet model from the latest request, plus its windshield photos.
@@ -1105,7 +1212,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -1172,7 +1279,11 @@ function page(texte) {
     openVehicleKey: null,
     models: new Map(), // modelKey -> {modele, cubage, photos}
     openModelKey: null,
+    providerDocs: new Map(), // providerId -> {nom, tarifs}
+    accounts: [],            // [{id: email, role, prestataireId}]
+    userEmail: "",
   };
+  const pricesOf = (providerId) => state.providerDocs.get(providerId)?.tarifs || [];
   const today = () => D.toIsoDate(new Date());
   const siteNames = () => state.sites.map((s) => s.nom);
   const defaultProvider = () => state.providers[0] || "";
@@ -1709,11 +1820,12 @@ function page(texte) {
     if (extras.length && !state.groupe) state.groupe = previous?.groupe || "g" + Date.now().toString(36);
     const groupe = state.groupe || "";
     try {
-      state.editingId = await state.store.saveDemande(state.editingId, { ...main, groupe, statut: nextStatus(previous) }, previous);
+      state.editingId = await state.store.saveDemande(state.editingId, { ...main, ...D.providerFields(main, previous, pricesOf), groupe, statut: nextStatus(previous) }, previous);
       await state.store.saveVehicle(vehicleOf(main.plaque), main);
       for (const extra of extras) {
         const before = state.demandes.find((x) => x.id === extra.id) || null;
-        const member = { ...groupMember(main, extra), groupe, statut: nextStatus(before) };
+        const memberFields = groupMember(main, extra);
+        const member = { ...memberFields, ...D.providerFields(memberFields, before, pricesOf), groupe, statut: nextStatus(before) };
         extra.row.dataset.id = await state.store.saveDemande(extra.id || null, member, before);
         await state.store.saveVehicle(vehicleOf(member.plaque), member);
       }
@@ -1939,7 +2051,83 @@ function page(texte) {
     $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
       <span></span>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
+    renderPrices(); renderAccounts();
   }
+
+  // ----- prices (HT), per provider -----
+  const pricesProvider = () => $("#t-prov").value || defaultProvider();
+  function renderPrices() {
+    setSelectOptions($("#t-prov"), options(state.providers));
+    setSelectOptions($("#t-svc"), D.SERVICES.map((x) => `<option value="${x.id}">${esc(x.label)}</option>`).join(""));
+    const lines = pricesOf(D.providerId(pricesProvider()));
+    $("#t-list").innerHTML = lines.length
+      ? lines.map((line, i) => `<div class="item"><span>${esc(D.priceLineLabel(line))}</span>
+          <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
+      : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;
+  }
+  async function savePrices(providerName, tarifs, message) {
+    if (!requireStore()) return;
+    try { await state.store.saveProvider(D.providerId(providerName), { nom: providerName, tarifs }); toast(message); }
+    catch (err) { reportWriteError(err); }
+  }
+  $("#t-prov").addEventListener("change", renderPrices);
+  $("#t-add").onclick = () => {
+    const prix = parseFloat($("#t-prix").value.replace(",", "."));
+    if (!Number.isFinite(prix) || prix < 0) return toast("Indique le prix hors taxe, par exemple 266,67");
+    const bound = (sel) => ($(sel).value === "" ? null : +$(sel).value);
+    const line = { service: $("#t-svc").value, cubageMin: bound("#t-min"), cubageMax: bound("#t-max"), prixHT: Math.round(prix * 100) / 100 };
+    if (line.cubageMin != null && line.cubageMax != null && line.cubageMin > line.cubageMax) return toast("Le cubage « de » doit être plus petit que « à »");
+    const name = pricesProvider();
+    savePrices(name, [...pricesOf(D.providerId(name)), line], "Tarif ajouté");
+    ["#t-min", "#t-max", "#t-prix"].forEach((sel) => ($(sel).value = ""));
+  };
+
+  // ----- who can open the app -----
+  const providerName = (id) => state.providers.find((p) => D.providerId(p) === id) || state.providerDocs.get(id)?.nom || id || "";
+  function renderAccounts() {
+    setSelectOptions($("#a-prov"), options(state.providers));
+    $("#a-prov").disabled = $("#a-role").value !== "prestataire";
+    const sorted = state.accounts.slice().sort((a, b) => (a.role || "").localeCompare(b.role || "") || a.id.localeCompare(b.id));
+    $("#a-list").innerHTML = sorted.length
+      ? sorted.map((a) => `<div class="item"><span>${esc(a.id)}</span>
+          <span class="muted">${esc(a.role === "prestataire" ? providerName(a.prestataireId) : D.roleOf(a.role)?.label.split(" (")[0] || a.role)}</span>
+          ${removeButton("data-remove-account", esc(a.id), a.id)}</div>`).join("")
+      : `<p class="hint">Aucun accès enregistré pour l'instant.</p>`;
+    const toLink = D.accessMigration(state.demandes, pricesOf).length;
+    const meMissing = state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail));
+    $("#a-prepare").hidden = !toLink && !meMissing;
+    $("#a-prepare-text").textContent = [
+      toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire ou à chiffrer avec les nouveaux tarifs` : "",
+      meMissing ? `ton propre accès (${state.userEmail}) à créer en équipe CityDrop` : "",
+    ].filter(Boolean).join(" et ") + ".";
+  }
+  $("#a-role").addEventListener("change", renderAccounts);
+  $("#a-add").onclick = async () => {
+    const email = D.emailKey($("#a-email").value);
+    if (!D.isEmail(email)) return toast("Adresse e-mail invalide");
+    const role = $("#a-role").value;
+    const fields = role === "prestataire" ? { role, prestataireId: D.providerId($("#a-prov").value) } : { role };
+    if (role === "prestataire" && !fields.prestataireId) return toast("Choisis le prestataire de ce compte");
+    if (!requireStore()) return;
+    try {
+      if (role === "prestataire") await state.store.saveProvider(fields.prestataireId, { nom: $("#a-prov").value });
+      await state.store.saveAccount(email, fields);
+      $("#a-email").value = ""; toast("Accès enregistré");
+    } catch (err) { reportWriteError(err); }
+  };
+  $("#a-prepare-btn").onclick = async () => {
+    if (!requireStore()) return;
+    try {
+      for (const name of state.providers) {
+        const id = D.providerId(name);
+        if (!state.providerDocs.has(id)) await state.store.saveProvider(id, { nom: name, tarifs: [] });
+      }
+      if (state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail))) await state.store.saveAccount(state.userEmail, { role: "admin" });
+      const updates = D.accessMigration(state.demandes, pricesOf);
+      await state.store.linkRequests(updates);
+      toast(`Accès préparés : ${plural(updates.length, "demande")} rattachée${updates.length > 1 ? "s" : ""}`);
+    } catch (err) { reportWriteError(err); }
+  };
   function addFromInput(input, list, make, message) {
     const value = $(input).value.trim();
     if (!value) return;
@@ -1954,8 +2142,16 @@ function page(texte) {
   };
   function removeAt(list, index) { list.splice(index, 1); renderAll(); persistSettings(); }
   $("#view-reglages").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-remove-site], [data-remove-model], [data-remove-provider]");
+    const b = e.target.closest("[data-remove-site], [data-remove-model], [data-remove-provider], [data-remove-price], [data-remove-account]");
     if (!b) return;
+    if (b.dataset.removePrice) {
+      const name = pricesProvider();
+      return savePrices(name, pricesOf(D.providerId(name)).filter((_, i) => i !== +b.dataset.removePrice), "Tarif retiré");
+    }
+    if (b.dataset.removeAccount) {
+      if (b.dataset.removeAccount === D.emailKey(state.userEmail)) return toast("Tu ne peux pas retirer ton propre accès");
+      return requireStore() && state.store.deleteAccount(b.dataset.removeAccount).then(() => toast("Accès retiré"), reportWriteError);
+    }
     if (b.dataset.removeSite) removeAt(state.sites, +b.dataset.removeSite);
     else if (b.dataset.removeModel) removeAt(state.fleet, +b.dataset.removeModel);
     else removeAt(state.providers, +b.dataset.removeProvider);
@@ -2002,6 +2198,14 @@ function page(texte) {
     state.store = createStore(db);
     window.claude.use("downloads").then((d) => { state.downloads = d; $("#b-csv").hidden = !d; }).catch(() => {});
     const user = await window.claude.use("user").catch(() => null);
+    state.userEmail = user?.email || "";
+    const account = await state.store.getAccount(state.userEmail);
+    if (account?.role === "prestataire") {
+      setSync("Accès prestataire", true);
+      banner("Ton espace prestataire arrive très bientôt : tes demandes s'afficheront ici.");
+      return;
+    }
+    if (account?.role === "lecture") { state.canWrite = false; $("#saveBtn").disabled = true; banner("Accès en lecture : tu vois tout mais tu ne modifies rien."); }
     if ((await user?.can("data.write")) === false) {
       state.canWrite = false; $("#saveBtn").disabled = true;
       banner("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
@@ -2011,7 +2215,12 @@ function page(texte) {
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
       onSettings: (settings) => { applySettings(settings); renderAll(); },
-      onError: () => setSync("Synchronisation interrompue, recharge la page", false),
+      onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderAll(); },
+      onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
+      onError: (err) => {
+        setSync("Synchronisation interrompue, recharge la page", false);
+        if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe CityDrop de t'ajouter dans Réglages › Accès.");
+      },
     });
   }
 

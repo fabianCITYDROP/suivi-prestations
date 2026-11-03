@@ -1,0 +1,14 @@
+{
+  "name": "tests-regles",
+  "private": true,
+  "description": "Vérifie les règles d'accès Firestore dans l'émulateur (aucune donnée réelle touchée).",
+  "scripts": {
+    "test": "cd .. && firebase emulators:exec --only firestore --project demo-suivi \"node --test tests-regles/regles.test.mjs\"",
+    "parcours": "cd .. && firebase emulators:exec --only firestore,auth --project suivi-prestations \"node tests-regles/parcours.e2e.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "^10.12.2",
+    "firebase-tools": "^13.35.1"
+  }
+}

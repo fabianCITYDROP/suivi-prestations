@@ -183,3 +183,58 @@ test("matchesSearch ignores dashes, spaces and case", () => {
   assert.ok(D.matchesSearch(["AB-123-CD"], ""));
   assert.ok(!D.matchesSearch(["AB-123-CD"], "zz"));
 });
+
+test("providerId turns a provider name into a stable id", () => {
+  assert.equal(D.providerId("ALLO pare-brise 78"), "allo-pare-brise-78");
+  assert.equal(D.providerId("  Du sol au toit "), "du-sol-au-toit");
+  assert.equal(D.providerId("Lavage Éclair"), "lavage-eclair");
+  assert.equal(D.providerId(""), "");
+});
+
+test("priceFor picks the most specific price line, in HT", () => {
+  const prices = [
+    { service: "pare-brise", cubageMin: 3, cubageMax: 6, prixHT: 266.67 },
+    { service: "pare-brise", cubageMin: 12, cubageMax: 20, prixHT: 300 },
+    { service: "lavage", prixHT: 37 },
+  ];
+  assert.equal(D.priceFor(prices, demande({ cubage: 12 })), 300);
+  assert.equal(D.priceFor(prices, demande({ cubage: 3 })), 266.67);
+  assert.equal(D.priceFor(prices, demande({ cubage: 9 })), null);
+  assert.equal(D.priceFor(prices, demande({ service: "lavage", cubage: 20 })), 37);
+  assert.equal(D.priceFor([...prices, { service: "lavage", cubageMin: 12, prixHT: 45 }], demande({ service: "lavage", cubage: 20 })), 45);
+  assert.equal(D.priceFor([], demande()), null);
+  assert.equal(D.withVat(266.67), 320);
+  assert.equal(D.priceLineLabel(prices[1]), "Pare-brise · 12 à 20 m³");
+});
+
+test("providerFields freezes the price until provider, service or cubage changes", () => {
+  const prices = { "allo-pare-brise-78": [{ service: "pare-brise", prixHT: 300 }] };
+  const pricesOf = (id) => prices[id] || [];
+  const first = D.providerFields(demande(), null, pricesOf);
+  assert.deepEqual(first, { prestataireId: "allo-pare-brise-78", prixHT: 300 });
+  prices["allo-pare-brise-78"] = [{ service: "pare-brise", prixHT: 999 }];
+  assert.equal(D.providerFields(demande(), { ...demande(), ...first }, pricesOf).prixHT, 300);
+  assert.equal(D.providerFields(demande({ cubage: 20 }), { ...demande(), ...first }, pricesOf).prixHT, 999);
+  assert.deepEqual(D.providerFields(demande({ prestataire: "Khalid" }), { ...demande(), ...first }, pricesOf), { prestataireId: "khalid", prixHT: null });
+});
+
+test("accessMigration links old requests to their provider once", () => {
+  const pricesOf = () => [{ service: "pare-brise", prixHT: 300 }];
+  const rows = [
+    { id: "a", ...demande() },
+    { id: "b", ...demande(), prestataireId: "allo-pare-brise-78", prixHT: 280 },
+    { id: "c", ...demande(), prestataire: "" },
+  ];
+  assert.deepEqual(D.accessMigration(rows, pricesOf), [{ id: "a", prestataireId: "allo-pare-brise-78", prixHT: 300 }]);
+  const unpriced = [{ id: "d", ...demande(), prestataireId: "allo-pare-brise-78", prixHT: null }];
+  assert.deepEqual(D.accessMigration(unpriced, () => []), [], "no price yet: nothing to do");
+  assert.deepEqual(D.accessMigration(unpriced, pricesOf), [{ id: "d", prestataireId: "allo-pare-brise-78", prixHT: 300 }], "price entered later fills it");
+});
+
+test("accounts are keyed by lower-case e-mail", () => {
+  assert.equal(D.emailKey("  Khalid@Exemple.FR "), "khalid@exemple.fr");
+  assert.ok(D.isEmail("a@b.fr"));
+  assert.ok(!D.isEmail("pas un mail"));
+  assert.equal(D.roleOf("prestataire").id, "prestataire");
+  assert.equal(D.roleOf("chef"), null);
+});
