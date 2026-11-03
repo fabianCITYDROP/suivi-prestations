@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="icon" href="assets/icon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f6f8f">
+<meta name="apple-mobile-web-app-title" content="Suivi presta">
 <title>Suivi prestations CityDrop</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,6 +19,7 @@
 #login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:100;padding:16px}
 .login-card{width:min(380px,100%);display:grid;gap:14px}
 .login-error{color:var(--danger);font-size:13px}
+.account{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:14px;color:var(--ink-2)}
 
 /* Layout: full-width work surface. App bar with underline tabs; each view uses a main column plus a sticky "send" column on wide screens. */
 :root {
@@ -78,8 +85,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
 header.top .wrap { display: flex; align-items: stretch; gap: 0 28px; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 10px; padding-block: 12px; font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: .02em; text-transform: uppercase; line-height: 1; white-space: nowrap; }
-.brand-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
-.brand-mark .icon { width: 18px; height: 18px; }
+.brand-logo { width: 34px; height: 34px; flex: none; display: block; }
 nav.tabs { display: flex; gap: 2px; flex-wrap: wrap; align-items: stretch; flex: 1 1 auto; }
 nav.tabs button { font: 600 14px var(--f-body); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--ink-2); padding: 0 12px; min-height: 52px; cursor: pointer; }
 nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
@@ -311,7 +317,23 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 
 <header class="top">
   <div class="wrap">
-    <div class="brand"><span class="brand-mark"><svg class="icon"><use href="#i-wind"/></svg></span>Suivi prestations</div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 512 512" aria-hidden="true">
+  <defs>
+    <linearGradient id="lg-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#138aad"/>
+      <stop offset="1" stop-color="#0a4c63"/>
+    </linearGradient>
+    <linearGradient id="lg-glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d9f0f7"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#lg-bg)"/>
+  <path d="M64 376 L118 166 Q256 112 394 166 L448 376 Q256 414 64 376 Z" fill="url(#lg-glass)"/>
+  <path d="M140 196 Q196 172 250 166 L214 232 Q176 236 128 250 Z" fill="#ffffff" opacity=".9"/>
+  <path d="M184 288 L236 338 L338 226" fill="none" stroke="#0f6f8f" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M404 52 C404 52 438 92 438 114 A34 34 0 0 1 370 114 C370 92 404 52 404 52 Z" fill="#f4b740"/>
+</svg>Suivi prestations</div>
     <nav class="tabs" role="tablist" aria-label="Vues">
       <button role="tab" id="tab-planning" aria-selected="true" data-view="planning">Planning</button>
       <button role="tab" id="tab-demande" aria-selected="false" data-view="demande">Nouvelle demande</button>
@@ -593,13 +615,15 @@ window.SUIVI_FIREBASE_CONFIG = {
     });
   }
 
+  // The account line lives at the top of Réglages, so the header stays on one line.
   function addSignOut(user) {
-    const sync = document.getElementById("sync");
-    if (!sync || document.getElementById("signOut")) return;
-    const button = Object.assign(document.createElement("button"), { id: "signOut", type: "button", className: "ghost small", textContent: "Se déconnecter" });
-    button.title = user.email || "";
-    button.onclick = () => auth.signOut().then(() => location.reload());
-    sync.after(button);
+    const settings = document.getElementById("view-reglages");
+    if (!settings || document.getElementById("account")) return;
+    const bar = Object.assign(document.createElement("div"), { id: "account", className: "account" });
+    bar.innerHTML = `<span>Connecté en tant que <b></b></span><button type="button" class="ghost">Se déconnecter</button>`;
+    bar.querySelector("b").textContent = user.email || "";
+    bar.querySelector("button").onclick = () => auth.signOut().then(() => location.reload());
+    settings.prepend(bar);
   }
 
   const ready = signedIn();

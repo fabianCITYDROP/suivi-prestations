@@ -20,7 +20,23 @@
 
 <header class="top">
   <div class="wrap">
-    <div class="brand"><span class="brand-mark"><svg class="icon"><use href="#i-wind"/></svg></span>Suivi prestations</div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 512 512" aria-hidden="true">
+  <defs>
+    <linearGradient id="lg-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#138aad"/>
+      <stop offset="1" stop-color="#0a4c63"/>
+    </linearGradient>
+    <linearGradient id="lg-glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d9f0f7"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#lg-bg)"/>
+  <path d="M64 376 L118 166 Q256 112 394 166 L448 376 Q256 414 64 376 Z" fill="url(#lg-glass)"/>
+  <path d="M140 196 Q196 172 250 166 L214 232 Q176 236 128 250 Z" fill="#ffffff" opacity=".9"/>
+  <path d="M184 288 L236 338 L338 226" fill="none" stroke="#0f6f8f" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M404 52 C404 52 438 92 438 114 A34 34 0 0 1 370 114 C370 92 404 52 404 52 Z" fill="#f4b740"/>
+</svg>Suivi prestations</div>
     <nav class="tabs" role="tablist" aria-label="Vues">
       <button role="tab" id="tab-planning" aria-selected="true" data-view="planning">Planning</button>
       <button role="tab" id="tab-demande" aria-selected="false" data-view="demande">Nouvelle demande</button>

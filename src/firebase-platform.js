@@ -40,13 +40,15 @@
     });
   }
 
+  // The account line lives at the top of Réglages, so the header stays on one line.
   function addSignOut(user) {
-    const sync = document.getElementById("sync");
-    if (!sync || document.getElementById("signOut")) return;
-    const button = Object.assign(document.createElement("button"), { id: "signOut", type: "button", className: "ghost small", textContent: "Se déconnecter" });
-    button.title = user.email || "";
-    button.onclick = () => auth.signOut().then(() => location.reload());
-    sync.after(button);
+    const settings = document.getElementById("view-reglages");
+    if (!settings || document.getElementById("account")) return;
+    const bar = Object.assign(document.createElement("div"), { id: "account", className: "account" });
+    bar.innerHTML = `<span>Connecté en tant que <b></b></span><button type="button" class="ghost">Se déconnecter</button>`;
+    bar.querySelector("b").textContent = user.email || "";
+    bar.querySelector("button").onclick = () => auth.signOut().then(() => location.reload());
+    settings.prepend(bar);
   }
 
   const ready = signedIn();

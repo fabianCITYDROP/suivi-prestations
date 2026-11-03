@@ -21,7 +21,7 @@ const site = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-${body(siteScripts).replace(/^\s*<title>/, "<title>")}`.replace("<style>", "<style>\n[hidden]{display:none!important}\n#login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:100;padding:16px}\n.login-card{width:min(380px,100%);display:grid;gap:14px}\n.login-error{color:var(--danger);font-size:13px}\n");
+<meta name="robots" content="noindex">\n<link rel="icon" href="assets/logo.svg" type="image/svg+xml">\n<link rel="icon" href="assets/icon-32.png" sizes="32x32">\n<link rel="apple-touch-icon" href="assets/icon-180.png">\n<link rel="manifest" href="manifest.webmanifest">\n<meta name="theme-color" content="#0f6f8f">\n<meta name="apple-mobile-web-app-title" content="Suivi presta">
+${body(siteScripts).replace(/^\s*<title>/, "<title>")}`.replace("<style>", "<style>\n[hidden]{display:none!important}\n#login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:100;padding:16px}\n.login-card{width:min(380px,100%);display:grid;gap:14px}\n.login-error{color:var(--danger);font-size:13px}\n.account{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:14px;color:var(--ink-2)}\n");
 fs.writeFileSync(__dirname + "/../index.html", site.replace(/<\/style>/, "</style>\n</head>\n<body>") + "\n</body>\n</html>\n");
 console.log("built artifact", artifact.length, "chars, site", site.length, "chars");
