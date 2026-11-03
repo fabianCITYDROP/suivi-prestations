@@ -858,7 +858,7 @@
     $("#a-prepare").hidden = !toLink && !meMissing;
     $("#a-prepare-text").textContent = [
       toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire ou à chiffrer avec les nouveaux tarifs` : "",
-      meMissing ? `ton propre accès (${state.userEmail}) à créer en équipe CityDrop` : "",
+      meMissing ? `ton propre accès (${state.userEmail}) à créer en équipe City-Drop` : "",
     ].filter(Boolean).join(" et ") + ".";
   }
   $("#a-role").addEventListener("change", renderAccounts);
@@ -1025,7 +1025,7 @@
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
-        if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe CityDrop de t'ajouter dans Réglages › Accès.");
+        if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe City-Drop de t'ajouter dans Réglages › Accès.");
       },
     });
   }

@@ -1,4 +1,4 @@
-  const SCRIPT = `// Suivi prestations CityDrop -> coche "OK confirmé" dans ce Google Sheet
+  const SCRIPT = `// Suivi prestations City-Drop -> coche "OK confirmé" dans ce Google Sheet
 // Collez ce code dans Extensions > Apps Script, puis Déployer > Application Web.
 
 const ONGLET = '';               // nom de l'onglet ('' = premier onglet)

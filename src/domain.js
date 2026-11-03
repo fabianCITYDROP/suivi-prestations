@@ -347,7 +347,7 @@
   const providerId = (name) => String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const ROLES = [
-    { id: "admin", label: "Équipe CityDrop (tout voir, tout faire)" },
+    { id: "admin", label: "Équipe City-Drop (tout voir, tout faire)" },
     { id: "prestataire", label: "Prestataire (ses demandes seulement)" },
     { id: "lecture", label: "Lecture (rapport, sans modifier)" },
   ];

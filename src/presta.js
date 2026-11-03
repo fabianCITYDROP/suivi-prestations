@@ -117,7 +117,7 @@
     function validateTab(list) {
       return list.length
         ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${list.map(validateCard).join("")}`
-        : empty("Aucune demande à valider", "Les nouvelles demandes de CityDrop arrivent ici.");
+        : empty("Aucune demande à valider", "Les nouvelles demandes de City-Drop arrivent ici.");
     }
     function todayTab(list) {
       return list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site.");
