@@ -84,8 +84,10 @@
       if (!group) groups.push((group = { label: entry.plate, items: [] }));
       group.items.push(images[i]);
     });
-    const layout = D.photoSheetLayout(groups.map((g) => ({ label: g.label, ratios: g.items.map((img) => img.naturalWidth / img.naturalHeight) })),
-      { width: 2400, pad: 32, gap: 16, header: 96, targetHeight: 680, maxHeight: 980 });
+    // WhatsApp shrinks a pasted image to its long side (about 1600 px, 4096 px in HD), so a near-square
+    // sheet gives each photo the most pixels: about √n photos per row instead of one long strip.
+    const sheetGroups = groups.map((g) => ({ label: g.label, ratios: g.items.map((img) => img.naturalWidth / img.naturalHeight) }));
+    const layout = D.photoSheetLayout(sheetGroups, D.squareSheetOptions(sheetGroups, { width: 2048, pad: 20, gap: 12, header: 72 }));
     const canvas = document.createElement("canvas");
     canvas.width = layout.width; canvas.height = layout.height;
     const ctx = canvas.getContext("2d");
@@ -94,8 +96,8 @@
     layout.headers.forEach((h) => {
       ctx.fillStyle = "#0f6f8f"; roundRect(ctx, h.x, h.y, h.width, h.height, 16); ctx.fill();
       ctx.fillStyle = "#ffffff"; ctx.textBaseline = "middle";
-      ctx.font = "700 48px 'IBM Plex Sans', sans-serif";
-      ctx.fillText("Pare-brise · " + h.label, h.x + 32, h.y + h.height / 2);
+      ctx.font = "700 38px 'IBM Plex Sans', sans-serif";
+      ctx.fillText("Pare-brise · " + h.label, h.x + 24, h.y + h.height / 2);
     });
     layout.tiles.forEach((t) => {
       ctx.save(); roundRect(ctx, t.x, t.y, t.width, t.height, 14); ctx.clip();

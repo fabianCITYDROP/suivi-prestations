@@ -127,6 +127,15 @@ test("whatsappLink converts French numbers and encodes text", () => {
   assert.equal(D.whatsappLink("x", "", "web"), "https://web.whatsapp.com/send?text=x");
 });
 
+test("the photo sheet stays close to a square so WhatsApp keeps each photo large", () => {
+  const groups = [{ label: "Master", ratios: [4 / 3, 4 / 3, 4 / 3] }];
+  const layout = D.photoSheetLayout(groups, D.squareSheetOptions(groups, { width: 2048, pad: 20, gap: 12, header: 72 }));
+  const rows = new Set(layout.tiles.map((t) => t.y)).size;
+  assert.equal(rows, 2, "3 photos on 2 rows, not one strip");
+  assert.ok(layout.height / layout.width > 0.7 && layout.height / layout.width < 1.3);
+  assert.ok(Math.min(...layout.tiles.map((t) => t.width)) > 900, "each photo keeps about half the width");
+});
+
 test("photoSheetLayout keeps proportions, fills rows and never overlaps", () => {
   const layout = D.photoSheetLayout([{ label: "Master", ratios: [4 / 3, 3 / 4, 4 / 3] }, { label: "Maxus", ratios: [16 / 9] }]);
   assert.equal(layout.headers.length, 2);

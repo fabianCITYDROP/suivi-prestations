@@ -237,6 +237,16 @@
   }
 
   // Photo sheet: lays out every photo in one image, each tile captioned with its plate.
+  // Row height that puts about √n photos on each row, so the whole sheet stays close to a square.
+  function squareSheetOptions(groups, base) {
+    const ratios = groups.flatMap((g) => g.ratios).map((r) => (r > 0 ? r : 4 / 3));
+    const perRow = Math.max(1, Math.ceil(Math.sqrt(ratios.length)));
+    const average = ratios.reduce((sum, r) => sum + r, 0) / (ratios.length || 1);
+    const inner = base.width - 2 * base.pad;
+    const rowHeight = Math.floor((inner - base.gap * (perRow - 1)) / (perRow * average));
+    return { ...base, targetHeight: rowHeight + 1, maxHeight: rowHeight };
+  }
+
   // Photo sheet: one header per model, then its photos in justified rows that keep each photo's
   // proportions (nothing is cropped) and fill the width without empty cells.
   function photoSheetLayout(groups, { width = 1600, pad = 24, gap = 12, header = 72, targetHeight = 440, maxHeight = 640 } = {}) {
@@ -332,7 +342,7 @@
     fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress,
     serviceOf, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
-    requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout,
+    requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
   };
