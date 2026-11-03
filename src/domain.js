@@ -55,6 +55,8 @@
 
   // ---------- availability window (date .. dateFin) ----------
   const lastDay = (d) => d.dateFin || d.date;
+  // Opening hours of the sites: a new request is available all day unless the team narrows it.
+  const DEFAULT_SLOT = { debut: "08:30", fin: "19:30" };
   const isMultiDay = (d) => !!d.date && lastDay(d) !== d.date;
   const isAvailableOn = (d, iso) => !!d.date && d.date <= iso && iso <= lastDay(d);
   function availabilityLabel(d) {
@@ -463,6 +465,7 @@
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
   return {
+    DEFAULT_SLOT,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
