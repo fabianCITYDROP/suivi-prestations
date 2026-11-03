@@ -67,7 +67,7 @@
       await ready;
       if (name === "db") return firebase.firestore();
       if (name === "downloads") return downloads;
-      if (name === "user") return { can: async () => true };
+      if (name === "user") return { can: async () => true, email: auth.currentUser?.email || "" };
       throw new Error("unknown service " + name);
     },
   };

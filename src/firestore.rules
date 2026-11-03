@@ -1,9 +1,58 @@
 rules_version = '2';
+// Who can see and change what. Each person signs in with their own e-mail;
+// their access is the document comptes/<e-mail in lower case>: {role, prestataireId}.
+//   admin       : CityDrop team, sees and changes everything.
+//   lecture     : sees everything (report), changes nothing.
+//   prestataire : sees only the requests of its own provider, and can only answer them (field "retour").
+// A signed-in person without a comptes document sees nothing.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Only signed-in team members can read or write.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    function email() { return request.auth.token.email.lower(); }
+    function accountPath() { return /databases/$(database)/documents/comptes/$(email()); }
+    function hasAccount() { return request.auth != null && request.auth.token.email != null && exists(accountPath()); }
+    function account() { return get(accountPath()).data; }
+    function isAdmin() { return hasAccount() && account().role == 'admin'; }
+    function canReadAll() { return hasAccount() && account().role in ['admin', 'lecture']; }
+    function isProvider() { return hasAccount() && account().role == 'prestataire' && account().prestataireId is string; }
+    function ownsRequest(data) { return isProvider() && data.prestataireId == account().prestataireId; }
+
+    match /comptes/{accountEmail} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.token.email != null && email() == accountEmail);
+      allow write: if isAdmin();
+    }
+
+    // Provider sheet: name, contact, prices (HT). A provider sees only its own.
+    match /prestataires/{providerId} {
+      allow read: if canReadAll() || (isProvider() && account().prestataireId == providerId);
+      allow write: if isAdmin();
+    }
+
+    match /demandes/{requestId} {
+      allow read: if canReadAll() || ownsRequest(resource.data);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (ownsRequest(resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['retour', 'updatedAt']));
+    }
+
+    // Fleet models and their windshield photos: useful to every provider, changed only by the team.
+    match /modeles/{modelKey} {
+      allow read: if canReadAll() || isProvider();
+      allow write: if isAdmin();
+    }
+    match /photos/{photoKey} {
+      allow read: if canReadAll() || isProvider();
+      allow write: if isAdmin();
+    }
+
+    // Plate history and team settings (other providers' names, sheet link): team only.
+    match /vehicules/{plate} {
+      allow read: if canReadAll();
+      allow write: if isAdmin();
+    }
+    match /config/{doc} {
+      allow read: if canReadAll();
+      allow write: if isAdmin();
     }
   }
 }

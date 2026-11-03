@@ -22,7 +22,11 @@
     openVehicleKey: null,
     models: new Map(), // modelKey -> {modele, cubage, photos}
     openModelKey: null,
+    providerDocs: new Map(), // providerId -> {nom, tarifs}
+    accounts: [],            // [{id: email, role, prestataireId}]
+    userEmail: "",
   };
+  const pricesOf = (providerId) => state.providerDocs.get(providerId)?.tarifs || [];
   const today = () => D.toIsoDate(new Date());
   const siteNames = () => state.sites.map((s) => s.nom);
   const defaultProvider = () => state.providers[0] || "";
@@ -559,11 +563,12 @@
     if (extras.length && !state.groupe) state.groupe = previous?.groupe || "g" + Date.now().toString(36);
     const groupe = state.groupe || "";
     try {
-      state.editingId = await state.store.saveDemande(state.editingId, { ...main, groupe, statut: nextStatus(previous) }, previous);
+      state.editingId = await state.store.saveDemande(state.editingId, { ...main, ...D.providerFields(main, previous, pricesOf), groupe, statut: nextStatus(previous) }, previous);
       await state.store.saveVehicle(vehicleOf(main.plaque), main);
       for (const extra of extras) {
         const before = state.demandes.find((x) => x.id === extra.id) || null;
-        const member = { ...groupMember(main, extra), groupe, statut: nextStatus(before) };
+        const memberFields = groupMember(main, extra);
+        const member = { ...memberFields, ...D.providerFields(memberFields, before, pricesOf), groupe, statut: nextStatus(before) };
         extra.row.dataset.id = await state.store.saveDemande(extra.id || null, member, before);
         await state.store.saveVehicle(vehicleOf(member.plaque), member);
       }
@@ -789,7 +794,83 @@
     $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
       <span></span>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
+    renderPrices(); renderAccounts();
   }
+
+  // ----- prices (HT), per provider -----
+  const pricesProvider = () => $("#t-prov").value || defaultProvider();
+  function renderPrices() {
+    setSelectOptions($("#t-prov"), options(state.providers));
+    setSelectOptions($("#t-svc"), D.SERVICES.map((x) => `<option value="${x.id}">${esc(x.label)}</option>`).join(""));
+    const lines = pricesOf(D.providerId(pricesProvider()));
+    $("#t-list").innerHTML = lines.length
+      ? lines.map((line, i) => `<div class="item"><span>${esc(D.priceLineLabel(line))}</span>
+          <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
+      : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;
+  }
+  async function savePrices(providerName, tarifs, message) {
+    if (!requireStore()) return;
+    try { await state.store.saveProvider(D.providerId(providerName), { nom: providerName, tarifs }); toast(message); }
+    catch (err) { reportWriteError(err); }
+  }
+  $("#t-prov").addEventListener("change", renderPrices);
+  $("#t-add").onclick = () => {
+    const prix = parseFloat($("#t-prix").value.replace(",", "."));
+    if (!Number.isFinite(prix) || prix < 0) return toast("Indique le prix hors taxe, par exemple 266,67");
+    const bound = (sel) => ($(sel).value === "" ? null : +$(sel).value);
+    const line = { service: $("#t-svc").value, cubageMin: bound("#t-min"), cubageMax: bound("#t-max"), prixHT: Math.round(prix * 100) / 100 };
+    if (line.cubageMin != null && line.cubageMax != null && line.cubageMin > line.cubageMax) return toast("Le cubage « de » doit être plus petit que « à »");
+    const name = pricesProvider();
+    savePrices(name, [...pricesOf(D.providerId(name)), line], "Tarif ajouté");
+    ["#t-min", "#t-max", "#t-prix"].forEach((sel) => ($(sel).value = ""));
+  };
+
+  // ----- who can open the app -----
+  const providerName = (id) => state.providers.find((p) => D.providerId(p) === id) || state.providerDocs.get(id)?.nom || id || "";
+  function renderAccounts() {
+    setSelectOptions($("#a-prov"), options(state.providers));
+    $("#a-prov").disabled = $("#a-role").value !== "prestataire";
+    const sorted = state.accounts.slice().sort((a, b) => (a.role || "").localeCompare(b.role || "") || a.id.localeCompare(b.id));
+    $("#a-list").innerHTML = sorted.length
+      ? sorted.map((a) => `<div class="item"><span>${esc(a.id)}</span>
+          <span class="muted">${esc(a.role === "prestataire" ? providerName(a.prestataireId) : D.roleOf(a.role)?.label.split(" (")[0] || a.role)}</span>
+          ${removeButton("data-remove-account", esc(a.id), a.id)}</div>`).join("")
+      : `<p class="hint">Aucun accès enregistré pour l'instant.</p>`;
+    const toLink = D.accessMigration(state.demandes, pricesOf).length;
+    const meMissing = state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail));
+    $("#a-prepare").hidden = !toLink && !meMissing;
+    $("#a-prepare-text").textContent = [
+      toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire` : "",
+      meMissing ? `ton propre accès (${state.userEmail}) à créer en équipe CityDrop` : "",
+    ].filter(Boolean).join(" et ") + ".";
+  }
+  $("#a-role").addEventListener("change", renderAccounts);
+  $("#a-add").onclick = async () => {
+    const email = D.emailKey($("#a-email").value);
+    if (!D.isEmail(email)) return toast("Adresse e-mail invalide");
+    const role = $("#a-role").value;
+    const fields = role === "prestataire" ? { role, prestataireId: D.providerId($("#a-prov").value) } : { role };
+    if (role === "prestataire" && !fields.prestataireId) return toast("Choisis le prestataire de ce compte");
+    if (!requireStore()) return;
+    try {
+      if (role === "prestataire") await state.store.saveProvider(fields.prestataireId, { nom: $("#a-prov").value });
+      await state.store.saveAccount(email, fields);
+      $("#a-email").value = ""; toast("Accès enregistré");
+    } catch (err) { reportWriteError(err); }
+  };
+  $("#a-prepare-btn").onclick = async () => {
+    if (!requireStore()) return;
+    try {
+      for (const name of state.providers) {
+        const id = D.providerId(name);
+        if (!state.providerDocs.has(id)) await state.store.saveProvider(id, { nom: name, tarifs: [] });
+      }
+      if (state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail))) await state.store.saveAccount(state.userEmail, { role: "admin" });
+      const updates = D.accessMigration(state.demandes, pricesOf);
+      await state.store.linkRequests(updates);
+      toast(`Accès préparés : ${plural(updates.length, "demande")} rattachée${updates.length > 1 ? "s" : ""}`);
+    } catch (err) { reportWriteError(err); }
+  };
   function addFromInput(input, list, make, message) {
     const value = $(input).value.trim();
     if (!value) return;
@@ -804,8 +885,16 @@
   };
   function removeAt(list, index) { list.splice(index, 1); renderAll(); persistSettings(); }
   $("#view-reglages").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-remove-site], [data-remove-model], [data-remove-provider]");
+    const b = e.target.closest("[data-remove-site], [data-remove-model], [data-remove-provider], [data-remove-price], [data-remove-account]");
     if (!b) return;
+    if (b.dataset.removePrice) {
+      const name = pricesProvider();
+      return savePrices(name, pricesOf(D.providerId(name)).filter((_, i) => i !== +b.dataset.removePrice), "Tarif retiré");
+    }
+    if (b.dataset.removeAccount) {
+      if (b.dataset.removeAccount === D.emailKey(state.userEmail)) return toast("Tu ne peux pas retirer ton propre accès");
+      return requireStore() && state.store.deleteAccount(b.dataset.removeAccount).then(() => toast("Accès retiré"), reportWriteError);
+    }
     if (b.dataset.removeSite) removeAt(state.sites, +b.dataset.removeSite);
     else if (b.dataset.removeModel) removeAt(state.fleet, +b.dataset.removeModel);
     else removeAt(state.providers, +b.dataset.removeProvider);
@@ -852,6 +941,14 @@
     state.store = createStore(db);
     window.claude.use("downloads").then((d) => { state.downloads = d; $("#b-csv").hidden = !d; }).catch(() => {});
     const user = await window.claude.use("user").catch(() => null);
+    state.userEmail = user?.email || "";
+    const account = await state.store.getAccount(state.userEmail);
+    if (account?.role === "prestataire") {
+      setSync("Accès prestataire", true);
+      banner("Ton espace prestataire arrive très bientôt : tes demandes s'afficheront ici.");
+      return;
+    }
+    if (account?.role === "lecture") { state.canWrite = false; $("#saveBtn").disabled = true; banner("Accès en lecture : tu vois tout mais tu ne modifies rien."); }
     if ((await user?.can("data.write")) === false) {
       state.canWrite = false; $("#saveBtn").disabled = true;
       banner("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
@@ -861,7 +958,12 @@
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
       onSettings: (settings) => { applySettings(settings); renderAll(); },
-      onError: () => setSync("Synchronisation interrompue, recharge la page", false),
+      onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderAll(); },
+      onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
+      onError: (err) => {
+        setSync("Synchronisation interrompue, recharge la page", false);
+        if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe CityDrop de t'ajouter dans Réglages › Accès.");
+      },
     });
   }
 

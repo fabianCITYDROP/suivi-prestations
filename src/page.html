@@ -221,6 +221,23 @@
         <div class="row"><input id="s-newprov" placeholder="Nom du prestataire" style="flex:1 1 200px"><button type="button" id="s-addprov"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
       </div>
       <div class="panel">
+        <h2>Tarifs hors taxe</h2>
+        <p class="hint">Le prix est figé sur chaque demande au moment où elle est enregistrée : changer un tarif ne modifie pas les demandes déjà faites. Laisse le cubage vide pour « toutes tailles ».</p>
+        <label class="field"><span>Prestataire</span><select id="t-prov"></select></label>
+        <div class="list-edit" id="t-list"></div>
+        <div class="row"><select id="t-svc" aria-label="Prestation" style="flex:1 1 120px"></select><input id="t-min" type="number" min="0" placeholder="de m³" aria-label="Cubage minimum" style="flex:0 1 80px"><input id="t-max" type="number" min="0" placeholder="à m³" aria-label="Cubage maximum" style="flex:0 1 80px"><input id="t-prix" inputmode="decimal" placeholder="€ HT" aria-label="Prix hors taxe" style="flex:0 1 90px"><button type="button" id="t-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+      </div>
+      <div class="panel">
+        <h2>Accès à l'appli</h2>
+        <p class="hint">Chaque personne se connecte avec sa propre adresse. Un prestataire ne voit que ses demandes ; l'équipe CityDrop voit tout ; « lecture » voit tout sans rien modifier. Crée d'abord son compte dans Firebase (Authentication), puis ajoute son adresse ici.</p>
+        <div class="list-edit" id="a-list"></div>
+        <div class="row"><input id="a-email" type="email" placeholder="adresse e-mail" aria-label="Adresse e-mail" style="flex:2 1 200px">
+          <select id="a-role" aria-label="Rôle" style="flex:1 1 140px"><option value="admin">Équipe CityDrop</option><option value="prestataire">Prestataire</option><option value="lecture">Lecture</option></select>
+          <select id="a-prov" aria-label="Prestataire du compte" style="flex:1 1 140px"></select>
+          <button type="button" id="a-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+        <div id="a-prepare" class="row" hidden style="margin-top:12px"><p class="hint" style="flex:1 1 220px">À faire une fois avant de publier les nouvelles règles : <span id="a-prepare-text"></span></p><button type="button" class="primary" id="a-prepare-btn">Préparer les accès</button></div>
+      </div>
+      <div class="panel">
         <h2>Liaison avec le Google Sheet</h2>
         <p class="hint">Un bouton « Cocher dans le Google Sheet » coche la colonne « OK confirmé » des plaques confirmées. À installer une seule fois :</p>
         <ol class="steps small">

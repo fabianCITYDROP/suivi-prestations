@@ -339,6 +339,67 @@
     return "﻿" + rows.map((r) => r.map(quote).join(";")).join("\r\n");
   }
 
+
+  // ---------- providers, accounts and prices (multi-provider access) ----------
+  // A provider's id is derived from its name, so existing requests (which store the name) can be linked without a lookup.
+  const providerId = (name) => String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const ROLES = [
+    { id: "admin", label: "Équipe CityDrop (tout voir, tout faire)" },
+    { id: "prestataire", label: "Prestataire (ses demandes seulement)" },
+    { id: "lecture", label: "Lecture (rapport, sans modifier)" },
+  ];
+  const roleOf = (id) => ROLES.find((r) => r.id === id) || null;
+  const emailKey = (email) => String(email || "").trim().toLowerCase();
+  const isEmail = (email) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailKey(email));
+  const VAT_RATE = 0.2;
+  const roundCents = (n) => Math.round(n * 100) / 100;
+  const withVat = (ht) => (ht == null ? null : roundCents(ht * (1 + VAT_RATE)));
+  const euros = (n) => (n == null ? "" : n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" }));
+
+  // A price line applies to one service, optionally to a cubage range (bounds included).
+  const priceMatches = (line, d) => {
+    if ((line.service || "pare-brise") !== (d.service || "pare-brise")) return false;
+    const cubage = d.cubage == null || d.cubage === "" ? null : +d.cubage;
+    if (line.cubageMin == null && line.cubageMax == null) return true;
+    if (cubage == null) return false;
+    return (line.cubageMin == null || cubage >= +line.cubageMin) && (line.cubageMax == null || cubage <= +line.cubageMax);
+  };
+  const boundCount = (line) => (line.cubageMin != null) + (line.cubageMax != null);
+  const rangeWidth = (line) => (line.cubageMax ?? Infinity) - (line.cubageMin ?? -Infinity);
+  const bySpecificity = (a, b) => boundCount(b) - boundCount(a) || rangeWidth(a) - rangeWidth(b);
+  // The most specific matching line wins (a 12–20 m³ price beats an "all sizes" price).
+  function priceFor(prices, d) {
+    const matches = (prices || []).filter((line) => priceMatches(line, d) && Number.isFinite(+line.prixHT));
+    if (!matches.length) return null;
+    return +matches.sort(bySpecificity)[0].prixHT;
+  }
+  function priceLineLabel(line) {
+    const { cubageMin: min, cubageMax: max } = line;
+    const range = min != null && max != null ? `${min} à ${max} m³` : min != null ? `${min} m³ et plus` : max != null ? `jusqu'à ${max} m³` : "toutes tailles";
+    return `${serviceOf(line.service).label} · ${range}`;
+  }
+
+  // Fields stored on each request so access rules and invoices never depend on a later price change:
+  // the provider id, and the price frozen when the request is first saved (kept while provider, service and cubage stay the same).
+  function providerFields(fields, previous, pricesOf) {
+    const prestataireId = providerId(fields.prestataire);
+    const same = previous && previous.prestataireId === prestataireId && (previous.service || "pare-brise") === (fields.service || "pare-brise")
+      && String(previous.cubage ?? "") === String(fields.cubage ?? "");
+    const prixHT = same && previous.prixHT != null ? previous.prixHT : priceFor(pricesOf(prestataireId), fields);
+    return { prestataireId, prixHT };
+  }
+
+  // What has to change so that requests created before multi-provider access can be read by the new rules.
+  function accessMigration(demandes, pricesOf) {
+    return demandes
+      .filter((d) => d.prestataire && (d.prestataireId !== providerId(d.prestataire) || d.prixHT === undefined))
+      .map((d) => {
+        const prestataireId = providerId(d.prestataire);
+        return { id: d.id, prestataireId, prixHT: d.prixHT !== undefined ? d.prixHT : priceFor(pricesOf(prestataireId), d) };
+      });
+  }
+
   // ---------- search ----------
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
@@ -354,5 +415,6 @@
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
+    providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
   };
 });
