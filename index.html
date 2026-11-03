@@ -1354,13 +1354,13 @@ function page(texte) {
     shareRegistry.set(id, vehicles);
     const copy = `<button type="button" class="primary big" data-copy="#${id}">${icon("copy")}Copier le texte</button>`;
     const photos = entries.length
-      ? `<button type="button" class="primary big" data-copy-sheet="${id}">${icon("image")}${entries.length > 1 ? `Copier les ${entries.length} photos d'un coup` : "Copier la photo"}</button>
+      ? `<button type="button" class="primary big" data-copy-sheet="${id}">${icon("image")}${entries.length > 1 ? `Copier les ${entries.length} photos` : "Copier la photo"}</button>
         <button type="button" class="big" data-save-all="${id}">${icon("download")}${entries.length > 1 ? `Télécharger les ${entries.length} photos` : "Télécharger la photo"} en taille réelle</button>`
       : "";
     return `<div class="share">
       <pre class="msg" id="${id}">${esc(text)}</pre>
       <div class="actions">${copy}${photos}</div>
-      ${entries.length ? `<p class="small muted">Rapide : colle le texte (Ctrl+V), puis les photos en une image (Ctrl+V).<br>Meilleure qualité : télécharge les photos, puis glisse-les toutes ensemble dans la conversation WhatsApp. Chacune part en taille réelle et reste nette au zoom.</p>
+      ${entries.length ? `<p class="small muted">Rapide : colle le texte (Ctrl+V), puis les photos (Ctrl+V).<br>Meilleure qualité : télécharge les photos, puis glisse-les toutes ensemble dans la conversation WhatsApp. Chacune part en taille réelle et reste nette au zoom.</p>
       <div class="photo-strip">${entries.map((e) => photoMini(e)).join("")}</div>` : ""}
     </div>`;
   }
