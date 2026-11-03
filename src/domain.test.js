@@ -280,3 +280,16 @@ test("unseen answers come newest first and read as a sentence", () => {
   assert.equal(D.answerSummary(rows[1].retour), "Autre date proposée : ven. 6 nov. à 14h00");
   assert.equal(D.answerSummary({ etat: "absent", note: "pas sur le parking" }), "Véhicule absent – pas sur le parking");
 });
+
+test("interventions are offered only by the providers who do them, and say what to do", () => {
+  assert.deepEqual(D.servicesFor(null), ["pare-brise", "lavage"]);
+  assert.deepEqual(D.servicesFor({ interventions: false }), ["pare-brise", "lavage"]);
+  assert.deepEqual(D.servicesFor({ interventions: true }), ["pare-brise", "lavage", "intervention"]);
+  const job = demande({ service: "intervention", tache: "" });
+  assert.ok(D.missingFields(job).includes("ce qu'il faut faire"));
+  const ready = { ...job, tache: "AdBlue" };
+  assert.deepEqual(D.missingFields(ready), []);
+  assert.match(D.requestMessage(ready, 0), /Demande intervention véhicule/);
+  assert.match(D.requestMessage(ready, 0), /À faire : \*AdBlue\*/);
+  assert.match(D.requestMessage(ready, 0, [{ ...ready, plaque: "ZZ-999-ZZ" }]), /À faire : \*AdBlue\*/);
+});

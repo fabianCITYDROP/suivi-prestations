@@ -311,6 +311,7 @@
   }
   $("#h-statut").innerHTML = `<option value="">Tous les statuts</option><option value="ouvert">En cours (hors réalisées / annulées)</option>` + D.STATUSES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
   $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
+  $("#dl-taches").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<option value="${esc(t)}">`).join("");
   $("#svcSeg").innerHTML = D.SERVICES.map((s, i) => `<label><input type="radio" name="svc" id="svc-${s.id}" value="${s.id}" ${i === 0 ? "checked" : ""}><span>${s.label}</span></label>`).join("");
 
   // ================= planning =================
@@ -367,6 +368,15 @@
 
   // ================= request form =================
   const field = (name) => $("#f-" + name);
+  const chosenService = () => document.querySelector('input[name="svc"]:checked')?.value || "pare-brise";
+  // Shows only the services the chosen provider does; "Intervention" also asks what to do.
+  function renderServiceChoice() {
+    const allowed = D.servicesFor(state.providerDocs.get(D.providerId(field("prest").value)));
+    if (state.editingId) allowed.push(demandeById(state.editingId)?.service);
+    D.SERVICES.forEach((s) => ($("#svc-" + s.id).closest("label").hidden = !allowed.includes(s.id)));
+    if (!allowed.includes(chosenService())) $("#svc-pare-brise").checked = true;
+    $("#taskRow").hidden = chosenService() !== "intervention";
+  }
   function selectedFleetModel() {
     const index = field("modele").value;
     return index === "" ? { modele: "", cubage: null } : state.fleet[+index];
@@ -374,7 +384,7 @@
   function readForm() {
     const model = selectedFleetModel();
     return {
-      service: document.querySelector('input[name="svc"]:checked')?.value || "pare-brise",
+      service: chosenService(),
       plaque: D.normalizePlate(field("plaque").value),
       modele: model.modele,
       cubage: model.cubage,
@@ -386,6 +396,7 @@
       fin: field("fin").value || D.DEFAULT_SLOT.fin,
       prestataire: field("prest").value || defaultProvider(),
       notes: field("notes").value.trim(),
+      tache: chosenService() === "intervention" ? field("tache").value.trim() : "",
     };
   }
   // ----- model picker: brand + model first, then cubage (year shown only when the cubage is ambiguous) -----
@@ -463,7 +474,7 @@
   function setAvailability(start, end) { field("date").value = start; field("dateFin").value = end || start; }
   function fillForm(d) {
     (document.getElementById("svc-" + d.service) || document.getElementById("svc-pare-brise")).checked = true;
-    ["plaque", "adresse", "debut", "fin", "notes"].forEach((k) => (field(k).value = d[k] || ""));
+    ["plaque", "adresse", "debut", "fin", "notes", "tache"].forEach((k) => (field(k).value = d[k] || ""));
     setAvailability(d.date, d.dateFin);
     if (d.prestataire && !state.providers.includes(d.prestataire)) state.providers.push(d.prestataire);
     if (d.site && !siteNames().includes(d.site)) state.sites.push({ nom: d.site, adresse: "" });
@@ -472,6 +483,7 @@
     field("site").value = d.site || "";
     field("prest").value = d.prestataire || defaultProvider();
     $("#notesBox").open = !!d.notes;
+    renderServiceChoice();
     $("#extraVeh").innerHTML = "";
     state.groupe = d.groupe || "";
     if (d.groupe) state.demandes.filter((x) => x.groupe === d.groupe && x.id !== d.id).sort(D.byStartTime).forEach(addExtraRow);
@@ -508,6 +520,8 @@
   }
   $("#form").addEventListener("input", (e) => { if (e.target.id !== "f-plaque") renderFormSide(); });
   $("#form").addEventListener("change", renderFormSide);
+  field("prest").addEventListener("change", renderServiceChoice);
+  $("#svcSeg").addEventListener("change", renderServiceChoice);
   field("plaque").addEventListener("change", fillFromVehicle);
   field("site").addEventListener("change", () => { field("adresse").value = D.siteAddress(state.sites, field("site").value); renderFormSide(); });
   field("date").addEventListener("change", () => {
@@ -529,6 +543,7 @@
     field("debut").value = D.DEFAULT_SLOT.debut;
     field("fin").value = D.DEFAULT_SLOT.fin;
     field("prest").value = state.providerFilter || defaultProvider();
+    renderServiceChoice();
     $("#notesBox").open = false;
     $("#formTitle").textContent = "Nouvelle demande";
     $("#formStatusChip").hidden = true;
@@ -808,7 +823,7 @@
       <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}">${removeButton("data-remove-site", i, s.nom)}</div>`).join("");
     $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
     $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
-      <span></span>${removeButton("data-remove-provider", i, p)}</div>`).join("");
+      <label class="check"><input type="checkbox" data-prov-interventions="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.interventions ? "checked" : ""}>Interventions</label>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
     renderPrices(); renderAccounts();
   }
@@ -858,7 +873,7 @@
     $("#a-prepare").hidden = !toLink && !meMissing;
     $("#a-prepare-text").textContent = [
       toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire ou à chiffrer avec les nouveaux tarifs` : "",
-      meMissing ? `ton propre accès (${state.userEmail}) à créer en équipe CityDrop` : "",
+      meMissing ? `ton propre accès (${state.userEmail}) à créer en équipe City-Drop` : "",
     ].filter(Boolean).join(" et ") + ".";
   }
   $("#a-role").addEventListener("change", renderAccounts);
@@ -894,6 +909,13 @@
     list.push(make(value)); $(input).value = ""; renderAll(); persistSettings(message);
   }
   $("#s-addsite").onclick = () => !siteNames().includes($("#s-newsite").value.trim()) && addFromInput("#s-newsite", state.sites, (nom) => ({ nom, adresse: "" }), "Site ajouté");
+  $("#s-provs").addEventListener("change", async (e) => {
+    const box = e.target.closest("[data-prov-interventions]");
+    if (!box || !requireStore()) return;
+    const nom = box.dataset.provInterventions;
+    try { await state.store.saveProvider(D.providerId(nom), { nom, interventions: box.checked }); toast(box.checked ? `${nom} peut recevoir des interventions` : `${nom} ne reçoit plus d'interventions`); }
+    catch (err) { box.checked = !box.checked; reportWriteError(err); }
+  });
   $("#s-addprov").onclick = () => !state.providers.includes($("#s-newprov").value.trim()) && addFromInput("#s-newprov", state.providers, (p) => p, "Prestataire ajouté");
   $("#s-addmodel").onclick = () => {
     const cubage = +$("#s-newcub").value || null;
@@ -1021,11 +1043,11 @@
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
       onSettings: (settings) => { applySettings(settings); renderAll(); },
-      onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderAll(); },
+      onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
-        if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe CityDrop de t'ajouter dans Réglages › Accès.");
+        if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe City-Drop de t'ajouter dans Réglages › Accès.");
       },
     });
   }

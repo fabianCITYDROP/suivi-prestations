@@ -7,7 +7,13 @@
   const SERVICES = [
     { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise" },
     { id: "lavage", label: "Lavage", title: "lavage véhicule" },
+    // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
+    { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: true },
   ];
+  const TASK_SUGGESTIONS = ["Vérification du véhicule", "Changer une ampoule", "Niveau d'huile", "AdBlue", "Pression des pneus"];
+  const isIntervention = (d) => d.service === "intervention";
+  // Services offered by a provider: windshield and washing for all, interventions when enabled in Réglages.
+  const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.interventions).map((s) => s.id);
   const STATUSES = [
     { id: "a_envoyer", label: "À envoyer" },
     { id: "envoyee", label: "Envoyée" },
@@ -146,6 +152,7 @@
     if (d.date && d.dateFin && d.dateFin < d.date) missing.push("une date de fin après la date de début");
     if (!d.site && !d.adresse) missing.push("le site");
     if (!d.prestataire) missing.push("le prestataire");
+    if (isIntervention(d) && !d.tache) missing.push("ce qu'il faut faire");
     return missing;
   }
   const SENT_OR_LATER = ["envoyee", "confirmee", "realisee"];
@@ -170,6 +177,7 @@
           `*Demande ${serviceOf(d.service).title} – ${count} véhicules*`,
           `Disponibles ${availabilityLabel(d)}${sameSlot ? `, ${timeSlotLabel(d)}` : ""}`,
           `Site : ${d.site || "…"}${d.adresse ? ` – ${d.adresse}` : ""}`,
+          ...(d.tache ? [`À faire : *${d.tache}*`] : []),
           "",
           ...all.map((v) => `• *${v.plaque || "…"}* – ${vehicleLabel(v) || "modèle à préciser"}${sameSlot ? "" : ` – ${timeSlotLabel(v)}`}`),
         ]
@@ -179,6 +187,7 @@
           `Véhicule : ${vehicleLabel(d) || "…"}`,
           `Disponible ${availabilityLabel(d)}, ${timeSlotLabel(d)}`,
           `Site : ${d.site || "…"}${d.adresse ? ` – ${d.adresse}` : ""}`,
+          ...(d.tache ? [`À faire : *${d.tache}*`] : []),
         ];
     if (d.notes) lines.push(group ? "" : null, `Remarque : ${d.notes}`);
     if (isWindshield(d)) lines.push(photoCount ? `Photo${photoCount > 1 ? "s" : ""} du pare-brise ci-jointe${photoCount > 1 ? "s" : ""}.` : "Photo du pare-brise à suivre.");
@@ -347,7 +356,7 @@
   const providerId = (name) => String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const ROLES = [
-    { id: "admin", label: "Équipe CityDrop (tout voir, tout faire)" },
+    { id: "admin", label: "Équipe City-Drop (tout voir, tout faire)" },
     { id: "prestataire", label: "Prestataire (ses demandes seulement)" },
     { id: "lecture", label: "Lecture (rapport, sans modifier)" },
   ];
@@ -465,7 +474,7 @@
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
   return {
-    DEFAULT_SLOT,
+    DEFAULT_SLOT, TASK_SUGGESTIONS, isIntervention, servicesFor,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
