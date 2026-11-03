@@ -581,7 +581,13 @@
     const missing = D.missingFields(main);
     if (missing.length) return "Il manque " + missing.join(", ");
     const twice = D.duplicatePlates([main.plaque, ...extras.map((x) => x.plaque)]);
-    return twice.length ? `La plaque ${D.normalizePlate(twice[0])} est saisie deux fois` : "";
+    if (twice.length) return `La plaque ${D.normalizePlate(twice[0])} est saisie deux fois`;
+    const ownIds = [state.editingId, ...extras.map((x) => x.id)].filter(Boolean);
+    for (const vehicle of [main, ...extras.map((x) => groupMember(main, x))]) {
+      const same = D.existingDuplicate(vehicle, state.demandes, ownIds);
+      if (same) return `${D.normalizePlate(vehicle.plaque)} a déjà une demande ${D.serviceOf(same.service).label.toLowerCase()} le ${D.shortDate(same.date)} (${D.statusOf(same.statut || "a_envoyer").label.toLowerCase()}) : ouvre-la plutôt que d'en créer une deuxième`;
+    }
+    return "";
   }
   // Saves one vehicle of the request (alone or in a group) and remembers its plate; returns its id.
   async function saveRequest(id, fields, { groupe, markSent }) {

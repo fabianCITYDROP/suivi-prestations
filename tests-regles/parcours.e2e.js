@@ -71,6 +71,10 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   await p.fill('.x-plaque', 'gr222bb'); await p.click('#saveBtn'); await p.waitForTimeout(1000);
   rows = await list('demandes'); const grouped = rows.filter(r => r.plaque === 'GR-111-AA' || r.plaque === 'GR-222-BB');
   ok('grouped request saves both vehicles in one group', grouped.length === 2 && grouped[0].groupe && grouped[0].groupe === grouped[1].groupe && grouped.every(r => r.debut === '08:30' && r.prestataireId && r.statut === 'a_envoyer'));
+  // 2b'. The same wash for the same van on the same day is refused
+  await p.goto('http://localhost:8765/#planning'); await p.click('#newOnDay'); await p.fill('#f-plaque', 'gr111aa'); await p.dispatchEvent('#f-plaque', 'change');
+  await p.selectOption('#f-site', { index: 1 }); await p.click('#saveBtn'); await p.waitForTimeout(700);
+  ok('duplicate request refused', (await list('demandes')).filter(r => r.plaque === 'GR-111-AA').length === 1 && (await p.textContent('.toast')).includes('déjà une demande'));
   // 2c. Interventions: hidden for Allo, offered to Khalid once ticked in Réglages
   await p.goto('http://localhost:8765/#planning'); await p.click('#newOnDay'); await p.waitForTimeout(100);
   await p.selectOption('#f-prest', 'ALLO pare-brise 78'); await p.dispatchEvent('#f-prest', 'change');
