@@ -226,6 +226,9 @@ test("accessMigration links old requests to their provider once", () => {
     { id: "c", ...demande(), prestataire: "" },
   ];
   assert.deepEqual(D.accessMigration(rows, pricesOf), [{ id: "a", prestataireId: "allo-pare-brise-78", prixHT: 300 }]);
+  const unpriced = [{ id: "d", ...demande(), prestataireId: "allo-pare-brise-78", prixHT: null }];
+  assert.deepEqual(D.accessMigration(unpriced, () => []), [], "no price yet: nothing to do");
+  assert.deepEqual(D.accessMigration(unpriced, pricesOf), [{ id: "d", prestataireId: "allo-pare-brise-78", prixHT: 300 }], "price entered later fills it");
 });
 
 test("accounts are keyed by lower-case e-mail", () => {

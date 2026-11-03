@@ -391,13 +391,17 @@
   }
 
   // What has to change so that requests created before multi-provider access can be read by the new rules.
+  // Also fills the price of requests saved before their provider had prices (prices can be entered later, e.g. by Jérôme).
   function accessMigration(demandes, pricesOf) {
     return demandes
-      .filter((d) => d.prestataire && (d.prestataireId !== providerId(d.prestataire) || d.prixHT === undefined))
+      .filter((d) => d.prestataire)
       .map((d) => {
         const prestataireId = providerId(d.prestataire);
-        return { id: d.id, prestataireId, prixHT: d.prixHT !== undefined ? d.prixHT : priceFor(pricesOf(prestataireId), d) };
-      });
+        const prixHT = d.prixHT != null ? d.prixHT : priceFor(pricesOf(prestataireId), d);
+        return { id: d.id, prestataireId, prixHT, changed: d.prestataireId !== prestataireId || d.prixHT !== prixHT };
+      })
+      .filter((u) => u.changed)
+      .map(({ changed, ...u }) => u);
   }
 
   // ---------- search ----------

@@ -840,7 +840,7 @@
     const meMissing = state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail));
     $("#a-prepare").hidden = !toLink && !meMissing;
     $("#a-prepare-text").textContent = [
-      toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire` : "",
+      toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire ou à chiffrer avec les nouveaux tarifs` : "",
       meMissing ? `ton propre accès (${state.userEmail}) à créer en équipe CityDrop` : "",
     ].filter(Boolean).join(" et ") + ".";
   }

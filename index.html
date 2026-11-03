@@ -1049,13 +1049,17 @@ window.SUIVI_FIREBASE_CONFIG = {
   }
 
   // What has to change so that requests created before multi-provider access can be read by the new rules.
+  // Also fills the price of requests saved before their provider had prices (prices can be entered later, e.g. by Jérôme).
   function accessMigration(demandes, pricesOf) {
     return demandes
-      .filter((d) => d.prestataire && (d.prestataireId !== providerId(d.prestataire) || d.prixHT === undefined))
+      .filter((d) => d.prestataire)
       .map((d) => {
         const prestataireId = providerId(d.prestataire);
-        return { id: d.id, prestataireId, prixHT: d.prixHT !== undefined ? d.prixHT : priceFor(pricesOf(prestataireId), d) };
-      });
+        const prixHT = d.prixHT != null ? d.prixHT : priceFor(pricesOf(prestataireId), d);
+        return { id: d.id, prestataireId, prixHT, changed: d.prestataireId !== prestataireId || d.prixHT !== prixHT };
+      })
+      .filter((u) => u.changed)
+      .map(({ changed, ...u }) => u);
   }
 
   // ---------- search ----------
@@ -2093,7 +2097,7 @@ function page(texte) {
     const meMissing = state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail));
     $("#a-prepare").hidden = !toLink && !meMissing;
     $("#a-prepare-text").textContent = [
-      toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire` : "",
+      toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire ou à chiffrer avec les nouveaux tarifs` : "",
       meMissing ? `ton propre accès (${state.userEmail}) à créer en équipe CityDrop` : "",
     ].filter(Boolean).join(" et ") + ".";
   }
