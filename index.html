@@ -1518,35 +1518,47 @@ window.SUIVI_FIREBASE_CONFIG = {
     const filtered = (list) => list.filter((d) => D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse], state.query));
     const empty = (title, text) => `<div class="job-empty"><b>${title}</b><span>${text}</span></div>`;
 
+    const loadingHtml = `<div class="job-empty" aria-busy="true"><span class="spinner"></span><span>Chargement de tes demandes…</span></div>`;
+    function tabsHtml(lists) {
+      return TABS.map((t) => {
+        const n = t.id === "done" ? 0 : lists[t.id].length;
+        const badge = n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : "";
+        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${t.label}${badge}</button>`;
+      }).join("");
+    }
+    function validateTab(list) {
+      return list.length
+        ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${list.map(validateCard).join("")}`
+        : empty("Aucune demande à valider", "Les nouvelles demandes de CityDrop arrivent ici.");
+    }
+    function todayTab(list) {
+      return list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site.");
+    }
+    function upcomingTab(all) {
+      const list = filtered(all);
+      return searchBox() + (list.length
+        ? `<p class="tab-intro">Un véhicule est déjà sur site ? Tu peux le faire en avance.</p>${list.map((d) => doCard(d, { early: true })).join("")}`
+        : state.query ? empty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.") : empty("Rien à venir", "Tes demandes acceptées des prochains jours s'afficheront ici."));
+    }
+    function doneTab(all) {
+      const counts = D.providerCounts(state.demandes, today());
+      const list = filtered(all);
+      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci<span aria-hidden="true">·</span><b>${counts.year}</b> cette année</p>${searchBox()}` +
+        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque véhicule validé avec sa photo s'ajoute ici."));
+    }
+    const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
+
+    // Re-renders the whole screen, keeping the cursor in the search box while the provider types.
     function render() {
       const lists = D.providerLists(state.demandes, today());
       if (!state.tab && state.loaded) state.tab = lists.validate.length ? "validate" : "today";
-      const counts = D.providerCounts(state.demandes, today());
-      const tabs = TABS.map((t) => {
-        const n = t.id === "done" ? 0 : lists[t.id].length;
-        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${t.label}${n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : ""}</button>`;
-      }).join("");
-      let body = "";
-      if (!state.loaded) body = `<div class="job-empty" aria-busy="true"><span class="spinner"></span><span>Chargement de tes demandes…</span></div>`;
-      else if (state.tab === "validate") body = lists.validate.length
-        ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${lists.validate.map(validateCard).join("")}`
-        : empty("Aucune demande à valider", "Les nouvelles demandes de CityDrop arrivent ici.");
-      else if (state.tab === "today") body = lists.today.length ? todayHtml(lists.today) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site.");
-      else if (state.tab === "upcoming") {
-        const list = filtered(lists.upcoming);
-        body = searchBox() + (list.length ? `<p class="tab-intro">Un véhicule est déjà sur site ? Tu peux le faire en avance.</p>${list.map((d) => doCard(d, { early: true })).join("")}`
-          : empty(state.query ? "Aucun véhicule trouvé" : "Rien à venir", state.query ? "Vérifie la plaque ou le site." : "Tes demandes acceptées des prochains jours s'afficheront ici."));
-      } else {
-        const list = filtered(lists.done);
-        body = `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci<span aria-hidden="true">·</span><b>${counts.year}</b> cette année</p>${searchBox()}` +
-          (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque véhicule validé avec sa photo s'ajoute ici."));
-      }
+      const body = state.loaded ? TAB_BODY[state.tab](lists[state.tab]) : loadingHtml;
       const focusSearch = document.activeElement?.matches?.("[data-search]");
       view.innerHTML = `<header class="presta-top">
           <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
           <h1>${esc(cap(D.dayLabel(today())))}</h1>
         </header>
-        <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabs}</nav>
+        <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
         <footer class="presta-foot"><span>${esc(email)}</span><button type="button" class="ghost" data-signout>Se déconnecter</button></footer>`;
       if (focusSearch) { const input = view.querySelector("[data-search]"); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
@@ -1687,6 +1699,7 @@ function page(texte) {
   const today = () => D.toIsoDate(new Date());
   const siteNames = () => state.sites.map((s) => s.nom);
   const defaultProvider = () => state.providers[0] || "";
+  const demandeById = (id) => state.demandes.find((x) => x.id === id) || null;
 
   // ================= DOM helpers =================
   const $ = (selector) => document.querySelector(selector);
@@ -2141,7 +2154,7 @@ function page(texte) {
     renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
     $("#vehHint").textContent = vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "";
-    const current = state.demandes.find((x) => x.id === state.editingId);
+    const current = demandeById(state.editingId);
     $("#formSheet").innerHTML = current && ["confirmee", "realisee"].includes(current.statut) ? sheetLink([d.plaque]) : "";
   }
   // The windshield photos shown here are those of the chosen model: added once, sent with every request.
@@ -2192,7 +2205,7 @@ function page(texte) {
   $("#resetBtn").onclick = resetForm;
 
   function openDemande(id) {
-    const d = state.demandes.find((x) => x.id === id);
+    const d = demandeById(id);
     if (!d) return;
     state.editingId = id;
     fillForm(d);
@@ -2214,31 +2227,33 @@ function page(texte) {
   }
 
   // Status is not edited in the form: a new request starts "à envoyer" and becomes "envoyée" once copied or opened in WhatsApp.
+  // What stops the form from being saved, as a sentence for the toast; "" when it can be saved.
+  function formProblem(main, extras) {
+    const missing = D.missingFields(main);
+    if (missing.length) return "Il manque " + missing.join(", ");
+    const twice = D.duplicatePlates([main.plaque, ...extras.map((x) => x.plaque)]);
+    return twice.length ? `La plaque ${D.normalizePlate(twice[0])} est saisie deux fois` : "";
+  }
+  // Saves one vehicle of the request (alone or in a group) and remembers its plate; returns its id.
+  async function saveRequest(id, fields, { groupe, markSent }) {
+    const before = demandeById(id);
+    const current = before?.statut || "a_envoyer";
+    const statut = markSent && current === "a_envoyer" ? "envoyee" : current;
+    const savedId = await state.store.saveDemande(id, { ...fields, ...D.providerFields(fields, before, pricesOf), groupe, statut }, before);
+    await state.store.saveVehicle(vehicleOf(fields.plaque), fields);
+    return savedId;
+  }
   async function saveForm({ markSent = false } = {}) {
     if (!requireStore()) return false;
-    const nextStatus = (previous) => {
-      const current = previous?.statut || "a_envoyer";
-      return markSent && current === "a_envoyer" ? "envoyee" : current;
-    };
-    const previous = state.demandes.find((x) => x.id === state.editingId) || null;
     const extras = readExtras();
     const main = readForm();
-    const missing = D.missingFields(main);
-    if (missing.length) { toast("Il manque " + missing.join(", ")); return false; }
-    const twice = D.duplicatePlates([main.plaque, ...extras.map((x) => x.plaque)]);
-    if (twice.length) { toast(`La plaque ${D.normalizePlate(twice[0])} est saisie deux fois`); return false; }
-    if (extras.length && !state.groupe) state.groupe = previous?.groupe || "g" + Date.now().toString(36);
-    const groupe = state.groupe || "";
+    const problem = formProblem(main, extras);
+    if (problem) { toast(problem); return false; }
+    if (extras.length && !state.groupe) state.groupe = demandeById(state.editingId)?.groupe || "g" + Date.now().toString(36);
+    const options = { groupe: state.groupe || "", markSent };
     try {
-      state.editingId = await state.store.saveDemande(state.editingId, { ...main, ...D.providerFields(main, previous, pricesOf), groupe, statut: nextStatus(previous) }, previous);
-      await state.store.saveVehicle(vehicleOf(main.plaque), main);
-      for (const extra of extras) {
-        const before = state.demandes.find((x) => x.id === extra.id) || null;
-        const memberFields = groupMember(main, extra);
-        const member = { ...memberFields, ...D.providerFields(memberFields, before, pricesOf), groupe, statut: nextStatus(before) };
-        extra.row.dataset.id = await state.store.saveDemande(extra.id || null, member, before);
-        await state.store.saveVehicle(vehicleOf(member.plaque), member);
-      }
+      state.editingId = await saveRequest(state.editingId, main, options);
+      for (const extra of extras) extra.row.dataset.id = await saveRequest(extra.id || null, groupMember(main, extra), options);
       showSavedHeader(main);
       return true;
     } catch (err) { reportWriteError(err); return false; }
@@ -2249,7 +2264,7 @@ function page(texte) {
   });
   $("#formShare").addEventListener("click", async (e) => {
     if (!e.target.closest("[data-copy]")) return;
-    const wasNew = !state.editingId || state.demandes.find((x) => x.id === state.editingId)?.statut === "a_envoyer";
+    const wasNew = !state.editingId || demandeById(state.editingId)?.statut === "a_envoyer";
     if (await saveForm({ markSent: true }) && wasNew) toast("Demande enregistrée et passée en « Envoyée »");
   });
   $("#delZone").addEventListener("click", async (e) => {
@@ -2494,6 +2509,7 @@ function page(texte) {
 
   // ----- who can open the app -----
   const providerName = (id) => state.providers.find((p) => D.providerId(p) === id) || state.providerDocs.get(id)?.nom || id || "";
+  const ownAccountMissing = () => !!state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail));
   function renderAccounts() {
     setSelectOptions($("#a-prov"), options(state.providers));
     $("#a-prov").disabled = $("#a-role").value !== "prestataire";
@@ -2504,7 +2520,7 @@ function page(texte) {
           ${removeButton("data-remove-account", esc(a.id), a.id)}</div>`).join("")
       : `<p class="hint">Aucun accès enregistré pour l'instant.</p>`;
     const toLink = D.accessMigration(state.demandes, pricesOf).length;
-    const meMissing = state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail));
+    const meMissing = ownAccountMissing();
     $("#a-prepare").hidden = !toLink && !meMissing;
     $("#a-prepare-text").textContent = [
       toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire ou à chiffrer avec les nouveaux tarifs` : "",
@@ -2532,7 +2548,7 @@ function page(texte) {
         const id = D.providerId(name);
         if (!state.providerDocs.has(id)) await state.store.saveProvider(id, { nom: name, tarifs: [] });
       }
-      if (state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail))) await state.store.saveAccount(state.userEmail, { role: "admin" });
+      if (ownAccountMissing()) await state.store.saveAccount(state.userEmail, { role: "admin" });
       const updates = D.accessMigration(state.demandes, pricesOf);
       await state.store.linkRequests(updates);
       toast(`Accès préparés : ${plural(updates.length, "demande")} rattachée${updates.length > 1 ? "s" : ""}`);
@@ -2611,7 +2627,7 @@ function page(texte) {
   }
   $("#answers").addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
-    const d = b && state.demandes.find((x) => x.id === (b.dataset.seen || b.dataset.acceptDate || b.dataset.open));
+    const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
     if (!d) return;
     if (b.dataset.open) return openDemande(d.id);
     if (!requireStore()) return;
@@ -2649,18 +2665,23 @@ function page(texte) {
     const user = await window.claude.use("user").catch(() => null);
     state.userEmail = user?.email || "";
     const account = await state.store.getAccount(state.userEmail);
-    if (account?.role === "prestataire") {
-      state.providerMode = true;
-      setSync("Connecté", true);
-      window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D,
-        ui: { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } });
-      return;
-    }
-    if (account?.role === "lecture") { state.canWrite = false; $("#saveBtn").disabled = true; banner("Accès en lecture : tu vois tout mais tu ne modifies rien."); }
-    if ((await user?.can("data.write")) === false) {
-      state.canWrite = false; $("#saveBtn").disabled = true;
-      banner("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
-    }
+    if (account?.role === "prestataire") return startProviderMode(account);
+    if (account?.role === "lecture") setReadOnly("Accès en lecture : tu vois tout mais tu ne modifies rien.");
+    if ((await user?.can("data.write")) === false) setReadOnly("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
+    subscribeTeam();
+  }
+  function startProviderMode(account) {
+    state.providerMode = true;
+    setSync("Connecté", true);
+    window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D,
+      ui: { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } });
+  }
+  function setReadOnly(message) {
+    state.canWrite = false;
+    $("#saveBtn").disabled = true;
+    banner(message);
+  }
+  function subscribeTeam() {
     state.store.subscribe({
       onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },

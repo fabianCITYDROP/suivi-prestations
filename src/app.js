@@ -33,6 +33,7 @@
   const today = () => D.toIsoDate(new Date());
   const siteNames = () => state.sites.map((s) => s.nom);
   const defaultProvider = () => state.providers[0] || "";
+  const demandeById = (id) => state.demandes.find((x) => x.id === id) || null;
 
   // ================= DOM helpers =================
   const $ = (selector) => document.querySelector(selector);
@@ -487,7 +488,7 @@
     renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
     $("#vehHint").textContent = vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "";
-    const current = state.demandes.find((x) => x.id === state.editingId);
+    const current = demandeById(state.editingId);
     $("#formSheet").innerHTML = current && ["confirmee", "realisee"].includes(current.statut) ? sheetLink([d.plaque]) : "";
   }
   // The windshield photos shown here are those of the chosen model: added once, sent with every request.
@@ -538,7 +539,7 @@
   $("#resetBtn").onclick = resetForm;
 
   function openDemande(id) {
-    const d = state.demandes.find((x) => x.id === id);
+    const d = demandeById(id);
     if (!d) return;
     state.editingId = id;
     fillForm(d);
@@ -560,31 +561,33 @@
   }
 
   // Status is not edited in the form: a new request starts "à envoyer" and becomes "envoyée" once copied or opened in WhatsApp.
+  // What stops the form from being saved, as a sentence for the toast; "" when it can be saved.
+  function formProblem(main, extras) {
+    const missing = D.missingFields(main);
+    if (missing.length) return "Il manque " + missing.join(", ");
+    const twice = D.duplicatePlates([main.plaque, ...extras.map((x) => x.plaque)]);
+    return twice.length ? `La plaque ${D.normalizePlate(twice[0])} est saisie deux fois` : "";
+  }
+  // Saves one vehicle of the request (alone or in a group) and remembers its plate; returns its id.
+  async function saveRequest(id, fields, { groupe, markSent }) {
+    const before = demandeById(id);
+    const current = before?.statut || "a_envoyer";
+    const statut = markSent && current === "a_envoyer" ? "envoyee" : current;
+    const savedId = await state.store.saveDemande(id, { ...fields, ...D.providerFields(fields, before, pricesOf), groupe, statut }, before);
+    await state.store.saveVehicle(vehicleOf(fields.plaque), fields);
+    return savedId;
+  }
   async function saveForm({ markSent = false } = {}) {
     if (!requireStore()) return false;
-    const nextStatus = (previous) => {
-      const current = previous?.statut || "a_envoyer";
-      return markSent && current === "a_envoyer" ? "envoyee" : current;
-    };
-    const previous = state.demandes.find((x) => x.id === state.editingId) || null;
     const extras = readExtras();
     const main = readForm();
-    const missing = D.missingFields(main);
-    if (missing.length) { toast("Il manque " + missing.join(", ")); return false; }
-    const twice = D.duplicatePlates([main.plaque, ...extras.map((x) => x.plaque)]);
-    if (twice.length) { toast(`La plaque ${D.normalizePlate(twice[0])} est saisie deux fois`); return false; }
-    if (extras.length && !state.groupe) state.groupe = previous?.groupe || "g" + Date.now().toString(36);
-    const groupe = state.groupe || "";
+    const problem = formProblem(main, extras);
+    if (problem) { toast(problem); return false; }
+    if (extras.length && !state.groupe) state.groupe = demandeById(state.editingId)?.groupe || "g" + Date.now().toString(36);
+    const options = { groupe: state.groupe || "", markSent };
     try {
-      state.editingId = await state.store.saveDemande(state.editingId, { ...main, ...D.providerFields(main, previous, pricesOf), groupe, statut: nextStatus(previous) }, previous);
-      await state.store.saveVehicle(vehicleOf(main.plaque), main);
-      for (const extra of extras) {
-        const before = state.demandes.find((x) => x.id === extra.id) || null;
-        const memberFields = groupMember(main, extra);
-        const member = { ...memberFields, ...D.providerFields(memberFields, before, pricesOf), groupe, statut: nextStatus(before) };
-        extra.row.dataset.id = await state.store.saveDemande(extra.id || null, member, before);
-        await state.store.saveVehicle(vehicleOf(member.plaque), member);
-      }
+      state.editingId = await saveRequest(state.editingId, main, options);
+      for (const extra of extras) extra.row.dataset.id = await saveRequest(extra.id || null, groupMember(main, extra), options);
       showSavedHeader(main);
       return true;
     } catch (err) { reportWriteError(err); return false; }
@@ -595,7 +598,7 @@
   });
   $("#formShare").addEventListener("click", async (e) => {
     if (!e.target.closest("[data-copy]")) return;
-    const wasNew = !state.editingId || state.demandes.find((x) => x.id === state.editingId)?.statut === "a_envoyer";
+    const wasNew = !state.editingId || demandeById(state.editingId)?.statut === "a_envoyer";
     if (await saveForm({ markSent: true }) && wasNew) toast("Demande enregistrée et passée en « Envoyée »");
   });
   $("#delZone").addEventListener("click", async (e) => {
@@ -840,6 +843,7 @@
 
   // ----- who can open the app -----
   const providerName = (id) => state.providers.find((p) => D.providerId(p) === id) || state.providerDocs.get(id)?.nom || id || "";
+  const ownAccountMissing = () => !!state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail));
   function renderAccounts() {
     setSelectOptions($("#a-prov"), options(state.providers));
     $("#a-prov").disabled = $("#a-role").value !== "prestataire";
@@ -850,7 +854,7 @@
           ${removeButton("data-remove-account", esc(a.id), a.id)}</div>`).join("")
       : `<p class="hint">Aucun accès enregistré pour l'instant.</p>`;
     const toLink = D.accessMigration(state.demandes, pricesOf).length;
-    const meMissing = state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail));
+    const meMissing = ownAccountMissing();
     $("#a-prepare").hidden = !toLink && !meMissing;
     $("#a-prepare-text").textContent = [
       toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire ou à chiffrer avec les nouveaux tarifs` : "",
@@ -878,7 +882,7 @@
         const id = D.providerId(name);
         if (!state.providerDocs.has(id)) await state.store.saveProvider(id, { nom: name, tarifs: [] });
       }
-      if (state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail))) await state.store.saveAccount(state.userEmail, { role: "admin" });
+      if (ownAccountMissing()) await state.store.saveAccount(state.userEmail, { role: "admin" });
       const updates = D.accessMigration(state.demandes, pricesOf);
       await state.store.linkRequests(updates);
       toast(`Accès préparés : ${plural(updates.length, "demande")} rattachée${updates.length > 1 ? "s" : ""}`);
@@ -957,7 +961,7 @@
   }
   $("#answers").addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
-    const d = b && state.demandes.find((x) => x.id === (b.dataset.seen || b.dataset.acceptDate || b.dataset.open));
+    const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
     if (!d) return;
     if (b.dataset.open) return openDemande(d.id);
     if (!requireStore()) return;
@@ -995,18 +999,23 @@
     const user = await window.claude.use("user").catch(() => null);
     state.userEmail = user?.email || "";
     const account = await state.store.getAccount(state.userEmail);
-    if (account?.role === "prestataire") {
-      state.providerMode = true;
-      setSync("Connecté", true);
-      window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D,
-        ui: { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } });
-      return;
-    }
-    if (account?.role === "lecture") { state.canWrite = false; $("#saveBtn").disabled = true; banner("Accès en lecture : tu vois tout mais tu ne modifies rien."); }
-    if ((await user?.can("data.write")) === false) {
-      state.canWrite = false; $("#saveBtn").disabled = true;
-      banner("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
-    }
+    if (account?.role === "prestataire") return startProviderMode(account);
+    if (account?.role === "lecture") setReadOnly("Accès en lecture : tu vois tout mais tu ne modifies rien.");
+    if ((await user?.can("data.write")) === false) setReadOnly("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
+    subscribeTeam();
+  }
+  function startProviderMode(account) {
+    state.providerMode = true;
+    setSync("Connecté", true);
+    window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D,
+      ui: { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } });
+  }
+  function setReadOnly(message) {
+    state.canWrite = false;
+    $("#saveBtn").disabled = true;
+    banner(message);
+  }
+  function subscribeTeam() {
     state.store.subscribe({
       onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
