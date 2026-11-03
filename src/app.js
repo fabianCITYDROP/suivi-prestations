@@ -300,7 +300,7 @@
     $("#provFilter").hidden = state.providers.length < 2;
     ["#h-prest", "#v-prest", "#b-prest"].forEach((s) => setSelectOptions($(s), allProviders));
     setSelectOptions($("#f-prest"), options(state.providers));
-    $("#provRow").hidden = state.providers.length < 2;
+    $("#provRow").hidden = state.providers.length === 0;
     document.querySelectorAll("#form .m-base").forEach((base) => {
       setSelectOptions(base, baseOptions());
       fillVariants(base, variantSelectOf(base));
@@ -381,8 +381,8 @@
       adresse: field("adresse").value.trim(),
       date: field("date").value,
       dateFin: field("dateFin").value || field("date").value,
-      debut: field("debut").value,
-      fin: field("fin").value,
+      debut: field("debut").value || D.DEFAULT_SLOT.debut,
+      fin: field("fin").value || D.DEFAULT_SLOT.fin,
       prestataire: field("prest").value || defaultProvider(),
       notes: field("notes").value.trim(),
     };
@@ -525,6 +525,8 @@
     fillVariants(field("base"), field("modele"));
     state.groupe = "";
     setAvailability(D.addDays(today(), 1));
+    field("debut").value = D.DEFAULT_SLOT.debut;
+    field("fin").value = D.DEFAULT_SLOT.fin;
     field("prest").value = state.providerFilter || defaultProvider();
     $("#notesBox").open = false;
     $("#formTitle").textContent = "Nouvelle demande";

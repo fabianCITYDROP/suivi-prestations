@@ -802,6 +802,8 @@ window.SUIVI_FIREBASE_CONFIG = {
 
   // ---------- availability window (date .. dateFin) ----------
   const lastDay = (d) => d.dateFin || d.date;
+  // Opening hours of the sites: a new request is available all day unless the team narrows it.
+  const DEFAULT_SLOT = { debut: "08:30", fin: "19:30" };
   const isMultiDay = (d) => !!d.date && lastDay(d) !== d.date;
   const isAvailableOn = (d, iso) => !!d.date && d.date <= iso && iso <= lastDay(d);
   function availabilityLabel(d) {
@@ -1163,8 +1165,9 @@ window.SUIVI_FIREBASE_CONFIG = {
     { id: "refuse", label: "Pas possible", team: "ne peut pas faire" },
   ];
   const answerOf = (id) => ANSWERS.find((a) => a.id === id) || null;
-  const HIDDEN_FROM_PROVIDER = ["a_envoyer", "annulee"];
-  const isForProvider = (d) => !HIDDEN_FROM_PROVIDER.includes(d.statut || "a_envoyer");
+  // A request shows on the provider's screen as soon as it is saved: the app is the channel,
+  // the WhatsApp message is optional. Only cancelled requests are hidden.
+  const isForProvider = (d) => d.statut !== "annulee";
   const isDoneByProvider = (d) => d.retour?.etat === "fait" || d.statut === "realisee";
   const doneDay = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || "")?.slice(0, 10) || d.date || "";
 
@@ -1209,6 +1212,7 @@ window.SUIVI_FIREBASE_CONFIG = {
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
   return {
+    DEFAULT_SLOT,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
@@ -1950,7 +1954,7 @@ function page(texte) {
     $("#provFilter").hidden = state.providers.length < 2;
     ["#h-prest", "#v-prest", "#b-prest"].forEach((s) => setSelectOptions($(s), allProviders));
     setSelectOptions($("#f-prest"), options(state.providers));
-    $("#provRow").hidden = state.providers.length < 2;
+    $("#provRow").hidden = state.providers.length === 0;
     document.querySelectorAll("#form .m-base").forEach((base) => {
       setSelectOptions(base, baseOptions());
       fillVariants(base, variantSelectOf(base));
@@ -2031,8 +2035,8 @@ function page(texte) {
       adresse: field("adresse").value.trim(),
       date: field("date").value,
       dateFin: field("dateFin").value || field("date").value,
-      debut: field("debut").value,
-      fin: field("fin").value,
+      debut: field("debut").value || D.DEFAULT_SLOT.debut,
+      fin: field("fin").value || D.DEFAULT_SLOT.fin,
       prestataire: field("prest").value || defaultProvider(),
       notes: field("notes").value.trim(),
     };
@@ -2175,6 +2179,8 @@ function page(texte) {
     fillVariants(field("base"), field("modele"));
     state.groupe = "";
     setAvailability(D.addDays(today(), 1));
+    field("debut").value = D.DEFAULT_SLOT.debut;
+    field("fin").value = D.DEFAULT_SLOT.fin;
     field("prest").value = state.providerFilter || defaultProvider();
     $("#notesBox").open = false;
     $("#formTitle").textContent = "Nouvelle demande";
