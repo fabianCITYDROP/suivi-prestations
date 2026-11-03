@@ -309,6 +309,29 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 </head>
 <body>
 
+/* ---------- provider answers (team) ---------- */
+.answers { margin-bottom: 16px; border-color: var(--accent, #0f6f8f); }
+.answer-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
+.answer-row:first-of-type { border-top: 0; padding-top: 0; }
+@media (max-width: 640px) { .answer-row { grid-template-columns: auto 1fr; } .answer-row > .row { grid-column: 1 / -1; } }
+
+/* ---------- provider screen ---------- */
+#view-presta { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.presta-head { display: flex; flex-direction: column; gap: 8px; }
+.presta-head h1 { margin: 0; }
+.presta-tabs { display: flex; gap: 8px; }
+.presta-tabs button { flex: 1; }
+.presta-tabs button[aria-selected="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.presta-card { gap: 10px; }
+.presta-card p { margin: 0; }
+.presta-photos { display: flex; gap: 8px; flex-wrap: wrap; }
+.presta-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: zoom-in; }
+.presta-answer { font-weight: 600; }
+.presta-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.presta-actions .big { flex: 1 1 100%; justify-content: center; min-height: 52px; font-size: 16px; }
+.presta-actions button:not(.big) { flex: 1 1 30%; }
+.presta-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: var(--bg); }
+
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></symbol>
   <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></symbol>
@@ -344,6 +367,7 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 
   <!-- PLANNING -->
   <section id="view-planning">
+    <div class="panel answers" id="answers" hidden></div>
     <div class="daybar">
       <h1 id="dayTitle">Aujourd'hui</h1>
       <button class="ghost" id="prevDay" aria-label="Jour précédent"><svg class="icon"><use href="#i-chev-l"/></svg></button>
@@ -560,6 +584,8 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
       </div>
     </div>
   </section>
+  <!-- PROVIDER SCREEN (filled by presta.js) -->
+  <section id="view-presta" hidden></section>
 </main>
 
 <input type="file" id="photoInput" accept="image/*" multiple hidden>
@@ -1062,6 +1088,51 @@ window.SUIVI_FIREBASE_CONFIG = {
       .map(({ changed, ...u }) => u);
   }
 
+
+  // ---------- provider answers (field "retour" on a request, written by the provider) ----------
+  // retour = {etat, at, par, note?, date?, debut?, preuve?}; the team marks it {vu: true} once read,
+  // and {applique: true} once the request status follows it (done -> réalisée, taken -> confirmée).
+  const ANSWERS = [
+    { id: "confirme", label: "Pris en charge", team: "a confirmé le passage" },
+    { id: "fait", label: "Fait", team: "a fait" },
+    { id: "absent", label: "Véhicule absent", team: "n'a pas trouvé le véhicule" },
+    { id: "autre-date", label: "Autre date proposée", team: "propose une autre date pour" },
+  ];
+  const answerOf = (id) => ANSWERS.find((a) => a.id === id) || null;
+  const HIDDEN_FROM_PROVIDER = ["a_envoyer", "annulee"];
+  const isForProvider = (d) => !HIDDEN_FROM_PROVIDER.includes(d.statut || "a_envoyer");
+  const isDoneByProvider = (d) => d.retour?.etat === "fait" || d.statut === "realisee";
+  const doneDay = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || "")?.slice(0, 10) || d.date || "";
+
+  // Provider screen: what is still to do (soonest first) and what is done (latest first).
+  function providerLists(demandes) {
+    const mine = demandes.filter(isForProvider);
+    return {
+      todo: mine.filter((d) => !isDoneByProvider(d)).sort(byDateThenTime),
+      done: mine.filter(isDoneByProvider).sort((a, b) => doneDay(b).localeCompare(doneDay(a))),
+    };
+  }
+  // Vehicles done this month and this year, for the provider's own count.
+  function providerCounts(demandes, todayIso) {
+    const done = demandes.filter((d) => isForProvider(d) && isDoneByProvider(d)).map(doneDay);
+    return { month: done.filter((day) => day.slice(0, 7) === todayIso.slice(0, 7)).length, year: done.filter((day) => day.slice(0, 4) === todayIso.slice(0, 4)).length };
+  }
+  function answerSummary(r) {
+    if (!r) return "";
+    const when = r.date ? ` : ${shortDate(r.date)}${r.debut ? " à " + hourLabel(r.debut) : ""}` : "";
+    return `${answerOf(r.etat)?.label || r.etat}${when}${r.note ? ` – ${r.note}` : ""}`;
+  }
+  // What the team's app writes when it sees a provider answer it has not applied yet (closes the request automatically).
+  function statusFromAnswer(d) {
+    const r = d.retour;
+    if (!r || r.applique) return null;
+    if (r.etat === "fait" && d.statut !== "realisee") return "realisee";
+    if (r.etat === "confirme" && ["a_envoyer", "envoyee"].includes(d.statut)) return "confirmee";
+    return null;
+  }
+  // Answers the team has not looked at yet, newest first.
+  const unseenAnswers = (demandes) => demandes.filter((d) => d.retour && !d.retour.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || ""));
+
   // ---------- search ----------
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
@@ -1078,6 +1149,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
+    ANSWERS, answerOf, isForProvider, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers,
   };
 });
 </script>
@@ -1140,6 +1212,44 @@ window.SUIVI_FIREBASE_CONFIG = {
       try { const snap = await db.doc("comptes/" + D.emailKey(email)).get(); return snap.exists ? snap.data() : null; }
       catch { return null; }
     }
+    // ----- provider side: only its own requests (the rules refuse an unfiltered list) -----
+    function subscribeProvider(prestataireId, { onDemandes, onModels, onError }) {
+      const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const unsubs = [
+        db.collection("demandes").where("prestataireId", "==", prestataireId).onSnapshot((s) => onDemandes(toRows(s)), onError),
+        db.collection("modeles").onSnapshot((s) => onModels(toRows(s)), onError),
+      ];
+      return () => unsubs.forEach((u) => u());
+    }
+    async function addProof(demande, full) {
+      const key = `${demande.id}_${Date.now().toString(36)}`;
+      await db.doc("preuves/" + key).set({ prestataireId: demande.prestataireId, demandeId: demande.id, plaque: demande.plaque || "", data: full, at: new Date().toISOString() });
+      return key;
+    }
+    async function answer(demande, retour) {
+      const now = new Date().toISOString();
+      await db.doc("demandes/" + demande.id).update({ retour: { ...retour, at: now }, updatedAt: now });
+    }
+    async function loadProof(key) {
+      const cacheKey = "preuve:" + key;
+      if (!photoCache.has(cacheKey)) {
+        const snap = await db.doc("preuves/" + key).get();
+        if (snap.exists) photoCache.set(cacheKey, snap.data().data);
+      }
+      return photoCache.get(cacheKey);
+    }
+    // ----- team side: follow the answers -----
+    async function applyAnswer(demande, status) {
+      const now = new Date().toISOString();
+      const done = status === "realisee" && demande.retour?.at ? { ...D.statusTimestamps(demande, status, now), doneAt: demande.retour.at } : D.statusTimestamps(demande, status, now);
+      await db.doc("demandes/" + demande.id).update({ statut: status, ...done, retour: { ...demande.retour, applique: true }, updatedAt: now });
+    }
+    const markAnswerSeen = (demande) => db.doc("demandes/" + demande.id).update({ retour: { ...demande.retour, vu: true } });
+    const acceptProposedDate = (demande) => db.doc("demandes/" + demande.id).update({
+      date: demande.retour.date, dateFin: demande.retour.date, debut: demande.retour.debut || demande.debut || "",
+      retour: { ...demande.retour, vu: true }, updatedAt: new Date().toISOString(),
+    });
+
     // One-off preparation before the access rules are published: link every request to its provider.
     async function linkRequests(updates) {
       if (!db.batch) { for (const { id, ...fields } of updates) await db.doc("demandes/" + id).update(fields); return; }
@@ -1212,11 +1322,138 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { subscribeProvider, addProof, answer, loadProof, applyAnswer, markAnswerSeen, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
 });
+</script>
+<script>
+// Provider screen: what a provider sees after signing in. Only its own requests are loaded
+// (the access rules refuse anything else). It answers each request: taken, done (with a photo
+// of the plate), vehicle missing, or another date.
+(function (root) {
+  function start({ store, account, email, D, ui }) {
+    const { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } = ui; // photos open through the page's shared lightbox (data-zoom, data-proof)
+    const state = { demandes: [], models: new Map(), tab: "todo", openForm: null, busy: new Set() };
+    const today = () => D.toIsoDate(new Date());
+    const view = $("#view-presta");
+
+    document.querySelector("nav.tabs").hidden = true;
+    document.querySelectorAll("main > section").forEach((s) => (s.hidden = s !== view));
+    view.hidden = false;
+
+    const modelPhotos = (d) => state.models.get(D.modelKey(d))?.photos || [];
+    const photosHtml = (d) => modelPhotos(d).slice(0, 4).map((p) =>
+      `<img class="presta-thumb" src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("");
+
+    function actionButtons(d) {
+      if (state.busy.has(d.id)) return `<p class="hint">Envoi en cours…</p>`;
+      const taken = d.retour?.etat === "confirme" || d.statut === "confirmee";
+      return `<div class="presta-actions">
+        <button type="button" class="primary big" data-done="${esc(d.id)}">${icon("image")}OK fait (photo de la plaque)</button>
+        ${taken ? "" : `<button type="button" data-take="${esc(d.id)}">Je prends</button>`}
+        <button type="button" data-form="absent:${esc(d.id)}">Véhicule absent</button>
+        <button type="button" data-form="date:${esc(d.id)}">Autre date</button>
+      </div>${formHtml(d)}`;
+    }
+    function formHtml(d) {
+      if (state.openForm === "absent:" + d.id) return `<div class="presta-form">
+        <label class="field"><span>Un mot pour l'équipe (facultatif)</span><input data-note placeholder="Ex. pas sur le parking à 9h"></label>
+        <button type="button" class="primary" data-send="absent:${esc(d.id)}">Signaler le véhicule absent</button></div>`;
+      if (state.openForm === "date:" + d.id) return `<div class="presta-form">
+        <div class="row"><label class="field"><span>Date proposée</span><input type="date" data-date min="${today()}"></label>
+        <label class="field"><span>Heure</span><input type="time" data-time step="900"></label></div>
+        <label class="field"><span>Un mot (facultatif)</span><input data-note placeholder="Ex. pas de créneau jeudi"></label>
+        <button type="button" class="primary" data-send="date:${esc(d.id)}">Proposer cette date</button></div>`;
+      return "";
+    }
+    function card(d, done) {
+      const address = [d.site, d.adresse].filter(Boolean).join(" – ");
+      const answer = d.retour ? `<p class="presta-answer">${esc(D.answerSummary(d.retour))}${d.retour.vu && d.retour.etat === "autre-date" && d.date === d.retour.date ? " (acceptée)" : ""}</p>` : "";
+      return `<article class="panel presta-card" data-id="${esc(d.id)}">
+        <div class="row">${plateTag(d.plaque)}<b>${esc(D.vehicleLabel(d) || "Véhicule")}</b><span class="tag">${esc(D.serviceOf(d.service).label)}</span></div>
+        <p>${esc(address || "Site à préciser")}</p>
+        <p class="muted">${done ? "Fait le " + esc(D.numericDate((d.retour?.at || d.doneAt || d.date || "").slice(0, 10))) : `Disponible ${esc(D.availabilityLabel(d))}, ${esc(D.timeSlotLabel(d))}`}</p>
+        ${d.notes ? `<p class="muted">Remarque : ${esc(d.notes)}</p>` : ""}
+        ${!done && D.isWindshield(d) && modelPhotos(d).length ? `<div class="presta-photos">${photosHtml(d)}</div>` : ""}
+        ${answer}
+        ${done ? (d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}">Voir la photo envoyée</button>` : "") : actionButtons(d)}
+      </article>`;
+    }
+    function render() {
+      const { todo, done } = D.providerLists(state.demandes);
+      const counts = D.providerCounts(state.demandes, today());
+      const list = state.tab === "todo" ? todo : done;
+      view.innerHTML = `<div class="presta-head">
+          <h1>Mes demandes</h1>
+          <p class="muted">Véhicules faits ce mois-ci : <b>${counts.month}</b> · cette année : <b>${counts.year}</b></p>
+          <div class="presta-tabs" role="tablist">
+            <button role="tab" data-tab="todo" aria-selected="${state.tab === "todo"}">À faire (${todo.length})</button>
+            <button role="tab" data-tab="done" aria-selected="${state.tab === "done"}">Faits (${done.length})</button>
+          </div>
+        </div>
+        ${list.length ? list.map((d) => card(d, state.tab === "done")).join("") : `<div class="empty"><b>${state.tab === "todo" ? "Rien à faire pour l'instant" : "Aucun véhicule fait pour l'instant"}</b><span>Les nouvelles demandes apparaissent ici toutes seules.</span></div>`}
+        <p class="hint" style="margin-top:16px">Connecté en tant que ${esc(email)} · <button type="button" class="ghost" data-signout>Se déconnecter</button></p>`;
+    }
+
+    const byId = (id) => state.demandes.find((d) => d.id === id);
+    async function send(d, retour, message) {
+      state.busy.add(d.id); render();
+      try { await store.answer(d, { ...retour, par: email }); state.openForm = null; toast(message); }
+      catch { toast("Envoi impossible, vérifie ta connexion et réessaie"); }
+      finally { state.busy.delete(d.id); render(); }
+    }
+
+    // "OK fait": the camera opens, the photo of the plate is the proof.
+    const camera = Object.assign(document.createElement("input"), { type: "file", accept: "image/*", hidden: true });
+    camera.setAttribute("capture", "environment");
+    document.body.append(camera);
+    let doneTarget = null;
+    camera.addEventListener("change", async () => {
+      const file = camera.files[0]; camera.value = "";
+      const d = doneTarget && byId(doneTarget);
+      if (!file || !d) return;
+      state.busy.add(d.id); render();
+      try {
+        const { full } = await prepareImage(file);
+        const preuve = await store.addProof(d, full);
+        state.busy.delete(d.id);
+        await send(d, { etat: "fait", preuve }, `${d.plaque} : c'est noté, merci !`);
+      } catch { state.busy.delete(d.id); render(); toast("La photo n'a pas pu être envoyée, réessaie"); }
+    });
+
+    view.addEventListener("click", async (e) => {
+      const el = (sel) => e.target.closest(sel);
+      let b;
+      if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; render(); }
+      else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Passage confirmé à l'équipe");
+      else if ((b = el("[data-done]"))) { doneTarget = b.dataset.done; camera.click(); }
+      else if ((b = el("[data-form]"))) { state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; render(); }
+      else if ((b = el("[data-send]"))) {
+        const [kind, id] = b.dataset.send.split(":");
+        const form = b.closest(".presta-form");
+        const note = form.querySelector("[data-note]").value.trim();
+        if (kind === "absent") send(byId(id), { etat: "absent", ...(note ? { note } : {}) }, "L'équipe est prévenue");
+        else {
+          const date = form.querySelector("[data-date]").value;
+          if (!date) return toast("Choisis la date proposée");
+          const debut = form.querySelector("[data-time]").value;
+          send(byId(id), { etat: "autre-date", date, ...(debut ? { debut } : {}), ...(note ? { note } : {}) }, "Date proposée à l'équipe");
+        }
+      }
+      else if (el("[data-signout]")) firebase.auth().signOut().then(() => location.reload());
+    });
+
+    render();
+    store.subscribeProvider(account.prestataireId, {
+      onDemandes: (rows) => { state.demandes = rows; render(); },
+      onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); render(); },
+      onError: () => toast("Connexion interrompue, recharge la page"),
+    });
+  }
+  root.SuiviPresta = { start };
+})(typeof self !== "undefined" ? self : this);
 </script>
 <script>
 // Screens of the tracker. Business rules live in domain.js, data access in store.js.
@@ -1283,6 +1520,9 @@ function page(texte) {
     accounts: [],            // [{id: email, role, prestataireId}]
     userEmail: "",
   };
+  // Providers who have their own access get a link to answer in the app instead of WhatsApp.
+  const appLink = (providerName) => state.accounts.some((a) => a.role === "prestataire" && a.prestataireId === D.providerId(providerName))
+    ? `\n\nRéponds directement sur l'appli : ${location.origin}${location.pathname}` : "";
   const pricesOf = (providerId) => state.providerDocs.get(providerId)?.tarifs || [];
   const today = () => D.toIsoDate(new Date());
   const siteNames = () => state.sites.map((s) => s.nom);
@@ -1509,11 +1749,18 @@ function page(texte) {
     if ((el = target("[data-copy-photo]"))) { const key = el.dataset.copyPhoto; copyImage(() => singlePhotoPng(key), el.dataset.name, () => singlePhotoJpeg(key)); return; }
     if ((el = target("[data-save-photo]"))) { saveBlob(singlePhotoJpeg(el.dataset.savePhoto), el.dataset.name); return; }
     if ((el = target("[data-zoom]"))) openLightbox(el.dataset.zoom, el.src);
+    if ((el = target("[data-proof]"))) openProof(el.dataset.proof);
   }, true);
   async function openLightbox(key, fallbackSrc) {
     $("#lightImg").src = fallbackSrc; $("#lightbox").hidden = false;
     const full = state.store ? await state.store.loadPhoto(key).catch(() => null) : null;
     if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
+  }
+  async function openProof(key) {
+    $("#lightImg").removeAttribute("src"); $("#lightbox").hidden = false;
+    const full = state.store ? await state.store.loadProof(key).catch(() => null) : null;
+    if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
+    else if (!full) { $("#lightbox").hidden = true; toast("Photo introuvable"); }
   }
   $("#lightbox").onclick = () => ($("#lightbox").hidden = true);
 
@@ -1527,6 +1774,7 @@ function page(texte) {
   // ================= navigation =================
   const VIEWS = ["planning", "demande", "photos", "verif", "bilan", "historique", "reglages"];
   function show(view) {
+    if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
     VIEWS.forEach((v) => { $("#view-" + v).hidden = v !== view; $("#tab-" + v).setAttribute("aria-selected", String(v === view)); });
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
@@ -1570,7 +1818,7 @@ function page(texte) {
       : `<div class="empty"><b>Aucun véhicule prévu ce jour-là.</b><span>Les véhicules disponibles ce jour apparaissent ici, classés par site, avec la liste prête à envoyer.</span></div>`;
     const active = ofDay.filter(D.isActive);
     $("#dayShare").innerHTML = active.length
-      ? shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }), provider: providerFilter || defaultProvider(), vehicles: active.filter(D.isWindshield) })
+      ? shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }) + appLink(providerFilter || defaultProvider()), provider: providerFilter || defaultProvider(), vehicles: active.filter(D.isWindshield) })
       : `<p class="muted">Rien à envoyer pour ce jour.</p>`;
   }
   function renderWeekStrip() {
@@ -1729,7 +1977,7 @@ function page(texte) {
     const photoCount = photoEntries(vehicles).length;
     $("#photosSet").hidden = !D.isWindshield(d);
     $("#msgTitle").textContent = others.length ? `Envoyer la demande (${others.length + 1} véhicules)` : "Envoyer la demande";
-    $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others), vehicles });
+    $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others) + appLink(d.prestataire), vehicles });
     renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
     $("#vehHint").textContent = vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "";
@@ -2170,11 +2418,50 @@ function page(texte) {
   $("#s-script").textContent = SHEET_SCRIPT;
   $("#s-copyscript").onclick = async () => { if (await copyText(SHEET_SCRIPT)) toast("Script copié"); };
 
+  // ================= provider answers (team side) =================
+  // A "done" answer closes the request on its own; every answer is listed until someone marks it seen.
+  const applying = new Set();
+  let knownAnswers = null;
+  function followAnswers(rows) {
+    if (!state.canWrite) return;
+    rows.forEach((d) => {
+      const status = D.statusFromAnswer(d);
+      if (!status || applying.has(d.id)) return;
+      applying.add(d.id);
+      state.store.applyAnswer(d, status).catch(() => {}).finally(() => applying.delete(d.id));
+    });
+    const signature = (d) => d.id + "|" + d.retour.at;
+    const fresh = D.unseenAnswers(rows).filter((d) => knownAnswers && !knownAnswers.has(signature(d)));
+    knownAnswers = new Set(D.unseenAnswers(rows).map(signature));
+    if (fresh.length) toast(fresh.length > 1 ? `${fresh.length} nouvelles réponses des prestataires` : `${fresh[0].prestataire} ${D.answerOf(fresh[0].retour.etat)?.team || "a répondu pour"} ${fresh[0].plaque}`);
+  }
+  function renderAnswers() {
+    const rows = D.unseenAnswers(state.demandes);
+    $("#tab-planning").textContent = rows.length ? `Planning (${rows.length})` : "Planning";
+    $("#answers").hidden = !rows.length;
+    $("#answers").innerHTML = `<div class="panel-head"><h2>Réponses des prestataires</h2><span class="muted">${plural(rows.length, "nouvelle")}</span></div>` +
+      rows.map((d) => `<div class="answer-row">${plateTag(d.plaque)}
+        <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(d.retour))}<br><span class="muted">${esc(D.vehicleLabel(d))} · ${esc(D.siteOf(d))} · ${esc(D.numericDate(d.retour.at.slice(0, 10)))} ${esc(d.retour.at.slice(11, 16))}</span></span>
+        <span class="row">${d.retour.preuve ? `<button type="button" data-proof="${esc(d.retour.preuve)}">${icon("image")}Photo</button>` : ""}
+        ${d.retour.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
+        ${state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
+        <button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button></span></div>`).join("");
+  }
+  $("#answers").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
+    const d = b && state.demandes.find((x) => x.id === (b.dataset.seen || b.dataset.acceptDate || b.dataset.open));
+    if (!d) return;
+    if (b.dataset.open) return openDemande(d.id);
+    if (!requireStore()) return;
+    (b.dataset.seen ? state.store.markAnswerSeen(d) : state.store.acceptProposedDate(d))
+      .then(() => b.dataset.acceptDate && toast(`Date changée pour ${d.plaque}`), reportWriteError);
+  });
+
   // ================= render & boot =================
   function renderAll() {
     shareRegistry.clear();
     renderSelects();
-    renderPlanning(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
+    renderAnswers(); renderPlanning(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
     $("#dl-plaques").innerHTML = [...state.vehicles.values()].map((v) => `<option value="${esc(v.plaque)}">${esc(D.vehicleLabel(v))}</option>`).join("");
     renderFormSide();
   }
@@ -2201,8 +2488,10 @@ function page(texte) {
     state.userEmail = user?.email || "";
     const account = await state.store.getAccount(state.userEmail);
     if (account?.role === "prestataire") {
-      setSync("Accès prestataire", true);
-      banner("Ton espace prestataire arrive très bientôt : tes demandes s'afficheront ici.");
+      state.providerMode = true;
+      setSync("Connecté", true);
+      window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D,
+        ui: { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } });
       return;
     }
     if (account?.role === "lecture") { state.canWrite = false; $("#saveBtn").disabled = true; banner("Accès en lecture : tu vois tout mais tu ne modifies rien."); }
@@ -2211,7 +2500,7 @@ function page(texte) {
       banner("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
     }
     state.store.subscribe({
-      onDemandes: (rows) => { state.demandes = rows; renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
+      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
       onSettings: (settings) => { applySettings(settings); renderAll(); },

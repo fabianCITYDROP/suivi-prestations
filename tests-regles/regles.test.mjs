@@ -70,7 +70,11 @@ test("un prestataire voit ses demandes, sa fiche et les photos des modèles", as
 
 test("un prestataire peut seulement répondre à sa demande, pas changer le reste", async () => {
   const db = as("khalid");
-  await assertSucceeds(updateDoc(doc(db, "demandes/d2"), { retour: { etat: "fait", at: "2026-11-04T10:00:00Z" }, updatedAt: "2026-11-04T10:00:00Z" }));
+  const answer = { etat: "fait", at: "2026-11-04T10:00:00Z", par: people.khalid.email, preuve: "p1" };
+  await assertSucceeds(updateDoc(doc(db, "demandes/d2"), { retour: answer, updatedAt: "2026-11-04T10:00:00Z" }));
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: { ...answer, vu: true } }));
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: { ...answer, etat: "payé" } }));
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: { ...answer, par: people.allo.email } }));
   await assertFails(updateDoc(doc(db, "demandes/d2"), { prixHT: 999 }));
   await assertFails(updateDoc(doc(db, "demandes/d2"), { statut: "realisee" }));
   await assertFails(updateDoc(doc(db, "demandes/d2"), { prestataireId: ALLO }));
@@ -80,6 +84,17 @@ test("un prestataire peut seulement répondre à sa demande, pas changer le rest
   await assertFails(updateDoc(doc(db, "prestataires", KHALID), { tarifs: [{ service: "lavage", prixHT: 99 }] }));
   await assertFails(setDoc(doc(db, "comptes", people.khalid.email), { role: "admin" }));
   await assertFails(setDoc(doc(db, "modeles/OPELMOVANO202312"), { modele: "x" }));
+});
+
+test("les photos de preuve restent chez leur prestataire et l'équipe", async () => {
+  const khalid = as("khalid");
+  await assertSucceeds(setDoc(doc(khalid, "preuves/p1"), { prestataireId: KHALID, demandeId: "d2", data: "x" }));
+  await assertFails(setDoc(doc(khalid, "preuves/p2"), { prestataireId: ALLO, demandeId: "d1", data: "x" }));
+  await assertSucceeds(getDoc(doc(khalid, "preuves/p1")));
+  await assertFails(deleteDoc(doc(khalid, "preuves/p1")));
+  await assertFails(getDoc(doc(as("allo"), "preuves/p1")));
+  await assertSucceeds(getDoc(doc(as("fabian"), "preuves/p1")));
+  await assertSucceeds(getDoc(doc(as("jerome"), "preuves/p1")));
 });
 
 test("Jérôme lit tout mais ne modifie rien", async () => {

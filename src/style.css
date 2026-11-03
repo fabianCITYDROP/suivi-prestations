@@ -284,3 +284,26 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
+
+/* ---------- provider answers (team) ---------- */
+.answers { margin-bottom: 16px; border-color: var(--accent, #0f6f8f); }
+.answer-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
+.answer-row:first-of-type { border-top: 0; padding-top: 0; }
+@media (max-width: 640px) { .answer-row { grid-template-columns: auto 1fr; } .answer-row > .row { grid-column: 1 / -1; } }
+
+/* ---------- provider screen ---------- */
+#view-presta { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.presta-head { display: flex; flex-direction: column; gap: 8px; }
+.presta-head h1 { margin: 0; }
+.presta-tabs { display: flex; gap: 8px; }
+.presta-tabs button { flex: 1; }
+.presta-tabs button[aria-selected="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.presta-card { gap: 10px; }
+.presta-card p { margin: 0; }
+.presta-photos { display: flex; gap: 8px; flex-wrap: wrap; }
+.presta-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: zoom-in; }
+.presta-answer { font-weight: 600; }
+.presta-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.presta-actions .big { flex: 1 1 100%; justify-content: center; min-height: 52px; font-size: 16px; }
+.presta-actions button:not(.big) { flex: 1 1 30%; }
+.presta-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: var(--bg); }

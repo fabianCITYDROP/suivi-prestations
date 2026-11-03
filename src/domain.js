@@ -404,6 +404,51 @@
       .map(({ changed, ...u }) => u);
   }
 
+
+  // ---------- provider answers (field "retour" on a request, written by the provider) ----------
+  // retour = {etat, at, par, note?, date?, debut?, preuve?}; the team marks it {vu: true} once read,
+  // and {applique: true} once the request status follows it (done -> réalisée, taken -> confirmée).
+  const ANSWERS = [
+    { id: "confirme", label: "Pris en charge", team: "a confirmé le passage" },
+    { id: "fait", label: "Fait", team: "a fait" },
+    { id: "absent", label: "Véhicule absent", team: "n'a pas trouvé le véhicule" },
+    { id: "autre-date", label: "Autre date proposée", team: "propose une autre date pour" },
+  ];
+  const answerOf = (id) => ANSWERS.find((a) => a.id === id) || null;
+  const HIDDEN_FROM_PROVIDER = ["a_envoyer", "annulee"];
+  const isForProvider = (d) => !HIDDEN_FROM_PROVIDER.includes(d.statut || "a_envoyer");
+  const isDoneByProvider = (d) => d.retour?.etat === "fait" || d.statut === "realisee";
+  const doneDay = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || "")?.slice(0, 10) || d.date || "";
+
+  // Provider screen: what is still to do (soonest first) and what is done (latest first).
+  function providerLists(demandes) {
+    const mine = demandes.filter(isForProvider);
+    return {
+      todo: mine.filter((d) => !isDoneByProvider(d)).sort(byDateThenTime),
+      done: mine.filter(isDoneByProvider).sort((a, b) => doneDay(b).localeCompare(doneDay(a))),
+    };
+  }
+  // Vehicles done this month and this year, for the provider's own count.
+  function providerCounts(demandes, todayIso) {
+    const done = demandes.filter((d) => isForProvider(d) && isDoneByProvider(d)).map(doneDay);
+    return { month: done.filter((day) => day.slice(0, 7) === todayIso.slice(0, 7)).length, year: done.filter((day) => day.slice(0, 4) === todayIso.slice(0, 4)).length };
+  }
+  function answerSummary(r) {
+    if (!r) return "";
+    const when = r.date ? ` : ${shortDate(r.date)}${r.debut ? " à " + hourLabel(r.debut) : ""}` : "";
+    return `${answerOf(r.etat)?.label || r.etat}${when}${r.note ? ` – ${r.note}` : ""}`;
+  }
+  // What the team's app writes when it sees a provider answer it has not applied yet (closes the request automatically).
+  function statusFromAnswer(d) {
+    const r = d.retour;
+    if (!r || r.applique) return null;
+    if (r.etat === "fait" && d.statut !== "realisee") return "realisee";
+    if (r.etat === "confirme" && ["a_envoyer", "envoyee"].includes(d.statut)) return "confirmee";
+    return null;
+  }
+  // Answers the team has not looked at yet, newest first.
+  const unseenAnswers = (demandes) => demandes.filter((d) => d.retour && !d.retour.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || ""));
+
   // ---------- search ----------
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
@@ -420,5 +465,6 @@
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
+    ANSWERS, answerOf, isForProvider, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers,
   };
 });

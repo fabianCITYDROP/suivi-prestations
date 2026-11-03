@@ -238,3 +238,39 @@ test("accounts are keyed by lower-case e-mail", () => {
   assert.equal(D.roleOf("prestataire").id, "prestataire");
   assert.equal(D.roleOf("chef"), null);
 });
+
+test("the provider sees requests once sent, split into to-do and done", () => {
+  const rows = [
+    { id: "a", ...demande({ statut: "a_envoyer" }) },
+    { id: "b", ...demande({ date: "2026-11-05" }) },
+    { id: "c", ...demande({ date: "2026-11-03" }) },
+    { id: "d", ...demande({ date: "2026-11-01", retour: { etat: "fait", at: "2026-11-02T10:00:00Z" } }) },
+    { id: "e", ...demande({ statut: "annulee" }) },
+    { id: "f", ...demande({ date: "2026-10-20", statut: "realisee", doneAt: "2026-10-21T09:00:00Z" }) },
+  ];
+  const { todo, done } = D.providerLists(rows);
+  assert.deepEqual(todo.map((d) => d.id), ["c", "b"]);
+  assert.deepEqual(done.map((d) => d.id), ["d", "f"]);
+  assert.deepEqual(D.providerCounts(rows, "2026-11-03"), { month: 1, year: 2 });
+});
+
+test("a provider answer closes or confirms the request once", () => {
+  assert.equal(D.statusFromAnswer(demande({ retour: { etat: "fait" } })), "realisee");
+  assert.equal(D.statusFromAnswer(demande({ retour: { etat: "fait", applique: true } })), null);
+  assert.equal(D.statusFromAnswer(demande({ statut: "realisee", retour: { etat: "fait" } })), null);
+  assert.equal(D.statusFromAnswer(demande({ retour: { etat: "confirme" } })), "confirmee");
+  assert.equal(D.statusFromAnswer(demande({ statut: "confirmee", retour: { etat: "confirme" } })), null);
+  assert.equal(D.statusFromAnswer(demande({ retour: { etat: "absent" } })), null);
+  assert.equal(D.statusFromAnswer(demande()), null);
+});
+
+test("unseen answers come newest first and read as a sentence", () => {
+  const rows = [
+    { id: "a", ...demande({ retour: { etat: "fait", at: "2026-11-03T08:00:00Z" } }) },
+    { id: "b", ...demande({ retour: { etat: "autre-date", date: "2026-11-06", debut: "14:00", at: "2026-11-03T09:00:00Z" } }) },
+    { id: "c", ...demande({ retour: { etat: "absent", at: "2026-11-03T10:00:00Z", vu: true } }) },
+  ];
+  assert.deepEqual(D.unseenAnswers(rows).map((d) => d.id), ["b", "a"]);
+  assert.equal(D.answerSummary(rows[1].retour), "Autre date proposée : ven. 6 nov. à 14h00");
+  assert.equal(D.answerSummary({ etat: "absent", note: "pas sur le parking" }), "Véhicule absent – pas sur le parking");
+});

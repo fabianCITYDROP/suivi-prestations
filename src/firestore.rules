@@ -32,7 +32,22 @@ service cloud.firestore {
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
         || (ownsRequest(resource.data)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['retour', 'updatedAt']));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['retour', 'updatedAt'])
+            && validAnswer(request.resource.data.retour));
+    }
+    // A provider answer: what was done, when, by whom; never the team's own marks (vu, applique).
+    function validAnswer(r) {
+      return r is map
+        && r.keys().hasOnly(['etat', 'at', 'par', 'note', 'date', 'debut', 'preuve'])
+        && r.etat in ['confirme', 'fait', 'absent', 'autre-date']
+        && r.par == email();
+    }
+
+    // Proof photo taken by the provider when the job is done: the provider adds it, the team reads it.
+    match /preuves/{proofKey} {
+      allow read: if canReadAll() || (isProvider() && resource.data.prestataireId == account().prestataireId);
+      allow create: if isAdmin() || (isProvider() && request.resource.data.prestataireId == account().prestataireId);
+      allow update, delete: if isAdmin();
     }
 
     // Fleet models and their windshield photos: useful to every provider, changed only by the team.
