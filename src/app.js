@@ -207,22 +207,25 @@
   // ================= share block (text + WhatsApp + photos) =================
   let shareCount = 0;
   const shareRegistry = new Map(); // block id -> plates whose photos it sends
-  // Two buttons only: a WhatsApp link can carry text but never photos, so the text and the photo image are pasted one after the other.
-  function shareBlock({ text, vehicles = [] }) {
+  // A ready-to-paste WhatsApp message. A WhatsApp link can carry text but never photos, so text and photos are copied one after the other.
+  // Folded: only the buttons show, the text stays one click away.
+  function shareBlock({ text, vehicles = [], folded = false }) {
     const id = "share-" + ++shareCount;
     const entries = photoEntries(vehicles);
     shareRegistry.set(id, vehicles);
-    const copy = `<button type="button" class="primary big" data-copy="#${id}">${icon("copy")}Copier le texte</button>`;
+    const copy = `<button type="button" class="primary big" data-copy="#${id}">${icon("copy")}Copier le message</button>`;
     const photos = entries.length
       ? `<button type="button" class="primary big" data-copy-sheet="${id}">${icon("image")}${entries.length > 1 ? `Copier les ${entries.length} photos` : "Copier la photo"}</button>
         <button type="button" class="big" data-save-all="${id}">${icon("download")}${entries.length > 1 ? `Télécharger les ${entries.length} photos` : "Télécharger la photo"} en taille réelle</button>`
       : "";
-    return `<div class="share">
-      <pre class="msg" id="${id}">${esc(text)}</pre>
-      <div class="actions">${copy}${photos}</div>
-      ${entries.length ? `<p class="small muted">Rapide : colle le texte (Ctrl+V), puis les photos (Ctrl+V).<br>Meilleure qualité : télécharge les photos, puis glisse-les toutes ensemble dans la conversation WhatsApp. Chacune part en taille réelle et reste nette au zoom.</p>
-      <div class="photo-strip">${entries.map((e) => photoMini(e)).join("")}</div>` : ""}
-    </div>`;
+    const message = `<pre class="msg" id="${id}">${esc(text)}</pre>`;
+    const photoHelp = entries.length ? `<p class="small muted">Rapide : colle le texte (Ctrl+V), puis les photos (Ctrl+V).<br>Meilleure qualité : télécharge les photos, puis glisse-les toutes ensemble dans la conversation WhatsApp. Chacune part en taille réelle et reste nette au zoom.</p>
+      <div class="photo-strip">${entries.map((e) => photoMini(e)).join("")}</div>` : "";
+    if (folded) {
+      return `<div class="share"><div class="actions">${copy}${photos}</div>
+        <details class="more msg-fold"><summary>${icon("chev-d")}Voir le message</summary>${message}${photoHelp}</details></div>`;
+    }
+    return `<div class="share">${message}<div class="actions">${copy}${photos}</div>${photoHelp}</div>`;
   }
   function photoMini(entry) {
     const thumb = (vehicleOf(entry.plate)?.photos || []).find((p) => p.key === entry.key)?.thumb;
@@ -280,16 +283,25 @@
 
   // ================= navigation =================
   const VIEWS = ["planning", "retours", "demande", "photos", "verif", "bilan", "historique", "reglages"];
+  const navButtons = () => document.querySelectorAll("nav.tabs [data-view]");
   function show(view) {
     if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
-    VIEWS.forEach((v) => { $("#view-" + v).hidden = v !== view; $("#tab-" + v).setAttribute("aria-selected", String(v === view)); });
+    VIEWS.forEach((v) => ($("#view-" + v).hidden = v !== view));
+    markCurrentNav(view);
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
   }
-  document.querySelectorAll("nav.tabs button").forEach((tab) => tab.addEventListener("click", () => {
-    if (tab.dataset.view === "demande" && !state.editingId) resetForm();
-    show(tab.dataset.view);
-  }));
+  // Rare pages live under « Plus »: its label names the open page so the menu never hides where you are.
+  function markCurrentNav(view) {
+    navButtons().forEach((b) => b.toggleAttribute("aria-current", b.dataset.view === view));
+    const inMore = $(`#navMore [data-view="${view}"]`);
+    $("#navMoreLabel").textContent = inMore ? inMore.textContent.trim() : "Plus";
+    $("#navMore").classList.toggle("current", !!inMore);
+    $("#navMore").open = false;
+  }
+  navButtons().forEach((tab) => tab.addEventListener("click", () => show(tab.dataset.view)));
+  document.addEventListener("click", (e) => { if (!e.target.closest("#navMore")) $("#navMore").open = false; });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#navMore").open) { $("#navMore").open = false; $("#navMore summary").focus(); } });
   window.addEventListener("hashchange", () => show(location.hash.slice(1)));
 
   // ================= shared selects =================
@@ -326,8 +338,13 @@
       : `<div class="empty"><b>Aucun véhicule prévu ce jour-là.</b><span>Les véhicules disponibles ce jour apparaissent ici, classés par site, avec la liste prête à envoyer.</span></div>`;
     const active = ofDay.filter(D.isActive);
     $("#dayShare").innerHTML = active.length
-      ? shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }) + appLink(providerFilter || defaultProvider()), provider: providerFilter || defaultProvider(), vehicles: active.filter(D.isWindshield) })
+      ? `<p class="share-sum">${dayShareSummary(active, providerFilter)}</p>`
+        + shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }) + appLink(providerFilter || defaultProvider()), vehicles: active.filter(D.isWindshield), folded: true })
       : `<p class="muted">Rien à envoyer pour ce jour.</p>`;
+  }
+  function dayShareSummary(active, providerFilter) {
+    const sites = new Set(active.map((d) => d.site)).size;
+    return `${plural(active.length, "véhicule")} sur ${plural(sites, "site")}${providerFilter ? ` pour ${esc(providerFilter)}` : ""}, en un seul message WhatsApp.`;
   }
   function renderWeekStrip() {
     const monday = D.mondayOf(state.day);
@@ -363,7 +380,14 @@
     try { localStorage.setItem("suivi.provFilter", state.providerFilter); } catch {}
     renderPlanning();
   };
-  $("#newOnDay").onclick = () => { resetForm(); setAvailability(state.day); renderFormSide(); show("demande"); };
+  // From the planning, a new request starts on the day being looked at.
+  $("#newOnDay").onclick = () => {
+    const fromPlanning = !$("#view-planning").hidden;
+    resetForm();
+    if (fromPlanning) setAvailability(state.day);
+    renderFormSide();
+    show("demande");
+  };
   $("#dayList").addEventListener("click", (e) => { const row = e.target.closest("[data-open]"); if (row) openDemande(row.dataset.open); });
 
   // ================= request form =================
@@ -712,7 +736,7 @@
       </tbody></table></div>` : `<div class="empty"><b>Rien à vérifier sur cette période.</b><span>Les demandes envoyées ou confirmées dont la disponibilité tombe entre les deux dates s'affichent ici.</span></div>`;
     const provider = $("#v-prest").value;
     const kind = document.querySelector('input[name="vkind"]:checked')?.value;
-    $("#v-share").innerHTML = shareBlock({ text: D.verificationMessage(rows, { provider, kind, siteNames: siteNames() }), provider: provider || defaultProvider() });
+    $("#v-share").innerHTML = shareBlock({ text: D.verificationMessage(rows, { provider, kind, siteNames: siteNames() }) });
     $("#v-sheet").innerHTML = sheetLink(state.demandes.filter((d) => checked.has(d.id)).map((d) => d.plaque));
   }
   ["#v-prest", "#v-from", "#v-to", "#v-st"].forEach((s) => $(s).addEventListener("change", renderVerification));
@@ -772,7 +796,7 @@
         <div class="kpi"><span class="label">À venir</span><b>${t.upcoming}</b><span class="muted small">pas encore passé</span></div>
         <div class="kpi off"><span class="label">Annulés</span><b>${t.cancelled}</b><span class="muted small">&nbsp;</span></div>
       </div>
-      <div class="two">${tallyTable("Par prestataire", report.byProvider)}${tallyTable("Par site", report.bySite)}${tallyTable("Par modèle", report.byModel)}</div>
+      <div class="tallies">${tallyTable("Par prestataire", report.byProvider)}${tallyTable("Par site", report.bySite)}${tallyTable("Par modèle", report.byModel)}</div>
       <div class="section"><h3>Véhicules réalisés · ${done.length}</h3>${done.length ? `<div class="tablewrap"><table class="wide">${head}<tbody>${done.map(reportLine).join("")}</tbody></table></div>` : `<p class="muted">Aucun véhicule marqué « Réalisée » ce mois-ci. Utilise l'onglet Vérification pour les cocher.</p>`}</div>
       ${open.length ? `<div class="section"><h3>Pas encore réalisés · ${open.length}</h3><div class="tablewrap"><table class="wide">${head}<tbody>${open.map(reportLine).join("")}</tbody></table></div></div>` : ""}`;
   }
@@ -806,12 +830,14 @@
       $("#histWrap").innerHTML = `<div class="empty"><b>${state.demandes.length ? "Aucune demande ne correspond à ces filtres." : "Aucune demande enregistrée pour l'instant."}</b><span>Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée.</span></div>`;
       return;
     }
-    $("#histWrap").innerHTML = `<div class="tablewrap"><table class="wide"><thead><tr><th>Dispo</th><th>Créneau</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th><th>Envoyée le</th></tr></thead><tbody>${rows.map(historyLine).join("")}</tbody></table></div>`;
+    $("#histWrap").innerHTML = `<div class="tablewrap"><table class="wide hist"><thead><tr><th>Dispo</th><th>Créneau</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th><th>Envoyée le</th></tr></thead><tbody>${rows.map(historyLine).join("")}</tbody></table></div>`;
   }
   function historyLine(d) {
     const span = D.isMultiDay(d) ? `${D.shortDate(d.date)} → ${D.shortDate(D.lastDay(d))}` : D.shortDate(d.date);
-    return `<tr class="click" data-open="${esc(d.id)}"><td class="date">${esc(span)}</td><td class="date">${esc(D.timeSlotLabel(d))}</td><td>${plateTag(d.plaque)}</td>
-      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</td><td>${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
+    const slot = esc(D.timeSlotLabel(d));
+    // data-slot / data-provider let the phone layout show a compact card without a second markup.
+    return `<tr class="click" data-open="${esc(d.id)}"><td class="date" data-slot="· ${slot}">${esc(span)}</td><td class="date">${slot}</td><td>${plateTag(d.plaque)}</td>
+      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
       <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
   }
   ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site"].forEach((s) => $(s).addEventListener("input", renderHistory));
@@ -841,7 +867,7 @@
     setSelectOptions($("#t-svc"), D.SERVICES.map((x) => `<option value="${x.id}">${esc(x.label)}</option>`).join(""));
     const lines = pricesOf(D.providerId(pricesProvider()));
     $("#t-list").innerHTML = lines.length
-      ? lines.map((line, i) => `<div class="item"><span>${esc(D.priceLineLabel(line))}</span>
+      ? lines.map((line, i) => `<div class="item price"><span>${esc(D.priceLineLabel(line))}</span>
           <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
       : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;
   }
@@ -870,7 +896,7 @@
     $("#a-prov").disabled = $("#a-role").value !== "prestataire";
     const sorted = state.accounts.slice().sort((a, b) => (a.role || "").localeCompare(b.role || "") || a.id.localeCompare(b.id));
     $("#a-list").innerHTML = sorted.length
-      ? sorted.map((a) => `<div class="item"><span>${esc(a.id)}</span>
+      ? sorted.map((a) => `<div class="item account"><span>${esc(a.id)}</span>
           <span class="muted">${esc(a.role === "prestataire" ? providerName(a.prestataireId) : D.roleOf(a.role)?.label.split(" (")[0] || a.role)}</span>
           ${removeButton("data-remove-account", esc(a.id), a.id)}</div>`).join("")
       : `<p class="hint">Aucun accès enregistré pour l'instant.</p>`;
@@ -992,13 +1018,34 @@
     $("#retoursBadge").hidden = !n; $("#retoursBadge").textContent = n;
     document.title = (n ? `(${n}) ` : "") + "City-Drop × Presta";
     try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
-    $("#answersBanner").hidden = !n;
-    $("#answersBanner").innerHTML = `${icon("alert")}<span><b>${n > 1 ? `${n} nouveaux retours` : "1 nouveau retour"}</b> des prestataires</span><span class="go">Voir</span>`;
+    renderRetoursSide(rows);
     $("#allSeenBtn").hidden = !n || !state.canWrite;
     $("#notifBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
     $("#answers").innerHTML = n ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
     const seen = D.seenAnswers(state.demandes);
     $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
+  }
+  // Planning side card: the latest unseen answers, handled without leaving the planning.
+  const SIDE_MAX = 4;
+  const timeOf = (iso) => (iso.slice(0, 10) === today() ? iso.slice(11, 16).replace(":", "h") : D.shortDate(iso.slice(0, 10)));
+  function sideRow(d) {
+    const r = d.retour;
+    const quick = [
+      r.preuve ? `<button type="button" class="ghost icon-btn" data-proof="${esc(r.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "",
+      r.etat === "autre-date" && state.canWrite ? `<button type="button" class="ghost" data-accept-date="${esc(d.id)}">Accepter</button>` : "",
+      state.canWrite ? `<button type="button" class="ghost icon-btn" data-seen="${esc(d.id)}" aria-label="Marquer comme vu">${icon("check")}</button>` : "",
+    ].join("");
+    return `<li class="side-row"><button type="button" class="side-open" data-open="${esc(d.id)}">
+        <span class="side-line"><b>${esc(d.plaque)}</b><span class="muted">${esc(timeOf(r.at))}</span></span>
+        <span class="side-what">${esc(d.prestataire)} · ${esc(D.answerSummary(r))}</span></button>
+      <span class="side-quick">${quick}</span></li>`;
+  }
+  function renderRetoursSide(rows) {
+    const n = rows.length;
+    const head = `<div class="panel-head"><h2>Retours${n ? ` <span class="tab-badge">${n}</span>` : ""}</h2><a href="#retours" class="side-all">Tout voir</a></div>`;
+    $("#retoursSide").innerHTML = head + (n
+      ? `<ul class="side-list">${rows.slice(0, SIDE_MAX).map(sideRow).join("")}</ul>${n > SIDE_MAX ? `<a href="#retours" class="side-more">+ ${plural(n - SIDE_MAX, "autre retour")}</a>` : ""}`
+      : `<p class="side-empty">Aucun nouveau retour des prestataires.</p>`);
   }
   // A system notification for answers that arrive while the app is open in another tab or window.
   function notifyAnswers(fresh) {
@@ -1014,7 +1061,7 @@
     try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
     catch (err) { reportWriteError(err); }
   };
-  ["#answers", "#answersSeen"].forEach((sel) => $(sel).addEventListener("click", (e) => {
+  ["#answers", "#answersSeen", "#retoursSide"].forEach((sel) => $(sel).addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
     const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
     if (!d) return;

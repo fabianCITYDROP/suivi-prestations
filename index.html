@@ -83,7 +83,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 
 /* App bar */
 header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
-header.top .wrap { display: flex; align-items: stretch; gap: 0 28px; flex-wrap: wrap; }
+header.top .wrap { display: flex; align-items: stretch; gap: 0 24px; }
 .brand { display: flex; align-items: center; gap: 10px; padding-block: 12px; font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: .02em; text-transform: uppercase; line-height: 1; white-space: nowrap; }
 .brand-logo { width: 38px; height: 38px; flex: none; display: block; }
 .brand-word { display: flex; align-items: baseline; gap: 6px; font-family: "Nunito", system-ui, sans-serif; font-weight: 900; font-size: 23px; letter-spacing: -.005em; text-transform: none; }
@@ -94,19 +94,34 @@ header.top .wrap { display: flex; align-items: stretch; gap: 0 28px; flex-wrap: 
 :root[data-theme="dark"] .brand-word em, :root[data-theme="dark"] .brand-word i { color: #ffc21a; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand-word b { color: #ffffff; } :root:not([data-theme="light"]) .brand-word em, :root:not([data-theme="light"]) .brand-word i { color: #ffc21a; } }
 @media (max-width: 420px) { .brand-word { font-size: 20px; } .brand-logo { width: 34px; height: 34px; } }
-nav.tabs { display: flex; gap: 2px; flex-wrap: wrap; align-items: stretch; flex: 1 1 auto; }
-nav.tabs button { font: 600 14px var(--f-body); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--ink-2); padding: 0 12px; min-height: 52px; cursor: pointer; }
-nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
-nav.tabs button:hover:not([aria-selected="true"]) { color: var(--ink); background: var(--surface-2); }
-.sync { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); margin-left: auto; white-space: nowrap; }
+/* Menu: three everyday pages, rare pages under « Plus », one primary action. Becomes a bottom bar on phones. */
+nav.tabs { display: flex; gap: 4px; align-items: stretch; flex: 1 1 auto; }
+nav.tabs > button:not(.nav-new), .nav-more > summary { font: 600 14px var(--f-body); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--ink-2); padding: 0 12px; min-height: 60px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: color .15s ease, border-color .15s ease; }
+nav.tabs > button:not(.nav-new) > .icon, .nav-more > summary > .icon:first-child { display: none; }
+nav.tabs > button[aria-current], .nav-more.current > summary { color: var(--ink); border-bottom-color: var(--accent); }
+nav.tabs > button:not(.nav-new):hover, .nav-more > summary:hover { color: var(--ink); }
+.nav-more { position: relative; display: flex; }
+.nav-more > summary { list-style: none; user-select: none; }
+.nav-more > summary::-webkit-details-marker { display: none; }
+.nav-more .chev { width: 16px; height: 16px; transition: transform .2s var(--ease-out); }
+.nav-more[open] .chev { transform: rotate(180deg); }
+.nav-menu { position: absolute; top: calc(100% - 6px); left: 0; z-index: 20; min-width: 240px; padding: 6px; display: flex; flex-direction: column; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: 0 2px 4px rgba(18, 33, 43, .06), 0 16px 40px -12px rgba(18, 33, 43, .3); transform-origin: top left; animation: menu-in .16s var(--ease-out); }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+.nav-menu button { justify-content: flex-start; border: 0; background: none; min-height: 44px; padding: 0 12px; font-weight: 500; color: var(--ink); border-radius: var(--r-sm); }
+.nav-menu button .icon { color: var(--ink-2); }
+.nav-menu button:hover { background: var(--surface-2); }
+.nav-menu button[aria-current] { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.nav-menu button[aria-current] .icon { color: var(--accent); }
+.nav-new { margin: auto 0 auto auto; }
+.sync { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
 .sync::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--st-done); }
 .sync.off::before { background: var(--st-todo); }
 
 main { padding-block: 24px 64px; }
-h1, h2, h3 { font-family: var(--f-display); font-weight: 700; letter-spacing: .01em; text-wrap: balance; margin: 0; line-height: 1.1; }
-h1 { font-size: clamp(28px, 3vw, 38px); text-transform: uppercase; }
-h2 { font-size: 22px; text-transform: uppercase; }
-h3 { font-size: 18px; text-transform: uppercase; }
+h1, h2, h3 { font-weight: 600; text-wrap: balance; margin: 0; line-height: 1.2; }
+h1 { font: 700 32px/1.1 var(--f-display); letter-spacing: .005em; }
+h2 { font-size: 17px; }
+h3 { font-size: 16px; }
 p { margin: 0; }
 .muted { color: var(--ink-2); }
 .small { font-size: 13px; }
@@ -190,7 +205,7 @@ button.add-veh { justify-self: start; width: fit-content; border-style: dashed; 
 .site-block { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
 .site-block + .site-block { margin-top: 16px; }
 .site-head { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; padding: 12px 16px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
-.site-head h3 { font-size: 19px; }
+.site-head h3 { font-size: 16px; }
 .site-head .addr { color: var(--ink-2); font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
 .site-head .count { margin-left: auto; font-size: 13px; color: var(--ink-2); font-weight: 600; }
 .veh-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 16px; width: 100%; padding: 12px 16px; background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; text-align: left; font-weight: 400; min-height: 0; }
@@ -200,10 +215,19 @@ button.add-veh { justify-self: start; width: fit-content; border-style: dashed; 
 .veh-row .model { font-weight: 600; }
 .veh-row .sub { font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
 .veh-row .right { display: flex; align-items: center; gap: 10px; }
-.veh-row .time { font: 600 14px var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.veh-row .time { font-weight: 500; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink-2); }
 .veh-row .thumb { width: 56px; height: 42px; border-radius: 5px; object-fit: cover; background: var(--surface-2); }
 .veh-row.cancel { opacity: .55; }
-@media (max-width: 640px) { .veh-row { grid-template-columns: minmax(0, 1fr) auto; } .veh-row .what { grid-column: 1 / -1; grid-row: 2; } .veh-row .thumb { display: none; } }
+@media (max-width: 640px) {
+  .veh-row { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "plate status" "what what" "time time"; gap: 6px 12px; }
+  .veh-row .right { display: contents; }
+  .veh-row > .plate { grid-area: plate; }
+  .veh-row .chip { grid-area: status; justify-self: end; }
+  .veh-row .what { grid-area: what; }
+  .veh-row .time { grid-area: time; font-size: 13px; }
+  .veh-row .thumb { display: none; }
+  .site-head h3 { order: 1; } .site-head .count { order: 2; } .site-head .addr { order: 3; width: 100%; }
+}
 
 .empty { border: 1px dashed var(--line-strong); border-radius: var(--r); padding: 32px 20px; text-align: center; color: var(--ink-2); display: flex; flex-direction: column; align-items: center; gap: 12px; background: var(--surface); }
 .empty b { color: var(--ink); font-size: 16px; }
@@ -225,7 +249,7 @@ button.add-veh { justify-self: start; width: fit-content; border-style: dashed; 
 
 /* Form */
 fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-legend { float: left; width: 100%; padding: 0; margin-bottom: 2px; font-family: var(--f-display); font-weight: 700; font-size: 17px; text-transform: uppercase; letter-spacing: .02em; }
+legend { float: left; width: 100%; padding: 0; margin-bottom: 2px; font-weight: 600; font-size: 16px; }
 .form-sections { display: flex; flex-direction: column; gap: 22px; }
 .form-sections > fieldset + fieldset { border-top: 1px solid var(--line); padding-top: 20px; }
 legend + * { clear: both; }
@@ -261,8 +285,8 @@ th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: v
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr.click { cursor: pointer; }
 tbody tr.click:hover { background: var(--accent-soft); }
-td.num, th.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
-td.date { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.num, th.num { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+td.date { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Report */
 .kpis { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 24px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
@@ -272,7 +296,11 @@ td.date { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-
 .kpi.wait b { color: var(--st-todo); }
 .kpi.off b { color: var(--st-off); }
 .section { margin-bottom: 28px; display: flex; flex-direction: column; gap: 10px; }
-.two { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.settings { columns: 2 480px; column-gap: 20px; }
+.settings > .panel { break-inside: avoid; margin-bottom: 20px; }
+.tallies { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); }
+.tallies .section { margin-bottom: 0; }
+.tallies + .section { margin-top: 28px; }
 
 /* Photo library */
 .ph-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
@@ -288,6 +316,9 @@ td.date { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-
 /* Settings */
 .list-edit { display: flex; flex-direction: column; gap: 8px; }
 .list-edit .item { display: grid; grid-template-columns: minmax(96px, 140px) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.list-edit .item.price { grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px 14px; }
+.list-edit .item.account { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; }
+.list-edit .item.account > :first-child { overflow-wrap: anywhere; }
 @media (max-width: 560px) { .list-edit .item { grid-template-columns: minmax(0, 1fr) auto; } .list-edit .item > :nth-child(2) { grid-column: 1 / -1; grid-row: 2; } }
 pre.code { background: var(--surface-2); border-radius: var(--r-sm); padding: 14px; font: 500 12.5px/1.5 var(--f-mono); overflow-x: auto; margin: 0; max-height: 340px; }
 ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 75ch; }
@@ -296,28 +327,69 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 .lightbox img { max-height: 100%; max-width: 100%; border-radius: var(--r-sm); }
 
 @media (max-width: 640px) {
-  header.top { position: static; }
-  .sync { margin-left: 0; width: 100%; padding-bottom: 8px; }
-  nav.tabs button { min-height: 44px; padding: 0 8px; }
   .strip { gap: 3px; }
   .strip button { padding: 6px 1px; }
   .strip button b { font-size: 19px; }
-  .daybar h1 { width: 100%; }
+  .daybar { gap: 6px; }
+  .daybar h1 { width: 100%; font-size: 28px; margin-bottom: 4px; }
+  .daybar #prevDay, .daybar #nextDay { width: 38px; padding: 0; }
+  .daybar #dayPick { flex: 1 1 140px; }
+  .daybar #provFilter { width: 100%; }
+}
+/* Phones: the menu moves to a bottom bar within thumb reach. */
+#view-retours .hint { margin-bottom: 14px; }
+@media (max-width: 720px) {
+  header.top { position: static; }
+  header.top .wrap { align-items: center; }
+  .sync { margin-left: auto; }
+  .sync:not(.off) { display: none; }
+  main { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+  nav.tabs { position: fixed; z-index: 15; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; padding: 6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 20px -14px rgba(18, 33, 43, .35); }
+  nav.tabs > button:not(.nav-new), .nav-more > summary { position: relative; flex-direction: column; justify-content: center; gap: 3px; min-height: 54px; padding: 0 2px; border: 0; border-radius: var(--r-sm); font-size: 11.5px; font-weight: 600; width: 100%; }
+  nav.tabs > button:not(.nav-new) > .icon, .nav-more > summary > .icon:first-child { display: block; width: 22px; height: 22px; }
+  nav.tabs > button[aria-current], .nav-more.current > summary { color: var(--accent); }
+  .nav-more .chev { display: none; }
+  .nav-more > summary > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  nav.tabs .tab-badge { position: absolute; top: 2px; left: calc(50% + 6px); margin: 0; }
+  .nav-new { order: 3; margin: 0; align-self: center; justify-self: center; width: 52px; height: 52px; min-height: 0; padding: 0; border-radius: 50%; box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--accent) 70%, transparent); }
+  .nav-new .icon { width: 24px; height: 24px; }
+  .nav-new span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  nav.tabs > [data-view="historique"] { order: 4; }
+  .nav-more { order: 5; }
+  .nav-menu { top: auto; bottom: calc(100% + 10px); left: auto; right: 0; transform-origin: bottom right; }
+  body:not(.presta-mode) .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* ---------- provider answers (team) ---------- */
 .tab-badge { display: inline-block; min-width: 20px; height: 20px; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--st-todo); color: #fff; font: 700 12px/20px var(--f-body); text-align: center; font-variant-numeric: tabular-nums; vertical-align: 1px; }
-.answers-banner { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding: 12px 16px; border-radius: 12px; background: color-mix(in srgb, var(--st-todo) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--st-todo) 35%, transparent); color: var(--ink); text-decoration: none; font-size: 14px; }
-.answers-banner .icon { color: var(--st-todo); flex: none; }
-.answers-banner .go { margin-left: auto; font-weight: 700; color: var(--accent); }
 .daybar .spacer { flex: 1; }
+.side { display: grid; gap: 16px; align-content: start; }
+@media (max-width: 1099px) { .side { display: contents; } .retours-side { order: -1; } }
+.retours-side { padding-bottom: 8px; }
+.retours-side h2 { display: flex; align-items: center; gap: 2px; }
+.retours-side .tab-badge { vertical-align: 0; }
+.side-all, .side-more { font-weight: 600; font-size: 14px; color: var(--accent); text-decoration: none; }
+.side-all:hover, .side-more:hover { text-decoration: underline; }
+.side-list { list-style: none; margin: 0; padding: 0; }
+.side-row { display: flex; align-items: center; gap: 4px; border-top: 1px solid var(--line); }
+.side-row:first-child { border-top: 0; }
+.side-open { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 10px 4px; border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; border-radius: 8px; transition: background-color .15s ease; }
+.side-open:hover { background: var(--surface-2); }
+.side-line { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.side-line b { font-family: var(--f-mono); letter-spacing: .03em; }
+.side-what { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-quick { display: flex; gap: 2px; flex: none; }
+.side-quick button { min-height: 36px; padding: 0 10px; font-size: 13px; }
+.icon-btn { width: 36px; padding: 0 !important; justify-content: center; }
+.side-more { display: block; padding: 8px 4px 2px; }
+.side-empty { margin: 0; color: var(--ink-2); font-size: 14px; }
 #answersSeen { border-color: var(--line); }
 .answer-row.seen { color: var(--ink-2); }
 .answers { margin-bottom: 16px; border-color: var(--accent, #0f6f8f); }
 .answer-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
 .answer-row:first-of-type { border-top: 0; padding-top: 0; }
-@media (max-width: 640px) { .answer-row { grid-template-columns: auto 1fr; } .answer-row > .row { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .answer-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } .answer-row > .plate { justify-self: start; } .answer-row > .row { margin-left: -12px; } }
 
 /* ---------- provider screen (phone first, used outdoors on car parks) ---------- */
 :root { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); }
@@ -394,6 +466,40 @@ body.presta-mode .top .sync { display: none; }
 body.presta-mode .toast { width: max-content; border-radius: 14px; text-align: center; }
 body.presta-mode main { padding-top: 16px; }
 @media (prefers-reduced-motion: reduce) { .job-actions button:active, .presta-tabs button:active, .job-form button:active { transform: none; } }
+
+/* ---------- calmer team screens ---------- */
+.share-sum { margin: 0; color: var(--ink-2); font-size: 14px; }
+.msg-fold > summary .icon { width: 16px; height: 16px; transition: transform .2s var(--ease-out); }
+.msg-fold[open] > summary .icon { transform: rotate(180deg); }
+.msg-fold .msg { max-height: 420px; }
+.msg-fold { display: flex; flex-direction: column; gap: 10px; }
+.svc-line { display: grid; grid-template-columns: minmax(200px, 320px) minmax(0, 1fr); gap: 14px; align-items: end; }
+.svc-line .seg { min-height: 42px; align-items: center; }
+@media (max-width: 560px) { .svc-line { grid-template-columns: minmax(0, 1fr); } }
+.panel > h2 + .hint { margin-top: -8px; }
+/* History on phones: each request becomes a small card instead of a sideways-scrolling table. */
+@media (max-width: 640px) {
+  .tools > select { flex: 1 1 calc(50% - 5px); }
+  #histWrap .tablewrap { overflow: visible; background: none; border: 0; box-shadow: none; }
+  table.hist { min-width: 0; }
+  table.hist thead { display: none; }
+  table.hist tbody { display: flex; flex-direction: column; gap: 10px; }
+  table.hist tr { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "plate status" "model model" "day day" "where where"; gap: 6px 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+  table.hist td { padding: 0; border: 0; font-size: 14px; }
+  table.hist td:nth-child(1) { grid-area: day; display: flex; gap: 6px; color: var(--ink-2); }
+  table.hist td:nth-child(2) { display: none; }
+  table.hist td:nth-child(1)::after { content: attr(data-slot); }
+  table.hist td:nth-child(3) { grid-area: plate; }
+  table.hist td:nth-child(4) { grid-area: model; font-weight: 600; }
+  table.hist td:nth-child(5) { grid-area: where; color: var(--ink-2); display: inline; }
+  table.hist td:nth-child(6) { display: none; }
+  table.hist td:nth-child(7) { grid-area: status; justify-self: end; }
+  table.hist td:nth-child(8) { display: none; }
+  table.hist td:nth-child(5)::after { content: " · " attr(data-provider); }
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .tallies table { min-width: 440px; }
+}
 </style>
 </head>
 <body>
@@ -412,6 +518,11 @@ body.presta-mode main { padding-top: 16px; }
   <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.5M12 16h.01"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
   <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/></symbol>
+  <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16v-5M12 16V7M17 16v-8"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></symbol>
   <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></symbol>
   <symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 17c2.5-6 5.5-9 9-9s6.5 3 9 9"/><path d="M3 17h18"/><path d="M8 14l3-3"/></symbol>
@@ -421,15 +532,20 @@ body.presta-mode main { padding-top: 16px; }
 <header class="top">
   <div class="wrap">
     <div class="brand"><svg class="brand-logo" aria-hidden="true" viewBox="0 0 512 512"><defs><linearGradient id="hbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22B5F2"/><stop offset=".55" stop-color="#009FE3"/><stop offset="1" stop-color="#0079BF"/></linearGradient><radialGradient id="hglow" cx=".3" cy=".18" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><linearGradient id="hbody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#E4EEF5"/><stop offset=".25" stop-color="#FFFFFF"/><stop offset=".75" stop-color="#FFFFFF"/><stop offset="1" stop-color="#D5E3EE"/></linearGradient><linearGradient id="hbox" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E3EDF4"/></linearGradient><linearGradient id="hglass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0E3553"/><stop offset="1" stop-color="#1F6E99"/></linearGradient><linearGradient id="hpin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD84D"/><stop offset="1" stop-color="#F7A600"/></linearGradient><filter id="hsh" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#00335A" flood-opacity=".35"/></filter><clipPath id="hws"><path d="M160 262 Q256 252 352 262 L368 318 Q256 326 144 318 Z"/></clipPath></defs><rect width="512" height="512" rx="112" fill="url(#hbg)"/><rect width="512" height="512" rx="112" fill="url(#hglow)"/><ellipse cx="256" cy="436" rx="178" ry="16" fill="#003B66" opacity=".28"/><g filter="url(#hsh)"><rect x="140" y="384" width="48" height="46" rx="12" fill="#0B2235"/><rect x="324" y="384" width="48" height="46" rx="12" fill="#0B2235"/><rect x="96" y="270" width="26" height="40" rx="9" fill="#12324D"/><rect x="390" y="270" width="26" height="40" rx="9" fill="#12324D"/><path d="M116 286 H132 M380 286 H396" stroke="#12324D" stroke-width="7" stroke-linecap="round"/><path d="M132 252 Q132 240 146 240 H366 Q380 240 380 252 L388 380 Q388 394 374 394 H138 Q124 394 124 380 Z" fill="url(#hbody)"/><rect x="108" y="96" width="296" height="156" rx="20" fill="url(#hbox)"/><rect x="108" y="96" width="296" height="156" rx="20" fill="url(#hbody)" opacity=".55"/><rect x="118" y="102" width="276" height="8" rx="4" fill="#fff"/><rect x="108" y="232" width="296" height="20" rx="0" fill="#C9DAE6"/><rect x="132" y="150" width="248" height="10" rx="5" fill="#FFC21A"/><path d="M160 262 Q256 252 352 262 L368 318 Q256 326 144 318 Z" fill="url(#hglass)" stroke="#0B2235" stroke-width="6" stroke-linejoin="round"/><g clip-path="url(#hws)"><path d="M196 250 L236 250 L196 330 L156 330 Z" fill="#fff" opacity=".42"/><path d="M248 250 L262 250 L222 330 L208 330 Z" fill="#fff" opacity=".28"/></g><path d="M196 314 L250 309 M272 314 L326 309" stroke="#0B2235" stroke-width="6" stroke-linecap="round"/><rect x="142" y="336" width="46" height="20" rx="8" fill="#FFF4CF" stroke="#0B2235" stroke-width="5"/><rect x="324" y="336" width="46" height="20" rx="8" fill="#FFF4CF" stroke="#0B2235" stroke-width="5"/><rect x="206" y="334" width="100" height="26" rx="9" fill="#12324D"/><path d="M220 343 H292 M220 351 H292" stroke="#2E5A7A" stroke-width="4" stroke-linecap="round"/><rect x="116" y="368" width="280" height="24" rx="11" fill="#12324D"/></g><g filter="url(#hsh)"><path d="M392 238 L339.2 167.6 A66 66 0 1 1 444.8 167.6 Z" fill="url(#hpin)" stroke="#fff" stroke-width="12" stroke-linejoin="round"/><path d="M362 130 L384 152 L424 108" fill="none" stroke="#0A3D62" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/></g><path d="M88 84 l7 19 19 7 -19 7 -7 19 -7 -19 -19 -7 19 -7 Z" fill="#fff" opacity=".9"/><path d="M92 196 l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4 Z" fill="#fff" opacity=".7"/></svg><span class="brand-word"><b>City-Drop</b><i>×</i><em>Presta</em></span></div>
-    <nav class="tabs" role="tablist" aria-label="Vues">
-      <button role="tab" id="tab-planning" aria-selected="true" data-view="planning">Planning</button>
-      <button role="tab" id="tab-retours" aria-selected="false" data-view="retours">Retours<span class="tab-badge" id="retoursBadge" hidden></span></button>
-      <button role="tab" id="tab-demande" aria-selected="false" data-view="demande">Nouvelle demande</button>
-      <button role="tab" id="tab-photos" aria-selected="false" data-view="photos">Photos</button>
-      <button role="tab" id="tab-verif" aria-selected="false" data-view="verif">Vérification</button>
-      <button role="tab" id="tab-bilan" aria-selected="false" data-view="bilan">Bilan du mois</button>
-      <button role="tab" id="tab-historique" aria-selected="false" data-view="historique">Historique</button>
-      <button role="tab" id="tab-reglages" aria-selected="false" data-view="reglages">Réglages</button>
+    <nav class="tabs" aria-label="Menu">
+      <button type="button" data-view="planning"><svg class="icon"><use href="#i-cal"/></svg><span>Planning</span></button>
+      <button type="button" data-view="retours"><svg class="icon"><use href="#i-bell"/></svg><span>Retours</span><span class="tab-badge" id="retoursBadge" hidden></span></button>
+      <button type="button" data-view="historique"><svg class="icon"><use href="#i-list"/></svg><span>Historique</span></button>
+      <details class="nav-more" id="navMore">
+        <summary><svg class="icon"><use href="#i-dots"/></svg><span id="navMoreLabel">Plus</span><svg class="icon chev"><use href="#i-chev-d"/></svg></summary>
+        <div class="nav-menu">
+          <button type="button" data-view="bilan"><svg class="icon"><use href="#i-chart"/></svg>Bilan du mois</button>
+          <button type="button" data-view="verif"><svg class="icon"><use href="#i-check"/></svg>Vérification</button>
+          <button type="button" data-view="photos"><svg class="icon"><use href="#i-image"/></svg>Photos des modèles</button>
+          <button type="button" data-view="reglages"><svg class="icon"><use href="#i-gear"/></svg>Réglages</button>
+        </div>
+      </details>
+      <button type="button" class="primary nav-new" id="newOnDay"><svg class="icon"><use href="#i-plus"/></svg><span>Nouvelle demande</span></button>
     </nav>
     <div class="sync off" id="sync">Connexion…</div>
   </div>
@@ -440,7 +556,6 @@ body.presta-mode main { padding-top: 16px; }
 
   <!-- PLANNING -->
   <section id="view-planning">
-    <a class="answers-banner" id="answersBanner" href="#retours" hidden></a>
     <div class="daybar">
       <h1 id="dayTitle">Aujourd'hui</h1>
       <button class="ghost" id="prevDay" aria-label="Jour précédent"><svg class="icon"><use href="#i-chev-l"/></svg></button>
@@ -448,15 +563,17 @@ body.presta-mode main { padding-top: 16px; }
       <button class="ghost" id="nextDay" aria-label="Jour suivant"><svg class="icon"><use href="#i-chev-r"/></svg></button>
       <input type="date" id="dayPick" aria-label="Choisir une date">
       <select id="provFilter" aria-label="Prestataire"></select>
-      <button class="primary" id="newOnDay"><svg class="icon"><use href="#i-plus"/></svg>Nouvelle demande</button>
     </div>
     <div class="strip" id="strip"></div>
     <div class="work">
       <div id="dayList"></div>
-      <aside class="panel sticky" aria-labelledby="dayShareTitle">
-        <div class="panel-head"><h2 id="dayShareTitle">Liste des véhicules à faire</h2></div>
-        <div id="dayShare"></div>
-      </aside>
+      <div class="side sticky">
+        <aside class="panel retours-side" id="retoursSide" aria-label="Retours des prestataires"></aside>
+        <aside class="panel" aria-labelledby="dayShareTitle">
+          <div class="panel-head"><h2 id="dayShareTitle">Liste du jour à envoyer</h2></div>
+          <div id="dayShare"></div>
+        </aside>
+      </div>
     </div>
   </section>
 
@@ -468,7 +585,7 @@ body.presta-mode main { padding-top: 16px; }
       <button type="button" class="ghost" id="notifBtn" hidden>Activer les notifications</button>
       <button type="button" id="allSeenBtn" hidden>Tout marquer comme vu</button>
     </div>
-    <p class="hint">Chaque réponse d'un prestataire arrive ici : acceptation, passage fait (avec la photo), autre date proposée, véhicule absent ou « pas possible ». Les passages faits et les acceptations sont déjà appliqués à la demande ; « Vu » range simplement le retour.</p>
+    <p class="hint">Les réponses des prestataires arrivent ici. Un passage fait ou une acceptation est déjà appliqué à la demande : « Vu » range simplement le retour.</p>
     <div class="panel answers" id="answers"></div>
     <h2 class="section-title">Déjà vus</h2>
     <div class="panel answers" id="answersSeen"></div>
@@ -483,12 +600,19 @@ body.presta-mode main { padding-top: 16px; }
         </div>
         <div class="form-sections">
           <fieldset>
-            <legend>Véhicule</legend>
-            <div class="seg" id="svcSeg" role="radiogroup" aria-label="Prestation"></div>
+            <legend>Prestation</legend>
+            <div class="svc-line">
+              <label class="field" id="provRow"><span>Prestataire</span><select id="f-prest"></select></label>
+              <div class="field"><span id="svcLabel">Type</span><div class="seg" id="svcSeg" role="radiogroup" aria-labelledby="svcLabel"></div></div>
+            </div>
             <div class="grid g2" id="taskRow" hidden>
               <label class="field"><span>Que faut-il faire ? *</span><input id="f-tache" list="dl-taches" placeholder="Ex. vérification, ampoule, AdBlue…"></label>
               <datalist id="dl-taches"></datalist>
             </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Véhicule</legend>
             <div class="grid g3">
               <label class="field"><span>Immatriculation *</span><input id="f-plaque" class="plate-input" placeholder="AB-123-CD" list="dl-plaques" required></label>
               <label class="field"><span>Modèle</span><select id="f-base" class="m-base"></select></label>
@@ -497,7 +621,7 @@ body.presta-mode main { padding-top: 16px; }
             <span class="hint" id="vehHint"></span>
             <div id="extraVeh" class="extra-list"></div>
             <button type="button" class="add-veh" id="addVeh"><svg class="icon"><use href="#i-plus"/></svg>Ajouter un véhicule au même endroit</button>
-            <span class="hint" id="groupHint">Pour une demande groupée : les véhicules ajoutés reprennent le site, les dates et le prestataire. Tu peux changer leurs horaires.</span>
+            <span class="hint" id="groupHint">Les véhicules ajoutés reprennent le même site, les mêmes dates et le même prestataire. Leurs horaires peuvent changer.</span>
             <datalist id="dl-plaques"></datalist>
           </fieldset>
 
@@ -516,9 +640,6 @@ body.presta-mode main { padding-top: 16px; }
               <label class="field"><span>Au</span><input type="date" id="f-dateFin"></label>
               <label class="field"><span>De</span><input type="time" id="f-debut" step="900"></label>
               <label class="field"><span>À</span><input type="time" id="f-fin" step="900"></label>
-            </div>
-            <div class="grid g2" id="provRow">
-              <label class="field"><span>Prestataire</span><select id="f-prest"></select></label>
             </div>
             <details class="more" id="notesBox"><summary><svg class="icon"><use href="#i-plus"/></svg>Ajouter une remarque</summary>
               <label class="field"><span>Remarque (ajoutée au message)</span><textarea id="f-notes" placeholder="Clés à l'accueil…"></textarea></label>
@@ -620,19 +741,7 @@ body.presta-mode main { padding-top: 16px; }
 
   <!-- SETTINGS -->
   <section id="view-reglages" hidden>
-    <div class="two">
-      <div class="panel">
-        <h2>Sites et adresses</h2>
-        <p class="hint">L'adresse se remplit toute seule dans la demande quand on choisit le site.</p>
-        <div class="list-edit" id="s-sites"></div>
-        <div class="row"><input id="s-newsite" placeholder="Nom du nouveau site" style="flex:1 1 200px"><button type="button" id="s-addsite"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
-      </div>
-      <div class="panel">
-        <h2>Flotte</h2>
-        <p class="hint">Modèles proposés dans la demande. Choisir un modèle remplit le cubage.</p>
-        <div class="list-edit" id="s-fleet"></div>
-        <div class="row"><input id="s-newmodel" placeholder="Modèle, ex. Opel Movano 2025" style="flex:2 1 200px"><input id="s-newcub" type="number" min="1" placeholder="m³" aria-label="Cubage en m³" style="flex:0 1 90px"><button type="button" id="s-addmodel"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
-      </div>
+    <div class="settings">
       <div class="panel">
         <h2>Prestataires</h2>
         <p class="hint">Le premier de la liste est choisi par défaut. Coche « Interventions » pour ceux à qui on peut demander autre chose qu'un pare-brise ou un lavage (vérification, ampoule, AdBlue…).</p>
@@ -655,6 +764,18 @@ body.presta-mode main { padding-top: 16px; }
           <select id="a-prov" aria-label="Prestataire du compte" style="flex:1 1 140px"></select>
           <button type="button" id="a-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
         <div id="a-prepare" class="row" hidden style="margin-top:12px"><p class="hint" style="flex:1 1 220px">À faire une fois avant de publier les nouvelles règles : <span id="a-prepare-text"></span></p><button type="button" class="primary" id="a-prepare-btn">Préparer les accès</button></div>
+      </div>
+      <div class="panel">
+        <h2>Sites et adresses</h2>
+        <p class="hint">L'adresse se remplit toute seule dans la demande quand on choisit le site.</p>
+        <div class="list-edit" id="s-sites"></div>
+        <div class="row"><input id="s-newsite" placeholder="Nom du nouveau site" style="flex:1 1 200px"><button type="button" id="s-addsite"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+      </div>
+      <div class="panel">
+        <h2>Flotte</h2>
+        <p class="hint">Modèles proposés dans la demande. Choisir un modèle remplit le cubage.</p>
+        <div class="list-edit" id="s-fleet"></div>
+        <div class="row"><input id="s-newmodel" placeholder="Modèle, ex. Opel Movano 2025" style="flex:2 1 200px"><input id="s-newcub" type="number" min="1" placeholder="m³" aria-label="Cubage en m³" style="flex:0 1 90px"><button type="button" id="s-addmodel"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
       </div>
       <div class="panel">
         <h2>Liaison avec le Google Sheet</h2>
@@ -1924,22 +2045,25 @@ function page(texte) {
   // ================= share block (text + WhatsApp + photos) =================
   let shareCount = 0;
   const shareRegistry = new Map(); // block id -> plates whose photos it sends
-  // Two buttons only: a WhatsApp link can carry text but never photos, so the text and the photo image are pasted one after the other.
-  function shareBlock({ text, vehicles = [] }) {
+  // A ready-to-paste WhatsApp message. A WhatsApp link can carry text but never photos, so text and photos are copied one after the other.
+  // Folded: only the buttons show, the text stays one click away.
+  function shareBlock({ text, vehicles = [], folded = false }) {
     const id = "share-" + ++shareCount;
     const entries = photoEntries(vehicles);
     shareRegistry.set(id, vehicles);
-    const copy = `<button type="button" class="primary big" data-copy="#${id}">${icon("copy")}Copier le texte</button>`;
+    const copy = `<button type="button" class="primary big" data-copy="#${id}">${icon("copy")}Copier le message</button>`;
     const photos = entries.length
       ? `<button type="button" class="primary big" data-copy-sheet="${id}">${icon("image")}${entries.length > 1 ? `Copier les ${entries.length} photos` : "Copier la photo"}</button>
         <button type="button" class="big" data-save-all="${id}">${icon("download")}${entries.length > 1 ? `Télécharger les ${entries.length} photos` : "Télécharger la photo"} en taille réelle</button>`
       : "";
-    return `<div class="share">
-      <pre class="msg" id="${id}">${esc(text)}</pre>
-      <div class="actions">${copy}${photos}</div>
-      ${entries.length ? `<p class="small muted">Rapide : colle le texte (Ctrl+V), puis les photos (Ctrl+V).<br>Meilleure qualité : télécharge les photos, puis glisse-les toutes ensemble dans la conversation WhatsApp. Chacune part en taille réelle et reste nette au zoom.</p>
-      <div class="photo-strip">${entries.map((e) => photoMini(e)).join("")}</div>` : ""}
-    </div>`;
+    const message = `<pre class="msg" id="${id}">${esc(text)}</pre>`;
+    const photoHelp = entries.length ? `<p class="small muted">Rapide : colle le texte (Ctrl+V), puis les photos (Ctrl+V).<br>Meilleure qualité : télécharge les photos, puis glisse-les toutes ensemble dans la conversation WhatsApp. Chacune part en taille réelle et reste nette au zoom.</p>
+      <div class="photo-strip">${entries.map((e) => photoMini(e)).join("")}</div>` : "";
+    if (folded) {
+      return `<div class="share"><div class="actions">${copy}${photos}</div>
+        <details class="more msg-fold"><summary>${icon("chev-d")}Voir le message</summary>${message}${photoHelp}</details></div>`;
+    }
+    return `<div class="share">${message}<div class="actions">${copy}${photos}</div>${photoHelp}</div>`;
   }
   function photoMini(entry) {
     const thumb = (vehicleOf(entry.plate)?.photos || []).find((p) => p.key === entry.key)?.thumb;
@@ -1997,16 +2121,25 @@ function page(texte) {
 
   // ================= navigation =================
   const VIEWS = ["planning", "retours", "demande", "photos", "verif", "bilan", "historique", "reglages"];
+  const navButtons = () => document.querySelectorAll("nav.tabs [data-view]");
   function show(view) {
     if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
-    VIEWS.forEach((v) => { $("#view-" + v).hidden = v !== view; $("#tab-" + v).setAttribute("aria-selected", String(v === view)); });
+    VIEWS.forEach((v) => ($("#view-" + v).hidden = v !== view));
+    markCurrentNav(view);
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
   }
-  document.querySelectorAll("nav.tabs button").forEach((tab) => tab.addEventListener("click", () => {
-    if (tab.dataset.view === "demande" && !state.editingId) resetForm();
-    show(tab.dataset.view);
-  }));
+  // Rare pages live under « Plus »: its label names the open page so the menu never hides where you are.
+  function markCurrentNav(view) {
+    navButtons().forEach((b) => b.toggleAttribute("aria-current", b.dataset.view === view));
+    const inMore = $(`#navMore [data-view="${view}"]`);
+    $("#navMoreLabel").textContent = inMore ? inMore.textContent.trim() : "Plus";
+    $("#navMore").classList.toggle("current", !!inMore);
+    $("#navMore").open = false;
+  }
+  navButtons().forEach((tab) => tab.addEventListener("click", () => show(tab.dataset.view)));
+  document.addEventListener("click", (e) => { if (!e.target.closest("#navMore")) $("#navMore").open = false; });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#navMore").open) { $("#navMore").open = false; $("#navMore summary").focus(); } });
   window.addEventListener("hashchange", () => show(location.hash.slice(1)));
 
   // ================= shared selects =================
@@ -2043,8 +2176,13 @@ function page(texte) {
       : `<div class="empty"><b>Aucun véhicule prévu ce jour-là.</b><span>Les véhicules disponibles ce jour apparaissent ici, classés par site, avec la liste prête à envoyer.</span></div>`;
     const active = ofDay.filter(D.isActive);
     $("#dayShare").innerHTML = active.length
-      ? shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }) + appLink(providerFilter || defaultProvider()), provider: providerFilter || defaultProvider(), vehicles: active.filter(D.isWindshield) })
+      ? `<p class="share-sum">${dayShareSummary(active, providerFilter)}</p>`
+        + shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }) + appLink(providerFilter || defaultProvider()), vehicles: active.filter(D.isWindshield), folded: true })
       : `<p class="muted">Rien à envoyer pour ce jour.</p>`;
+  }
+  function dayShareSummary(active, providerFilter) {
+    const sites = new Set(active.map((d) => d.site)).size;
+    return `${plural(active.length, "véhicule")} sur ${plural(sites, "site")}${providerFilter ? ` pour ${esc(providerFilter)}` : ""}, en un seul message WhatsApp.`;
   }
   function renderWeekStrip() {
     const monday = D.mondayOf(state.day);
@@ -2080,7 +2218,14 @@ function page(texte) {
     try { localStorage.setItem("suivi.provFilter", state.providerFilter); } catch {}
     renderPlanning();
   };
-  $("#newOnDay").onclick = () => { resetForm(); setAvailability(state.day); renderFormSide(); show("demande"); };
+  // From the planning, a new request starts on the day being looked at.
+  $("#newOnDay").onclick = () => {
+    const fromPlanning = !$("#view-planning").hidden;
+    resetForm();
+    if (fromPlanning) setAvailability(state.day);
+    renderFormSide();
+    show("demande");
+  };
   $("#dayList").addEventListener("click", (e) => { const row = e.target.closest("[data-open]"); if (row) openDemande(row.dataset.open); });
 
   // ================= request form =================
@@ -2429,7 +2574,7 @@ function page(texte) {
       </tbody></table></div>` : `<div class="empty"><b>Rien à vérifier sur cette période.</b><span>Les demandes envoyées ou confirmées dont la disponibilité tombe entre les deux dates s'affichent ici.</span></div>`;
     const provider = $("#v-prest").value;
     const kind = document.querySelector('input[name="vkind"]:checked')?.value;
-    $("#v-share").innerHTML = shareBlock({ text: D.verificationMessage(rows, { provider, kind, siteNames: siteNames() }), provider: provider || defaultProvider() });
+    $("#v-share").innerHTML = shareBlock({ text: D.verificationMessage(rows, { provider, kind, siteNames: siteNames() }) });
     $("#v-sheet").innerHTML = sheetLink(state.demandes.filter((d) => checked.has(d.id)).map((d) => d.plaque));
   }
   ["#v-prest", "#v-from", "#v-to", "#v-st"].forEach((s) => $(s).addEventListener("change", renderVerification));
@@ -2489,7 +2634,7 @@ function page(texte) {
         <div class="kpi"><span class="label">À venir</span><b>${t.upcoming}</b><span class="muted small">pas encore passé</span></div>
         <div class="kpi off"><span class="label">Annulés</span><b>${t.cancelled}</b><span class="muted small">&nbsp;</span></div>
       </div>
-      <div class="two">${tallyTable("Par prestataire", report.byProvider)}${tallyTable("Par site", report.bySite)}${tallyTable("Par modèle", report.byModel)}</div>
+      <div class="tallies">${tallyTable("Par prestataire", report.byProvider)}${tallyTable("Par site", report.bySite)}${tallyTable("Par modèle", report.byModel)}</div>
       <div class="section"><h3>Véhicules réalisés · ${done.length}</h3>${done.length ? `<div class="tablewrap"><table class="wide">${head}<tbody>${done.map(reportLine).join("")}</tbody></table></div>` : `<p class="muted">Aucun véhicule marqué « Réalisée » ce mois-ci. Utilise l'onglet Vérification pour les cocher.</p>`}</div>
       ${open.length ? `<div class="section"><h3>Pas encore réalisés · ${open.length}</h3><div class="tablewrap"><table class="wide">${head}<tbody>${open.map(reportLine).join("")}</tbody></table></div></div>` : ""}`;
   }
@@ -2523,12 +2668,14 @@ function page(texte) {
       $("#histWrap").innerHTML = `<div class="empty"><b>${state.demandes.length ? "Aucune demande ne correspond à ces filtres." : "Aucune demande enregistrée pour l'instant."}</b><span>Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée.</span></div>`;
       return;
     }
-    $("#histWrap").innerHTML = `<div class="tablewrap"><table class="wide"><thead><tr><th>Dispo</th><th>Créneau</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th><th>Envoyée le</th></tr></thead><tbody>${rows.map(historyLine).join("")}</tbody></table></div>`;
+    $("#histWrap").innerHTML = `<div class="tablewrap"><table class="wide hist"><thead><tr><th>Dispo</th><th>Créneau</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th><th>Envoyée le</th></tr></thead><tbody>${rows.map(historyLine).join("")}</tbody></table></div>`;
   }
   function historyLine(d) {
     const span = D.isMultiDay(d) ? `${D.shortDate(d.date)} → ${D.shortDate(D.lastDay(d))}` : D.shortDate(d.date);
-    return `<tr class="click" data-open="${esc(d.id)}"><td class="date">${esc(span)}</td><td class="date">${esc(D.timeSlotLabel(d))}</td><td>${plateTag(d.plaque)}</td>
-      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</td><td>${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
+    const slot = esc(D.timeSlotLabel(d));
+    // data-slot / data-provider let the phone layout show a compact card without a second markup.
+    return `<tr class="click" data-open="${esc(d.id)}"><td class="date" data-slot="· ${slot}">${esc(span)}</td><td class="date">${slot}</td><td>${plateTag(d.plaque)}</td>
+      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
       <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
   }
   ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site"].forEach((s) => $(s).addEventListener("input", renderHistory));
@@ -2558,7 +2705,7 @@ function page(texte) {
     setSelectOptions($("#t-svc"), D.SERVICES.map((x) => `<option value="${x.id}">${esc(x.label)}</option>`).join(""));
     const lines = pricesOf(D.providerId(pricesProvider()));
     $("#t-list").innerHTML = lines.length
-      ? lines.map((line, i) => `<div class="item"><span>${esc(D.priceLineLabel(line))}</span>
+      ? lines.map((line, i) => `<div class="item price"><span>${esc(D.priceLineLabel(line))}</span>
           <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
       : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;
   }
@@ -2587,7 +2734,7 @@ function page(texte) {
     $("#a-prov").disabled = $("#a-role").value !== "prestataire";
     const sorted = state.accounts.slice().sort((a, b) => (a.role || "").localeCompare(b.role || "") || a.id.localeCompare(b.id));
     $("#a-list").innerHTML = sorted.length
-      ? sorted.map((a) => `<div class="item"><span>${esc(a.id)}</span>
+      ? sorted.map((a) => `<div class="item account"><span>${esc(a.id)}</span>
           <span class="muted">${esc(a.role === "prestataire" ? providerName(a.prestataireId) : D.roleOf(a.role)?.label.split(" (")[0] || a.role)}</span>
           ${removeButton("data-remove-account", esc(a.id), a.id)}</div>`).join("")
       : `<p class="hint">Aucun accès enregistré pour l'instant.</p>`;
@@ -2709,13 +2856,34 @@ function page(texte) {
     $("#retoursBadge").hidden = !n; $("#retoursBadge").textContent = n;
     document.title = (n ? `(${n}) ` : "") + "City-Drop × Presta";
     try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
-    $("#answersBanner").hidden = !n;
-    $("#answersBanner").innerHTML = `${icon("alert")}<span><b>${n > 1 ? `${n} nouveaux retours` : "1 nouveau retour"}</b> des prestataires</span><span class="go">Voir</span>`;
+    renderRetoursSide(rows);
     $("#allSeenBtn").hidden = !n || !state.canWrite;
     $("#notifBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
     $("#answers").innerHTML = n ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
     const seen = D.seenAnswers(state.demandes);
     $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
+  }
+  // Planning side card: the latest unseen answers, handled without leaving the planning.
+  const SIDE_MAX = 4;
+  const timeOf = (iso) => (iso.slice(0, 10) === today() ? iso.slice(11, 16).replace(":", "h") : D.shortDate(iso.slice(0, 10)));
+  function sideRow(d) {
+    const r = d.retour;
+    const quick = [
+      r.preuve ? `<button type="button" class="ghost icon-btn" data-proof="${esc(r.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "",
+      r.etat === "autre-date" && state.canWrite ? `<button type="button" class="ghost" data-accept-date="${esc(d.id)}">Accepter</button>` : "",
+      state.canWrite ? `<button type="button" class="ghost icon-btn" data-seen="${esc(d.id)}" aria-label="Marquer comme vu">${icon("check")}</button>` : "",
+    ].join("");
+    return `<li class="side-row"><button type="button" class="side-open" data-open="${esc(d.id)}">
+        <span class="side-line"><b>${esc(d.plaque)}</b><span class="muted">${esc(timeOf(r.at))}</span></span>
+        <span class="side-what">${esc(d.prestataire)} · ${esc(D.answerSummary(r))}</span></button>
+      <span class="side-quick">${quick}</span></li>`;
+  }
+  function renderRetoursSide(rows) {
+    const n = rows.length;
+    const head = `<div class="panel-head"><h2>Retours${n ? ` <span class="tab-badge">${n}</span>` : ""}</h2><a href="#retours" class="side-all">Tout voir</a></div>`;
+    $("#retoursSide").innerHTML = head + (n
+      ? `<ul class="side-list">${rows.slice(0, SIDE_MAX).map(sideRow).join("")}</ul>${n > SIDE_MAX ? `<a href="#retours" class="side-more">+ ${plural(n - SIDE_MAX, "autre retour")}</a>` : ""}`
+      : `<p class="side-empty">Aucun nouveau retour des prestataires.</p>`);
   }
   // A system notification for answers that arrive while the app is open in another tab or window.
   function notifyAnswers(fresh) {
@@ -2731,7 +2899,7 @@ function page(texte) {
     try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
     catch (err) { reportWriteError(err); }
   };
-  ["#answers", "#answersSeen"].forEach((sel) => $(sel).addEventListener("click", (e) => {
+  ["#answers", "#answersSeen", "#retoursSide"].forEach((sel) => $(sel).addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
     const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
     if (!d) return;
