@@ -1089,7 +1089,11 @@
   }
   function setSync(text, ok) { $("#sync").textContent = text; $("#sync").classList.toggle("off", !ok); }
 
+  // The page stays blank until the account's role is known, so a provider never glimpses the team screens.
   async function connect() {
+    try { await connectStore(); } finally { document.body.classList.add("ready"); }
+  }
+  async function connectStore() {
     const db = window.claude?.use ? await window.claude.use("db").catch(() => null) : null;
     if (!db) {
       setSync("Hors ligne", false);

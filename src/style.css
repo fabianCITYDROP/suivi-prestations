@@ -440,7 +440,6 @@ body.presta-mode .top .sync { display: none; }
 .job-empty b { color: var(--ink); font-size: 16px; }
 .job-task { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--ink); font-size: 14px; }
 .job-task .icon { color: var(--accent); flex: none; margin-top: 2px; }
-.presta-foot { margin-top: 28px; display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
 body.presta-mode .toast { width: max-content; border-radius: 14px; text-align: center; }
 body.presta-mode main { padding-top: 16px; }
 @media (prefers-reduced-motion: reduce) { .job-actions button:active, .presta-tabs button:active, .job-form button:active { transform: none; } }
@@ -478,4 +477,19 @@ body.presta-mode main { padding-top: 16px; }
   .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .tallies table { min-width: 440px; }
 }
+/* Until the role is known: header only, with a small spinner, never the team screens. */
+body:not(.ready) main, body:not(.ready) nav.tabs, body:not(.ready) .sync { visibility: hidden; }
+body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; border: 2.5px solid var(--line-strong); border-top-color: var(--accent); animation: spin .7s linear infinite; }
+/* Signed-in account and sign-out, same card for the team (Réglages) and providers. */
+.account-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+#view-reglages > .account-card { margin-bottom: 20px; max-width: 560px; }
+.account-card .avatar { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 16px; }
+.account-card .who { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.account-card .who b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-card .who small { color: var(--ink-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-card .signout { flex: none; min-height: 40px; color: var(--danger); border-color: var(--line); transition: transform 160ms var(--ease-out), background-color .15s ease, border-color .15s ease; }
+.account-card .signout:hover { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 6%, var(--surface)); }
+.account-card .signout:active { transform: scale(.97); }
+.presta-account { margin-top: 28px; border-radius: 14px; }
+@media (max-width: 380px) { .account-card .signout { padding: 0 10px; font-size: 13px; } }
 </style>
