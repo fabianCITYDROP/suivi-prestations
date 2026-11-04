@@ -492,4 +492,15 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 .account-card .signout:active { transform: scale(.97); }
 .presta-account { margin-top: 28px; border-radius: 14px; }
 @media (max-width: 380px) { .account-card .signout { padding: 0 10px; font-size: 13px; } }
+/* Provider tabs: segmented control on wide screens, bottom bar within thumb reach on phones. */
+.presta-tabs .icon { display: none; }
+@media (max-width: 720px) {
+  body.presta-mode main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .presta-tabs { position: fixed; z-index: 15; top: auto; left: 0; right: 0; bottom: 0; margin: 0; gap: 0; border-radius: 0; padding: 6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 20px -14px rgba(18, 33, 43, .35); }
+  .presta-tabs button { position: relative; flex-direction: column; gap: 3px; min-height: 54px; font-size: 11.5px; border-radius: var(--r-sm); }
+  .presta-tabs .icon { display: block; width: 22px; height: 22px; }
+  .presta-tabs button[aria-selected="true"] { background: none; box-shadow: none; color: var(--accent); }
+  .presta-tabs .count { position: absolute; top: 2px; left: calc(50% + 6px); }
+  body.presta-mode .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+}
 </style>

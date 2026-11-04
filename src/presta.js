@@ -6,10 +6,10 @@
 // 4. "Faits": history and counts.
 (function (root) {
   const TABS = [
-    { id: "validate", label: "À valider" },
-    { id: "today", label: "Aujourd'hui" },
-    { id: "upcoming", label: "À venir" },
-    { id: "done", label: "Faits" },
+    { id: "validate", label: "À valider", icon: "bell" },
+    { id: "today", label: "Aujourd'hui", icon: "clock" },
+    { id: "upcoming", label: "À venir", icon: "cal" },
+    { id: "done", label: "Faits", icon: "check" },
   ];
 
   function start({ store, account, email, D, ui }) {
@@ -111,7 +111,7 @@
       return TABS.map((t) => {
         const n = t.id === "done" ? 0 : lists[t.id].length;
         const badge = n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : "";
-        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${t.label}${badge}</button>`;
+        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
     }
     function validateTab(list) {
