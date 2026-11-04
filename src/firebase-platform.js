@@ -42,13 +42,15 @@
     });
   }
 
-  // The account line lives at the top of Réglages, so the header stays on one line.
+  // The account card (who is signed in + sign-out) sits at the top of Réglages, so the header stays on one line.
   function addSignOut(user) {
     const settings = document.getElementById("view-reglages");
     if (!settings || document.getElementById("account")) return;
-    const bar = Object.assign(document.createElement("div"), { id: "account", className: "account" });
-    bar.innerHTML = `<span>Connecté en tant que <b></b></span><button type="button" class="ghost">Se déconnecter</button>`;
+    const bar = Object.assign(document.createElement("div"), { id: "account", className: "account-card" });
+    bar.innerHTML = `<span class="avatar" aria-hidden="true"></span><span class="who"><b></b><small>Compte connecté</small></span>
+      <button type="button" class="signout"><svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg>Se déconnecter</button>`;
     bar.querySelector("b").textContent = user.email || "";
+    bar.querySelector(".avatar").textContent = (user.email || "?").charAt(0).toUpperCase();
     bar.querySelector("button").onclick = () => auth.signOut().then(() => location.reload());
     settings.prepend(bar);
   }

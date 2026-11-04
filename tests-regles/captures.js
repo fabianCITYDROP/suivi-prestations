@@ -112,7 +112,8 @@ async function seed() {
   }
   if (!process.env.SKIP_PROVIDER) {
     const k = await open('khalid@lavage.fr', { width: 390, height: 844 });
-    await k.screenshot({ path: `${OUT}/mobile-prestataire.png`, fullPage: true });
+    await k.screenshot({ path: `${OUT}/mobile-prestataire.png` });
+    await k.screenshot({ path: `${OUT}/long-mobile-prestataire.png`, fullPage: true });
   }
   console.log(errors.length ? 'PAGE ERRORS\n' + errors.join('\n') : 'no page errors');
   await b.close(); srv.close();

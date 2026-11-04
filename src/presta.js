@@ -6,10 +6,10 @@
 // 4. "Faits": history and counts.
 (function (root) {
   const TABS = [
-    { id: "validate", label: "À valider" },
-    { id: "today", label: "Aujourd'hui" },
-    { id: "upcoming", label: "À venir" },
-    { id: "done", label: "Faits" },
+    { id: "validate", label: "À valider", icon: "bell" },
+    { id: "today", label: "Aujourd'hui", icon: "clock" },
+    { id: "upcoming", label: "À venir", icon: "cal" },
+    { id: "done", label: "Faits", icon: "check" },
   ];
 
   function start({ store, account, email, D, ui }) {
@@ -111,7 +111,7 @@
       return TABS.map((t) => {
         const n = t.id === "done" ? 0 : lists[t.id].length;
         const badge = n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : "";
-        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${t.label}${badge}</button>`;
+        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
     }
     function validateTab(list) {
@@ -148,8 +148,15 @@
         </header>
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
-        <footer class="presta-foot"><span>${esc(email)}</span><button type="button" class="ghost" data-signout>Se déconnecter</button></footer>`;
+        ${accountCard()}`;
       if (focusSearch) { const input = view.querySelector("[data-search]"); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+    }
+
+    function accountCard() {
+      const name = state.providerName || email;
+      return `<footer class="account-card presta-account"><span class="avatar" aria-hidden="true">${esc(name.charAt(0).toUpperCase())}</span>
+        <span class="who"><b>${esc(name)}</b><small>${esc(email)}</small></span>
+        <button type="button" class="signout" data-signout>${icon("logout")}Se déconnecter</button></footer>`;
     }
 
     // ---------- actions ----------

@@ -462,7 +462,6 @@ body.presta-mode .top .sync { display: none; }
 .job-empty b { color: var(--ink); font-size: 16px; }
 .job-task { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--ink); font-size: 14px; }
 .job-task .icon { color: var(--accent); flex: none; margin-top: 2px; }
-.presta-foot { margin-top: 28px; display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
 body.presta-mode .toast { width: max-content; border-radius: 14px; text-align: center; }
 body.presta-mode main { padding-top: 16px; }
 @media (prefers-reduced-motion: reduce) { .job-actions button:active, .presta-tabs button:active, .job-form button:active { transform: none; } }
@@ -500,6 +499,32 @@ body.presta-mode main { padding-top: 16px; }
   .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .tallies table { min-width: 440px; }
 }
+/* Until the role is known: header only, with a small spinner, never the team screens. */
+body:not(.ready) main, body:not(.ready) nav.tabs, body:not(.ready) .sync { visibility: hidden; }
+body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; border: 2.5px solid var(--line-strong); border-top-color: var(--accent); animation: spin .7s linear infinite; }
+/* Signed-in account and sign-out, same card for the team (Réglages) and providers. */
+.account-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+#view-reglages > .account-card { margin-bottom: 20px; max-width: 560px; }
+.account-card .avatar { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 16px; }
+.account-card .who { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.account-card .who b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-card .who small { color: var(--ink-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-card .signout { flex: none; min-height: 40px; color: var(--danger); border-color: var(--line); transition: transform 160ms var(--ease-out), background-color .15s ease, border-color .15s ease; }
+.account-card .signout:hover { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 6%, var(--surface)); }
+.account-card .signout:active { transform: scale(.97); }
+.presta-account { margin-top: 28px; border-radius: 14px; }
+@media (max-width: 380px) { .account-card .signout { padding: 0 10px; font-size: 13px; } }
+/* Provider tabs: segmented control on wide screens, bottom bar within thumb reach on phones. */
+.presta-tabs .icon { display: none; }
+@media (max-width: 720px) {
+  body.presta-mode main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .presta-tabs { position: fixed; z-index: 15; top: auto; left: 0; right: 0; bottom: 0; margin: 0; gap: 0; border-radius: 0; padding: 6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -6px 20px -14px rgba(18, 33, 43, .35); }
+  .presta-tabs button { position: relative; flex-direction: column; gap: 3px; min-height: 54px; font-size: 11.5px; border-radius: var(--r-sm); }
+  .presta-tabs .icon { display: block; width: 22px; height: 22px; }
+  .presta-tabs button[aria-selected="true"] { background: none; box-shadow: none; color: var(--accent); }
+  .presta-tabs .count { position: absolute; top: 2px; left: calc(50% + 6px); }
+  body.presta-mode .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+}
 </style>
 </head>
 <body>
@@ -523,6 +548,7 @@ body.presta-mode main { padding-top: 16px; }
   <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
   <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16v-5M12 16V7M17 16v-8"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16l-4-4 4-4M6 12h10"/></symbol>
   <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></symbol>
   <symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 17c2.5-6 5.5-9 9-9s6.5 3 9 9"/><path d="M3 17h18"/><path d="M8 14l3-3"/></symbol>
@@ -861,13 +887,15 @@ window.SUIVI_FIREBASE_CONFIG = {
     });
   }
 
-  // The account line lives at the top of Réglages, so the header stays on one line.
+  // The account card (who is signed in + sign-out) sits at the top of Réglages, so the header stays on one line.
   function addSignOut(user) {
     const settings = document.getElementById("view-reglages");
     if (!settings || document.getElementById("account")) return;
-    const bar = Object.assign(document.createElement("div"), { id: "account", className: "account" });
-    bar.innerHTML = `<span>Connecté en tant que <b></b></span><button type="button" class="ghost">Se déconnecter</button>`;
+    const bar = Object.assign(document.createElement("div"), { id: "account", className: "account-card" });
+    bar.innerHTML = `<span class="avatar" aria-hidden="true"></span><span class="who"><b></b><small>Compte connecté</small></span>
+      <button type="button" class="signout"><svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg>Se déconnecter</button>`;
     bar.querySelector("b").textContent = user.email || "";
+    bar.querySelector(".avatar").textContent = (user.email || "?").charAt(0).toUpperCase();
     bar.querySelector("button").onclick = () => auth.signOut().then(() => location.reload());
     settings.prepend(bar);
   }
@@ -1590,10 +1618,10 @@ window.SUIVI_FIREBASE_CONFIG = {
 // 4. "Faits": history and counts.
 (function (root) {
   const TABS = [
-    { id: "validate", label: "À valider" },
-    { id: "today", label: "Aujourd'hui" },
-    { id: "upcoming", label: "À venir" },
-    { id: "done", label: "Faits" },
+    { id: "validate", label: "À valider", icon: "bell" },
+    { id: "today", label: "Aujourd'hui", icon: "clock" },
+    { id: "upcoming", label: "À venir", icon: "cal" },
+    { id: "done", label: "Faits", icon: "check" },
   ];
 
   function start({ store, account, email, D, ui }) {
@@ -1695,7 +1723,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return TABS.map((t) => {
         const n = t.id === "done" ? 0 : lists[t.id].length;
         const badge = n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : "";
-        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${t.label}${badge}</button>`;
+        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
     }
     function validateTab(list) {
@@ -1732,8 +1760,15 @@ window.SUIVI_FIREBASE_CONFIG = {
         </header>
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
-        <footer class="presta-foot"><span>${esc(email)}</span><button type="button" class="ghost" data-signout>Se déconnecter</button></footer>`;
+        ${accountCard()}`;
       if (focusSearch) { const input = view.querySelector("[data-search]"); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+    }
+
+    function accountCard() {
+      const name = state.providerName || email;
+      return `<footer class="account-card presta-account"><span class="avatar" aria-hidden="true">${esc(name.charAt(0).toUpperCase())}</span>
+        <span class="who"><b>${esc(name)}</b><small>${esc(email)}</small></span>
+        <button type="button" class="signout" data-signout>${icon("logout")}Se déconnecter</button></footer>`;
     }
 
     // ---------- actions ----------
@@ -2927,7 +2962,11 @@ function page(texte) {
   }
   function setSync(text, ok) { $("#sync").textContent = text; $("#sync").classList.toggle("off", !ok); }
 
+  // The page stays blank until the account's role is known, so a provider never glimpses the team screens.
   async function connect() {
+    try { await connectStore(); } finally { document.body.classList.add("ready"); }
+  }
+  async function connectStore() {
     const db = window.claude?.use ? await window.claude.use("db").catch(() => null) : null;
     if (!db) {
       setSync("Hors ligne", false);
