@@ -992,13 +992,34 @@
     $("#retoursBadge").hidden = !n; $("#retoursBadge").textContent = n;
     document.title = (n ? `(${n}) ` : "") + "City-Drop × Presta";
     try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
-    $("#answersBanner").hidden = !n;
-    $("#answersBanner").innerHTML = `${icon("alert")}<span><b>${n > 1 ? `${n} nouveaux retours` : "1 nouveau retour"}</b> des prestataires</span><span class="go">Voir</span>`;
+    renderRetoursSide(rows);
     $("#allSeenBtn").hidden = !n || !state.canWrite;
     $("#notifBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
     $("#answers").innerHTML = n ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
     const seen = D.seenAnswers(state.demandes);
     $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
+  }
+  // Planning side card: the latest unseen answers, handled without leaving the planning.
+  const SIDE_MAX = 4;
+  const timeOf = (iso) => (iso.slice(0, 10) === today() ? iso.slice(11, 16).replace(":", "h") : D.shortDate(iso.slice(0, 10)));
+  function sideRow(d) {
+    const r = d.retour;
+    const quick = [
+      r.preuve ? `<button type="button" class="ghost icon-btn" data-proof="${esc(r.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "",
+      r.etat === "autre-date" && state.canWrite ? `<button type="button" class="ghost" data-accept-date="${esc(d.id)}">Accepter</button>` : "",
+      state.canWrite ? `<button type="button" class="ghost icon-btn" data-seen="${esc(d.id)}" aria-label="Marquer comme vu">${icon("check")}</button>` : "",
+    ].join("");
+    return `<li class="side-row"><button type="button" class="side-open" data-open="${esc(d.id)}">
+        <span class="side-line"><b>${esc(d.plaque)}</b><span class="muted">${esc(timeOf(r.at))}</span></span>
+        <span class="side-what">${esc(d.prestataire)} · ${esc(D.answerSummary(r))}</span></button>
+      <span class="side-quick">${quick}</span></li>`;
+  }
+  function renderRetoursSide(rows) {
+    const n = rows.length;
+    const head = `<div class="panel-head"><h2>Retours${n ? ` <span class="tab-badge">${n}</span>` : ""}</h2><a href="#retours" class="side-all">Tout voir</a></div>`;
+    $("#retoursSide").innerHTML = head + (n
+      ? `<ul class="side-list">${rows.slice(0, SIDE_MAX).map(sideRow).join("")}</ul>${n > SIDE_MAX ? `<a href="#retours" class="side-more">+ ${plural(n - SIDE_MAX, "autre retour")}</a>` : ""}`
+      : `<p class="side-empty">Aucun nouveau retour des prestataires.</p>`);
   }
   // A system notification for answers that arrive while the app is open in another tab or window.
   function notifyAnswers(fresh) {
@@ -1014,7 +1035,7 @@
     try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
     catch (err) { reportWriteError(err); }
   };
-  ["#answers", "#answersSeen"].forEach((sel) => $(sel).addEventListener("click", (e) => {
+  ["#answers", "#answersSeen", "#retoursSide"].forEach((sel) => $(sel).addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
     const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
     if (!d) return;

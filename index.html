@@ -308,10 +308,27 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 
 /* ---------- provider answers (team) ---------- */
 .tab-badge { display: inline-block; min-width: 20px; height: 20px; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--st-todo); color: #fff; font: 700 12px/20px var(--f-body); text-align: center; font-variant-numeric: tabular-nums; vertical-align: 1px; }
-.answers-banner { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding: 12px 16px; border-radius: 12px; background: color-mix(in srgb, var(--st-todo) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--st-todo) 35%, transparent); color: var(--ink); text-decoration: none; font-size: 14px; }
-.answers-banner .icon { color: var(--st-todo); flex: none; }
-.answers-banner .go { margin-left: auto; font-weight: 700; color: var(--accent); }
 .daybar .spacer { flex: 1; }
+.side { display: grid; gap: 16px; align-content: start; }
+@media (max-width: 1099px) { .side { display: contents; } .retours-side { order: -1; } }
+.retours-side { padding-bottom: 8px; }
+.retours-side h2 { display: flex; align-items: center; gap: 2px; }
+.retours-side .tab-badge { vertical-align: 0; }
+.side-all, .side-more { font-weight: 600; font-size: 14px; color: var(--accent); text-decoration: none; }
+.side-all:hover, .side-more:hover { text-decoration: underline; }
+.side-list { list-style: none; margin: 0; padding: 0; }
+.side-row { display: flex; align-items: center; gap: 4px; border-top: 1px solid var(--line); }
+.side-row:first-child { border-top: 0; }
+.side-open { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 10px 4px; border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; border-radius: 8px; transition: background-color .15s ease; }
+.side-open:hover { background: var(--surface-2); }
+.side-line { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.side-line b { font-family: var(--f-mono); letter-spacing: .03em; }
+.side-what { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-quick { display: flex; gap: 2px; flex: none; }
+.side-quick button { min-height: 36px; padding: 0 10px; font-size: 13px; }
+.icon-btn { width: 36px; padding: 0 !important; justify-content: center; }
+.side-more { display: block; padding: 8px 4px 2px; }
+.side-empty { margin: 0; color: var(--ink-2); font-size: 14px; }
 #answersSeen { border-color: var(--line); }
 .answer-row.seen { color: var(--ink-2); }
 .answers { margin-bottom: 16px; border-color: var(--accent, #0f6f8f); }
@@ -440,7 +457,6 @@ body.presta-mode main { padding-top: 16px; }
 
   <!-- PLANNING -->
   <section id="view-planning">
-    <a class="answers-banner" id="answersBanner" href="#retours" hidden></a>
     <div class="daybar">
       <h1 id="dayTitle">Aujourd'hui</h1>
       <button class="ghost" id="prevDay" aria-label="Jour précédent"><svg class="icon"><use href="#i-chev-l"/></svg></button>
@@ -453,10 +469,13 @@ body.presta-mode main { padding-top: 16px; }
     <div class="strip" id="strip"></div>
     <div class="work">
       <div id="dayList"></div>
-      <aside class="panel sticky" aria-labelledby="dayShareTitle">
-        <div class="panel-head"><h2 id="dayShareTitle">Liste des véhicules à faire</h2></div>
-        <div id="dayShare"></div>
-      </aside>
+      <div class="side sticky">
+        <aside class="panel retours-side" id="retoursSide" aria-label="Retours des prestataires"></aside>
+        <aside class="panel" aria-labelledby="dayShareTitle">
+          <div class="panel-head"><h2 id="dayShareTitle">Liste des véhicules à faire</h2></div>
+          <div id="dayShare"></div>
+        </aside>
+      </div>
     </div>
   </section>
 
@@ -2709,13 +2728,34 @@ function page(texte) {
     $("#retoursBadge").hidden = !n; $("#retoursBadge").textContent = n;
     document.title = (n ? `(${n}) ` : "") + "City-Drop × Presta";
     try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
-    $("#answersBanner").hidden = !n;
-    $("#answersBanner").innerHTML = `${icon("alert")}<span><b>${n > 1 ? `${n} nouveaux retours` : "1 nouveau retour"}</b> des prestataires</span><span class="go">Voir</span>`;
+    renderRetoursSide(rows);
     $("#allSeenBtn").hidden = !n || !state.canWrite;
     $("#notifBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
     $("#answers").innerHTML = n ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
     const seen = D.seenAnswers(state.demandes);
     $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
+  }
+  // Planning side card: the latest unseen answers, handled without leaving the planning.
+  const SIDE_MAX = 4;
+  const timeOf = (iso) => (iso.slice(0, 10) === today() ? iso.slice(11, 16).replace(":", "h") : D.shortDate(iso.slice(0, 10)));
+  function sideRow(d) {
+    const r = d.retour;
+    const quick = [
+      r.preuve ? `<button type="button" class="ghost icon-btn" data-proof="${esc(r.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "",
+      r.etat === "autre-date" && state.canWrite ? `<button type="button" class="ghost" data-accept-date="${esc(d.id)}">Accepter</button>` : "",
+      state.canWrite ? `<button type="button" class="ghost icon-btn" data-seen="${esc(d.id)}" aria-label="Marquer comme vu">${icon("check")}</button>` : "",
+    ].join("");
+    return `<li class="side-row"><button type="button" class="side-open" data-open="${esc(d.id)}">
+        <span class="side-line"><b>${esc(d.plaque)}</b><span class="muted">${esc(timeOf(r.at))}</span></span>
+        <span class="side-what">${esc(d.prestataire)} · ${esc(D.answerSummary(r))}</span></button>
+      <span class="side-quick">${quick}</span></li>`;
+  }
+  function renderRetoursSide(rows) {
+    const n = rows.length;
+    const head = `<div class="panel-head"><h2>Retours${n ? ` <span class="tab-badge">${n}</span>` : ""}</h2><a href="#retours" class="side-all">Tout voir</a></div>`;
+    $("#retoursSide").innerHTML = head + (n
+      ? `<ul class="side-list">${rows.slice(0, SIDE_MAX).map(sideRow).join("")}</ul>${n > SIDE_MAX ? `<a href="#retours" class="side-more">+ ${plural(n - SIDE_MAX, "autre retour")}</a>` : ""}`
+      : `<p class="side-empty">Aucun nouveau retour des prestataires.</p>`);
   }
   // A system notification for answers that arrive while the app is open in another tab or window.
   function notifyAnswers(fresh) {
@@ -2731,7 +2771,7 @@ function page(texte) {
     try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
     catch (err) { reportWriteError(err); }
   };
-  ["#answers", "#answersSeen"].forEach((sel) => $(sel).addEventListener("click", (e) => {
+  ["#answers", "#answersSeen", "#retoursSide"].forEach((sel) => $(sel).addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
     const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
     if (!d) return;

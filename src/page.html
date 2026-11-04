@@ -46,7 +46,6 @@
 
   <!-- PLANNING -->
   <section id="view-planning">
-    <a class="answers-banner" id="answersBanner" href="#retours" hidden></a>
     <div class="daybar">
       <h1 id="dayTitle">Aujourd'hui</h1>
       <button class="ghost" id="prevDay" aria-label="Jour précédent"><svg class="icon"><use href="#i-chev-l"/></svg></button>
@@ -59,10 +58,13 @@
     <div class="strip" id="strip"></div>
     <div class="work">
       <div id="dayList"></div>
-      <aside class="panel sticky" aria-labelledby="dayShareTitle">
-        <div class="panel-head"><h2 id="dayShareTitle">Liste des véhicules à faire</h2></div>
-        <div id="dayShare"></div>
-      </aside>
+      <div class="side sticky">
+        <aside class="panel retours-side" id="retoursSide" aria-label="Retours des prestataires"></aside>
+        <aside class="panel" aria-labelledby="dayShareTitle">
+          <div class="panel-head"><h2 id="dayShareTitle">Liste des véhicules à faire</h2></div>
+          <div id="dayShare"></div>
+        </aside>
+      </div>
     </div>
   </section>
 
