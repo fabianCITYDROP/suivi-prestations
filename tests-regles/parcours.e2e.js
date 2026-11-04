@@ -101,7 +101,8 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   const cards = await k.$$eval('.job', (els) => els.map((e) => e.textContent));
   ok('Khalid opens on his requests to validate, nothing from Allo', cards.length === 3 && cards.some((t) => t.includes('AdBlue')) && cards.every((t) => !t.includes('AB-123-CD') && !t.includes('EF-456-GH')));
   ok('team tabs hidden for Khalid', await k.isHidden('nav.tabs'));
-  ok('Khalid sees his account card with a sign-out button', (await k.textContent('.presta-account .who b')) === 'Khalid' && await k.isVisible('.presta-account [data-signout]'));
+  await k.click('#signOutBtn'); await k.waitForTimeout(100);
+  ok('power button in the header asks before signing out', await k.isVisible('#signOutBtn span') && await k.isVisible('#view-presta'));
   await k.setViewportSize({ width: 390, height: 844 }); await k.waitForTimeout(150);
   const kbar = await k.evaluate(() => ({ bottom: document.querySelector('.presta-tabs').getBoundingClientRect().bottom, h: innerHeight, wide: document.documentElement.scrollWidth <= innerWidth }));
   ok('phone: provider tabs are a bottom bar, nothing overflows', Math.abs(kbar.bottom - kbar.h) < 1 && kbar.wide);

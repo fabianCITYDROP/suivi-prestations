@@ -148,15 +148,8 @@
         </header>
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
-        ${accountCard()}`;
+`;
       if (focusSearch) { const input = view.querySelector("[data-search]"); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
-    }
-
-    function accountCard() {
-      const name = state.providerName || email;
-      return `<footer class="account-card presta-account"><span class="avatar" aria-hidden="true">${esc(name.charAt(0).toUpperCase())}</span>
-        <span class="who"><b>${esc(name)}</b><small>${esc(email)}</small></span>
-        <button type="button" class="signout" data-signout>${icon("logout")}Se déconnecter</button></footer>`;
     }
 
     // ---------- actions ----------
@@ -208,7 +201,6 @@
           send(byId(id), { etat: "autre-date", date, ...(debut ? { debut } : {}), ...withNote }, "Date proposée à l'équipe");
         }
       }
-      else if (el("[data-signout]")) firebase.auth().signOut().then(() => location.reload());
     });
 
     render();
