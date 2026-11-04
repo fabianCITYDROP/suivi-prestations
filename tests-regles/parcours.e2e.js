@@ -146,6 +146,17 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   ok('accepting moves the request to the proposed date and confirms it', lav2.date === day(3) && lav2.debut === '14:00' && lav2.statut === 'confirmee');
   await p.click('#allSeenBtn'); await p.waitForTimeout(800);
   ok('"Tout marquer comme vu" empties the list and the badge', await p.isHidden('#retoursBadge') && (await p.textContent('#answersSeen')).includes('GH-111-AA'));
+  // Simplified menu: rare pages under « Plus », the label says which one is open
+  await p.click('#navMore summary'); await p.click('#navMore [data-view="bilan"]'); await p.waitForTimeout(200);
+  ok('« Plus » opens the monthly report and names it', await p.isVisible('#view-bilan') && (await p.textContent('#navMoreLabel')) === 'Bilan du mois' && (await p.getAttribute('#navMore', 'open')) === null);
+  await p.click('[data-view="planning"]'); await p.click('#nextDay'); await p.click('#nextDay'); await p.click('#newOnDay'); await p.waitForTimeout(100);
+  ok('« Nouvelle demande » from the planning starts on the day being looked at', (await p.inputValue('#f-date')) === day(2));
+  await p.click('[data-view="planning"]'); await p.click('#todayBtn'); await p.waitForTimeout(200);
+  ok('day list message is folded behind « Voir le message »', !(await p.isVisible('#dayShare .msg')) && (await p.isVisible('#dayShare [data-copy]')));
+  await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(200);
+  const bar = await p.evaluate(() => { const r = document.querySelector('nav.tabs').getBoundingClientRect(); return { bottom: r.bottom, h: innerHeight, wide: document.documentElement.scrollWidth <= innerWidth }; });
+  ok('phone: menu is a bottom bar and nothing overflows sideways', Math.abs(bar.bottom - bar.h) < 1 && bar.wide);
+  await p.setViewportSize({ width: 1440, height: 900 });
   ok('no page errors (team)', p.errs.length === 0); if (p.errs.length) console.log(p.errs);
 
   // 5. Someone signed in without access
