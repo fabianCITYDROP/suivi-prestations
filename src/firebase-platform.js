@@ -12,7 +12,7 @@
   function signedIn() {
     return new Promise((resolve) => {
       const stop = auth.onAuthStateChanged((user) => {
-        if (user) { stop(); resolve(user); addSignOut(user); return; }
+        if (user) { stop(); resolve(user); showSignOut(user); return; }
         showLogin();
       });
     });
@@ -42,17 +42,20 @@
     });
   }
 
-  // The account card (who is signed in + sign-out) sits at the top of Réglages, so the header stays on one line.
-  function addSignOut(user) {
-    const settings = document.getElementById("view-reglages");
-    if (!settings || document.getElementById("account")) return;
-    const bar = Object.assign(document.createElement("div"), { id: "account", className: "account-card" });
-    bar.innerHTML = `<span class="avatar" aria-hidden="true"></span><span class="who"><b></b><small>Compte connecté</small></span>
-      <button type="button" class="signout"><svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg>Se déconnecter</button>`;
-    bar.querySelector("b").textContent = user.email || "";
-    bar.querySelector(".avatar").textContent = (user.email || "?").charAt(0).toUpperCase();
-    bar.querySelector("button").onclick = () => auth.signOut().then(() => location.reload());
-    settings.prepend(bar);
+  // Power button, always at the right of the header. A first tap asks « Se déconnecter ? »,
+  // a second tap within 4 s signs out: no accidental sign-out on a phone.
+  function showSignOut(user) {
+    const button = document.getElementById("signOutBtn");
+    if (!button) return;
+    let disarm = null;
+    button.title = `Se déconnecter (${user.email || ""})`;
+    button.hidden = false;
+    button.onclick = () => {
+      if (button.classList.contains("armed")) { auth.signOut().then(() => location.reload()); return; }
+      button.classList.add("armed");
+      clearTimeout(disarm);
+      disarm = setTimeout(() => button.classList.remove("armed"), 4000);
+    };
   }
 
   const ready = signedIn();
