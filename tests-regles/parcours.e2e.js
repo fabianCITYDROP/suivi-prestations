@@ -53,6 +53,10 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   const accounts = await list('comptes');
   ok('Khalid account stored', accounts.some(a => a.id === 'khalid@lavage.fr' && a.role === 'prestataire' && a.prestataireId === 'khalid'));
   ok('accounts listed in Réglages', (await p.textContent('#a-list')).includes('khalid@lavage.fr'));
+  await p.click('#s-pastebox summary'); await p.fill('#s-paste', 'Paris - Saint-Cloud\t"Parking Indigo\n92210 Saint-Cloud"\nMartigues\t"Norauto\n13500 Martigues"'); await p.click('#s-importsites'); await p.waitForTimeout(600);
+  const reglages = (await list('config')).find(c => c.id === 'reglages');
+  const pasted = reglages.sites.arrayValue.values.map(v => v.mapValue.fields).map(f => f.nom.stringValue + ' = ' + f.adresse.stringValue);
+  ok('pasted site list: existing site keeps its name, new site added', pasted.join(' | ') === 'Saint-Cloud = Parking Indigo, 92210 Saint-Cloud | Martigues = Norauto, 13500 Martigues');
   // 2. A new request gets its frozen price
   await p.goto('http://localhost:8765/#planning'); await p.click('#newOnDay'); await p.fill('#f-plaque', 'ef456gh'); await p.dispatchEvent('#f-plaque', 'change');
   await p.selectOption('#f-base', { index: 1 }); await p.dispatchEvent('#f-base', 'change'); await p.waitForTimeout(100);

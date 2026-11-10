@@ -485,6 +485,40 @@
   const unseenAnswers = (demandes) => demandes.filter((d) => d.retour && !d.retour.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || ""));
 
   // ---------- search ----------
+  // ----- site list pasted from a spreadsheet: « Nom<TAB>"adresse sur plusieurs lignes" » -----
+  const siteKey = (name) => String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const oneLineAddress = (text) => text.split("\n").map((l) => l.trim()).filter(Boolean).join(", ");
+  function parseSiteList(text) {
+    const src = String(text || "").replace(/\r/g, "");
+    const quoted = [...src.matchAll(/"([^"]*)"/g)];
+    if (!quoted.length) {
+      return src.split("\n").map((line) => line.split("\t")).filter((cells) => cells[0].trim())
+        .map(([nom, ...rest]) => ({ nom: nom.trim(), adresse: oneLineAddress(rest.join("\n")) }));
+    }
+    let from = 0;
+    return quoted.map((m) => {
+      const before = src.slice(from, m.index).split("\n").map((l) => l.split("\t")[0].trim()).filter(Boolean);
+      from = m.index + m[0].length;
+      return { nom: before[before.length - 1] || "", adresse: oneLineAddress(m[1]) };
+    }).filter((site) => site.nom && site.adresse);
+  }
+  // Same site under a longer name (« Paris - La Défense » for « La Défense »): keep the existing name,
+  // because saved requests refer to it.
+  function sameSite(a, b) {
+    const [x, y] = [siteKey(a), siteKey(b)];
+    return x === y || (y.length >= 4 && x.endsWith(y)) || (x.length >= 4 && y.endsWith(x));
+  }
+  function mergeSites(existing, incoming) {
+    const sites = existing.map((s) => ({ ...s }));
+    let added = 0, updated = 0;
+    for (const site of incoming) {
+      const match = sites.find((s) => sameSite(site.nom, s.nom));
+      if (!match) { sites.push({ nom: site.nom, adresse: site.adresse }); added++; }
+      else if (match.adresse !== site.adresse) { match.adresse = site.adresse; updated++; }
+    }
+    return { sites, added, updated };
+  }
+
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
@@ -494,7 +528,7 @@
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
     plateKey, normalizePlate, platesInText,
-    fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress,
+    fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress, parseSiteList, mergeSites,
     serviceOf, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
