@@ -45,6 +45,9 @@
       await db.doc("demandes/" + demande.id).update({ statut: status, ...D.statusTimestamps(demande, status, now), updatedAt: now });
     }
 
+    // The team app completing a request imported from a mail (provider, model, site, price).
+    const completeDemande = (id, fields) => db.doc("demandes/" + id).update({ ...fields, updatedAt: new Date().toISOString() });
+
     const deleteDemande = (id) => db.doc("demandes/" + id).delete();
 
     // ----- providers, prices and accounts -----
@@ -172,7 +175,7 @@
       return photoCache.get(key);
     }
 
-    return { subscribeProvider, getProvider, addProof, answer, loadProof, applyAnswer, markAnswerSeen, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { subscribeProvider, getProvider, addProof, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

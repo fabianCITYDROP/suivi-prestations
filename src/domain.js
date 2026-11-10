@@ -364,6 +364,36 @@
   }
 
 
+  // ---------- requests imported from City-Drop's "Prise de rendez-vous" mails ----------
+  // The mail names the garage as City-Drop writes it ("Du sol au toit 78&92"): match it to a provider of the app.
+  function providerFromGarage(garage, providerNames) {
+    const g = providerId(garage);
+    if (!g) return "";
+    const hits = providerNames.filter((name) => { const p = providerId(name); return p && (g === p || g.startsWith(p + "-") || p.startsWith(g + "-")); });
+    return hits.sort((a, b) => providerId(b).length - providerId(a).length)[0] || "";
+  }
+  // What the team app adds to a mail request: the provider (so the provider sees it), the fleet model known for the
+  // plate, the site of the plate's last request, and the price. Returns null when there is nothing (more) to add.
+  function mailCompletion(d, { demandes, vehicleOf, providerNames, pricesOf }) {
+    if (d.source !== "mail") return null;
+    const patch = {};
+    if (!d.prestataire) { const p = providerFromGarage(d.garageMail, providerNames); if (p) patch.prestataire = p; }
+    const vehicle = vehicleOf(d.plaque);
+    if (!d.modele && vehicle?.modele) { patch.modele = vehicle.modele; patch.cubage = vehicle.cubage ?? null; }
+    if (!d.site && !d.adresse) {
+      const last = demandes.filter((o) => o.id !== d.id && plateKey(o.plaque) === plateKey(d.plaque) && (o.site || o.adresse))
+        .sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
+      if (last) { patch.site = last.site || ""; patch.adresse = last.adresse || ""; }
+    }
+    const merged = { ...d, ...patch };
+    if (merged.prestataire && (!d.prestataireId || d.prixHT == null)) {
+      const { prestataireId, prixHT } = providerFields(merged, null, pricesOf);
+      if (prestataireId !== d.prestataireId) patch.prestataireId = prestataireId;
+      if (prixHT != null && prixHT !== d.prixHT) patch.prixHT = prixHT;
+    }
+    return Object.keys(patch).length ? patch : null;
+  }
+
   // ---------- providers, accounts and prices (multi-provider access) ----------
   // A provider's id is derived from its name, so existing requests (which store the name) can be linked without a lookup.
   const providerId = (name) => String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -372,6 +402,7 @@
     { id: "admin", label: "Équipe City-Drop (tout voir, tout faire)" },
     { id: "prestataire", label: "Prestataire (ses demandes seulement)" },
     { id: "lecture", label: "Lecture (rapport, sans modifier)" },
+    { id: "robot", label: "Robot des mails (ajoute les demandes reçues par mail)" },
   ];
   const roleOf = (id) => ROLES.find((r) => r.id === id) || null;
   const emailKey = (email) => String(email || "").trim().toLowerCase();
@@ -535,6 +566,7 @@
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
+    providerFromGarage, mailCompletion,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
   };
 });

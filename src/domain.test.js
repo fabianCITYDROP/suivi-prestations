@@ -334,3 +334,24 @@ test("mergeSites keeps existing names, fills addresses and adds new sites once",
   assert.equal(sites[0].adresse, "92000 Nanterre");
   assert.equal(added, 2); assert.equal(updated, 3);
 });
+
+test("a mail request gets its provider, model, site and price from the app", () => {
+  const mail = { id: "mail-1", source: "mail", plaque: "GS-487-PR", service: "lavage", garageMail: "Du sol au toit 78&92", date: "2026-11-12" };
+  const ctx = {
+    demandes: [mail, demande({ id: "old", plaque: "GS487PR", site: "Coignières", adresse: "", date: "2026-10-01" }), demande({ id: "older", plaque: "GS-487-PR", site: "Aulnay", date: "2026-09-01" })],
+    vehicleOf: (p) => (D.plateKey(p) === "GS487PR" ? { modele: "Renault Master 2025", cubage: 20 } : null),
+    providerNames: ["ALLO pare-brise 78", "Du sol au toit", "Khalid"],
+    pricesOf: (id) => (id === "du-sol-au-toit" ? [{ service: "lavage", prixHT: 37 }] : []),
+  };
+  assert.deepEqual(D.mailCompletion(mail, ctx), { prestataire: "Du sol au toit", modele: "Renault Master 2025", cubage: 20, site: "Coignières", adresse: "", prestataireId: "du-sol-au-toit", prixHT: 37 });
+  const done = { ...mail, ...D.mailCompletion(mail, ctx) };
+  assert.equal(D.mailCompletion(done, ctx), null, "nothing more to add once completed");
+  assert.equal(D.mailCompletion(demande({}), ctx), null, "requests typed in the app are left alone");
+});
+
+test("the garage named in a mail is matched to a provider of the app", () => {
+  const names = ["ALLO pare-brise 78", "Du sol au toit", "Khalid"];
+  assert.equal(D.providerFromGarage("Du sol au toit 78&92", names), "Du sol au toit");
+  assert.equal(D.providerFromGarage("allo pare-brise 78", names), "ALLO pare-brise 78");
+  assert.equal(D.providerFromGarage("Garage inconnu", names), "");
+});
