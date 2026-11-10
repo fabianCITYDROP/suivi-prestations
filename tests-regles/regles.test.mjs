@@ -119,3 +119,14 @@ test("sans connexion, rien n'est accessible", async () => {
   await assertFails(getDoc(doc(db, "demandes/d1")));
   await assertFails(getDoc(doc(db, "comptes", people.fabian.email)));
 });
+
+test("un prestataire ne peut pas se donner plus de droits", async () => {
+  const db = as("khalid");
+  await assertFails(updateDoc(doc(db, "comptes", people.khalid.email), { role: "admin" }));
+  await assertFails(updateDoc(doc(db, "comptes", people.khalid.email), { prestataireId: ALLO }));
+  await assertFails(setDoc(doc(db, "comptes/complice@exemple.fr"), { role: "admin" }));
+  await assertFails(updateDoc(doc(db, "prestataires", KHALID), { tarifs: [{ service: "lavage", prixHT: 999 }] }));
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { prixHT: 999 }));
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: { etat: "fait", at: "2026-11-05", par: "quelquun@autre.fr" } }));
+  await assertFails(setDoc(doc(db, "preuves/p9"), { prestataireId: ALLO }));
+});
