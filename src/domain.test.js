@@ -109,7 +109,7 @@ test("requestMessage describes the vehicle, window and photos", () => {
 test("requestMessage groups several washes in one message", () => {
   const text = D.requestMessage(demande({ service: "lavage", notes: "Clés à l'accueil" }), 0,
     [demande({ plaque: "EF-456-GH", modele: "Maxus", cubage: 20 }), demande({ plaque: "IJ-789-KL", modele: "", cubage: null })]);
-  assert.match(text, /^\*Demande lavage véhicule – 3 véhicules\*\nDisponibles le lundi 2 novembre 2026, de 09h00 à 12h00\nSite : La Défense\n\n/);
+  assert.match(text, /^\*Demande lavage complet – 3 véhicules\*\nDisponibles le lundi 2 novembre 2026, de 09h00 à 12h00\nSite : La Défense\n\n/);
   assert.match(text, /• \*AB-123-CD\* – Opel Movano 2023 – 12 m³\n• \*EF-456-GH\* – Maxus – 20 m³\n• \*IJ-789-KL\* – modèle à préciser/);
   assert.match(text, /Remarque : Clés à l'accueil\n\nMerci de confirmer le passage pour chaque véhicule\.$/);
   const mixed = D.requestMessage(demande({ service: "lavage" }), 0, [demande({ plaque: "EF-456-GH", debut: "14:00", fin: "16:00" })]);
@@ -361,4 +361,22 @@ test("the garage named in a mail is matched to a provider of the app", () => {
 test("editing an imported request keeps what lets a later mail cancel it", () => {
   assert.deepEqual(D.mailMarkers({ source: "mail", mailId: "mail-X", garageMail: "DSAT", km: 1, plaque: "X", statut: "envoyee" }),
     { source: "mail", mailId: "mail-X", garageMail: "DSAT", km: 1 });
+});
+
+test("washes are complete unless marked inside only, each with its own price", () => {
+  const prices = [
+    { service: "lavage", formule: "complet", cubageMin: null, cubageMax: null, prixHT: 42 },
+    { service: "lavage", formule: "interieur", cubageMin: null, cubageMax: null, prixHT: 25 },
+    { service: "pare-brise", cubageMin: null, cubageMax: null, prixHT: 300 },
+  ];
+  assert.equal(D.priceFor(prices, { service: "lavage", cubage: 20 }), 42);
+  assert.equal(D.priceFor(prices, { service: "lavage", formule: "interieur", cubage: 20 }), 25);
+  assert.equal(D.priceFor(prices, { service: "pare-brise", cubage: 20 }), 300);
+  assert.equal(D.priceFor([{ service: "lavage", prixHT: 37 }], { service: "lavage", formule: "complet" }), 37, "an older wash line counts as complete");
+  assert.equal(D.priceLineLabel(prices[1]), "Lavage intérieur · toutes tailles");
+  assert.equal(D.jobLabel({ service: "pare-brise" }), "Pare-brise");
+  assert.match(D.requestMessage({ service: "lavage", formule: "interieur", plaque: "AB-123-CD", date: "2026-11-12", dateFin: "2026-11-12" }), /\*Demande lavage intérieur\*/);
+  const pricesOf = () => prices;
+  const previous = { prestataireId: "khalid", service: "lavage", formule: "complet", cubage: 20, prixHT: 42 };
+  assert.equal(D.providerFields({ prestataire: "Khalid", service: "lavage", formule: "interieur", cubage: 20 }, previous, pricesOf).prixHT, 25, "switching to inside re-prices");
 });

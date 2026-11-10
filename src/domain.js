@@ -114,13 +114,19 @@
 
   // ---------- labels ----------
   const serviceOf = (id) => SERVICES.find((s) => s.id === id) || SERVICES[0];
+  // A wash is complete (outside and inside) unless the request says inside only; each has its own price.
+  const WASH_KINDS = [{ id: "complet", label: "Lavage complet" }, { id: "interieur", label: "Lavage intérieur" }];
+  const washKindOf = (d) => WASH_KINDS.find((k) => k.id === d.formule) || WASH_KINDS[0];
+  const isWash = (d) => d.service === "lavage";
+  const jobLabel = (d) => (isWash(d) ? washKindOf(d).label : serviceOf(d.service).label);
+  const jobTitle = (d) => (isWash(d) ? washKindOf(d).label.toLowerCase() : serviceOf(d.service).title);
   const statusOf = (id) => STATUSES.find((s) => s.id === id) || STATUSES[0];
   const isWindshield = (d) => (d.service || "pare-brise") === "pare-brise";
   const isActive = (d) => d.statut !== "annulee";
   const isOpen = (d) => !CLOSED_STATUSES.includes(d.statut);
   const siteOf = (d) => d.site || NO_SITE;
   const vehicleLabel = (v) => fleetLabel(v);
-  const serviceSuffix = (d) => (isWindshield(d) ? "" : ` (${serviceOf(d.service).label.toLowerCase()})`);
+  const serviceSuffix = (d) => (isWindshield(d) ? "" : ` (${jobLabel(d).toLowerCase()})`);
   const byStartTime = (a, b) => (a.debut || "99").localeCompare(b.debut || "99");
   const byDateThenTime = (a, b) => (a.date || "").localeCompare(b.date || "") || byStartTime(a, b);
 
@@ -174,7 +180,7 @@
     const sameSlot = all.every((v) => timeSlotLabel(v) === timeSlotLabel(d));
     const lines = group
       ? [
-          `*Demande ${serviceOf(d.service).title} – ${count} véhicules*`,
+          `*Demande ${jobTitle(d)} – ${count} véhicules*`,
           `Disponibles ${availabilityLabel(d)}${sameSlot ? `, ${timeSlotLabel(d)}` : ""}`,
           `Site : ${d.site || "…"}${d.adresse ? ` – ${d.adresse}` : ""}`,
           ...(d.tache ? [`À faire : *${d.tache}*`] : []),
@@ -182,7 +188,7 @@
           ...all.map((v) => `• *${v.plaque || "…"}* – ${vehicleLabel(v) || "modèle à préciser"}${sameSlot ? "" : ` – ${timeSlotLabel(v)}`}`),
         ]
       : [
-          `*Demande ${serviceOf(d.service).title}*`,
+          `*Demande ${jobTitle(d)}*`,
           `Immatriculation : *${d.plaque || "…"}*`,
           `Véhicule : ${vehicleLabel(d) || "…"}`,
           `Disponible ${availabilityLabel(d)}, ${timeSlotLabel(d)}`,
@@ -350,7 +356,7 @@
   }
   const EXPORT_HEADER = ["Dispo du", "Dispo au", "Immatriculation", "Modèle", "Cubage (m³)", "Prestation", "Site", "Adresse", "Prestataire", "Statut", "Envoyée le", "Réalisée le"];
   function exportRow(d) {
-    return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", serviceOf(d.service).label,
+    return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", jobLabel(d),
       d.site, d.adresse, d.prestataire, statusOf(d.statut).label,
       d.sentAt ? numericDate(d.sentAt.slice(0, 10)) : "", d.doneAt ? numericDate(d.doneAt.slice(0, 10)) : ""];
   }
@@ -422,6 +428,7 @@
   // A price line applies to one service, optionally to a cubage range (bounds included).
   const priceMatches = (line, d) => {
     if ((line.service || "pare-brise") !== (d.service || "pare-brise")) return false;
+    if (isWash(line) && washKindOf(line).id !== washKindOf(d).id) return false;
     const cubage = d.cubage == null || d.cubage === "" ? null : +d.cubage;
     if (line.cubageMin == null && line.cubageMax == null) return true;
     if (cubage == null) return false;
@@ -439,15 +446,15 @@
   function priceLineLabel(line) {
     const { cubageMin: min, cubageMax: max } = line;
     const range = min != null && max != null ? `${min} à ${max} m³` : min != null ? `${min} m³ et plus` : max != null ? `jusqu'à ${max} m³` : "toutes tailles";
-    return `${serviceOf(line.service).label} · ${range}`;
+    return `${jobLabel(line)} · ${range}`;
   }
 
   // Fields stored on each request so access rules and invoices never depend on a later price change:
-  // the provider id, and the price frozen when the request is first saved (kept while provider, service and cubage stay the same).
+  // the provider id, and the price frozen when the request is first saved (kept while provider, service, wash kind and cubage stay the same).
   function providerFields(fields, previous, pricesOf) {
     const prestataireId = providerId(fields.prestataire);
     const same = previous && previous.prestataireId === prestataireId && (previous.service || "pare-brise") === (fields.service || "pare-brise")
-      && String(previous.cubage ?? "") === String(fields.cubage ?? "");
+      && String(previous.cubage ?? "") === String(fields.cubage ?? "") && washKindOf(previous).id === washKindOf(fields).id;
     const prixHT = same && previous.prixHT != null ? previous.prixHT : priceFor(pricesOf(prestataireId), fields);
     return { prestataireId, prixHT };
   }
@@ -567,7 +574,7 @@
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
     plateKey, normalizePlate, platesInText,
     fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress, parseSiteList, mergeSites,
-    serviceOf, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
+    serviceOf, WASH_KINDS, washKindOf, jobLabel, jobTitle, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,

@@ -325,6 +325,7 @@
   $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
   $("#dl-taches").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<option value="${esc(t)}">`).join("");
   $("#svcSeg").innerHTML = D.SERVICES.map((s, i) => `<label><input type="radio" name="svc" id="svc-${s.id}" value="${s.id}" ${i === 0 ? "checked" : ""}><span>${s.label}</span></label>`).join("");
+  $("#washSeg").innerHTML = D.WASH_KINDS.map((k, i) => `<label><input type="radio" name="wash" id="wash-${k.id}" value="${k.id}" ${i === 0 ? "checked" : ""}><span>${k.label.replace("Lavage ", "")}</span></label>`).join("");
 
   // ================= planning =================
   function renderPlanning() {
@@ -365,7 +366,7 @@
     const sub = [d.adresse !== D.siteAddress(state.sites, d.site) ? d.adresse : "", D.isMultiDay(d) ? `dispo ${D.availabilityLabel(d)}` : "", d.notes].filter(Boolean).join(" · ");
     return `<button class="veh-row ${D.isActive(d) ? "" : "cancel"}" data-open="${esc(d.id)}">
       ${plateTag(d.plaque)}
-      <span class="what"><span class="model">${esc(D.vehicleLabel(d) || "Modèle non précisé")}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span>
+      <span class="what"><span class="model">${esc(D.vehicleLabel(d) || "Modèle non précisé")}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span>
       <span class="right"><span class="time">${esc(D.timeSlotLabel(d))}</span>${statusChip(d.statut)}${thumb ? `<img class="thumb" src="${safeImageSrc(thumb)}" alt="">` : ""}</span>
     </button>`;
   }
@@ -400,7 +401,9 @@
     D.SERVICES.forEach((s) => ($("#svc-" + s.id).closest("label").hidden = !allowed.includes(s.id)));
     if (!allowed.includes(chosenService())) $("#svc-pare-brise").checked = true;
     $("#taskRow").hidden = chosenService() !== "intervention";
+    $("#washRow").hidden = chosenService() !== "lavage";
   }
+  const chosenWashKind = () => document.querySelector('input[name="wash"]:checked')?.value || "complet";
   function selectedFleetModel() {
     const index = field("modele").value;
     return index === "" ? { modele: "", cubage: null } : state.fleet[+index];
@@ -421,6 +424,7 @@
       prestataire: field("prest").value || defaultProvider(),
       notes: field("notes").value.trim(),
       tache: chosenService() === "intervention" ? field("tache").value.trim() : "",
+      ...(chosenService() === "lavage" ? { formule: chosenWashKind() } : {}),
     };
   }
   // ----- model picker: brand + model first, then cubage (year shown only when the cubage is ambiguous) -----
@@ -498,6 +502,7 @@
   function setAvailability(start, end) { field("date").value = start; field("dateFin").value = end || start; }
   function fillForm(d) {
     (document.getElementById("svc-" + d.service) || document.getElementById("svc-pare-brise")).checked = true;
+    $("#wash-" + D.washKindOf(d).id).checked = true;
     ["plaque", "adresse", "debut", "fin", "notes", "tache"].forEach((k) => (field(k).value = d[k] || ""));
     setAvailability(d.date, d.dateFin);
     if (d.prestataire && !state.providers.includes(d.prestataire)) state.providers.push(d.prestataire);
@@ -609,7 +614,7 @@
     const ownIds = [state.editingId, ...extras.map((x) => x.id)].filter(Boolean);
     for (const vehicle of [main, ...extras.map((x) => groupMember(main, x))]) {
       const same = D.existingDuplicate(vehicle, state.demandes, ownIds);
-      if (same) return `${D.normalizePlate(vehicle.plaque)} a déjà une demande ${D.serviceOf(same.service).label.toLowerCase()} le ${D.shortDate(same.date)} (${D.statusOf(same.statut || "a_envoyer").label.toLowerCase()}) : ouvre-la plutôt que d'en créer une deuxième`;
+      if (same) return `${D.normalizePlate(vehicle.plaque)} a déjà une demande ${D.jobLabel(same).toLowerCase()} le ${D.shortDate(same.date)} (${D.statusOf(same.statut || "a_envoyer").label.toLowerCase()}) : ouvre-la plutôt que d'en créer une deuxième`;
     }
     return "";
   }
@@ -837,7 +842,7 @@
     const slot = esc(D.timeSlotLabel(d));
     // data-slot / data-provider let the phone layout show a compact card without a second markup.
     return `<tr class="click" data-open="${esc(d.id)}"><td class="date" data-slot="· ${slot}">${esc(span)}</td><td class="date">${slot}</td><td>${plateTag(d.plaque)}</td>
-      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
+      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
       <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
   }
   ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site"].forEach((s) => $(s).addEventListener("input", renderHistory));
@@ -864,13 +869,16 @@
   const pricesProvider = () => $("#t-prov").value || defaultProvider();
   function renderPrices() {
     setSelectOptions($("#t-prov"), options(state.providers));
-    setSelectOptions($("#t-svc"), D.SERVICES.map((x) => `<option value="${x.id}">${esc(x.label)}</option>`).join(""));
+    setSelectOptions($("#t-svc"), priceKinds().map(([value, line]) => `<option value="${value}">${esc(D.jobLabel(line))}</option>`).join(""));
     const lines = pricesOf(D.providerId(pricesProvider()));
     $("#t-list").innerHTML = lines.length
       ? lines.map((line, i) => `<div class="item price"><span>${esc(D.priceLineLabel(line))}</span>
           <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
       : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;
   }
+  // One choice per price kind: windshield, complete wash, inside wash, intervention.
+  const priceKinds = () => D.SERVICES.flatMap((x) => (x.id === "lavage" ? D.WASH_KINDS.map((k) => ({ service: x.id, formule: k.id })) : [{ service: x.id }]))
+    .map((line) => [[line.service, line.formule].filter(Boolean).join(":"), line]);
   async function savePrices(providerName, tarifs, message) {
     if (!requireStore()) return;
     try { await state.store.saveProvider(D.providerId(providerName), { nom: providerName, tarifs }); toast(message); }
@@ -881,7 +889,8 @@
     const prix = parseFloat($("#t-prix").value.replace(",", "."));
     if (!Number.isFinite(prix) || prix < 0) return toast("Indique le prix hors taxe, par exemple 266,67");
     const bound = (sel) => ($(sel).value === "" ? null : +$(sel).value);
-    const line = { service: $("#t-svc").value, cubageMin: bound("#t-min"), cubageMax: bound("#t-max"), prixHT: Math.round(prix * 100) / 100 };
+    const kind = priceKinds().find(([value]) => value === $("#t-svc").value)[1];
+    const line = { ...kind, cubageMin: bound("#t-min"), cubageMax: bound("#t-max"), prixHT: Math.round(prix * 100) / 100 };
     if (line.cubageMin != null && line.cubageMax != null && line.cubageMin > line.cubageMax) return toast("Le cubage « de » doit être plus petit que « à »");
     const name = pricesProvider();
     savePrices(name, [...pricesOf(D.providerId(name)), line], "Tarif ajouté");
@@ -1025,7 +1034,7 @@
   function answerRow(d, { seen = false } = {}) {
     const r = d.retour;
     return `<div class="answer-row${seen ? " seen" : ""}">${plateTag(d.plaque)}
-      <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(r))}<br><span class="muted">${esc([D.serviceOf(d.service).label, d.tache, D.vehicleLabel(d), D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(D.numericDate(r.at.slice(0, 10)))} ${esc(r.at.slice(11, 16))}</span></span>
+      <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(r))}<br><span class="muted">${esc([D.jobLabel(d), d.tache, D.vehicleLabel(d), D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(D.numericDate(r.at.slice(0, 10)))} ${esc(r.at.slice(11, 16))}</span></span>
       <span class="row">${r.preuve ? `<button type="button" data-proof="${esc(r.preuve)}">${icon("image")}Photo</button>` : ""}
       ${!seen && r.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
       ${!seen && state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}

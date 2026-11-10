@@ -44,6 +44,9 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   ok('prepare button shown', await p.isVisible('#a-prepare-btn'));
   await p.fill('#t-min', '12'); await p.fill('#t-max', '20'); await p.fill('#t-prix', '300'); await p.click('#t-add'); await p.waitForTimeout(600);
   ok('price line listed', (await p.textContent('#t-list')).includes('12 à 20 m³'));
+  await p.selectOption('#t-svc', 'lavage:interieur'); await p.fill('#t-prix', '25'); await p.click('#t-add'); await p.waitForTimeout(600);
+  const allo = (await list('prestataires')).find(x => x.id === 'allo-pare-brise-78');
+  ok('inside-wash price stored with its kind', JSON.stringify(allo.tarifs).includes('interieur') && (await p.textContent('#t-list')).includes('Lavage intérieur'));
   await p.click('#a-prepare-btn'); await p.waitForTimeout(800);
   let rows = await list('demandes');
   ok('old request linked to provider with frozen price', rows[0].prestataireId === 'allo-pare-brise-78' && rows[0].prixHT === 300);
