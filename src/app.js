@@ -941,6 +941,13 @@
     list.push(make(value)); $(input).value = ""; renderAll(); persistSettings(message);
   }
   $("#s-addsite").onclick = () => !siteNames().includes($("#s-newsite").value.trim()) && addFromInput("#s-newsite", state.sites, (nom) => ({ nom, adresse: "" }), "Site ajouté");
+  $("#s-importsites").onclick = () => {
+    const incoming = D.parseSiteList($("#s-paste").value);
+    if (!incoming.length) return toast("Aucun site reconnu : colle le nom puis l'adresse de chaque site");
+    const { sites, added, updated } = D.mergeSites(state.sites, incoming);
+    state.sites = sites; $("#s-paste").value = ""; $("#s-pastebox").open = false; renderAll();
+    persistSettings(added || updated ? `${plural(added, "site")} ajouté${added > 1 ? "s" : ""}, ${updated} mis à jour` : "Tous ces sites étaient déjà à jour");
+  };
   $("#s-provs").addEventListener("change", async (e) => {
     const box = e.target.closest("[data-prov-interventions]");
     if (!box || !requireStore()) return;

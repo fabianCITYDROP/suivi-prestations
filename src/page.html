@@ -272,6 +272,11 @@
         <p class="hint">L'adresse se remplit toute seule dans la demande quand on choisit le site.</p>
         <div class="list-edit" id="s-sites"></div>
         <div class="row"><input id="s-newsite" placeholder="Nom du nouveau site" style="flex:1 1 200px"><button type="button" id="s-addsite"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+        <details class="more" id="s-pastebox"><summary><svg class="icon"><use href="#i-list"/></svg>Coller une liste</summary>
+          <p class="hint">Copie les deux colonnes (nom, adresse) depuis ton tableau et colle-les ici. Les sites déjà présents gardent leur nom, leur adresse est mise à jour.</p>
+          <textarea id="s-paste" rows="6" placeholder="Paris - Centre&#9;Parking Indigo, 75007 Paris"></textarea>
+          <div class="row"><button type="button" class="primary" id="s-importsites">Importer</button></div>
+        </details>
       </div>
       <div class="panel">
         <h2>Flotte</h2>

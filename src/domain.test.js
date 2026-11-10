@@ -309,3 +309,28 @@ test("the same job for the same vehicle on an overlapping day is caught as a dup
   assert.equal(ask({ plaque: "IJ-789-KL", service: "intervention", tache: "Ampoule", date: "2026-11-05" }), null, "another task is fine");
   assert.equal(D.existingDuplicate({ ...demande(), plaque: "AB-123-CD", service: "lavage", date: "2026-11-06" }, rows, ["a"]), null, "the request being edited is ignored");
 });
+
+test("parseSiteList reads a pasted spreadsheet with multi-line quoted addresses", () => {
+  const text = 'Aulnay \n"Parking City-Drop\nSecteur numéro 2\n93606 Aulnay-sous-Bois"\n\nParis - La Défense\t"Rue des Hautes Pâtures\nRue des Peupliers\n92000 Nanterre"\n\nBordeaux - Ouest\t"Entre le 2 - 9 Avenue Maurice Lévy\n\n33700 Merignac"';
+  assert.deepEqual(D.parseSiteList(text), [
+    { nom: "Aulnay", adresse: "Parking City-Drop, Secteur numéro 2, 93606 Aulnay-sous-Bois" },
+    { nom: "Paris - La Défense", adresse: "Rue des Hautes Pâtures, Rue des Peupliers, 92000 Nanterre" },
+    { nom: "Bordeaux - Ouest", adresse: "Entre le 2 - 9 Avenue Maurice Lévy, 33700 Merignac" },
+  ]);
+  assert.deepEqual(D.parseSiteList("Meaux\tRue Georges Claude, 77100 Meaux"), [{ nom: "Meaux", adresse: "Rue Georges Claude, 77100 Meaux" }]);
+});
+
+test("mergeSites keeps existing names, fills addresses and adds new sites once", () => {
+  const existing = [{ nom: "La Défense", adresse: "" }, { nom: "Paris-Centre", adresse: "old" }, { nom: "Aulnay", adresse: "" }];
+  const { sites, added, updated } = D.mergeSites(existing, [
+    { nom: "Paris - La Défense", adresse: "92000 Nanterre" },
+    { nom: "Paris - Centre", adresse: "75007 Paris" },
+    { nom: "Aulnay", adresse: "93606 Aulnay" },
+    { nom: "Paris - Aulnay", adresse: "93606 Aulnay" },
+    { nom: "Montpellier - Sud", adresse: "34470 Pérols" },
+    { nom: "Montpellier - Nord", adresse: "34170 Castelnau" },
+  ]);
+  assert.deepEqual(sites.map((s) => s.nom), ["La Défense", "Paris-Centre", "Aulnay", "Montpellier - Sud", "Montpellier - Nord"]);
+  assert.equal(sites[0].adresse, "92000 Nanterre");
+  assert.equal(added, 2); assert.equal(updated, 3);
+});

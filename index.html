@@ -793,6 +793,11 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
         <p class="hint">L'adresse se remplit toute seule dans la demande quand on choisit le site.</p>
         <div class="list-edit" id="s-sites"></div>
         <div class="row"><input id="s-newsite" placeholder="Nom du nouveau site" style="flex:1 1 200px"><button type="button" id="s-addsite"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
+        <details class="more" id="s-pastebox"><summary><svg class="icon"><use href="#i-list"/></svg>Coller une liste</summary>
+          <p class="hint">Copie les deux colonnes (nom, adresse) depuis ton tableau et colle-les ici. Les sites déjà présents gardent leur nom, leur adresse est mise à jour.</p>
+          <textarea id="s-paste" rows="6" placeholder="Paris - Centre&#9;Parking Indigo, 75007 Paris"></textarea>
+          <div class="row"><button type="button" class="primary" id="s-importsites">Importer</button></div>
+        </details>
       </div>
       <div class="panel">
         <h2>Flotte</h2>
@@ -1408,6 +1413,40 @@ window.SUIVI_FIREBASE_CONFIG = {
   const unseenAnswers = (demandes) => demandes.filter((d) => d.retour && !d.retour.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || ""));
 
   // ---------- search ----------
+  // ----- site list pasted from a spreadsheet: « Nom<TAB>"adresse sur plusieurs lignes" » -----
+  const siteKey = (name) => String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const oneLineAddress = (text) => text.split("\n").map((l) => l.trim()).filter(Boolean).join(", ");
+  function parseSiteList(text) {
+    const src = String(text || "").replace(/\r/g, "");
+    const quoted = [...src.matchAll(/"([^"]*)"/g)];
+    if (!quoted.length) {
+      return src.split("\n").map((line) => line.split("\t")).filter((cells) => cells[0].trim())
+        .map(([nom, ...rest]) => ({ nom: nom.trim(), adresse: oneLineAddress(rest.join("\n")) }));
+    }
+    let from = 0;
+    return quoted.map((m) => {
+      const before = src.slice(from, m.index).split("\n").map((l) => l.split("\t")[0].trim()).filter(Boolean);
+      from = m.index + m[0].length;
+      return { nom: before[before.length - 1] || "", adresse: oneLineAddress(m[1]) };
+    }).filter((site) => site.nom && site.adresse);
+  }
+  // Same site under a longer name (« Paris - La Défense » for « La Défense »): keep the existing name,
+  // because saved requests refer to it.
+  function sameSite(a, b) {
+    const [x, y] = [siteKey(a), siteKey(b)];
+    return x === y || (y.length >= 4 && x.endsWith(y)) || (x.length >= 4 && y.endsWith(x));
+  }
+  function mergeSites(existing, incoming) {
+    const sites = existing.map((s) => ({ ...s }));
+    let added = 0, updated = 0;
+    for (const site of incoming) {
+      const match = sites.find((s) => sameSite(site.nom, s.nom));
+      if (!match) { sites.push({ nom: site.nom, adresse: site.adresse }); added++; }
+      else if (match.adresse !== site.adresse) { match.adresse = site.adresse; updated++; }
+    }
+    return { sites, added, updated };
+  }
+
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
@@ -1417,7 +1456,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
     plateKey, normalizePlate, platesInText,
-    fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress,
+    fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress, parseSiteList, mergeSites,
     serviceOf, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
@@ -2806,6 +2845,13 @@ function page(texte) {
     list.push(make(value)); $(input).value = ""; renderAll(); persistSettings(message);
   }
   $("#s-addsite").onclick = () => !siteNames().includes($("#s-newsite").value.trim()) && addFromInput("#s-newsite", state.sites, (nom) => ({ nom, adresse: "" }), "Site ajouté");
+  $("#s-importsites").onclick = () => {
+    const incoming = D.parseSiteList($("#s-paste").value);
+    if (!incoming.length) return toast("Aucun site reconnu : colle le nom puis l'adresse de chaque site");
+    const { sites, added, updated } = D.mergeSites(state.sites, incoming);
+    state.sites = sites; $("#s-paste").value = ""; $("#s-pastebox").open = false; renderAll();
+    persistSettings(added || updated ? `${plural(added, "site")} ajouté${added > 1 ? "s" : ""}, ${updated} mis à jour` : "Tous ces sites étaient déjà à jour");
+  };
   $("#s-provs").addEventListener("change", async (e) => {
     const box = e.target.closest("[data-prov-interventions]");
     if (!box || !requireStore()) return;
