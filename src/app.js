@@ -323,7 +323,16 @@
   }
   $("#h-statut").innerHTML = `<option value="">Tous les statuts</option><option value="ouvert">En cours (hors réalisées / annulées)</option>` + D.STATUSES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
   $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
-  $("#dl-taches").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<option value="${esc(t)}">`).join("");
+  $("#taskChips").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<button type="button" class="chip-btn" data-task="${esc(t)}">${esc(t)}</button>`).join("");
+  // A tapped task is added to the text, which stays editable so the request can be made more precise.
+  $("#taskChips").addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-task]");
+    if (!chip) return;
+    const input = field("tache");
+    const tasks = input.value.split(",").map((t) => t.trim()).filter(Boolean);
+    if (!tasks.includes(chip.dataset.task)) input.value = [...tasks, chip.dataset.task].join(", ");
+    input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+  });
   $("#svcSeg").innerHTML = D.SERVICES.map((s, i) => `<label><input type="radio" name="svc" id="svc-${s.id}" value="${s.id}" ${i === 0 ? "checked" : ""}><span>${s.label}</span></label>`).join("");
   $("#washSeg").innerHTML = D.WASH_KINDS.map((k, i) => `<label><input type="radio" name="wash" id="wash-${k.id}" value="${k.id}" ${i === 0 ? "checked" : ""}><span>${k.label.replace("Lavage ", "")}</span></label>`).join("");
 

@@ -521,6 +521,11 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 .power-btn.armed { width: auto; padding: 0 14px 0 11px; color: #fff; background: var(--danger); border-color: var(--danger); }
 .power-btn.armed span { display: inline; }
 @media (max-width: 480px) { header.top .wrap:has(.power-btn.armed) .brand-word { display: none; } }
+.task-row { display: grid; gap: 10px; }
+.task-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { font: 600 13px var(--f-body); color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; min-height: 36px; cursor: pointer; transition: transform 140ms ease-out, background-color 140ms ease; }
+.chip-btn:hover { background: var(--surface); color: var(--ink); }
+.chip-btn:active { transform: scale(0.97); }
 </style>
 </head>
 <body>
@@ -629,9 +634,9 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
               <div class="field"><span id="svcLabel">Type</span><div class="seg" id="svcSeg" role="radiogroup" aria-labelledby="svcLabel"></div></div>
             </div>
             <div class="field" id="washRow" hidden><span id="washLabel">Lavage</span><div class="seg" id="washSeg" role="radiogroup" aria-labelledby="washLabel"></div></div>
-            <div class="grid g2" id="taskRow" hidden>
-              <label class="field"><span>Que faut-il faire ? *</span><input id="f-tache" list="dl-taches" placeholder="Ex. vérification, ampoule, AdBlue…"></label>
-              <datalist id="dl-taches"></datalist>
+            <div class="task-row" id="taskRow" hidden>
+              <div class="task-chips" id="taskChips" role="group" aria-label="Tâches fréquentes"></div>
+              <label class="field"><span>Que faut-il faire ? *</span><input id="f-tache" placeholder="Touche une tâche ou écris-la, puis précise si besoin"></label>
             </div>
           </fieldset>
 
@@ -939,7 +944,9 @@ window.SUIVI_FIREBASE_CONFIG = {
     // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
     { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: true },
   ];
-  const TASK_SUGGESTIONS = ["Vérification du véhicule", "Changer une ampoule", "Niveau d'huile", "AdBlue", "Pression des pneus"];
+  // Small jobs the team asks washers for (Fabian, 2026-11-10); the text can be completed by hand.
+  const TASK_SUGGESTIONS = ["Changer la roue de secours", "Vérifier les pneus", "Refaire le niveau d'AdBlue", "Déplacer le véhicule",
+    "Vérification du véhicule", "Changer une ampoule", "Niveau d'huile"];
   const isIntervention = (d) => d.service === "intervention";
   // Services offered by a provider: windshield and washing for all, interventions when enabled in Réglages.
   const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.interventions).map((s) => s.id);
@@ -2278,7 +2285,16 @@ function page(texte) {
   }
   $("#h-statut").innerHTML = `<option value="">Tous les statuts</option><option value="ouvert">En cours (hors réalisées / annulées)</option>` + D.STATUSES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
   $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
-  $("#dl-taches").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<option value="${esc(t)}">`).join("");
+  $("#taskChips").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<button type="button" class="chip-btn" data-task="${esc(t)}">${esc(t)}</button>`).join("");
+  // A tapped task is added to the text, which stays editable so the request can be made more precise.
+  $("#taskChips").addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-task]");
+    if (!chip) return;
+    const input = field("tache");
+    const tasks = input.value.split(",").map((t) => t.trim()).filter(Boolean);
+    if (!tasks.includes(chip.dataset.task)) input.value = [...tasks, chip.dataset.task].join(", ");
+    input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+  });
   $("#svcSeg").innerHTML = D.SERVICES.map((s, i) => `<label><input type="radio" name="svc" id="svc-${s.id}" value="${s.id}" ${i === 0 ? "checked" : ""}><span>${s.label}</span></label>`).join("");
   $("#washSeg").innerHTML = D.WASH_KINDS.map((k, i) => `<label><input type="radio" name="wash" id="wash-${k.id}" value="${k.id}" ${i === 0 ? "checked" : ""}><span>${k.label.replace("Lavage ", "")}</span></label>`).join("");
 

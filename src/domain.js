@@ -10,7 +10,9 @@
     // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
     { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: true },
   ];
-  const TASK_SUGGESTIONS = ["Vérification du véhicule", "Changer une ampoule", "Niveau d'huile", "AdBlue", "Pression des pneus"];
+  // Small jobs the team asks washers for (Fabian, 2026-11-10); the text can be completed by hand.
+  const TASK_SUGGESTIONS = ["Changer la roue de secours", "Vérifier les pneus", "Refaire le niveau d'AdBlue", "Déplacer le véhicule",
+    "Vérification du véhicule", "Changer une ampoule", "Niveau d'huile"];
   const isIntervention = (d) => d.service === "intervention";
   // Services offered by a provider: windshield and washing for all, interventions when enabled in Réglages.
   const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.interventions).map((s) => s.id);
