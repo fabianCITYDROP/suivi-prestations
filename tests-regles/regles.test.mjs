@@ -12,6 +12,7 @@ const people = {
   jerome: { email: "jerome@city-drop.com", role: "lecture" },
   allo: { email: "contact@allo-pb.fr", role: "prestataire", prestataireId: ALLO },
   khalid: { email: "khalid@lavage.fr", role: "prestataire", prestataireId: KHALID },
+  robot: { email: "robot-mails@city-drop.com", role: "robot" },
 };
 const as = (who) => env.authenticatedContext(who, { email: people[who]?.email || `${who}@exemple.fr` }).firestore();
 const allo = { prestataire: "ALLO pare-brise 78", prestataireId: ALLO, plaque: "AB-123-CD", statut: "envoyee", prixHT: 300 };
@@ -129,4 +130,30 @@ test("un prestataire ne peut pas se donner plus de droits", async () => {
   await assertFails(updateDoc(doc(db, "demandes/d2"), { prixHT: 999 }));
   await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: { etat: "fait", at: "2026-11-05", par: "quelquun@autre.fr" } }));
   await assertFails(setDoc(doc(db, "preuves/p9"), { prestataireId: ALLO }));
+});
+
+const mail = { source: "mail", mailId: "mail-1", statut: "envoyee", service: "lavage", plaque: "GS-487-PR", modeleMail: "M20H-DVL", km: 119570,
+  date: "2026-11-12", debut: "18:30", dateFin: "2026-11-12", fin: "22:00", tache: "Lavage extérieur + Lavage intérieur",
+  garageMail: "Du sol au toit 78&92", sentAt: "2026-11-10T10:00:00Z", createdAt: "2026-11-10T10:00:00Z", updatedAt: "2026-11-10T10:00:00Z" };
+
+test("le robot des mails ajoute une demande lue dans un mail, une seule fois", async () => {
+  const db = as("robot");
+  await assertSucceeds(setDoc(doc(db, "demandes/mail-1"), mail));
+  await assertFails(setDoc(doc(db, "demandes/mail-1"), mail), "le même mail ne s'ajoute pas deux fois");
+});
+
+test("le robot des mails ne lit rien et ne peut rien changer d'autre", async () => {
+  const db = as("robot");
+  await assertFails(getDoc(doc(db, "demandes/d1")));
+  await assertFails(getDocs(collection(db, "demandes")));
+  await assertFails(getDoc(doc(db, "prestataires", ALLO)));
+  await assertFails(getDoc(doc(db, "config/reglages")));
+  await assertFails(getDoc(doc(db, "vehicules/AB123CD")));
+  await assertFails(updateDoc(doc(db, "demandes/d1"), { statut: "annulee" }));
+  await assertFails(deleteDoc(doc(db, "demandes/d1")));
+  await assertFails(setDoc(doc(db, "comptes", people.robot.email), { role: "admin" }));
+  await assertFails(setDoc(doc(db, "demandes/m2"), { ...mail, prestataireId: ALLO, prixHT: 1 }), "ne choisit ni prestataire ni prix");
+  await assertFails(setDoc(doc(db, "demandes/m3"), { ...mail, statut: "realisee" }), "ne marque rien comme fait");
+  await assertFails(setDoc(doc(db, "demandes/m4"), { ...mail, source: "app" }));
+  await assertFails(setDoc(doc(db, "demandes/m5"), { ...mail, retour: { etat: "fait" } }));
 });

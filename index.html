@@ -1292,6 +1292,36 @@ window.SUIVI_FIREBASE_CONFIG = {
   }
 
 
+  // ---------- requests imported from City-Drop's "Prise de rendez-vous" mails ----------
+  // The mail names the garage as City-Drop writes it ("Du sol au toit 78&92"): match it to a provider of the app.
+  function providerFromGarage(garage, providerNames) {
+    const g = providerId(garage);
+    if (!g) return "";
+    const hits = providerNames.filter((name) => { const p = providerId(name); return p && (g === p || g.startsWith(p + "-") || p.startsWith(g + "-")); });
+    return hits.sort((a, b) => providerId(b).length - providerId(a).length)[0] || "";
+  }
+  // What the team app adds to a mail request: the provider (so the provider sees it), the fleet model known for the
+  // plate, the site of the plate's last request, and the price. Returns null when there is nothing (more) to add.
+  function mailCompletion(d, { demandes, vehicleOf, providerNames, pricesOf }) {
+    if (d.source !== "mail") return null;
+    const patch = {};
+    if (!d.prestataire) { const p = providerFromGarage(d.garageMail, providerNames); if (p) patch.prestataire = p; }
+    const vehicle = vehicleOf(d.plaque);
+    if (!d.modele && vehicle?.modele) { patch.modele = vehicle.modele; patch.cubage = vehicle.cubage ?? null; }
+    if (!d.site && !d.adresse) {
+      const last = demandes.filter((o) => o.id !== d.id && plateKey(o.plaque) === plateKey(d.plaque) && (o.site || o.adresse))
+        .sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
+      if (last) { patch.site = last.site || ""; patch.adresse = last.adresse || ""; }
+    }
+    const merged = { ...d, ...patch };
+    if (merged.prestataire && (!d.prestataireId || d.prixHT == null)) {
+      const { prestataireId, prixHT } = providerFields(merged, null, pricesOf);
+      if (prestataireId !== d.prestataireId) patch.prestataireId = prestataireId;
+      if (prixHT != null && prixHT !== d.prixHT) patch.prixHT = prixHT;
+    }
+    return Object.keys(patch).length ? patch : null;
+  }
+
   // ---------- providers, accounts and prices (multi-provider access) ----------
   // A provider's id is derived from its name, so existing requests (which store the name) can be linked without a lookup.
   const providerId = (name) => String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -1300,6 +1330,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     { id: "admin", label: "Équipe City-Drop (tout voir, tout faire)" },
     { id: "prestataire", label: "Prestataire (ses demandes seulement)" },
     { id: "lecture", label: "Lecture (rapport, sans modifier)" },
+    { id: "robot", label: "Robot des mails (ajoute les demandes reçues par mail)" },
   ];
   const roleOf = (id) => ROLES.find((r) => r.id === id) || null;
   const emailKey = (email) => String(email || "").trim().toLowerCase();
@@ -1463,6 +1494,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
+    providerFromGarage, mailCompletion,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
   };
 });
@@ -1514,6 +1546,9 @@ window.SUIVI_FIREBASE_CONFIG = {
       const now = new Date().toISOString();
       await db.doc("demandes/" + demande.id).update({ statut: status, ...D.statusTimestamps(demande, status, now), updatedAt: now });
     }
+
+    // The team app completing a request imported from a mail (provider, model, site, price).
+    const completeDemande = (id, fields) => db.doc("demandes/" + id).update({ ...fields, updatedAt: new Date().toISOString() });
 
     const deleteDemande = (id) => db.doc("demandes/" + id).delete();
 
@@ -1642,7 +1677,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { subscribeProvider, getProvider, addProof, answer, loadProof, applyAnswer, markAnswerSeen, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { subscribeProvider, getProvider, addProof, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -2912,6 +2947,18 @@ function page(texte) {
     knownAnswers = new Set(D.unseenAnswers(rows).map(signature));
     if (fresh.length) { toast(fresh.length > 1 ? `${fresh.length} nouveaux retours des prestataires` : answerSentence(fresh[0])); notifyAnswers(fresh); }
   }
+  // ---------- requests imported from City-Drop mails: the team app links them to the provider and fills in what it knows ----------
+  const completing = new Set();
+  function completeMailRequests() {
+    if (!state.canWrite || !state.store) return;
+    const ctx = { demandes: state.demandes, vehicleOf, providerNames: state.providers, pricesOf };
+    state.demandes.forEach((d) => {
+      const patch = D.mailCompletion(d, ctx);
+      if (!patch || completing.has(d.id)) return;
+      completing.add(d.id);
+      state.store.completeDemande(d.id, patch).catch(() => {}).finally(() => completing.delete(d.id));
+    });
+  }
   // ---------- answers from providers: Retours page, tab badge, window title, desktop notifications ----------
   const answerSentence = (d) => `${d.prestataire} ${D.answerOf(d.retour.etat)?.team || "a répondu pour"} ${d.plaque}`;
   function answerRow(d, { seen = false } = {}) {
@@ -3034,11 +3081,11 @@ function page(texte) {
   }
   function subscribeTeam() {
     state.store.subscribe({
-      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
-      onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
+      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
+      onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); completeMailRequests(); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
-      onSettings: (settings) => { applySettings(settings); renderAll(); },
-      onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); renderAll(); },
+      onSettings: (settings) => { applySettings(settings); completeMailRequests(); renderAll(); },
+      onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); completeMailRequests(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);

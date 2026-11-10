@@ -1008,6 +1008,18 @@
     knownAnswers = new Set(D.unseenAnswers(rows).map(signature));
     if (fresh.length) { toast(fresh.length > 1 ? `${fresh.length} nouveaux retours des prestataires` : answerSentence(fresh[0])); notifyAnswers(fresh); }
   }
+  // ---------- requests imported from City-Drop mails: the team app links them to the provider and fills in what it knows ----------
+  const completing = new Set();
+  function completeMailRequests() {
+    if (!state.canWrite || !state.store) return;
+    const ctx = { demandes: state.demandes, vehicleOf, providerNames: state.providers, pricesOf };
+    state.demandes.forEach((d) => {
+      const patch = D.mailCompletion(d, ctx);
+      if (!patch || completing.has(d.id)) return;
+      completing.add(d.id);
+      state.store.completeDemande(d.id, patch).catch(() => {}).finally(() => completing.delete(d.id));
+    });
+  }
   // ---------- answers from providers: Retours page, tab badge, window title, desktop notifications ----------
   const answerSentence = (d) => `${d.prestataire} ${D.answerOf(d.retour.etat)?.team || "a répondu pour"} ${d.plaque}`;
   function answerRow(d, { seen = false } = {}) {
@@ -1130,11 +1142,11 @@
   }
   function subscribeTeam() {
     state.store.subscribe({
-      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
-      onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); renderAll(); },
+      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
+      onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); completeMailRequests(); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
-      onSettings: (settings) => { applySettings(settings); renderAll(); },
-      onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); renderAll(); },
+      onSettings: (settings) => { applySettings(settings); completeMailRequests(); renderAll(); },
+      onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); completeMailRequests(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
