@@ -14,7 +14,15 @@ la demande apparaît toute seule dans Suivi prestations (statut « Envoyée »).
 4. Dès qu'un membre de l'équipe ouvre l'appli, celle-ci complète la demande : prestataire (d'après le nom du garage),
    modèle connu pour la plaque, site de la dernière demande de cette plaque, prix HT. Le prestataire la voit alors dans son écran.
 
-Un même mail n'est jamais importé deux fois (l'identifiant de la demande vient du mail).
+Une demande venue d'un mail porte un identifiant fait de la plaque et du début du créneau (ex. `mail-GS487PR-20261112-1830`).
+Ainsi :
+- un même rendez-vous n'est jamais importé deux fois ;
+- le mail « Annulation de rendez-vous » passe la demande correspondante en « Annulée » (elle disparaît chez le prestataire) ;
+- un nouveau rendez-vous sur le même créneau après une annulation la remet en « Envoyée » ; sur un autre créneau, c'est une nouvelle demande.
+
+Le robot ne peut annuler ou replanifier **que** des demandes venues d'un mail : celles saisies dans l'appli restent intouchables.
+Le prestataire est retrouvé d'après les mots du nom du garage (« Du sol au toit 78&92 » → « DSAT (du sol au toit) ») ;
+si aucun ne correspond, la demande reste sans prestataire et l'équipe le choisit à la main.
 
 ## Mise en place (une seule fois)
 

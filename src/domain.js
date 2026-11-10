@@ -366,12 +366,19 @@
 
   // ---------- requests imported from City-Drop's "Prise de rendez-vous" mails ----------
   // The mail names the garage as City-Drop writes it ("Du sol au toit 78&92"): match it to a provider of the app.
+  // Names differ ("DSAT (du sol au toit)" in the app, "Du sol au toit 78&92" in the mail): match on the distinctive words.
+  const GENERIC_WORDS = new Set(["lavage", "garage", "auto", "autos", "services", "service", "du", "au", "de", "des", "la", "le", "les", "et", "sarl", "sas"]);
+  const nameWords = (name) => providerId(name).split("-").filter((w) => w.length >= 3 && !/^\d+$/.test(w) && !GENERIC_WORDS.has(w));
   function providerFromGarage(garage, providerNames) {
-    const g = providerId(garage);
-    if (!g) return "";
-    const hits = providerNames.filter((name) => { const p = providerId(name); return p && (g === p || g.startsWith(p + "-") || p.startsWith(g + "-")); });
-    return hits.sort((a, b) => providerId(b).length - providerId(a).length)[0] || "";
+    const words = new Set(nameWords(garage));
+    if (!words.size) return "";
+    const scored = providerNames.map((name) => ({ name, score: nameWords(name).filter((w) => words.has(w)).length })).filter((p) => p.score > 0)
+      .sort((a, b) => b.score - a.score);
+    if (!scored.length || (scored[1] && scored[1].score === scored[0].score)) return "";
+    return scored[0].name;
   }
+  const MAIL_MARKERS = ["source", "mailId", "garageMail", "modeleMail", "km"];
+  const mailMarkers = (d) => Object.fromEntries(MAIL_MARKERS.filter((k) => d[k] !== undefined).map((k) => [k, d[k]]));
   // What the team app adds to a mail request: the provider (so the provider sees it), the fleet model known for the
   // plate, the site of the plate's last request, and the price. Returns null when there is nothing (more) to add.
   function mailCompletion(d, { demandes, vehicleOf, providerNames, pricesOf }) {
@@ -566,7 +573,7 @@
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
-    providerFromGarage, mailCompletion,
+    providerFromGarage, mailCompletion, mailMarkers,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
   };
 });

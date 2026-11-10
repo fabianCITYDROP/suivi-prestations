@@ -157,3 +157,14 @@ test("le robot des mails ne lit rien et ne peut rien changer d'autre", async () 
   await assertFails(setDoc(doc(db, "demandes/m4"), { ...mail, source: "app" }));
   await assertFails(setDoc(doc(db, "demandes/m5"), { ...mail, retour: { etat: "fait" } }));
 });
+
+test("le robot annule ou replanifie seulement une demande venue d'un mail", async () => {
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "demandes/mail-1"), { ...mail, prestataire: "Khalid", prestataireId: KHALID, prixHT: 37 }));
+  const db = as("robot");
+  await assertFails(updateDoc(doc(db, "demandes/mail-1"), { statut: "envoyee", plaque: "AA-000-AA" }), "pas de replanification d'une demande non annulée");
+  await assertFails(updateDoc(doc(db, "demandes/mail-1"), { statut: "annulee", prixHT: 0 }), "l'annulation ne touche que le statut");
+  await assertSucceeds(updateDoc(doc(db, "demandes/mail-1"), { statut: "annulee", annuleeAt: "2026-11-10", updatedAt: "2026-11-10" }));
+  await assertFails(updateDoc(doc(db, "demandes/mail-1"), { statut: "envoyee", plaque: "AA-000-AA" }), "même plaque obligatoire");
+  await assertSucceeds(updateDoc(doc(db, "demandes/mail-1"), { statut: "envoyee", fin: "21:00", updatedAt: "2026-11-11" }));
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { statut: "annulee" }), "une demande saisie dans l'appli reste intouchable");
+});
