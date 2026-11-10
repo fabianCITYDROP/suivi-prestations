@@ -36,7 +36,7 @@
     function jobHead(d) {
       return `<div class="job-head">${plateTag(d.plaque)}
         ${modelHtml(d)}
-        <span class="job-kind">${esc(D.serviceOf(d.service).label)}</span></div>`;
+        <span class="job-kind">${esc(D.jobLabel(d))}</span></div>`;
     }
     function jobMeta(d, { withDate = true, withSite = true } = {}) {
       const late = D.isLate(d, today());
@@ -93,7 +93,7 @@
     }
     function doneRow(d) {
       const day = (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
-      return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.serviceOf(d.service).label)}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
+      return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
         ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}</li>`;
     }
     // Today's vehicles grouped by site: the provider goes site by site.

@@ -521,6 +521,11 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 .power-btn.armed { width: auto; padding: 0 14px 0 11px; color: #fff; background: var(--danger); border-color: var(--danger); }
 .power-btn.armed span { display: inline; }
 @media (max-width: 480px) { header.top .wrap:has(.power-btn.armed) .brand-word { display: none; } }
+.task-row { display: grid; gap: 10px; }
+.task-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { font: 600 13px var(--f-body); color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; min-height: 36px; cursor: pointer; transition: transform 140ms ease-out, background-color 140ms ease; }
+.chip-btn:hover { background: var(--surface); color: var(--ink); }
+.chip-btn:active { transform: scale(0.97); }
 </style>
 </head>
 <body>
@@ -628,9 +633,10 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
               <label class="field" id="provRow"><span>Prestataire</span><select id="f-prest"></select></label>
               <div class="field"><span id="svcLabel">Type</span><div class="seg" id="svcSeg" role="radiogroup" aria-labelledby="svcLabel"></div></div>
             </div>
-            <div class="grid g2" id="taskRow" hidden>
-              <label class="field"><span>Que faut-il faire ? *</span><input id="f-tache" list="dl-taches" placeholder="Ex. vérification, ampoule, AdBlue…"></label>
-              <datalist id="dl-taches"></datalist>
+            <div class="field" id="washRow" hidden><span id="washLabel">Lavage</span><div class="seg" id="washSeg" role="radiogroup" aria-labelledby="washLabel"></div></div>
+            <div class="task-row" id="taskRow" hidden>
+              <div class="task-chips" id="taskChips" role="group" aria-label="Tâches fréquentes"></div>
+              <label class="field"><span>Que faut-il faire ? *</span><input id="f-tache" placeholder="Touche une tâche ou écris-la, puis précise si besoin"></label>
             </div>
           </fieldset>
 
@@ -938,7 +944,9 @@ window.SUIVI_FIREBASE_CONFIG = {
     // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
     { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: true },
   ];
-  const TASK_SUGGESTIONS = ["Vérification du véhicule", "Changer une ampoule", "Niveau d'huile", "AdBlue", "Pression des pneus"];
+  // Small jobs the team asks washers for (Fabian, 2026-11-10); the text can be completed by hand.
+  const TASK_SUGGESTIONS = ["Monter la roue de secours", "Vérifier les pneus", "AdBlue + éteindre le voyant", "Déplacer le véhicule",
+    "Vérifier les ampoules", "Niveau d'huile", "Vérification du véhicule"];
   const isIntervention = (d) => d.service === "intervention";
   // Services offered by a provider: windshield and washing for all, interventions when enabled in Réglages.
   const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.interventions).map((s) => s.id);
@@ -1042,13 +1050,19 @@ window.SUIVI_FIREBASE_CONFIG = {
 
   // ---------- labels ----------
   const serviceOf = (id) => SERVICES.find((s) => s.id === id) || SERVICES[0];
+  // A wash is complete (outside and inside) unless the request says inside only; each has its own price.
+  const WASH_KINDS = [{ id: "complet", label: "Lavage complet" }, { id: "interieur", label: "Lavage intérieur" }];
+  const washKindOf = (d) => WASH_KINDS.find((k) => k.id === d.formule) || WASH_KINDS[0];
+  const isWash = (d) => d.service === "lavage";
+  const jobLabel = (d) => (isWash(d) ? washKindOf(d).label : serviceOf(d.service).label);
+  const jobTitle = (d) => (isWash(d) ? washKindOf(d).label.toLowerCase() : serviceOf(d.service).title);
   const statusOf = (id) => STATUSES.find((s) => s.id === id) || STATUSES[0];
   const isWindshield = (d) => (d.service || "pare-brise") === "pare-brise";
   const isActive = (d) => d.statut !== "annulee";
   const isOpen = (d) => !CLOSED_STATUSES.includes(d.statut);
   const siteOf = (d) => d.site || NO_SITE;
   const vehicleLabel = (v) => fleetLabel(v);
-  const serviceSuffix = (d) => (isWindshield(d) ? "" : ` (${serviceOf(d.service).label.toLowerCase()})`);
+  const serviceSuffix = (d) => (isWindshield(d) ? "" : ` (${jobLabel(d).toLowerCase()})`);
   const byStartTime = (a, b) => (a.debut || "99").localeCompare(b.debut || "99");
   const byDateThenTime = (a, b) => (a.date || "").localeCompare(b.date || "") || byStartTime(a, b);
 
@@ -1102,7 +1116,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     const sameSlot = all.every((v) => timeSlotLabel(v) === timeSlotLabel(d));
     const lines = group
       ? [
-          `*Demande ${serviceOf(d.service).title} – ${count} véhicules*`,
+          `*Demande ${jobTitle(d)} – ${count} véhicules*`,
           `Disponibles ${availabilityLabel(d)}${sameSlot ? `, ${timeSlotLabel(d)}` : ""}`,
           `Site : ${d.site || "…"}${d.adresse ? ` – ${d.adresse}` : ""}`,
           ...(d.tache ? [`À faire : *${d.tache}*`] : []),
@@ -1110,7 +1124,7 @@ window.SUIVI_FIREBASE_CONFIG = {
           ...all.map((v) => `• *${v.plaque || "…"}* – ${vehicleLabel(v) || "modèle à préciser"}${sameSlot ? "" : ` – ${timeSlotLabel(v)}`}`),
         ]
       : [
-          `*Demande ${serviceOf(d.service).title}*`,
+          `*Demande ${jobTitle(d)}*`,
           `Immatriculation : *${d.plaque || "…"}*`,
           `Véhicule : ${vehicleLabel(d) || "…"}`,
           `Disponible ${availabilityLabel(d)}, ${timeSlotLabel(d)}`,
@@ -1278,7 +1292,7 @@ window.SUIVI_FIREBASE_CONFIG = {
   }
   const EXPORT_HEADER = ["Dispo du", "Dispo au", "Immatriculation", "Modèle", "Cubage (m³)", "Prestation", "Site", "Adresse", "Prestataire", "Statut", "Envoyée le", "Réalisée le"];
   function exportRow(d) {
-    return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", serviceOf(d.service).label,
+    return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", jobLabel(d),
       d.site, d.adresse, d.prestataire, statusOf(d.statut).label,
       d.sentAt ? numericDate(d.sentAt.slice(0, 10)) : "", d.doneAt ? numericDate(d.doneAt.slice(0, 10)) : ""];
   }
@@ -1350,6 +1364,7 @@ window.SUIVI_FIREBASE_CONFIG = {
   // A price line applies to one service, optionally to a cubage range (bounds included).
   const priceMatches = (line, d) => {
     if ((line.service || "pare-brise") !== (d.service || "pare-brise")) return false;
+    if (isWash(line) && washKindOf(line).id !== washKindOf(d).id) return false;
     const cubage = d.cubage == null || d.cubage === "" ? null : +d.cubage;
     if (line.cubageMin == null && line.cubageMax == null) return true;
     if (cubage == null) return false;
@@ -1367,15 +1382,15 @@ window.SUIVI_FIREBASE_CONFIG = {
   function priceLineLabel(line) {
     const { cubageMin: min, cubageMax: max } = line;
     const range = min != null && max != null ? `${min} à ${max} m³` : min != null ? `${min} m³ et plus` : max != null ? `jusqu'à ${max} m³` : "toutes tailles";
-    return `${serviceOf(line.service).label} · ${range}`;
+    return `${jobLabel(line)} · ${range}`;
   }
 
   // Fields stored on each request so access rules and invoices never depend on a later price change:
-  // the provider id, and the price frozen when the request is first saved (kept while provider, service and cubage stay the same).
+  // the provider id, and the price frozen when the request is first saved (kept while provider, service, wash kind and cubage stay the same).
   function providerFields(fields, previous, pricesOf) {
     const prestataireId = providerId(fields.prestataire);
     const same = previous && previous.prestataireId === prestataireId && (previous.service || "pare-brise") === (fields.service || "pare-brise")
-      && String(previous.cubage ?? "") === String(fields.cubage ?? "");
+      && String(previous.cubage ?? "") === String(fields.cubage ?? "") && washKindOf(previous).id === washKindOf(fields).id;
     const prixHT = same && previous.prixHT != null ? previous.prixHT : priceFor(pricesOf(prestataireId), fields);
     return { prestataireId, prixHT };
   }
@@ -1495,7 +1510,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
     plateKey, normalizePlate, platesInText,
     fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress, parseSiteList, mergeSites,
-    serviceOf, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
+    serviceOf, WASH_KINDS, washKindOf, jobLabel, jobTitle, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
@@ -1730,7 +1745,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     function jobHead(d) {
       return `<div class="job-head">${plateTag(d.plaque)}
         ${modelHtml(d)}
-        <span class="job-kind">${esc(D.serviceOf(d.service).label)}</span></div>`;
+        <span class="job-kind">${esc(D.jobLabel(d))}</span></div>`;
     }
     function jobMeta(d, { withDate = true, withSite = true } = {}) {
       const late = D.isLate(d, today());
@@ -1787,7 +1802,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     function doneRow(d) {
       const day = (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
-      return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.serviceOf(d.service).label)}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
+      return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
         ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}</li>`;
     }
     // Today's vehicles grouped by site: the provider goes site by site.
@@ -2270,8 +2285,18 @@ function page(texte) {
   }
   $("#h-statut").innerHTML = `<option value="">Tous les statuts</option><option value="ouvert">En cours (hors réalisées / annulées)</option>` + D.STATUSES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
   $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
-  $("#dl-taches").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<option value="${esc(t)}">`).join("");
+  $("#taskChips").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<button type="button" class="chip-btn" data-task="${esc(t)}">${esc(t)}</button>`).join("");
+  // A tapped task is added to the text, which stays editable so the request can be made more precise.
+  $("#taskChips").addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-task]");
+    if (!chip) return;
+    const input = field("tache");
+    const tasks = input.value.split(",").map((t) => t.trim()).filter(Boolean);
+    if (!tasks.includes(chip.dataset.task)) input.value = [...tasks, chip.dataset.task].join(", ");
+    input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+  });
   $("#svcSeg").innerHTML = D.SERVICES.map((s, i) => `<label><input type="radio" name="svc" id="svc-${s.id}" value="${s.id}" ${i === 0 ? "checked" : ""}><span>${s.label}</span></label>`).join("");
+  $("#washSeg").innerHTML = D.WASH_KINDS.map((k, i) => `<label><input type="radio" name="wash" id="wash-${k.id}" value="${k.id}" ${i === 0 ? "checked" : ""}><span>${k.label.replace("Lavage ", "")}</span></label>`).join("");
 
   // ================= planning =================
   function renderPlanning() {
@@ -2312,7 +2337,7 @@ function page(texte) {
     const sub = [d.adresse !== D.siteAddress(state.sites, d.site) ? d.adresse : "", D.isMultiDay(d) ? `dispo ${D.availabilityLabel(d)}` : "", d.notes].filter(Boolean).join(" · ");
     return `<button class="veh-row ${D.isActive(d) ? "" : "cancel"}" data-open="${esc(d.id)}">
       ${plateTag(d.plaque)}
-      <span class="what"><span class="model">${esc(D.vehicleLabel(d) || "Modèle non précisé")}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span>
+      <span class="what"><span class="model">${esc(D.vehicleLabel(d) || "Modèle non précisé")}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span>
       <span class="right"><span class="time">${esc(D.timeSlotLabel(d))}</span>${statusChip(d.statut)}${thumb ? `<img class="thumb" src="${safeImageSrc(thumb)}" alt="">` : ""}</span>
     </button>`;
   }
@@ -2347,7 +2372,9 @@ function page(texte) {
     D.SERVICES.forEach((s) => ($("#svc-" + s.id).closest("label").hidden = !allowed.includes(s.id)));
     if (!allowed.includes(chosenService())) $("#svc-pare-brise").checked = true;
     $("#taskRow").hidden = chosenService() !== "intervention";
+    $("#washRow").hidden = chosenService() !== "lavage";
   }
+  const chosenWashKind = () => document.querySelector('input[name="wash"]:checked')?.value || "complet";
   function selectedFleetModel() {
     const index = field("modele").value;
     return index === "" ? { modele: "", cubage: null } : state.fleet[+index];
@@ -2368,6 +2395,7 @@ function page(texte) {
       prestataire: field("prest").value || defaultProvider(),
       notes: field("notes").value.trim(),
       tache: chosenService() === "intervention" ? field("tache").value.trim() : "",
+      ...(chosenService() === "lavage" ? { formule: chosenWashKind() } : {}),
     };
   }
   // ----- model picker: brand + model first, then cubage (year shown only when the cubage is ambiguous) -----
@@ -2445,6 +2473,7 @@ function page(texte) {
   function setAvailability(start, end) { field("date").value = start; field("dateFin").value = end || start; }
   function fillForm(d) {
     (document.getElementById("svc-" + d.service) || document.getElementById("svc-pare-brise")).checked = true;
+    $("#wash-" + D.washKindOf(d).id).checked = true;
     ["plaque", "adresse", "debut", "fin", "notes", "tache"].forEach((k) => (field(k).value = d[k] || ""));
     setAvailability(d.date, d.dateFin);
     if (d.prestataire && !state.providers.includes(d.prestataire)) state.providers.push(d.prestataire);
@@ -2556,7 +2585,7 @@ function page(texte) {
     const ownIds = [state.editingId, ...extras.map((x) => x.id)].filter(Boolean);
     for (const vehicle of [main, ...extras.map((x) => groupMember(main, x))]) {
       const same = D.existingDuplicate(vehicle, state.demandes, ownIds);
-      if (same) return `${D.normalizePlate(vehicle.plaque)} a déjà une demande ${D.serviceOf(same.service).label.toLowerCase()} le ${D.shortDate(same.date)} (${D.statusOf(same.statut || "a_envoyer").label.toLowerCase()}) : ouvre-la plutôt que d'en créer une deuxième`;
+      if (same) return `${D.normalizePlate(vehicle.plaque)} a déjà une demande ${D.jobLabel(same).toLowerCase()} le ${D.shortDate(same.date)} (${D.statusOf(same.statut || "a_envoyer").label.toLowerCase()}) : ouvre-la plutôt que d'en créer une deuxième`;
     }
     return "";
   }
@@ -2784,7 +2813,7 @@ function page(texte) {
     const slot = esc(D.timeSlotLabel(d));
     // data-slot / data-provider let the phone layout show a compact card without a second markup.
     return `<tr class="click" data-open="${esc(d.id)}"><td class="date" data-slot="· ${slot}">${esc(span)}</td><td class="date">${slot}</td><td>${plateTag(d.plaque)}</td>
-      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
+      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
       <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
   }
   ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site"].forEach((s) => $(s).addEventListener("input", renderHistory));
@@ -2811,13 +2840,16 @@ function page(texte) {
   const pricesProvider = () => $("#t-prov").value || defaultProvider();
   function renderPrices() {
     setSelectOptions($("#t-prov"), options(state.providers));
-    setSelectOptions($("#t-svc"), D.SERVICES.map((x) => `<option value="${x.id}">${esc(x.label)}</option>`).join(""));
+    setSelectOptions($("#t-svc"), priceKinds().map(([value, line]) => `<option value="${value}">${esc(D.jobLabel(line))}</option>`).join(""));
     const lines = pricesOf(D.providerId(pricesProvider()));
     $("#t-list").innerHTML = lines.length
       ? lines.map((line, i) => `<div class="item price"><span>${esc(D.priceLineLabel(line))}</span>
           <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
       : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;
   }
+  // One choice per price kind: windshield, complete wash, inside wash, intervention.
+  const priceKinds = () => D.SERVICES.flatMap((x) => (x.id === "lavage" ? D.WASH_KINDS.map((k) => ({ service: x.id, formule: k.id })) : [{ service: x.id }]))
+    .map((line) => [[line.service, line.formule].filter(Boolean).join(":"), line]);
   async function savePrices(providerName, tarifs, message) {
     if (!requireStore()) return;
     try { await state.store.saveProvider(D.providerId(providerName), { nom: providerName, tarifs }); toast(message); }
@@ -2828,7 +2860,8 @@ function page(texte) {
     const prix = parseFloat($("#t-prix").value.replace(",", "."));
     if (!Number.isFinite(prix) || prix < 0) return toast("Indique le prix hors taxe, par exemple 266,67");
     const bound = (sel) => ($(sel).value === "" ? null : +$(sel).value);
-    const line = { service: $("#t-svc").value, cubageMin: bound("#t-min"), cubageMax: bound("#t-max"), prixHT: Math.round(prix * 100) / 100 };
+    const kind = priceKinds().find(([value]) => value === $("#t-svc").value)[1];
+    const line = { ...kind, cubageMin: bound("#t-min"), cubageMax: bound("#t-max"), prixHT: Math.round(prix * 100) / 100 };
     if (line.cubageMin != null && line.cubageMax != null && line.cubageMin > line.cubageMax) return toast("Le cubage « de » doit être plus petit que « à »");
     const name = pricesProvider();
     savePrices(name, [...pricesOf(D.providerId(name)), line], "Tarif ajouté");
@@ -2972,7 +3005,7 @@ function page(texte) {
   function answerRow(d, { seen = false } = {}) {
     const r = d.retour;
     return `<div class="answer-row${seen ? " seen" : ""}">${plateTag(d.plaque)}
-      <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(r))}<br><span class="muted">${esc([D.serviceOf(d.service).label, d.tache, D.vehicleLabel(d), D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(D.numericDate(r.at.slice(0, 10)))} ${esc(r.at.slice(11, 16))}</span></span>
+      <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(r))}<br><span class="muted">${esc([D.jobLabel(d), d.tache, D.vehicleLabel(d), D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(D.numericDate(r.at.slice(0, 10)))} ${esc(r.at.slice(11, 16))}</span></span>
       <span class="row">${r.preuve ? `<button type="button" data-proof="${esc(r.preuve)}">${icon("image")}Photo</button>` : ""}
       ${!seen && r.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
       ${!seen && state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}

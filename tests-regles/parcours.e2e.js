@@ -44,6 +44,9 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   ok('prepare button shown', await p.isVisible('#a-prepare-btn'));
   await p.fill('#t-min', '12'); await p.fill('#t-max', '20'); await p.fill('#t-prix', '300'); await p.click('#t-add'); await p.waitForTimeout(600);
   ok('price line listed', (await p.textContent('#t-list')).includes('12 à 20 m³'));
+  await p.selectOption('#t-svc', 'lavage:interieur'); await p.fill('#t-prix', '25'); await p.click('#t-add'); await p.waitForTimeout(600);
+  const allo = (await list('prestataires')).find(x => x.id === 'allo-pare-brise-78');
+  ok('inside-wash price stored with its kind', JSON.stringify(allo.tarifs).includes('interieur') && (await p.textContent('#t-list')).includes('Lavage intérieur'));
   await p.click('#a-prepare-btn'); await p.waitForTimeout(800);
   let rows = await list('demandes');
   ok('old request linked to provider with frozen price', rows[0].prestataireId === 'allo-pare-brise-78' && rows[0].prixHT === 300);
@@ -90,9 +93,9 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   await p.click('label:has(#svc-intervention)'); await p.waitForTimeout(100);
   ok('task field shown for an intervention', await p.isVisible('#f-tache'));
   if (process.env.SHOTS) { await p.setViewportSize({ width: 1280, height: 900 }); await (await p.$('#form')).screenshot({ path: process.env.SHOTS + '/6-intervention-equipe.png' }); }
-  await p.fill('#f-plaque', 'iv111aa'); await p.selectOption('#f-site', { index: 1 }); await p.fill('#f-tache', 'AdBlue'); await p.click('#saveBtn'); await p.waitForTimeout(900);
+  await p.fill('#f-plaque', 'iv111aa'); await p.selectOption('#f-site', { index: 1 }); await p.click('[data-task="Déplacer le véhicule"]'); await p.click('[data-task="Vérifier les pneus"]'); await p.click('[data-task="Déplacer le véhicule"]'); await p.type('#f-tache', ' avant'); await p.click('#saveBtn'); await p.waitForTimeout(900);
   rows = await list('demandes'); const job = rows.find(r => r.plaque === 'IV-111-AA');
-  ok('intervention stored with what to do', job?.service === 'intervention' && job.tache === 'AdBlue' && job.prestataireId === 'khalid');
+  ok('intervention stored with what to do', job?.service === 'intervention' && job.tache === 'Déplacer le véhicule, Vérifier les pneus avant' && job.prestataireId === 'khalid');
   ok('no page errors (admin)', p.errs.length === 0); if (p.errs.length) console.log(p.errs);
 
   // 3. Khalid answers from his own screen
@@ -103,7 +106,7 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   const k = await page(); await k.setViewportSize({ width: 390, height: 860 }); await login(k, 'khalid@lavage.fr');
   await k.waitForSelector('.job');
   const cards = await k.$$eval('.job', (els) => els.map((e) => e.textContent));
-  ok('Khalid opens on his requests to validate, nothing from Allo', cards.length === 3 && cards.some((t) => t.includes('AdBlue')) && cards.every((t) => !t.includes('AB-123-CD') && !t.includes('EF-456-GH')));
+  ok('Khalid opens on his requests to validate, nothing from Allo', cards.length === 3 && cards.some((t) => t.includes('Déplacer le véhicule')) && cards.every((t) => !t.includes('AB-123-CD') && !t.includes('EF-456-GH')));
   ok('team tabs hidden for Khalid', await k.isHidden('nav.tabs'));
   await k.click('#signOutBtn'); await k.waitForTimeout(100);
   ok('power button in the header asks before signing out', await k.isVisible('#signOutBtn span') && await k.isVisible('#view-presta'));
