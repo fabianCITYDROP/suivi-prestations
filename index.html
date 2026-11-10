@@ -945,8 +945,8 @@ window.SUIVI_FIREBASE_CONFIG = {
     { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: true },
   ];
   // Small jobs the team asks washers for (Fabian, 2026-11-10); the text can be completed by hand.
-  const TASK_SUGGESTIONS = ["Changer la roue de secours", "Vérifier les pneus", "Refaire le niveau d'AdBlue", "Déplacer le véhicule",
-    "Vérification du véhicule", "Changer une ampoule", "Niveau d'huile"];
+  const TASK_SUGGESTIONS = ["Monter la roue de secours", "Vérifier les pneus", "AdBlue + éteindre le voyant", "Déplacer le véhicule",
+    "Vérifier les ampoules", "Niveau d'huile", "Vérification du véhicule"];
   const isIntervention = (d) => d.service === "intervention";
   // Services offered by a provider: windshield and washing for all, interventions when enabled in Réglages.
   const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.interventions).map((s) => s.id);
