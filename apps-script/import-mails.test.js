@@ -38,9 +38,25 @@ test("seul un mail signé city-drop.com est accepté", () => {
 });
 
 test("la demande part au format Firestore", () => {
-  const doc = M.versFirestore({ plaque: "GS-487-PR", km: 119570, dateFin: null }, "2026-11-10T10:00:00.000Z");
+  const doc = M.versFirestore({ plaque: "GS-487-PR", km: 119570, dateFin: null, sentAt: "2026-11-10T10:00:00.000Z" });
   assert.deepEqual(doc.fields.plaque, { stringValue: "GS-487-PR" });
   assert.deepEqual(doc.fields.km, { integerValue: "119570" });
   assert.deepEqual(doc.fields.dateFin, { nullValue: null });
   assert.equal(doc.fields.sentAt.stringValue, "2026-11-10T10:00:00.000Z");
+});
+
+const ANNULATION = `<div><p>Bonjour,</p><br/><p>Nous souhaitons annuler l&#39;intervention sur notre <b>MOV - 12</b> initialement prévue entre le <b>07/10/2026 08:00</b> et le <b>07/10/2026 20:00</b>.</p><br/>
+<p>Le véhicule est immatriculé : <b>GM-961-LC</b>.</p><p>Nom du garage : Du sol au toit 78&amp;92</p><br/><p>Nous vous remercions par avance.</p></div>`;
+
+test("un mail d'annulation donne la plaque et le créneau annulés", () => {
+  assert.deepEqual(M.lireAnnulation("Annulation de rendez-vous", ANNULATION),
+    { plaque: "GM-961-LC", date: "2026-10-07", debut: "08:00", dateFin: "2026-10-07", fin: "20:00" });
+  assert.equal(M.lireAnnulation("Prise de rendez-vous GS-487-PR", CORPS), null);
+  assert.equal(M.lireMail("Annulation de rendez-vous", ANNULATION), null, "une annulation ne crée jamais de demande");
+});
+
+test("rendez-vous et annulation visent la même demande", () => {
+  const rdv = M.lireMail("Prise de rendez-vous GS-487-PR", CORPS);
+  assert.equal(M.idDemande(rdv), "mail-GS487PR-20261112-1830");
+  assert.equal(M.idDemande(M.lireAnnulation("Annulation de rendez-vous", ANNULATION.replace("GM-961-LC", "GS-487-PR").replaceAll("07/10/2026 08:00", "12/11/2026 18:30"))), M.idDemande(rdv));
 });

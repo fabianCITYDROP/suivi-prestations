@@ -33,6 +33,7 @@
       await ref.set({
         ...fields,
         ...(previous?.retour ? { retour: previous.retour } : {}), // the provider's answer survives an edit by the team
+        ...(previous?.source === "mail" ? D.mailMarkers(previous) : {}), // an imported request stays cancellable by a later mail
         ...D.statusTimestamps(previous, fields.statut, now),
         createdAt: previous?.createdAt || now,
         updatedAt: now,

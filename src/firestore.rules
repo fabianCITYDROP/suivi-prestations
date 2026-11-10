@@ -4,7 +4,8 @@ rules_version = '2';
 //   admin       : CityDrop team, sees and changes everything.
 //   lecture     : sees everything (report), changes nothing.
 //   prestataire : sees only the requests of its own provider, and can only answer them (field "retour").
-//   robot       : the mail-import script. Can only CREATE a request read from a City-Drop mail; reads nothing.
+//   robot       : the mail-import script. Can only create a request read from a City-Drop mail, cancel it, or re-plan
+//                 it after a cancellation; reads nothing, touches no other request.
 // A signed-in person without a comptes document sees nothing.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -34,6 +35,7 @@ service cloud.firestore {
       allow create: if isAdmin() || (isRobot() && validMailRequest(request.resource.data));
       allow delete: if isAdmin();
       allow update: if isAdmin()
+        || (isRobot() && resource.data.source == 'mail' && (robotCancels() || robotReplans()))
         || (ownsRequest(resource.data)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['retour', 'updatedAt'])
             && validAnswer(request.resource.data.retour));
@@ -47,6 +49,18 @@ service cloud.firestore {
         && d.plaque is string && d.plaque.size() > 0 && d.plaque.size() <= 20
         && d.garageMail is string && d.garageMail.size() <= 80
         && d.tache is string && d.tache.size() <= 500;
+    }
+    // "Annulation de rendez-vous" mail: only the status changes.
+    function robotCancels() {
+      return request.resource.data.statut == 'annulee'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'annuleeAt', 'updatedAt']);
+    }
+    // A new "Prise de rendez-vous" for the same plate and slot after a cancellation: the mail fields come back.
+    function robotReplans() {
+      return resource.data.statut == 'annulee' && request.resource.data.statut == 'envoyee'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'mailId', 'source', 'service', 'plaque', 'modeleMail', 'km',
+             'date', 'debut', 'dateFin', 'fin', 'tache', 'garageMail', 'sentAt', 'updatedAt'])
+        && request.resource.data.plaque == resource.data.plaque && request.resource.data.date == resource.data.date;
     }
     // A provider answer: what was done, when, by whom; never the team's own marks (vu, applique).
     function validAnswer(r) {

@@ -350,8 +350,15 @@ test("a mail request gets its provider, model, site and price from the app", () 
 });
 
 test("the garage named in a mail is matched to a provider of the app", () => {
-  const names = ["ALLO pare-brise 78", "Du sol au toit", "Khalid"];
-  assert.equal(D.providerFromGarage("Du sol au toit 78&92", names), "Du sol au toit");
-  assert.equal(D.providerFromGarage("allo pare-brise 78", names), "ALLO pare-brise 78");
+  const names = ["ASG BDX LAVAGE", "Khalid Lavage", "DSAT (du sol au toit)", "Lavage Rouag", "Allo Pare brise"];
+  assert.equal(D.providerFromGarage("Du sol au toit 78&92", names), "DSAT (du sol au toit)");
+  assert.equal(D.providerFromGarage("ALLO pare-brise 78", names), "Allo Pare brise");
+  assert.equal(D.providerFromGarage("Khalid", names), "Khalid Lavage");
   assert.equal(D.providerFromGarage("Garage inconnu", names), "");
+  assert.equal(D.providerFromGarage("Lavage", names), "", "a generic word alone matches nobody");
+});
+
+test("editing an imported request keeps what lets a later mail cancel it", () => {
+  assert.deepEqual(D.mailMarkers({ source: "mail", mailId: "mail-X", garageMail: "DSAT", km: 1, plaque: "X", statut: "envoyee" }),
+    { source: "mail", mailId: "mail-X", garageMail: "DSAT", km: 1 });
 });
