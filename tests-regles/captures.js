@@ -28,7 +28,7 @@ const FLEET = [
   { modele: 'Renault Master 2023', cubage: 20 }, { modele: 'Opel Movano 2023', cubage: 17 }, { modele: 'Opel Movano 2023', cubage: 12 },
   { modele: 'Opel Vivaro 2023', cubage: 5 }, { modele: 'Fiat Ducato 2024', cubage: 14 },
 ];
-const PROVIDERS = ['ALLO pare-brise 78', 'Khalid', 'Du sol au toit', 'Roag'];
+const PROVIDERS = ['ALLO pare-brise 78', 'Khalid', 'Du sol au toit', 'Roag', 'DHOLLIANDA'];
 
 async function seed() {
   await put('comptes/fabian@city-drop.com', { role: 'admin', email: 'fabian@city-drop.com' });
@@ -39,6 +39,10 @@ async function seed() {
   await put('prestataires/khalid', { nom: 'Khalid', interventions: true, tarifs: [{ service: 'lavage', cubageMin: null, cubageMax: null, prixHT: 37 }] });
   await put('prestataires/du-sol-au-toit', { nom: 'Du sol au toit', tarifs: [{ service: 'lavage', cubageMin: null, cubageMax: null, prixHT: 40 }] });
   await put('prestataires/roag', { nom: 'Roag', interventions: true, tarifs: [] });
+  await put('prestataires/dhollianda', { nom: 'DHOLLIANDA', hayon: true, tarifs: [] });
+  // Tailgate controls: last control from the provider's sheet, so every colour shows (180-day cycle).
+  const HAYONS = [['GH-482-KL', -190], ['FT-219-ZB', -178], ['GA-731-PM', -160], ['EZ-104-QS', -152], ['HB-550-TR', -60], ['GD-207-NF', -20], ['DX-842-BT', -183], ['EV-390-HU', '']];
+  for (const [plaque, n] of HAYONS) await put('hayons/' + plaque.replace(/-/g, ''), { plaque, dernierControle: n === '' ? '' : day(n) });
   const base = (o) => ({ debut: '08:30', fin: '19:30', statut: 'a_envoyer', ...o, prestataireId: o.prestataire.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') });
   const rows = [
     base({ id: 'r1', prestataire: 'ALLO pare-brise 78', service: 'pare-brise', plaque: 'GH-482-KL', modele: 'Renault Master 2023', cubage: 20, site: 'Saint-Cloud', adresse: SITES[0].adresse, date: day(0), statut: 'confirmee', prixHT: 300 }),
@@ -59,6 +63,9 @@ async function seed() {
     base({ id: 'r12', prestataire: 'Khalid', service: 'lavage', plaque: 'EV-390-HU', modele: 'Opel Vivaro 2023', cubage: 5, site: 'Saint-Cloud', adresse: SITES[0].adresse, date: day(-1), statut: 'realisee', prixHT: 37, doneAt: at(-1, '11:00'),
       retour: { etat: 'fait', at: at(-1, '11:00'), par: 'khalid@lavage.fr', applique: true, vu: true } }),
     base({ id: 'r13', prestataire: 'ALLO pare-brise 78', service: 'pare-brise', plaque: 'FB-276-CC', modele: 'Renault Master 2023', cubage: 20, site: 'La Défense', adresse: SITES[1].adresse, date: day(4), statut: 'annulee', prixHT: 300 }),
+    base({ id: 'h1', prestataire: 'DHOLLIANDA', service: 'hayon', plaque: 'FT-219-ZB', modele: 'Opel Movano 2023', cubage: 17, site: 'Saint-Cloud', adresse: SITES[0].adresse, date: day(1), debut: '09:00', fin: '12:00', statut: 'envoyee', source: 'mail' }),
+    base({ id: 'h2', prestataire: 'DHOLLIANDA', service: 'hayon', plaque: 'DX-842-BT', modele: 'Opel Movano 2023', cubage: 17, site: 'Aulnay', adresse: SITES[2].adresse, date: day(-4), statut: 'envoyee' }),
+    base({ id: 'h3', prestataire: 'DHOLLIANDA', service: 'hayon', plaque: 'DX-842-BT', modele: 'Opel Movano 2023', cubage: 17, site: 'Aulnay', adresse: SITES[2].adresse, date: day(-1), statut: 'envoyee' }),
     base({ id: 'r14', prestataire: 'Khalid', service: 'lavage', plaque: 'GE-555-RR', modele: 'Fiat Ducato 2024', cubage: 14, site: 'Coignières', adresse: SITES[3].adresse, date: day(5), prixHT: 37 }),
   ];
   for (const { id, ...r } of rows) await put('demandes/' + id, { ...r, createdAt: at(-3, '08:00'), updatedAt: at(0, '06:00') });
@@ -95,7 +102,7 @@ async function seed() {
     await p.waitForTimeout(1800);
     return p;
   }
-  const VIEWS = (process.env.VIEWS || 'planning,retours,demande,photos,verif,bilan,historique,reglages').split(',');
+  const VIEWS = (process.env.VIEWS || 'planning,retours,demande,hayon,photos,verif,bilan,historique,reglages').split(',');
   for (const [label, viewport] of [['bureau', { width: 1440, height: 900 }], ['mobile', { width: 390, height: 844 }]]) {
     const p = await open('fabian@city-drop.com', viewport);
     for (const v of VIEWS) {

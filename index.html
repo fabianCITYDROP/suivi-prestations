@@ -19,6 +19,10 @@
 #login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:100;padding:16px}
 .login-card{width:min(380px,100%);display:grid;gap:14px}
 .login-error{color:var(--danger);font-size:13px}
+.login-sent{font-size:14px;line-height:1.45;color:var(--ink);background:var(--st-done-bg);border-radius:var(--r-sm);padding:10px 12px;margin:0}
+.login-link{justify-self:center;background:none;border:0;padding:6px 8px;color:var(--ink-2);font:inherit;font-size:14px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;border-radius:var(--r-sm)}
+.login-link:hover{color:var(--ink)}
+.login-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .account{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:14px;color:var(--ink-2)}
 
 /* Layout: full-width work surface. App bar with underline tabs; each view uses a main column plus a sticky "send" column on wide screens. */
@@ -270,6 +274,13 @@ details.more[open] > summary { margin-bottom: 10px; }
 
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 11px 18px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 20; max-width: calc(100% - 32px); box-shadow: var(--shadow); }
 .banner { background: var(--st-todo-bg); color: var(--ink); border-radius: var(--r-sm); padding: 10px 14px; font-size: 14px; margin-bottom: 16px; }
+.robot-alert.alert { background: var(--danger); color: #fff; font-weight: 500; }
+.robot-alert.alert a { color: #fff; }
+.robot-alert a { font-weight: 600; white-space: nowrap; }
+.robot-state { margin: 0 0 8px; font-size: 14px; }
+.robot-state.alert { color: var(--danger); font-weight: 600; }
+.robot-state.warn { color: var(--st-todo); font-weight: 600; }
+.robot-state.ok { color: var(--st-done); }
 .intro { max-width: 75ch; margin-bottom: 16px; color: var(--ink-2); }
 
 /* Tables */
@@ -526,6 +537,45 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 .power-btn.armed { width: auto; padding: 0 14px 0 11px; color: #fff; background: var(--danger); border-color: var(--danger); }
 .power-btn.armed span { display: inline; }
 @media (max-width: 480px) { header.top .wrap:has(.power-btn.armed) .brand-word { display: none; } }
+.task-row { display: grid; gap: 10px; }
+.task-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { font: 600 13px var(--f-body); color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; min-height: 36px; cursor: pointer; transition: transform 140ms ease-out, background-color 140ms ease; }
+.chip-btn:hover { background: var(--surface); color: var(--ink); }
+.chip-btn:active { transform: scale(0.97); }
+/* ===== Tailgate controls (hayon): only three colours (Fabian, 2026-11-18): green = fine, orange = 30 days or less, red = 5 days or less or past due ===== */
+:root { --lv-urgent: #c0261c; --lv-urgent-bg: #fbe2df; --lv-soon: #b25a00; --lv-soon-bg: #fdebd3; --lv-ok: var(--st-done); --lv-ok-bg: var(--st-done-bg); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --lv-urgent: #f2867c; --lv-urgent-bg: #3d1b18; --lv-soon: #f0a54a; --lv-soon-bg: #382812; } }
+.lv-depasse, .lv-urgent { --lv: var(--lv-urgent); --lv-bg: var(--lv-urgent-bg); }
+.lv-bientot { --lv: var(--lv-soon); --lv-bg: var(--lv-soon-bg); }
+.lv-ok { --lv: var(--lv-ok); --lv-bg: var(--lv-ok-bg); }
+.lv-inconnu { --lv: var(--ink-2); --lv-bg: var(--surface-2); }
+.hayon-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-bottom: 20px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+.hy-kpi { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.hy-kpi b { font-family: var(--f-display); font-size: 38px; line-height: 1; color: var(--lv); font-variant-numeric: tabular-nums; }
+.hy-kpi span { font-size: 13px; color: var(--ink-2); }
+.hy-list { list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hy-row { display: grid; grid-template-columns: 170px auto 1fr auto; gap: 8px 16px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; box-shadow: var(--shadow); }
+.hy-days { justify-self: start; font-weight: 700; font-size: 14px; color: var(--lv); background: var(--lv-bg); padding: 4px 10px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hy-dates { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--ink-2); }
+.hy-dates b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.hy-warn { flex-basis: 100%; display: inline-flex; align-items: center; gap: 6px; color: var(--lv-urgent); font-weight: 600; }
+.hy-warn .icon { width: 16px; height: 16px; }
+.hy-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.hy-rdv { font-weight: 600; }
+.hy-nordv { font-size: 13px; padding: 0 6px; }
+.small-btn { min-height: 32px; padding: 4px 10px; font-size: 13px; }
+.small-btn.confirm { color: var(--danger); border-color: var(--danger); }
+#hy-pastebox textarea { min-height: 120px; margin: 8px 0; }
+.hint.warn, #vehHint.warn { color: var(--lv-urgent); font-weight: 600; }
+.menu-badge { display: inline-block; min-width: 20px; height: 20px; margin-left: auto; padding: 0 6px; border-radius: 999px; background: var(--lv-urgent); color: #fff; font: 700 12px/20px var(--f-body); text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .hy-kpi { padding: 12px; }
+  .hy-kpi b { font-size: 32px; }
+  .hy-row { grid-template-columns: auto 1fr; }
+  .hy-row .plate { justify-self: end; }
+  .hy-dates, .hy-actions { grid-column: 1 / -1; }
+  .hy-actions { justify-content: flex-start; }
+}
 </style>
 </head>
 <body>
@@ -553,6 +603,7 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
   <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></symbol>
   <symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 17c2.5-6 5.5-9 9-9s6.5 3 9 9"/><path d="M3 17h18"/><path d="M8 14l3-3"/></symbol>
+  <symbol id="i-hayon" viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="12" rx="1.5"/><path d="M3 20.5h18M7 15.5v5M17 15.5v5M9 9.5h6"/></symbol>
   <symbol id="i-wa" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3z"/><path d="M9 10h6M9 14h4"/></symbol>
 </svg>
 
@@ -566,6 +617,7 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
       <details class="nav-more" id="navMore">
         <summary><svg class="icon"><use href="#i-dots"/></svg><span id="navMoreLabel">Plus</span><svg class="icon chev"><use href="#i-chev-d"/></svg></summary>
         <div class="nav-menu">
+          <button type="button" data-view="hayon"><svg class="icon"><use href="#i-hayon"/></svg><span class="menu-label">Contrôles hayon</span><span class="menu-badge" id="hayonBadge" hidden></span></button>
           <button type="button" data-view="bilan"><svg class="icon"><use href="#i-chart"/></svg>Bilan du mois</button>
           <button type="button" data-view="verif"><svg class="icon"><use href="#i-check"/></svg>Vérification</button>
           <button type="button" data-view="photos"><svg class="icon"><use href="#i-image"/></svg>Photos des modèles</button>
@@ -581,6 +633,7 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 
 <main class="wrap">
   <div class="banner" id="banner" hidden></div>
+  <div class="banner robot-alert" id="robotAlert" role="alert" hidden><span id="robotAlertText"></span> <a href="#reglages">Que faire ?</a></div>
 
   <!-- PLANNING -->
   <section id="view-planning">
@@ -634,9 +687,10 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
               <label class="field" id="provRow"><span>Prestataire</span><select id="f-prest"></select></label>
               <div class="field"><span id="svcLabel">Type</span><div class="seg" id="svcSeg" role="radiogroup" aria-labelledby="svcLabel"></div></div>
             </div>
-            <div class="grid g2" id="taskRow" hidden>
-              <label class="field"><span>Que faut-il faire ? *</span><input id="f-tache" list="dl-taches" placeholder="Ex. vérification, ampoule, AdBlue…"></label>
-              <datalist id="dl-taches"></datalist>
+            <div class="field" id="washRow" hidden><span id="washLabel">Lavage</span><div class="seg" id="washSeg" role="radiogroup" aria-labelledby="washLabel"></div></div>
+            <div class="task-row" id="taskRow" hidden>
+              <div class="task-chips" id="taskChips" role="group" aria-label="Tâches fréquentes"></div>
+              <label class="field"><span>Que faut-il faire ? *</span><input id="f-tache" placeholder="Touche une tâche ou écris-la, puis précise si besoin"></label>
             </div>
           </fieldset>
 
@@ -743,6 +797,26 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
     </div>
   </section>
 
+  <!-- TAILGATE CONTROLS -->
+  <section id="view-hayon" hidden>
+    <p class="intro">Un contrôle hayon tous les 180 jours. Les rendez-vous arrivent tout seuls avec les mails. Dès que le jour d'un rendez-vous est passé, le contrôle compte comme fait et le compteur repart pour 180 jours, sauf si tu le marques « Pas fait ».</p>
+    <div class="hayon-kpis" id="hy-kpis"></div>
+    <div class="tools">
+      <input type="search" id="hy-q" placeholder="Rechercher une plaque…" aria-label="Rechercher une plaque">
+      <select id="hy-filter" aria-label="Afficher">
+        <option value="">Tous les véhicules</option>
+        <option value="atraiter">À traiter (30 jours ou moins, sans RDV)</option>
+        <option value="rdv">Avec un rendez-vous posé</option>
+      </select>
+    </div>
+    <div id="hy-list"></div>
+    <details class="more" id="hy-pastebox"><summary><svg class="icon"><use href="#i-list"/></svg>Coller la liste des véhicules à hayon</summary>
+      <p class="hint">Copie les colonnes « immatriculation » et « date du dernier contrôle » du tableau du prestataire, puis colle-les ici. Une plaque déjà connue prend la date collée.</p>
+      <textarea id="hy-paste" placeholder="AB-123-CD&#9;12/05/2026&#10;EF-456-GH&#9;03/04/2026"></textarea>
+      <div class="actions"><button type="button" class="primary" id="hy-import">Ajouter ces véhicules</button><span class="muted small" id="hy-preview"></span></div>
+    </details>
+  </section>
+
   <!-- BILAN -->
   <section id="view-bilan" hidden>
     <div class="tools">
@@ -773,7 +847,7 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
     <div class="settings">
       <div class="panel">
         <h2>Prestataires</h2>
-        <p class="hint">Le premier de la liste est choisi par défaut. Coche « Interventions » pour ceux à qui on peut demander autre chose qu'un pare-brise ou un lavage (vérification, ampoule, AdBlue…).</p>
+        <p class="hint">Le premier de la liste est choisi par défaut. Coche « Interventions » pour ceux à qui on peut demander autre chose qu'un pare-brise ou un lavage (vérification, ampoule, AdBlue…), et « Contrôle hayon » pour celui qui contrôle les hayons.</p>
         <div class="list-edit" id="s-provs"></div>
         <div class="row"><input id="s-newprov" placeholder="Nom du prestataire" style="flex:1 1 200px"><button type="button" id="s-addprov"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
       </div>
@@ -799,6 +873,12 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
         <p class="hint">Les prestataires sont prévenus d'une nouvelle demande, et l'équipe d'un retour, même appli fermée. Le script Google qui les envoie s'installe une fois (mode d'emploi : <a href="https://github.com/fabianCITYDROP/suivi-prestations/blob/main/apps-script/LISEZMOI.md#alertes-appli-fermée" target="_blank" rel="noopener">LISEZMOI</a>), puis on colle ici son adresse.</p>
         <div class="row"><input id="al-url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Adresse du script des alertes" style="flex:1 1 260px"><button type="button" class="primary" id="al-save">Enregistrer</button></div>
         <p class="hint" id="al-status" role="status"></p>
+      </div>
+      <div class="panel">
+        <h2>Robot des mails</h2>
+        <p class="robot-state" id="s-robot"></p>
+        <p class="hint">Le robot ajoute tout seul les demandes reçues par mail. S'il s'arrête (mot de passe changé, blocage Google), un bandeau rouge s'affiche en haut de l'appli et le robot envoie un mail d'alerte quand il le peut.
+          Pour le remettre en route : ouvrir le script Apps Script de la boîte du robot › Exécutions pour voir l'erreur, corriger (souvent ROBOT_MOT_DE_PASSE dans les Propriétés du script), puis relancer <b>installer</b>.</p>
       </div>
       <div class="panel">
         <h2>Sites et adresses</h2>
@@ -880,7 +960,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (document.getElementById("login")) return;
     const box = document.createElement("div");
     box.id = "login";
-    box.innerHTML = `<form class="panel login-card">
+    box.innerHTML = `<form class="panel login-card" data-view="login">
         <img src="assets/logo-full.svg" alt="" width="64" height="64" style="display:block;border-radius:14px">
         <h2>City-Drop × Presta</h2>
         <p class="hint">Connecte-toi avec ton adresse et ton mot de passe. C'est demandé une seule fois sur cet ordinateur.</p>
@@ -888,16 +968,74 @@ window.SUIVI_FIREBASE_CONFIG = {
         <label class="field"><span>Mot de passe</span><input type="password" name="password" autocomplete="current-password" required></label>
         <p class="login-error" hidden>Adresse ou mot de passe incorrect.</p>
         <button class="primary big" type="submit">Ouvrir</button>
+        <button class="login-link" type="button" data-go="reset">Mot de passe oublié ?</button>
+      </form>
+      <form class="panel login-card" data-view="reset" hidden>
+        <img src="assets/logo-full.svg" alt="" width="64" height="64" style="display:block;border-radius:14px">
+        <h2>Mot de passe oublié</h2>
+        <p class="hint">Indique ton adresse e-mail. Tu vas recevoir un lien pour choisir un nouveau mot de passe.</p>
+        <label class="field"><span>Adresse e-mail</span><input type="email" name="email" autocomplete="username" required></label>
+        <p class="login-sent" role="status" hidden>Si cette adresse a un compte, un e-mail vient de partir. Ouvre-le et clique sur le lien (pense à regarder dans les spams). Le lien est valable 1 heure.</p>
+        <p class="login-error" hidden></p>
+        <button class="primary big" type="submit">Recevoir le lien</button>
+        <button class="login-link" type="button" data-go="login">Retour à la connexion</button>
       </form>`;
     document.body.append(box);
-    box.querySelector("input").focus();
-    box.querySelector("form").addEventListener("submit", async (e) => {
+    const login = box.querySelector('[data-view="login"]');
+    const reset = box.querySelector('[data-view="reset"]');
+    const show = (view) => {
+      login.hidden = view !== "login"; reset.hidden = view !== "reset";
+      const form = view === "login" ? login : reset;
+      const other = view === "login" ? reset : login;
+      if (!form.email.value) form.email.value = other.email.value; // keep what was typed
+      form.querySelectorAll(".login-error, .login-sent").forEach((p) => { p.hidden = true; });
+      form.email.focus();
+    };
+    box.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => show(b.dataset.go)));
+    login.email.focus();
+    login.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const form = e.target;
       try {
-        await auth.signInWithEmailAndPassword(form.email.value.trim(), form.password.value);
+        await auth.signInWithEmailAndPassword(login.email.value.trim(), login.password.value);
         box.remove();
-      } catch { box.querySelector(".login-error").hidden = false; }
+      } catch { login.querySelector(".login-error").hidden = false; }
+    });
+    // Same answer whether the address has an account or not: nobody can use this screen to find out who has access.
+    // The button stays off for 60 s after each send, so it cannot be used to flood someone's inbox.
+    reset.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const button = reset.querySelector('button[type="submit"]');
+      const error = reset.querySelector(".login-error");
+      const sent = reset.querySelector(".login-sent");
+      const email = reset.email.value.trim();
+      button.disabled = true; error.hidden = true; sent.hidden = true;
+      auth.languageCode = "fr";
+      const back = { url: location.origin + location.pathname };
+      let failure = null;
+      try {
+        await auth.sendPasswordResetEmail(email, back).catch((err) => {
+          // A site address missing from Firebase's allowed list: send the e-mail without the « back to the app » link.
+          if (err && /continue-uri|unauthorized-domain/.test(err.code || "")) return auth.sendPasswordResetEmail(email);
+          throw err;
+        });
+      } catch (err) { failure = err && err.code; }
+      if (failure === "auth/network-request-failed") {
+        error.textContent = "Pas de connexion internet. Réessaie dans un instant.";
+        error.hidden = false; button.disabled = false; return;
+      }
+      if (failure === "auth/too-many-requests") {
+        error.textContent = "Trop de demandes d'un coup. Réessaie dans quelques minutes.";
+        error.hidden = false;
+      } else {
+        sent.hidden = false; // also for « no such account » or « invalid address »: never say which
+      }
+      let wait = 60;
+      const tick = () => {
+        if (wait <= 0) { button.disabled = false; button.textContent = "Renvoyer le lien"; return; }
+        button.textContent = `Renvoyer le lien (${wait--} s)`;
+        setTimeout(tick, 1000);
+      };
+      tick();
     });
   }
 
@@ -948,12 +1086,16 @@ window.SUIVI_FIREBASE_CONFIG = {
     { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise" },
     { id: "lavage", label: "Lavage", title: "lavage véhicule" },
     // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
-    { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: true },
+    { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: "interventions" },
+    // Tailgate inspection (every 180 days), only for the providers who do them (Dhollianda).
+    { id: "hayon", label: "Contrôle hayon", title: "contrôle hayon", onRequest: "hayon" },
   ];
-  const TASK_SUGGESTIONS = ["Vérification du véhicule", "Changer une ampoule", "Niveau d'huile", "AdBlue", "Pression des pneus"];
+  // Small jobs the team asks washers for (Fabian, 2026-11-10); the text can be completed by hand.
+  const TASK_SUGGESTIONS = ["Monter la roue de secours", "Vérifier les pneus", "AdBlue + éteindre le voyant", "Déplacer le véhicule",
+    "Vérifier les ampoules", "Niveau d'huile", "Vérification du véhicule"];
   const isIntervention = (d) => d.service === "intervention";
-  // Services offered by a provider: windshield and washing for all, interventions when enabled in Réglages.
-  const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.interventions).map((s) => s.id);
+  // Services offered by a provider: windshield and washing for all, interventions and tailgate controls when enabled in Réglages.
+  const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.[s.onRequest]).map((s) => s.id);
   const STATUSES = [
     { id: "a_envoyer", label: "À envoyer" },
     { id: "envoyee", label: "Envoyée" },
@@ -1054,13 +1196,19 @@ window.SUIVI_FIREBASE_CONFIG = {
 
   // ---------- labels ----------
   const serviceOf = (id) => SERVICES.find((s) => s.id === id) || SERVICES[0];
+  // A wash is complete (outside and inside) unless the request says inside only; each has its own price.
+  const WASH_KINDS = [{ id: "complet", label: "Lavage complet" }, { id: "interieur", label: "Lavage intérieur" }];
+  const washKindOf = (d) => WASH_KINDS.find((k) => k.id === d.formule) || WASH_KINDS[0];
+  const isWash = (d) => d.service === "lavage";
+  const jobLabel = (d) => (isWash(d) ? washKindOf(d).label : serviceOf(d.service).label);
+  const jobTitle = (d) => (isWash(d) ? washKindOf(d).label.toLowerCase() : serviceOf(d.service).title);
   const statusOf = (id) => STATUSES.find((s) => s.id === id) || STATUSES[0];
   const isWindshield = (d) => (d.service || "pare-brise") === "pare-brise";
   const isActive = (d) => d.statut !== "annulee";
   const isOpen = (d) => !CLOSED_STATUSES.includes(d.statut);
   const siteOf = (d) => d.site || NO_SITE;
   const vehicleLabel = (v) => fleetLabel(v);
-  const serviceSuffix = (d) => (isWindshield(d) ? "" : ` (${serviceOf(d.service).label.toLowerCase()})`);
+  const serviceSuffix = (d) => (isWindshield(d) ? "" : ` (${jobLabel(d).toLowerCase()})`);
   const byStartTime = (a, b) => (a.debut || "99").localeCompare(b.debut || "99");
   const byDateThenTime = (a, b) => (a.date || "").localeCompare(b.date || "") || byStartTime(a, b);
 
@@ -1114,7 +1262,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     const sameSlot = all.every((v) => timeSlotLabel(v) === timeSlotLabel(d));
     const lines = group
       ? [
-          `*Demande ${serviceOf(d.service).title} – ${count} véhicules*`,
+          `*Demande ${jobTitle(d)} – ${count} véhicules*`,
           `Disponibles ${availabilityLabel(d)}${sameSlot ? `, ${timeSlotLabel(d)}` : ""}`,
           `Site : ${d.site || "…"}${d.adresse ? ` – ${d.adresse}` : ""}`,
           ...(d.tache ? [`À faire : *${d.tache}*`] : []),
@@ -1122,7 +1270,7 @@ window.SUIVI_FIREBASE_CONFIG = {
           ...all.map((v) => `• *${v.plaque || "…"}* – ${vehicleLabel(v) || "modèle à préciser"}${sameSlot ? "" : ` – ${timeSlotLabel(v)}`}`),
         ]
       : [
-          `*Demande ${serviceOf(d.service).title}*`,
+          `*Demande ${jobTitle(d)}*`,
           `Immatriculation : *${d.plaque || "…"}*`,
           `Véhicule : ${vehicleLabel(d) || "…"}`,
           `Disponible ${availabilityLabel(d)}, ${timeSlotLabel(d)}`,
@@ -1290,7 +1438,7 @@ window.SUIVI_FIREBASE_CONFIG = {
   }
   const EXPORT_HEADER = ["Dispo du", "Dispo au", "Immatriculation", "Modèle", "Cubage (m³)", "Prestation", "Site", "Adresse", "Prestataire", "Statut", "Envoyée le", "Réalisée le"];
   function exportRow(d) {
-    return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", serviceOf(d.service).label,
+    return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", jobLabel(d),
       d.site, d.adresse, d.prestataire, statusOf(d.statut).label,
       d.sentAt ? numericDate(d.sentAt.slice(0, 10)) : "", d.doneAt ? numericDate(d.doneAt.slice(0, 10)) : ""];
   }
@@ -1362,6 +1510,7 @@ window.SUIVI_FIREBASE_CONFIG = {
   // A price line applies to one service, optionally to a cubage range (bounds included).
   const priceMatches = (line, d) => {
     if ((line.service || "pare-brise") !== (d.service || "pare-brise")) return false;
+    if (isWash(line) && washKindOf(line).id !== washKindOf(d).id) return false;
     const cubage = d.cubage == null || d.cubage === "" ? null : +d.cubage;
     if (line.cubageMin == null && line.cubageMax == null) return true;
     if (cubage == null) return false;
@@ -1379,15 +1528,15 @@ window.SUIVI_FIREBASE_CONFIG = {
   function priceLineLabel(line) {
     const { cubageMin: min, cubageMax: max } = line;
     const range = min != null && max != null ? `${min} à ${max} m³` : min != null ? `${min} m³ et plus` : max != null ? `jusqu'à ${max} m³` : "toutes tailles";
-    return `${serviceOf(line.service).label} · ${range}`;
+    return `${jobLabel(line)} · ${range}`;
   }
 
   // Fields stored on each request so access rules and invoices never depend on a later price change:
-  // the provider id, and the price frozen when the request is first saved (kept while provider, service and cubage stay the same).
+  // the provider id, and the price frozen when the request is first saved (kept while provider, service, wash kind and cubage stay the same).
   function providerFields(fields, previous, pricesOf) {
     const prestataireId = providerId(fields.prestataire);
     const same = previous && previous.prestataireId === prestataireId && (previous.service || "pare-brise") === (fields.service || "pare-brise")
-      && String(previous.cubage ?? "") === String(fields.cubage ?? "");
+      && String(previous.cubage ?? "") === String(fields.cubage ?? "") && washKindOf(previous).id === washKindOf(fields).id;
     const prixHT = same && previous.prixHT != null ? previous.prixHT : priceFor(pricesOf(prestataireId), fields);
     return { prestataireId, prixHT };
   }
@@ -1510,6 +1659,121 @@ window.SUIVI_FIREBASE_CONFIG = {
     return { sites, added, updated };
   }
 
+  // ---------- tailgate (hayon) controls: one every 180 days per vehicle ----------
+  // The provider sends no report we can rely on, so a booked control counts as done once its day has passed,
+  // unless the team cancelled it or marked it "pas fait". The starting point of each vehicle is the date of its
+  // last control taken from the provider's sheet: hayons/<PLATEKEY> {plaque, dernierControle}.
+  const HAYON_CYCLE_DAYS = 180;
+  const HAYON_TOO_SOON_DAYS = 7;
+  // Levels (2026-11-18). On screen only three colours: red = past due or 5 days or less, orange = 30 days or less, green = fine.
+  const HAYON_LEVELS = [
+    { id: "depasse", label: "Dépassé", upTo: -1 },
+    { id: "urgent", label: "5 jours ou moins", upTo: 5 },
+    { id: "bientot", label: "30 jours ou moins", upTo: 30 },
+    { id: "ok", label: "À jour", upTo: Infinity },
+  ];
+  const isHayon = (d) => d.service === "hayon";
+  const daysBetween = (fromIso, toIso) => Math.round((parseIsoDate(toIso) - parseIsoDate(fromIso)) / 86400000);
+  const hayonLevel = (daysLeft) => (daysLeft == null ? "inconnu" : HAYON_LEVELS.find((l) => daysLeft <= l.upTo).id);
+  const isBookedHayon = (d) => isHayon(d) && !!d.date && d.statut !== "annulee";
+  const hayonDone = (d, todayIso) => isBookedHayon(d) && (d.statut === "realisee" || d.date < todayIso);
+  // What the team app writes on its own: a sent or confirmed control whose day has passed is done.
+  const hayonAutoClose = (d, todayIso) => isBookedHayon(d) && ["envoyee", "confirmee"].includes(d.statut) && d.date < todayIso;
+  const latest = (dates) => dates.filter(Boolean).sort().pop() || "";
+
+  function hayonFollowUp(hayons, demandes, todayIso) {
+    const vehicles = new Map();
+    const entry = (plate) => {
+      const key = plateKey(plate);
+      if (!vehicles.has(key)) vehicles.set(key, { plaque: normalizePlate(plate), base: null, requests: [] });
+      return vehicles.get(key);
+    };
+    hayons.filter((h) => plateKey(h.plaque)).forEach((h) => (entry(h.plaque).base = h));
+    demandes.filter((d) => isHayon(d) && plateKey(d.plaque)).forEach((d) => entry(d.plaque).requests.push(d));
+    return [...vehicles.values()].map(({ plaque, base, requests }) => {
+      const doneRequests = requests.filter((d) => hayonDone(d, todayIso));
+      const lastControl = latest([base?.dernierControle, ...doneRequests.map((d) => d.date)]);
+      const lastRequest = doneRequests.sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+      const nextDue = lastControl ? addDays(lastControl, HAYON_CYCLE_DAYS) : "";
+      const daysLeft = nextDue ? daysBetween(todayIso, nextDue) : null;
+      const booked = requests.filter((d) => isBookedHayon(d) && !hayonDone(d, todayIso)).sort(byDateThenTime)[0] || null;
+      const notDone = requests.filter((d) => d.nonFait && d.date > lastControl).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+      return { plaque, lastControl, lastRequest: lastRequest?.date === lastControl ? lastRequest : null, nextDue, daysLeft,
+        level: hayonLevel(daysLeft), booked, notDone, tooSoon: hayonTooSoonPair(requests), site: booked?.site || lastRequest?.site || "" };
+    }).sort((a, b) => (a.daysLeft ?? -Infinity) - (b.daysLeft ?? -Infinity) || a.plaque.localeCompare(b.plaque));
+  }
+  // Two controls of the same vehicle less than a week apart: one is probably a mistake (it happened once, 2026-11).
+  // Sometimes it is on purpose (a problem on the tailgate), so the app warns and never blocks.
+  function hayonTooSoon(candidate, demandes, ignoreIds = []) {
+    const key = plateKey(candidate.plaque);
+    if (!key || !candidate.date) return null;
+    return demandes.filter((d) => !ignoreIds.includes(d.id) && isBookedHayon(d) && plateKey(d.plaque) === key)
+      .map((d) => ({ other: d, gap: Math.abs(daysBetween(d.date, candidate.date)) }))
+      .filter((x) => x.gap < HAYON_TOO_SOON_DAYS).sort((a, b) => a.gap - b.gap)[0] || null;
+  }
+  function hayonTooSoonPair(requests) {
+    const booked = requests.filter(isBookedHayon).sort((a, b) => a.date.localeCompare(b.date));
+    for (let i = 1; i < booked.length; i++) {
+      const gap = daysBetween(booked[i - 1].date, booked[i].date);
+      if (gap < HAYON_TOO_SOON_DAYS) return { first: booked[i - 1], second: booked[i], gap };
+    }
+    return null;
+  }
+  // Warnings shown before saving a new tailgate control (never blocking).
+  function hayonWarnings(candidate, demandes, hayons, todayIso, ignoreIds = []) {
+    if (!isHayon(candidate) || !plateKey(candidate.plaque)) return [];
+    const warnings = [];
+    const close = hayonTooSoon(candidate, demandes, ignoreIds);
+    if (close) warnings.push(`Un contrôle hayon est déjà posé pour ${normalizePlate(candidate.plaque)} le ${shortDate(close.other.date)}${close.gap ? `, à ${close.gap} jour${close.gap > 1 ? "s" : ""} de celui-ci` : ", le même jour"}.`);
+    const others = demandes.filter((d) => !ignoreIds.includes(d.id));
+    const row = hayonFollowUp(hayons, others, todayIso).find((r) => plateKey(r.plaque) === plateKey(candidate.plaque));
+    if (!close && row?.nextDue && candidate.date && daysBetween(candidate.date, row.nextDue) > 30) {
+      warnings.push(`Dernier contrôle le ${shortDate(row.lastControl)} : le prochain n'est dû que le ${shortDate(row.nextDue)} (dans ${row.daysLeft} jours).`);
+    }
+    return warnings;
+  }
+  // Provider sheet pasted from Google Sheets: each line holds a plate and, optionally, the date of the last control.
+  const DATE_IN_TEXT = /\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})\b|\b(\d{4})-(\d{2})-(\d{2})\b/;
+  function dateInText(text) {
+    const m = String(text || "").match(DATE_IN_TEXT);
+    if (!m) return "";
+    const [y, mo, d] = m[4] ? [+m[4], +m[5], +m[6]] : [+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2], +m[1]];
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return "";
+    return `${y}-${pad2(mo)}-${pad2(d)}`;
+  }
+  function parseHayonList(text) {
+    const seen = new Map();
+    String(text || "").replace(/\r/g, "").split("\n").forEach((line) => {
+      const plate = platesInText(line)[0];
+      if (!plate) return;
+      const date = dateInText(line.toUpperCase().replace(PLATE_IN_TEXT, " "));
+      const previous = seen.get(plate);
+      if (!previous || date > previous.dernierControle) seen.set(plate, { plaque: normalizePlate(plate), dernierControle: date });
+    });
+    return [...seen.values()];
+  }
+
+  // ---------- health of the mail robot (apps-script/import-mails.js writes robot/etat) ----------
+  // robot/etat: {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} (ISO dates).
+  // The robot leaves a trace at least every 30 minutes. When it stops (password changed, Google block, error),
+  // the team app is the one that notices, since a stopped robot cannot warn anyone itself.
+  const ROBOT_LATE_MINUTES = 120;  // Google sometimes runs a 5-minute trigger late: two hours without a trace is a real stop.
+  const ROBOT_QUIET_DAYS = 4;      // no City-Drop mail at all for that long: the box may no longer receive them.
+  function robotHealth(etat, now = new Date()) {
+    if (!etat || !etat.passage) return { level: "off", text: "Le robot des mails n'est pas encore installé (ou n'a encore jamais tourné)." };
+    const at = (iso) => { const d = new Date(iso); return `${numericDate(toIsoDate(d))} à ${String(d.getHours()).padStart(2, "0")}h${String(d.getMinutes()).padStart(2, "0")}`; };
+    const minutes = (now - new Date(etat.passage)) / 60000;
+    if (minutes > ROBOT_LATE_MINUTES)
+      return { level: "alert", text: `Le robot des mails ne tourne plus depuis le ${at(etat.passage)} : les demandes reçues par mail depuis n'arrivent plus dans l'appli.` };
+    if (etat.erreur)
+      return { level: "alert", text: `Le robot des mails a un problème depuis le ${at(etat.erreurDepuis || etat.passage)} : ${etat.erreur}` };
+    if (etat.nonCompris && etat.nonComprisLe && (now - new Date(etat.nonComprisLe)) / 86400000 <= 3)
+      return { level: "warn", text: `Le robot n'a pas su lire le mail « ${etat.nonCompris} » (le ${at(etat.nonComprisLe)}) : cette demande n'est pas dans l'appli, saisis-la à la main.` };
+    if (etat.dernierMail && (now - new Date(etat.dernierMail)) / 86400000 > ROBOT_QUIET_DAYS)
+      return { level: "warn", text: `Aucun mail de City-Drop reçu depuis le ${at(etat.dernierMail)}. Normal s'il n'y a eu aucun rendez-vous, sinon la boîte du robot ne reçoit peut-être plus les mails du groupe.` };
+    return { level: "ok", text: `Le robot des mails tourne bien : dernier passage le ${at(etat.passage)}${etat.dernierMail ? `, dernier mail reçu le ${at(etat.dernierMail)}` : ""}.` };
+  }
+
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
@@ -1520,13 +1784,14 @@ window.SUIVI_FIREBASE_CONFIG = {
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
     plateKey, normalizePlate, platesInText,
     fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress, parseSiteList, mergeSites,
-    serviceOf, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
+    serviceOf, WASH_KINDS, washKindOf, jobLabel, jobTitle, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
-    providerFromGarage, mailCompletion, mailMarkers,
+    providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
+    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
   };
 });
@@ -1534,7 +1799,8 @@ window.SUIVI_FIREBASE_CONFIG = {
 <script>
 // Shared database access. The page talks to the data only through this object.
 // Layout: demandes/<id>, vehicules/<PLATEKEY>, photos/<key>, config/reglages,
-//         prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId}.
+//         hayons/<PLATEKEY> {plaque, dernierControle}, prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId},
+//         robot/etat {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} written by the mail robot.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./domain.js"));
   else root.SuiviStore = factory(root.SuiviDomain);
@@ -1547,7 +1813,7 @@ window.SUIVI_FIREBASE_CONFIG = {
 
     const modelRef = (key) => db.doc("modeles/" + key);
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onError }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onRobot, onError }) {
       const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const unsubs = [
         db.collection("demandes").onSnapshot((s) => onDemandes(toRows(s)), onError),
@@ -1556,8 +1822,12 @@ window.SUIVI_FIREBASE_CONFIG = {
         db.doc("config/reglages").onSnapshot((s) => s.exists && onSettings(s.data()), onError),
         db.collection("prestataires").onSnapshot((s) => onProviders(toRows(s)), onError),
       ];
+      // Before the rules allowing it are published, this list simply stays empty.
+      if (onHayons) unsubs.push(db.collection("hayons").onSnapshot((s) => onHayons(toRows(s)), () => onHayons([])));
       // Only the team may list accounts: for anyone else this one simply stays empty.
       if (onAccounts) unsubs.push(db.collection("comptes").onSnapshot((s) => onAccounts(toRows(s)), () => onAccounts([])));
+      // Trace left by the mail robot: refused until the new rules are published, then simply "not installed".
+      if (onRobot) unsubs.push(db.doc("robot/etat").onSnapshot((s) => onRobot(s.exists ? s.data() : null), () => onRobot(null)));
       return () => unsubs.forEach((u) => u());
     }
 
@@ -1658,6 +1928,25 @@ window.SUIVI_FIREBASE_CONFIG = {
         await batch.commit();
       }
     }
+    // ----- tailgate controls: hayons/<PLATEKEY> {plaque, dernierControle} -----
+    async function saveHayons(list) {
+      const now = new Date().toISOString();
+      const write = (h) => db.doc("hayons/" + D.plateKey(h.plaque)).set({ plaque: h.plaque, dernierControle: h.dernierControle || "", updatedAt: now });
+      if (!db.batch) { for (const h of list) await write(h); return; }
+      for (let i = 0; i < list.length; i += 400) {
+        const batch = db.batch();
+        list.slice(i, i + 400).forEach((h) => batch.set(db.doc("hayons/" + D.plateKey(h.plaque)), { plaque: h.plaque, dernierControle: h.dernierControle || "", updatedAt: now }));
+        await batch.commit();
+      }
+    }
+    const deleteHayon = (plate) => db.doc("hayons/" + D.plateKey(plate)).delete();
+    // "Pas fait": the control did not happen, so it does not restart the 180 days. "Finalement fait" undoes it.
+    function markHayonNotDone(demande, notDone) {
+      const now = new Date().toISOString();
+      const statut = notDone ? "annulee" : "realisee";
+      return db.doc("demandes/" + demande.id).update({ statut, nonFait: notDone, ...D.statusTimestamps(demande, statut, now), ...(notDone ? { annuleeAt: now } : {}), updatedAt: now });
+    }
+
     const saveSettings = (settings) => db.doc("config/reglages").set(settings);
 
     // Vehicle sheet: fleet model from the latest request, plus its windshield photos.
@@ -1721,7 +2010,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -1873,7 +2162,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     function jobHead(d) {
       return `<div class="job-head">${plateTag(d.plaque)}
         ${modelHtml(d)}
-        <span class="job-kind">${esc(D.serviceOf(d.service).label)}</span></div>`;
+        <span class="job-kind">${esc(D.jobLabel(d))}</span></div>`;
     }
     function jobMeta(d, { withDate = true, withSite = true } = {}) {
       const late = D.isLate(d, today());
@@ -1935,7 +2224,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     function doneRow(d) {
       const day = (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
-      return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.serviceOf(d.service).label)}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
+      return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
         ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}</li>`;
     }
     // Today's vehicles grouped by site: the provider goes site by site.
@@ -2115,7 +2404,10 @@ function page(texte) {
     openModelKey: null,
     providerDocs: new Map(), // providerId -> {nom, tarifs}
     accounts: [],            // [{id: email, role, prestataireId}]
+    hayons: [],              // [{plaque, dernierControle}] vehicles with a tailgate, from the provider's sheet
+    hayonWarned: "",         // warning already shown once for the form being saved
     userEmail: "",
+    robot: null,             // robot/etat: last trace left by the mail robot
   };
   // Providers who have their own access get a link to answer in the app instead of WhatsApp.
   const appLink = (providerName) => state.accounts.some((a) => a.role === "prestataire" && a.prestataireId === D.providerId(providerName))
@@ -2373,7 +2665,7 @@ function page(texte) {
   }
 
   // ================= navigation =================
-  const VIEWS = ["planning", "retours", "demande", "photos", "verif", "bilan", "historique", "reglages"];
+  const VIEWS = ["planning", "retours", "demande", "hayon", "photos", "verif", "bilan", "historique", "reglages"];
   const navButtons = () => document.querySelectorAll("nav.tabs [data-view]");
   function show(view) {
     if (state.providerMode) return;
@@ -2386,7 +2678,7 @@ function page(texte) {
   function markCurrentNav(view) {
     navButtons().forEach((b) => b.toggleAttribute("aria-current", b.dataset.view === view));
     const inMore = $(`#navMore [data-view="${view}"]`);
-    $("#navMoreLabel").textContent = inMore ? inMore.textContent.trim() : "Plus";
+    $("#navMoreLabel").textContent = inMore ? (inMore.querySelector(".menu-label") || inMore).textContent.trim() : "Plus";
     $("#navMore").classList.toggle("current", !!inMore);
     $("#navMore").open = false;
   }
@@ -2414,8 +2706,18 @@ function page(texte) {
   }
   $("#h-statut").innerHTML = `<option value="">Tous les statuts</option><option value="ouvert">En cours (hors réalisées / annulées)</option>` + D.STATUSES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
   $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
-  $("#dl-taches").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<option value="${esc(t)}">`).join("");
+  $("#taskChips").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<button type="button" class="chip-btn" data-task="${esc(t)}">${esc(t)}</button>`).join("");
+  // A tapped task is added to the text, which stays editable so the request can be made more precise.
+  $("#taskChips").addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-task]");
+    if (!chip) return;
+    const input = field("tache");
+    const tasks = input.value.split(",").map((t) => t.trim()).filter(Boolean);
+    if (!tasks.includes(chip.dataset.task)) input.value = [...tasks, chip.dataset.task].join(", ");
+    input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+  });
   $("#svcSeg").innerHTML = D.SERVICES.map((s, i) => `<label><input type="radio" name="svc" id="svc-${s.id}" value="${s.id}" ${i === 0 ? "checked" : ""}><span>${s.label}</span></label>`).join("");
+  $("#washSeg").innerHTML = D.WASH_KINDS.map((k, i) => `<label><input type="radio" name="wash" id="wash-${k.id}" value="${k.id}" ${i === 0 ? "checked" : ""}><span>${k.label.replace("Lavage ", "")}</span></label>`).join("");
 
   // ================= planning =================
   function renderPlanning() {
@@ -2456,7 +2758,7 @@ function page(texte) {
     const sub = [d.adresse !== D.siteAddress(state.sites, d.site) ? d.adresse : "", D.isMultiDay(d) ? `dispo ${D.availabilityLabel(d)}` : "", d.notes].filter(Boolean).join(" · ");
     return `<button class="veh-row ${D.isActive(d) ? "" : "cancel"}" data-open="${esc(d.id)}">
       ${plateTag(d.plaque)}
-      <span class="what"><span class="model">${esc(D.vehicleLabel(d) || "Modèle non précisé")}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span>
+      <span class="what"><span class="model">${esc(D.vehicleLabel(d) || "Modèle non précisé")}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span>
       <span class="right"><span class="time">${esc(D.timeSlotLabel(d))}</span>${statusChip(d.statut)}${thumb ? `<img class="thumb" src="${safeImageSrc(thumb)}" alt="">` : ""}</span>
     </button>`;
   }
@@ -2491,7 +2793,9 @@ function page(texte) {
     D.SERVICES.forEach((s) => ($("#svc-" + s.id).closest("label").hidden = !allowed.includes(s.id)));
     if (!allowed.includes(chosenService())) $("#svc-pare-brise").checked = true;
     $("#taskRow").hidden = chosenService() !== "intervention";
+    $("#washRow").hidden = chosenService() !== "lavage";
   }
+  const chosenWashKind = () => document.querySelector('input[name="wash"]:checked')?.value || "complet";
   function selectedFleetModel() {
     const index = field("modele").value;
     return index === "" ? { modele: "", cubage: null } : state.fleet[+index];
@@ -2512,6 +2816,7 @@ function page(texte) {
       prestataire: field("prest").value || defaultProvider(),
       notes: field("notes").value.trim(),
       tache: chosenService() === "intervention" ? field("tache").value.trim() : "",
+      ...(chosenService() === "lavage" ? { formule: chosenWashKind() } : {}),
     };
   }
   // ----- model picker: brand + model first, then cubage (year shown only when the cubage is ambiguous) -----
@@ -2589,6 +2894,7 @@ function page(texte) {
   function setAvailability(start, end) { field("date").value = start; field("dateFin").value = end || start; }
   function fillForm(d) {
     (document.getElementById("svc-" + d.service) || document.getElementById("svc-pare-brise")).checked = true;
+    $("#wash-" + D.washKindOf(d).id).checked = true;
     ["plaque", "adresse", "debut", "fin", "notes", "tache"].forEach((k) => (field(k).value = d[k] || ""));
     setAvailability(d.date, d.dateFin);
     if (d.prestataire && !state.providers.includes(d.prestataire)) state.providers.push(d.prestataire);
@@ -2614,7 +2920,9 @@ function page(texte) {
     $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others) + appLink(d.prestataire), vehicles });
     renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
-    $("#vehHint").textContent = vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "";
+    const hayonWarning = state.store ? hayonFormWarnings(d, readExtras())[0] : "";
+    $("#vehHint").textContent = hayonWarning || (vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "");
+    $("#vehHint").classList.toggle("warn", !!hayonWarning);
     const current = demandeById(state.editingId);
     $("#formSheet").innerHTML = current && ["confirmee", "realisee"].includes(current.statut) ? sheetLink([d.plaque]) : "";
   }
@@ -2687,11 +2995,19 @@ function page(texte) {
     const chip = $("#formStatusChip");
     chip.hidden = false; chip.className = "chip st-" + d.statut; chip.textContent = D.statusOf(d.statut).label;
     $("#saveBtn").textContent = "Enregistrer les modifications";
-    $("#delZone").innerHTML = state.canWrite ? `<button type="button" class="ghost danger" data-delete>Supprimer</button>` : "";
+    $("#delZone").innerHTML = deleteZone(d);
   }
+  // « Annuler » keeps the request in the history (and stops the tailgate counter from using it); « Supprimer » erases it.
+  const deleteZone = (d) => !state.canWrite ? "" : (d?.statut === "annulee"
+    ? `<button type="button" class="ghost" data-restore>Rétablir la demande</button>`
+    : `<button type="button" class="ghost" data-cancel>Annuler la demande</button>`) + `<button type="button" class="ghost danger" data-delete>Supprimer</button>`;
 
   // Status is not edited in the form: a new request starts "à envoyer" and becomes "envoyée" once copied or opened in WhatsApp.
   // What stops the form from being saved, as a sentence for the toast; "" when it can be saved.
+  function hayonFormWarnings(main, extras) {
+    const ownIds = [state.editingId, ...extras.map((x) => x.id)].filter(Boolean);
+    return [main, ...extras.map((x) => groupMember(main, x))].flatMap((v) => D.hayonWarnings(v, state.demandes, state.hayons, today(), ownIds));
+  }
   function formProblem(main, extras) {
     const missing = D.missingFields(main);
     if (missing.length) return "Il manque " + missing.join(", ");
@@ -2700,7 +3016,7 @@ function page(texte) {
     const ownIds = [state.editingId, ...extras.map((x) => x.id)].filter(Boolean);
     for (const vehicle of [main, ...extras.map((x) => groupMember(main, x))]) {
       const same = D.existingDuplicate(vehicle, state.demandes, ownIds);
-      if (same) return `${D.normalizePlate(vehicle.plaque)} a déjà une demande ${D.serviceOf(same.service).label.toLowerCase()} le ${D.shortDate(same.date)} (${D.statusOf(same.statut || "a_envoyer").label.toLowerCase()}) : ouvre-la plutôt que d'en créer une deuxième`;
+      if (same) return `${D.normalizePlate(vehicle.plaque)} a déjà une demande ${D.jobLabel(same).toLowerCase()} le ${D.shortDate(same.date)} (${D.statusOf(same.statut || "a_envoyer").label.toLowerCase()}) : ouvre-la plutôt que d'en créer une deuxième`;
     }
     return "";
   }
@@ -2719,6 +3035,14 @@ function page(texte) {
     const main = readForm();
     const problem = formProblem(main, extras);
     if (problem) { toast(problem); return false; }
+    // A tailgate control booked twice within a week, or long before it is due: warn once, save on the second click.
+    const warnings = hayonFormWarnings(main, extras);
+    if (warnings.length && state.hayonWarned !== warnings.join("|")) {
+      state.hayonWarned = warnings.join("|");
+      toast(`${warnings[0]} Clique encore une fois pour le poser quand même.`);
+      return false;
+    }
+    state.hayonWarned = "";
     if (extras.length && !state.groupe) state.groupe = demandeById(state.editingId)?.groupe || "g" + Date.now().toString(36);
     const options = { groupe: state.groupe || "", markSent };
     try {
@@ -2741,7 +3065,15 @@ function page(texte) {
     if (e.target.closest("[data-delete]")) {
       $("#delZone").innerHTML = `<span class="row">Supprimer définitivement ? <button type="button" class="danger" data-delete-yes>Oui, supprimer</button><button type="button" class="ghost" data-delete-no>Non</button></span>`;
     } else if (e.target.closest("[data-delete-no]")) {
-      $("#delZone").innerHTML = `<button type="button" class="ghost danger" data-delete>Supprimer</button>`;
+      $("#delZone").innerHTML = deleteZone(demandeById(state.editingId));
+    } else if (e.target.closest("[data-cancel], [data-restore]") && state.editingId && requireStore()) {
+      const cancel = !!e.target.closest("[data-cancel]");
+      const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id).filter(Boolean)];
+      try {
+        for (const d of ids.map(demandeById).filter(Boolean)) await state.store.setStatus(d, cancel ? "annulee" : (d.sentAt ? "envoyee" : "a_envoyer"));
+        toast(cancel ? "Demande annulée : elle reste dans l'historique" : "Demande rétablie");
+        if (cancel) show("planning");
+      } catch (err) { reportWriteError(err); }
     } else if (e.target.closest("[data-delete-yes]") && state.editingId && requireStore()) {
       const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id).filter(Boolean)];
       try { await Promise.all(ids.map((id) => state.store.deleteDemande(id))); toast(ids.length > 1 ? "Demande groupée supprimée" : "Demande supprimée"); resetForm(); show("planning"); }
@@ -2928,7 +3260,7 @@ function page(texte) {
     const slot = esc(D.timeSlotLabel(d));
     // data-slot / data-provider let the phone layout show a compact card without a second markup.
     return `<tr class="click" data-open="${esc(d.id)}"><td class="date" data-slot="· ${slot}">${esc(span)}</td><td class="date">${slot}</td><td>${plateTag(d.plaque)}</td>
-      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
+      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
       <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
   }
   ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site"].forEach((s) => $(s).addEventListener("input", renderHistory));
@@ -2946,7 +3278,8 @@ function page(texte) {
       <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}">${removeButton("data-remove-site", i, s.nom)}</div>`).join("");
     $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
     $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
-      <label class="check"><input type="checkbox" data-prov-interventions="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.interventions ? "checked" : ""}>Interventions</label>${removeButton("data-remove-provider", i, p)}</div>`).join("");
+      <label class="check"><input type="checkbox" data-prov-flag="interventions" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.interventions ? "checked" : ""}>Interventions</label>
+      <label class="check"><input type="checkbox" data-prov-flag="hayon" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.hayon ? "checked" : ""}>Contrôle hayon</label>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
     renderPrices(); renderAccounts();
   }
@@ -2955,13 +3288,16 @@ function page(texte) {
   const pricesProvider = () => $("#t-prov").value || defaultProvider();
   function renderPrices() {
     setSelectOptions($("#t-prov"), options(state.providers));
-    setSelectOptions($("#t-svc"), D.SERVICES.map((x) => `<option value="${x.id}">${esc(x.label)}</option>`).join(""));
+    setSelectOptions($("#t-svc"), priceKinds().map(([value, line]) => `<option value="${value}">${esc(D.jobLabel(line))}</option>`).join(""));
     const lines = pricesOf(D.providerId(pricesProvider()));
     $("#t-list").innerHTML = lines.length
       ? lines.map((line, i) => `<div class="item price"><span>${esc(D.priceLineLabel(line))}</span>
           <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
       : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;
   }
+  // One choice per price kind: windshield, complete wash, inside wash, intervention.
+  const priceKinds = () => D.SERVICES.flatMap((x) => (x.id === "lavage" ? D.WASH_KINDS.map((k) => ({ service: x.id, formule: k.id })) : [{ service: x.id }]))
+    .map((line) => [[line.service, line.formule].filter(Boolean).join(":"), line]);
   async function savePrices(providerName, tarifs, message) {
     if (!requireStore()) return;
     try { await state.store.saveProvider(D.providerId(providerName), { nom: providerName, tarifs }); toast(message); }
@@ -2972,7 +3308,8 @@ function page(texte) {
     const prix = parseFloat($("#t-prix").value.replace(",", "."));
     if (!Number.isFinite(prix) || prix < 0) return toast("Indique le prix hors taxe, par exemple 266,67");
     const bound = (sel) => ($(sel).value === "" ? null : +$(sel).value);
-    const line = { service: $("#t-svc").value, cubageMin: bound("#t-min"), cubageMax: bound("#t-max"), prixHT: Math.round(prix * 100) / 100 };
+    const kind = priceKinds().find(([value]) => value === $("#t-svc").value)[1];
+    const line = { ...kind, cubageMin: bound("#t-min"), cubageMax: bound("#t-max"), prixHT: Math.round(prix * 100) / 100 };
     if (line.cubageMin != null && line.cubageMax != null && line.cubageMin > line.cubageMax) return toast("Le cubage « de » doit être plus petit que « à »");
     const name = pricesProvider();
     savePrices(name, [...pricesOf(D.providerId(name)), line], "Tarif ajouté");
@@ -3040,10 +3377,11 @@ function page(texte) {
     persistSettings(added || updated ? `${plural(added, "site")} ajouté${added > 1 ? "s" : ""}, ${updated} mis à jour` : "Tous ces sites étaient déjà à jour");
   };
   $("#s-provs").addEventListener("change", async (e) => {
-    const box = e.target.closest("[data-prov-interventions]");
+    const box = e.target.closest("[data-prov-flag]");
     if (!box || !requireStore()) return;
-    const nom = box.dataset.provInterventions;
-    try { await state.store.saveProvider(D.providerId(nom), { nom, interventions: box.checked }); toast(box.checked ? `${nom} peut recevoir des interventions` : `${nom} ne reçoit plus d'interventions`); }
+    const nom = box.dataset.prov, flag = box.dataset.provFlag;
+    const what = flag === "hayon" ? "des contrôles hayon" : "des interventions";
+    try { await state.store.saveProvider(D.providerId(nom), { nom, [flag]: box.checked }); toast(box.checked ? `${nom} peut recevoir ${what}` : `${nom} ne reçoit plus ${what.replace(/^des /, "de ")}`); }
     catch (err) { box.checked = !box.checked; reportWriteError(err); }
   });
   $("#s-addprov").onclick = () => !state.providers.includes($("#s-newprov").value.trim()) && addFromInput("#s-newprov", state.providers, (p) => p, "Prestataire ajouté");
@@ -3111,12 +3449,101 @@ function page(texte) {
       state.store.completeDemande(d.id, patch).catch(() => {}).finally(() => completing.delete(d.id));
     });
   }
+  // ================= tailgate controls (hayon) =================
+  // A sent control whose day has passed is done: the provider never reports it, so the team app closes it.
+  const closingHayons = new Set();
+  function closePastHayons(rows) {
+    if (!state.canWrite) return;
+    rows.filter((d) => D.hayonAutoClose(d, today()) && !closingHayons.has(d.id)).forEach((d) => {
+      closingHayons.add(d.id);
+      state.store.setStatus(d, "realisee").catch(() => {}).finally(() => closingHayons.delete(d.id));
+    });
+  }
+  const HAYON_FILTERS = {
+    "": () => true,
+    atraiter: (r) => !r.booked && ["depasse", "urgent", "bientot", "inconnu"].includes(r.level),
+    rdv: (r) => !!r.booked,
+  };
+  function hayonDaysLabel(r) {
+    if (r.daysLeft == null) return "Date inconnue";
+    if (r.daysLeft < 0) return `Dépassé de ${plural(-r.daysLeft, "jour")}`;
+    if (r.daysLeft === 0) return "À faire aujourd'hui";
+    return `Reste ${plural(r.daysLeft, "jour")}`;
+  }
+  const slotOf = (d) => `${D.shortDate(d.date)}${d.debut && d.debut !== D.DEFAULT_SLOT.debut ? " à " + d.debut.replace(":", "h") : ""}`;
+  function hayonRow(r) {
+    const key = D.plateKey(r.plaque);
+    const known = state.hayons.some((h) => D.plateKey(h.plaque) === key);
+    const notes = [];
+    if (r.tooSoon) notes.push(`<span class="hy-warn">${icon("alert")}Deux contrôles posés à ${plural(r.tooSoon.gap, "jour")} d'écart (${esc(D.shortDate(r.tooSoon.first.date))} et ${esc(D.shortDate(r.tooSoon.second.date))})</span>`);
+    if (r.notDone) notes.push(`<span class="muted">Pas fait le ${esc(D.shortDate(r.notDone.date))}</span>`);
+    const recent = r.lastRequest && D.daysBetween(r.lastRequest.date, today()) <= 30;
+    const rdv = r.booked
+      ? `<button type="button" class="hy-rdv" data-open="${esc(r.booked.id)}">${icon("cal")}<span>RDV ${esc(slotOf(r.booked))}${r.booked.site ? ` · ${esc(r.booked.site)}` : ""}</span></button>`
+      : `<span class="muted hy-nordv">Pas de RDV</span>`;
+    return `<li class="hy-row lv-${r.level}">
+      <span class="hy-days">${esc(hayonDaysLabel(r))}</span>
+      ${plateTag(r.plaque)}
+      <span class="hy-dates"><span>Dernier contrôle <b>${r.lastControl ? esc(D.numericDate(r.lastControl)) : "—"}</b></span><span>À refaire avant <b>${r.nextDue ? esc(D.numericDate(r.nextDue)) : "—"}</b></span>${notes.join("")}</span>
+      <span class="hy-actions">${rdv}
+        ${state.canWrite && recent ? `<button type="button" class="ghost small-btn" data-hy-notdone="${esc(r.lastRequest.id)}" title="Le contrôle du ${esc(D.shortDate(r.lastRequest.date))} n'a pas eu lieu">Pas fait ?</button>` : ""}
+        ${state.canWrite && r.notDone && !r.booked ? `<button type="button" class="ghost small-btn" data-hy-done="${esc(r.notDone.id)}">Finalement fait</button>` : ""}
+        ${state.canWrite && known ? `<button type="button" class="ghost small-btn" data-hy-remove="${esc(key)}" aria-label="Retirer ${esc(r.plaque)} de la liste">${icon("x")}</button>` : ""}</span>
+    </li>`;
+  }
+  function renderHayon() {
+    const rows = D.hayonFollowUp(state.hayons, state.demandes, today());
+    const count = (...levels) => rows.filter((r) => levels.includes(r.level)).length;
+    const urgent = rows.filter((r) => !r.booked && ["depasse", "urgent"].includes(r.level)).length;
+    $("#hayonBadge").hidden = !urgent; $("#hayonBadge").textContent = urgent;
+    $("#hy-kpis").innerHTML = rows.length ? [[["depasse", "urgent"], "Dépassés ou 5 jours ou moins"], [["bientot"], "30 jours ou moins"], [["ok"], "À jour"]]
+      .map(([levels, label]) => `<div class="hy-kpi lv-${levels[levels.length - 1]}"><b>${count(...levels)}</b><span>${label}</span></div>`).join("") : "";
+    const query = $("#hy-q").value, filter = HAYON_FILTERS[$("#hy-filter").value] || HAYON_FILTERS[""];
+    const shown = rows.filter((r) => filter(r) && D.matchesSearch([r.plaque], query));
+    $("#hy-list").innerHTML = !rows.length
+      ? `<div class="empty"><b>Aucun véhicule à hayon pour l'instant.</b><span>Colle la liste du prestataire ci-dessous (plaque et date du dernier contrôle) : le compteur des 180 jours démarre tout de suite. Chaque contrôle hayon reçu par mail s'ajoute aussi ici.</span></div>`
+      : shown.length ? `<ul class="hy-list">${shown.map(hayonRow).join("")}</ul>` : `<div class="empty"><b>Aucun véhicule ne correspond.</b></div>`;
+    $("#hy-pastebox").hidden = !state.canWrite;
+    $("#hy-pastebox").open = state.canWrite && !rows.length ? true : $("#hy-pastebox").open;
+  }
+  ["#hy-q", "#hy-filter"].forEach((sel) => $(sel).addEventListener("input", renderHayon));
+  $("#hy-paste").addEventListener("input", () => {
+    const list = D.parseHayonList($("#hy-paste").value);
+    const undated = list.filter((h) => !h.dernierControle).length;
+    $("#hy-preview").textContent = list.length ? `${plural(list.length, "véhicule")} reconnu${list.length > 1 ? "s" : ""}${undated ? `, dont ${undated} sans date` : ""}` : "";
+  });
+  $("#hy-import").onclick = async () => {
+    const list = D.parseHayonList($("#hy-paste").value);
+    if (!list.length) return toast("Aucune plaque reconnue : colle une plaque et sa date par ligne");
+    if (!requireStore()) return;
+    try { await state.store.saveHayons(list); $("#hy-paste").value = ""; $("#hy-preview").textContent = ""; $("#hy-pastebox").open = false; toast(`${plural(list.length, "véhicule")} enregistré${list.length > 1 ? "s" : ""}`); }
+    catch (err) { reportWriteError(err); }
+  };
+  $("#hy-list").addEventListener("click", async (e) => {
+    const open = e.target.closest("[data-open]");
+    if (open) return openDemande(open.dataset.open);
+    const notDone = e.target.closest("[data-hy-notdone], [data-hy-done]");
+    if (notDone && requireStore()) {
+      const missed = !!notDone.dataset.hyNotdone;
+      const d = demandeById(notDone.dataset.hyNotdone || notDone.dataset.hyDone);
+      try { await state.store.markHayonNotDone(d, missed); toast(missed ? `Contrôle du ${D.shortDate(d.date)} marqué « pas fait » : le compteur reprend l'ancien contrôle` : "Contrôle remis comme fait"); }
+      catch (err) { reportWriteError(err); }
+      return;
+    }
+    const remove = e.target.closest("[data-hy-remove]");
+    if (remove && requireStore()) {
+      if (!remove.classList.contains("confirm")) { remove.classList.add("confirm"); remove.textContent = "Retirer ?"; return; }
+      try { await state.store.deleteHayon(remove.dataset.hyRemove); toast("Véhicule retiré de la liste des hayons"); }
+      catch (err) { reportWriteError(err); }
+    }
+  });
+
   // ---------- answers from providers: Retours page, tab badge, window title, desktop notifications ----------
   const answerSentence = (d) => `${d.prestataire} ${D.answerOf(d.retour.etat)?.team || "a répondu pour"} ${d.plaque}`;
   function answerRow(d, { seen = false } = {}) {
     const r = d.retour;
     return `<div class="answer-row${seen ? " seen" : ""}">${plateTag(d.plaque)}
-      <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(r))}<br><span class="muted">${esc([D.serviceOf(d.service).label, d.tache, D.vehicleLabel(d), D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(D.numericDate(r.at.slice(0, 10)))} ${esc(r.at.slice(11, 16))}</span></span>
+      <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(r))}<br><span class="muted">${esc([D.jobLabel(d), d.tache, D.vehicleLabel(d), D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(D.numericDate(r.at.slice(0, 10)))} ${esc(r.at.slice(11, 16))}</span></span>
       <span class="row">${r.preuve ? `<button type="button" data-proof="${esc(r.preuve)}">${icon("image")}Photo</button>` : ""}
       ${!seen && r.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
       ${!seen && state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
@@ -3211,10 +3638,22 @@ function page(texte) {
   function renderAll() {
     shareRegistry.clear();
     renderSelects();
-    renderAnswers(); renderPlanning(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
+    renderAnswers(); renderPlanning(); renderHayon(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
     $("#dl-plaques").innerHTML = [...state.vehicles.values()].map((v) => `<option value="${esc(v.plaque)}">${esc(D.vehicleLabel(v))}</option>`).join("");
     renderFormSide();
   }
+
+  // ---------- mail robot: a stopped robot cannot warn anyone, so the team app shows it ----------
+  function renderRobot() {
+    const health = D.robotHealth(state.robot);
+    const loud = health.level === "alert" || health.level === "warn";
+    $("#robotAlert").hidden = !loud || state.providerMode;
+    $("#robotAlert").classList.toggle("alert", health.level === "alert");
+    $("#robotAlertText").textContent = health.text;
+    $("#s-robot").textContent = health.text;
+    $("#s-robot").className = "robot-state " + health.level;
+  }
+  setInterval(() => state.robot && renderRobot(), 5 * 60000); // the alert also appears when the page stays open without new data
 
   function applySettings(settings) {
     if (Array.isArray(settings.sites)) state.sites = D.normalizeSites(settings.sites);
@@ -3261,12 +3700,14 @@ function page(texte) {
   }
   function subscribeTeam() {
     state.store.subscribe({
-      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
+      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); closePastHayons(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); completeMailRequests(); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
       onSettings: (settings) => { applySettings(settings); completeMailRequests(); renderAll(); },
       onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); completeMailRequests(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
+      onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
+      onRobot: (etat) => { state.robot = etat; renderRobot(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
         if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe City-Drop de t'ajouter dans Réglages › Accès.");
@@ -3276,7 +3717,7 @@ function page(texte) {
 
   try { state.providerFilter = localStorage.getItem("suivi.provFilter") || ""; } catch {}
 
-  renderSelects(); resetForm(); renderAll(); show(location.hash.slice(1) || "planning");
+  renderSelects(); resetForm(); renderAll(); renderRobot(); show(location.hash.slice(1) || "planning");
   connect();
 })();
 </script>

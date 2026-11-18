@@ -20,6 +20,9 @@ test("le service se déduit des lignes d'intervention", () => {
   assert.equal(M.serviceDe(["Remplacement pare-brise"]), "pare-brise");
   assert.equal(M.serviceDe(["Lavage extérieur", "AdBlue"]), "intervention");
   assert.equal(M.serviceDe([]), "intervention");
+  assert.equal(M.serviceDe(["Contrôle hayon"]), "hayon");
+  assert.equal(M.serviceDe(["Vérification du haillon"]), "hayon");
+  assert.equal(M.serviceDe([], "DHOLLIANDA Trappes"), "hayon");
 });
 
 test("un mail qui n'a pas la forme attendue est laissé de côté", () => {
@@ -59,4 +62,39 @@ test("rendez-vous et annulation visent la même demande", () => {
   const rdv = M.lireMail("Prise de rendez-vous GS-487-PR", CORPS);
   assert.equal(M.idDemande(rdv), "mail-GS487PR-20261112-1830");
   assert.equal(M.idDemande(M.lireAnnulation("Annulation de rendez-vous", ANNULATION.replace("GM-961-LC", "GS-487-PR").replaceAll("07/10/2026 08:00", "12/11/2026 18:30"))), M.idDemande(rdv));
+});
+
+test("le robot laisse une trace toutes les 30 minutes, ou dès que quelque chose change", () => {
+  const t0 = new Date("2026-11-18T12:00:00Z");
+  const plus = (min) => new Date(t0.getTime() + min * 60000);
+  const avant = M.etatSuivant({}, t0, null, "2026-11-18T09:00:00.000Z");
+  avant.ecrit = t0.toISOString();
+  assert.equal(M.traceAEcrire(avant, M.etatSuivant(avant, plus(5), null, null), plus(5)), false, "rien de neuf");
+  assert.equal(M.traceAEcrire(avant, M.etatSuivant(avant, plus(30), null, null), plus(30)), true, "30 minutes passées");
+  assert.equal(M.traceAEcrire(avant, M.etatSuivant(avant, plus(5), null, "2026-11-18T12:04:00.000Z"), plus(5)), true, "nouveau mail");
+  assert.equal(M.traceAEcrire(avant, M.etatSuivant(avant, plus(5), "Connexion refusée", null), plus(5)), true, "nouvelle erreur");
+  assert.equal(M.etatSuivant(avant, plus(5), null, "2026-11-17T08:00:00.000Z").dernierMail, "2026-11-18T09:00:00.000Z", "garde le plus récent");
+});
+
+test("une panne envoie une alerte, relancée toutes les 6 heures, puis « reparti »", () => {
+  const t0 = new Date("2026-11-18T12:00:00Z");
+  const plus = (h) => new Date(t0.getTime() + h * 3600000);
+  const ok = M.etatSuivant({}, t0, null, null);
+  const panne = M.etatSuivant(ok, plus(0.1), "Connexion du robot refusée", null);
+  assert.equal(M.alerteAEnvoyer(ok, panne, plus(0.1)), "panne");
+  assert.equal(panne.erreurDepuis, plus(0.1).toISOString());
+  panne.alerte = plus(0.1).toISOString();
+  const encore = M.etatSuivant(panne, plus(1), "Connexion du robot refusée", null);
+  assert.equal(encore.erreurDepuis, panne.erreurDepuis, "la panne garde sa date de début");
+  assert.equal(M.alerteAEnvoyer(panne, encore, plus(1)), null, "pas de mail toutes les 5 minutes");
+  assert.equal(M.alerteAEnvoyer(panne, M.etatSuivant(panne, plus(6.2), "x", null), plus(6.2)), "panne", "relance après 6 h");
+  const reparti = M.etatSuivant(panne, plus(2), null, null);
+  assert.equal(M.alerteAEnvoyer(panne, reparti, plus(2)), "reparti");
+  assert.equal(reparti.erreur, null);
+  assert.equal(M.alerteAEnvoyer(ok, M.etatSuivant(ok, plus(1), null, null), plus(1)), null);
+});
+
+test("la trace envoyée à l'appli n'a que les champs autorisés par les règles", () => {
+  const e = { ...M.etatSuivant({}, new Date("2026-11-18T12:00:00Z"), null, null), ecrit: "x", alerte: "y" };
+  assert.deepEqual(Object.keys(M.champsTrace(e)), ["passage", "dernierMail", "erreur", "erreurDepuis", "nonCompris", "nonComprisLe"]);
 });
