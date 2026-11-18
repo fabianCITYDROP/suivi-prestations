@@ -547,3 +547,6 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
   .hy-actions { justify-content: flex-start; }
 }
 </style>
+
+/* History: older requests are read only on demand */
+.older-note { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }

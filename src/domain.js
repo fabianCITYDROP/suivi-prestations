@@ -669,6 +669,29 @@
     return [...seen.values()];
   }
 
+  // ---------- what the team app keeps loaded (free Firestore plan: every request read counts) ----------
+  // Always loaded: requests whose day is in the current month or the two before, every open request,
+  // every tailgate control (they set the 180-day due dates). Older ones are loaded only when a page asks for them.
+  const RECENT_MONTHS = 2;
+  const OLDEST_DAY = "0000-01-01";
+  const monthStart = (iso) => iso.slice(0, 7) + "-01";
+  const nextMonthStart = (iso) => { const d = parseIsoDate(monthStart(iso)); d.setMonth(d.getMonth() + 1); return toIsoDate(d); };
+  const recentWindowStart = (todayIso, months = RECENT_MONTHS) => { const d = parseIsoDate(monthStart(todayIso)); d.setMonth(d.getMonth() - months); return toIsoDate(d); };
+  // The part of [from, to) that lies before the loaded window, or null when the window already holds it all.
+  function olderPart(from, to, recentFrom) {
+    if (!from || from >= recentFrom) return null;
+    return { from, to: !to || to > recentFrom ? recentFrom : to };
+  }
+  // Same request seen in several loaded slices: keep the most recently changed copy.
+  function mergeSlices(slices) {
+    const all = new Map();
+    slices.forEach((rows) => rows.forEach((row) => {
+      const kept = all.get(row.id);
+      if (!kept || (row.updatedAt || "") >= (kept.updatedAt || "")) all.set(row.id, row);
+    }));
+    return [...all.values()];
+  }
+
   // ---------- health of the mail robot (apps-script/import-mails.js writes robot/etat) ----------
   // robot/etat: {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} (ISO dates).
   // The robot leaves a trace at least every 30 minutes. When it stops (password changed, Google block, error),
@@ -704,7 +727,7 @@
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
-    matchesSearch,
+    matchesSearch, RECENT_MONTHS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
