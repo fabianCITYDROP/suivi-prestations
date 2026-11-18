@@ -6,6 +6,10 @@
 // DKIM), en sort la plaque, le créneau, les interventions et le garage, puis crée la demande dans
 // l'appli avec un compte « robot » qui ne peut QUE créer ces demandes : il ne lit rien.
 //
+// S'il s'arrête, personne ne le verrait : il laisse donc une trace dans l'appli (robot/etat) au moins toutes les
+// 30 minutes, et l'appli affiche un bandeau rouge quand cette trace vieillit. Quand il le peut, il envoie aussi
+// un mail d'alerte à ALERTE_EMAIL (panne, puis « c'est reparti », et chaque mail qu'il n'a pas su lire).
+//
 // Le mot de passe du robot n'est jamais écrit ici : il est rangé dans
 // Paramètres du projet › Propriétés du script (ROBOT_EMAIL et ROBOT_MOT_DE_PASSE).
 
@@ -14,6 +18,9 @@ const RECHERCHE = 'from:' + EXPEDITEUR + ' {subject:"Prise de rendez-vous" subje
 const FIREBASE_CLE_WEB = 'AIzaSyBIFL2pF1QwaYpyLo2lc8aOwjd1G86Eg8w'; // clé publique de la page web, pas un secret
 const FIRESTORE = 'https://firestore.googleapis.com/v1/projects/suivi-prestations/databases/(default)/documents';
 const DEJA_FAITS = 'mails_importes';
+const ETAT = 'etat_robot';
+const TRACE_MINUTES = 30;      // l'appli s'inquiète au bout de 2 heures sans trace
+const RELANCE_HEURES = 6;      // pendant une panne, un mail d'alerte toutes les 6 heures au plus
 
 // ---------- lecture du mail (fonctions pures, testées dans import-mails.test.js) ----------
 function texteDuMail(html) {
@@ -96,27 +103,98 @@ function versFirestore(demande) {
   return { fields: champs };
 }
 
+// ---------- surveillance du robot (fonctions pures, testées) ----------
+// etat = ce que le robot retient d'un passage à l'autre : { passage, dernierMail, erreur, erreurDepuis, ecrit, alerte }.
+function etatSuivant(avant, maintenant, erreur, dernierMail) {
+  const iso = maintenant.toISOString();
+  const plusRecent = [avant.dernierMail, dernierMail].filter(Boolean).sort().pop() || null;
+  return {
+    ...avant, passage: iso, dernierMail: plusRecent,
+    erreur: erreur ? String(erreur).slice(0, 300) : null,
+    erreurDepuis: erreur ? (avant.erreur ? avant.erreurDepuis : iso) : null,
+  };
+}
+// La trace part dans l'appli toutes les 30 minutes, ou tout de suite si quelque chose a changé.
+function traceAEcrire(avant, apres, maintenant) {
+  return !avant.ecrit || maintenant - new Date(avant.ecrit) >= TRACE_MINUTES * 60000
+    || avant.erreur !== apres.erreur || avant.dernierMail !== apres.dernierMail || avant.nonCompris !== apres.nonCompris;
+}
+// 'panne' au début d'une panne puis toutes les 6 heures, 'reparti' quand elle se termine, sinon null.
+function alerteAEnvoyer(avant, apres, maintenant) {
+  if (apres.erreur) return !avant.erreur || !avant.alerte || maintenant - new Date(avant.alerte) >= RELANCE_HEURES * 3600000 ? 'panne' : null;
+  return avant.erreur && avant.alerte ? 'reparti' : null;
+}
+const champsTrace = (e) => ({ passage: e.passage, dernierMail: e.dernierMail || null, erreur: e.erreur || null, erreurDepuis: e.erreurDepuis || null,
+  nonCompris: e.nonCompris || null, nonComprisLe: e.nonComprisLe || null });
+
 // ---------- ce qui tourne dans Apps Script ----------
 function importer() {
   const props = PropertiesService.getScriptProperties();
-  const faits = JSON.parse(props.getProperty(DEJA_FAITS) || '[]');
-  const aFaire = [];
-  GmailApp.search(RECHERCHE, 0, 50).forEach((fil) => fil.getMessages().forEach((m) => {
-    const cle = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, m.getHeader('Message-ID') || m.getId())
-      .map((b) => ((b + 256) % 256).toString(16).padStart(2, '0')).join('');
-    if (!faits.includes(cle)) aFaire.push({ cle, m });
-  }));
-  if (!aFaire.length) return;
-  aFaire.sort((a, b) => a.m.getDate() - b.m.getDate()); // du plus ancien au plus récent : une annulation passe après son rendez-vous
-  const jeton = seConnecter(props);
-  aFaire.forEach(({ cle, m }) => {
-    const fini = traiter(m, jeton);
-    if (fini) faits.push(cle);
-  });
-  props.setProperty(DEJA_FAITS, JSON.stringify(faits.slice(-300)));
+  const avant = JSON.parse(props.getProperty(ETAT) || '{}');
+  const maintenant = new Date();
+  const erreurs = [];
+  const nonCompris = [];
+  let dernierMail = null;
+  let jeton = null;
+  try {
+    const faits = JSON.parse(props.getProperty(DEJA_FAITS) || '[]');
+    const aFaire = [];
+    GmailApp.search(RECHERCHE, 0, 50).forEach((fil) => fil.getMessages().forEach((m) => {
+      const recu = m.getDate().toISOString();
+      if (!dernierMail || recu > dernierMail) dernierMail = recu;
+      const cle = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, m.getHeader('Message-ID') || m.getId())
+        .map((b) => ((b + 256) % 256).toString(16).padStart(2, '0')).join('');
+      if (!faits.includes(cle)) aFaire.push({ cle, m });
+    }));
+    if (aFaire.length) {
+      aFaire.sort((a, b) => a.m.getDate() - b.m.getDate()); // du plus ancien au plus récent : une annulation passe après son rendez-vous
+      jeton = seConnecter(props);
+      aFaire.forEach(({ cle, m }) => {
+        const r = traiter(m, jeton);
+        if (r === true) faits.push(cle);
+        else if (r && r.nonCompris) { faits.push(cle); nonCompris.push(r.nonCompris); }
+        else erreurs.push(r && r.erreur ? r.erreur : 'erreur inconnue');
+      });
+      props.setProperty(DEJA_FAITS, JSON.stringify(faits.slice(-300)));
+    }
+  } catch (e) { erreurs.push(e.message); }
+
+  const apres = etatSuivant(avant, maintenant, erreurs[0], dernierMail);
+  if (nonCompris.length) { apres.nonCompris = nonCompris[nonCompris.length - 1].slice(0, 200); apres.nonComprisLe = maintenant.toISOString(); }
+  if (traceAEcrire(avant, apres, maintenant)) {
+    try {
+      jeton = jeton || seConnecter(props);
+      const champs = champsTrace(apres);
+      const r = firestore('patch', '/robot/etat?' + masque(Object.keys(champs)), jeton, versFirestore(champs));
+      if (r.getResponseCode() !== 200) throw new Error('Trace refusée par l\'appli (' + r.getResponseCode() + ') : republier les règles Firestore ?');
+      apres.ecrit = maintenant.toISOString();
+    } catch (e) {
+      if (!apres.erreur) { apres.erreur = e.message.slice(0, 300); apres.erreurDepuis = avant.erreur ? avant.erreurDepuis : maintenant.toISOString(); }
+    }
+  }
+  const alerte = alerteAEnvoyer(avant, apres, maintenant);
+  if (alerte === 'panne') apres.alerte = maintenant.toISOString();
+  if (alerte === 'reparti') apres.alerte = null;
+  envoyerAlertes(props, alerte, apres, nonCompris);
+  props.setProperty(ETAT, JSON.stringify(apres));
+  if (apres.erreur) throw new Error(apres.erreur); // l'exécution apparaît « Échec » dans Apps Script › Exécutions
 }
 
-// Renvoie true quand le mail est réglé (même s'il est ignoré), false pour réessayer au prochain passage.
+function envoyerAlertes(props, alerte, etat, nonCompris) {
+  const a = props.getProperty('ALERTE_EMAIL');
+  if (!a) return;
+  const envoyer = (sujet, texte) => { try { MailApp.sendEmail(a, sujet, texte + '\n\n— Le robot des mails de Suivi prestations'); } catch (e) { console.error('Alerte non envoyée : ' + e.message); } };
+  if (alerte === 'panne') envoyer('⚠️ Robot des mails arrêté : les demandes ne s\'importent plus',
+    'Le robot n\'arrive plus à importer les mails City-Drop depuis le ' + Utilities.formatDate(new Date(etat.erreurDepuis), 'Europe/Paris', "dd/MM/yyyy 'à' HH'h'mm") + '.\n\nProblème : ' + etat.erreur
+    + '\n\nLes rendez-vous reçus pendant la panne seront importés automatiquement une fois le problème réglé (jusqu\'à 3 jours en arrière).'
+    + '\nÀ vérifier : Apps Script › Exécutions pour le détail ; si le mot de passe du robot a changé, le remettre dans Propriétés du script (ROBOT_MOT_DE_PASSE).');
+  if (alerte === 'reparti') envoyer('✅ Robot des mails reparti', 'Le robot importe de nouveau les mails City-Drop. Rien à faire.');
+  nonCompris.forEach((sujet) => envoyer('Mail City-Drop non compris : ' + sujet,
+    'Le robot n\'a pas su lire ce mail : « ' + sujet + ' ». Cette demande n\'est pas dans l\'appli, saisis-la à la main.'));
+}
+
+// Renvoie true quand le mail est réglé (même s'il est ignoré), { nonCompris: sujet } si personne ne l'a importé,
+// { erreur } pour réessayer au prochain passage.
 function traiter(m, jeton) {
   if (!vientDeCityDrop(m.getRawContent())) { console.warn('Ignoré (pas signé City-Drop) : ' + m.getSubject()); return true; }
   const maintenant = new Date().toISOString();
@@ -127,17 +205,17 @@ function traiter(m, jeton) {
     const code = r.getResponseCode();
     if (code === 200) console.log('Annulée : ' + annulation.plaque + ' du ' + annulation.date);
     else if (code === 404 || code === 400) console.warn('Annulation sans demande importée (à annuler à la main si besoin) : ' + annulation.plaque + ' du ' + annulation.date);
-    else { console.error('Annulation refusée (' + code + ') : ' + r.getContentText().slice(0, 300)); return false; }
+    else { const erreur = 'Annulation refusée (' + code + ') : ' + r.getContentText().slice(0, 200); console.error(erreur); return { erreur }; }
     return true;
   }
   const demande = lireMail(m.getSubject(), m.getBody());
-  if (!demande) { console.warn('Mail non compris, à saisir à la main : ' + m.getSubject()); return true; }
+  if (!demande) { console.warn('Mail non compris, à saisir à la main : ' + m.getSubject()); return { nonCompris: m.getSubject() }; }
   const id = idDemande(demande);
   const fiche = { ...demande, mailId: id, sentAt: maintenant, createdAt: maintenant, updatedAt: maintenant };
   const r = firestore('post', '/demandes?documentId=' + id, jeton, versFirestore(fiche));
   const code = r.getResponseCode();
   if (code === 200) { console.log('Ajoutée : ' + demande.plaque + ' le ' + demande.date); return true; }
-  if (code !== 409) { console.error('Refusé (' + code + ') pour ' + demande.plaque + ' : ' + r.getContentText().slice(0, 300)); return false; }
+  if (code !== 409) { const erreur = 'Refusé (' + code + ') pour ' + demande.plaque + ' : ' + r.getContentText().slice(0, 200); console.error(erreur); return { erreur }; }
   // Même plaque, même créneau : si la demande avait été annulée, ce mail la replanifie.
   const champs = Object.keys(fiche).filter((k) => k !== 'createdAt');
   const re = firestore('patch', '/demandes/' + id + '?currentDocument.exists=true&' + masque(champs), jeton, versFirestore(fiche));
@@ -169,4 +247,4 @@ function installer() {
   importer();
 }
 
-if (typeof module === 'object' && module.exports) module.exports = { texteDuMail, lireMail, lireAnnulation, idDemande, serviceDe, vientDeCityDrop, versFirestore };
+if (typeof module === 'object' && module.exports) module.exports = { texteDuMail, lireMail, lireAnnulation, idDemande, serviceDe, vientDeCityDrop, versFirestore, etatSuivant, traceAEcrire, alerteAEnvoyer, champsTrace };

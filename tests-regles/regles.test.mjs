@@ -208,3 +208,20 @@ test("un prestataire signale un problème sur ses véhicules, et seulement les s
   await assertFails(updateDoc(doc(as("fabian"), "signalements/s1"), { texte: "réécrit" }));
   await assertFails(setDoc(doc(as("robot"), "signalements/s9"), report));
 });
+
+test("le robot laisse sa trace dans robot/etat, l'équipe la lit, personne d'autre n'y touche", async () => {
+  const trace = { passage: "2026-11-18T12:00:00Z", dernierMail: "2026-11-18T09:12:00Z", erreur: null, erreurDepuis: null, nonCompris: "Prise de rendez-vous XX", nonComprisLe: "2026-11-18T11:00:00Z" };
+  const robot = as("robot");
+  await assertSucceeds(setDoc(doc(robot, "robot/etat"), trace));
+  await assertSucceeds(setDoc(doc(robot, "robot/etat"), { ...trace, erreur: "Connexion du robot refusée", erreurDepuis: "2026-11-18T12:05:00Z" }));
+  await assertFails(getDoc(doc(robot, "robot/etat")), "le robot ne lit toujours rien");
+  await assertFails(setDoc(doc(robot, "robot/autre"), trace), "un seul document");
+  await assertFails(setDoc(doc(robot, "robot/etat"), { ...trace, role: "admin" }), "seulement les champs de la trace");
+  await assertFails(setDoc(doc(robot, "robot/etat"), { ...trace, erreur: "x".repeat(301) }));
+  await assertFails(deleteDoc(doc(robot, "robot/etat")));
+  await assertSucceeds(getDoc(doc(as("fabian"), "robot/etat")));
+  await assertSucceeds(getDoc(doc(as("jerome"), "robot/etat")));
+  await assertFails(getDoc(doc(as("khalid"), "robot/etat")));
+  await assertFails(setDoc(doc(as("khalid"), "robot/etat"), trace));
+  await assertFails(setDoc(doc(as("jerome"), "robot/etat"), trace));
+});

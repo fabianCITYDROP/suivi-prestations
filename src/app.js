@@ -28,6 +28,7 @@
     hayonWarned: "",
     problems: [],            // [{demandeId, plaque, prestataireId, type, texte, photo?, statut, at, par}] problems seen by providers         // warning already shown once for the form being saved
     userEmail: "",
+    robot: null,             // robot/etat: last trace left by the mail robot
   };
   // Providers who have their own access get a link to answer in the app instead of WhatsApp.
   const appLink = (providerName) => state.accounts.some((a) => a.role === "prestataire" && a.prestataireId === D.providerId(providerName))
@@ -1285,6 +1286,18 @@
     renderFormSide();
   }
 
+  // ---------- mail robot: a stopped robot cannot warn anyone, so the team app shows it ----------
+  function renderRobot() {
+    const health = D.robotHealth(state.robot);
+    const loud = health.level === "alert" || health.level === "warn";
+    $("#robotAlert").hidden = !loud || state.providerMode;
+    $("#robotAlert").classList.toggle("alert", health.level === "alert");
+    $("#robotAlertText").textContent = health.text;
+    $("#s-robot").textContent = health.text;
+    $("#s-robot").className = "robot-state " + health.level;
+  }
+  setInterval(() => state.robot && renderRobot(), 5 * 60000); // the alert also appears when the page stays open without new data
+
   function applySettings(settings) {
     if (Array.isArray(settings.sites)) state.sites = D.normalizeSites(settings.sites);
     if (Array.isArray(settings.flotte)) state.fleet = settings.flotte.slice();
@@ -1336,6 +1349,7 @@
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
       onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderFormSide(); },
+      onRobot: (etat) => { state.robot = etat; renderRobot(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
         if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe City-Drop de t'ajouter dans Réglages › Accès.");
@@ -1345,6 +1359,6 @@
 
   try { state.providerFilter = localStorage.getItem("suivi.provFilter") || ""; } catch {}
 
-  renderSelects(); resetForm(); renderAll(); show(location.hash.slice(1) || "planning");
+  renderSelects(); resetForm(); renderAll(); renderRobot(); show(location.hash.slice(1) || "planning");
   connect();
 })();
