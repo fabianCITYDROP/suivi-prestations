@@ -70,11 +70,6 @@
       return () => unsubs.forEach((u) => u());
     }
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
-    async function addProof(demande, full) {
-      const key = `${demande.id}_${Date.now().toString(36)}`;
-      await db.doc("preuves/" + key).set({ prestataireId: demande.prestataireId, demandeId: demande.id, plaque: demande.plaque || "", data: full, at: new Date().toISOString() });
-      return key;
-    }
     async function answer(demande, retour) {
       const now = new Date().toISOString();
       await db.doc("demandes/" + demande.id).update({ retour: { ...retour, at: now }, updatedAt: now });
@@ -176,7 +171,7 @@
       return photoCache.get(key);
     }
 
-    return { subscribeProvider, getProvider, addProof, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

@@ -16,7 +16,7 @@ web
 
 ## Product Purpose
 
-One place where City-Drop asks a subcontractor to treat a fleet vehicle (a utility van identified by its plate), the subcontractor accepts and closes the job with a plate photo, and the team sees every answer without chasing anyone on WhatsApp. Success: no request is forgotten, no duplicate is sent, and the monthly provider invoice can be checked in minutes.
+One place where City-Drop asks a subcontractor to treat a fleet vehicle (a utility van identified by its plate), the subcontractor accepts and closes the job with one "OK prestation réalisée" tap (no photo: providers are trusted), and the team sees every answer without chasing anyone on WhatsApp. Success: no request is forgotten, no duplicate is sent, and the monthly provider invoice can be checked in minutes.
 
 ## Operating Context
 
