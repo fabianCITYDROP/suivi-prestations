@@ -124,14 +124,17 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   await k.fill('[data-search]', 'gh-111'); await k.waitForTimeout(300);
   ok('search finds the accepted vehicle', (await k.$$('.job')).length === 1);
   if (process.env.SHOTS) await k.screenshot({ path: process.env.SHOTS + '/4-a-venir.png', fullPage: true });
-  const photo = await k.screenshot({ type: 'jpeg', quality: 60 });
-  await k.click('[data-done="lav1"]');
-  await k.setInputFiles('input[type=file][capture]', { name: 'plaque.jpg', mimeType: 'image/jpeg', buffer: photo });
-  await k.waitForTimeout(2500);
+  ok('no camera or photo asked to close a job', !(await k.$('input[type=file][capture]')) && !(await k.textContent('#view-presta')).includes('photo de la plaque'));
+  await k.click('[data-form="done:lav1"]'); await k.waitForTimeout(200);
   lav1 = (await list('demandes')).find((d) => d.id === 'lav1');
-  ok('"Fait en avance" with photo closes the request automatically', lav1.statut === 'realisee');
-  const proofs = await list('preuves');
-  ok('proof photo stored for Khalid', proofs.length === 1 && proofs[0].prestataireId === 'khalid');
+  ok('"OK prestation réalisée" asks for a confirmation first', lav1.statut === 'confirmee' && await k.isVisible('[data-send="done:lav1"]'));
+  if (process.env.SHOTS) await k.screenshot({ path: process.env.SHOTS + '/4b-confirmer-realisee.png', fullPage: true });
+  await k.fill('[data-note]', 'Siège un peu taché');
+  await k.click('[data-send="done:lav1"]'); await k.waitForTimeout(2500);
+  lav1 = (await list('demandes')).find((d) => d.id === 'lav1');
+  const r1 = unval(lav1.retour?.mapValue?.fields);
+  ok('confirming closes the request automatically, without photo', lav1.statut === 'realisee' && r1.etat === 'fait' && !r1.preuve && r1.note === 'Siège un peu taché');
+  ok('no proof photo stored', (await list('preuves')).length === 0);
   await k.click('[data-tab="done"]'); await k.waitForTimeout(300);
   ok('done list shown to Khalid', (await k.textContent('#view-presta')).includes('GH-111-AA'));
   if (process.env.SHOTS) await k.screenshot({ path: process.env.SHOTS + '/5-faits.png', fullPage: true });
@@ -147,9 +150,7 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   const panel = await p.textContent('#answers');
   ok('team sees Khalid answers on the Retours page', await p.isVisible('#view-retours') && panel.includes('GH-111-AA') && panel.includes('Autre date proposée'));
   if (process.env.SHOTS) { await p.setViewportSize({ width: 1280, height: 800 }); await p.screenshot({ path: process.env.SHOTS + '/7-retours.png' }); }
-  await p.click('#answers [data-proof]'); await p.waitForTimeout(800);
-  ok('team opens the proof photo', ((await p.getAttribute('#lightImg', 'src')) || '').startsWith('data:image/jpeg'));
-  await p.click('#lightbox');
+  ok('team sees the provider note on the done job', panel.includes('Siège un peu taché'));
   await p.click('#answers [data-accept-date="lav2"]'); await p.waitForTimeout(1000);
   const lav2 = (await list('demandes')).find((d) => d.id === 'lav2');
   ok('accepting moves the request to the proposed date and confirms it', lav2.date === day(3) && lav2.debut === '14:00' && lav2.statut === 'confirmee');
