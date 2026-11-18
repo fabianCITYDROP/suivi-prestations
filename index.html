@@ -1734,11 +1734,6 @@ window.SUIVI_FIREBASE_CONFIG = {
       return () => unsubs.forEach((u) => u());
     }
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
-    async function addProof(demande, full) {
-      const key = `${demande.id}_${Date.now().toString(36)}`;
-      await db.doc("preuves/" + key).set({ prestataireId: demande.prestataireId, demandeId: demande.id, plaque: demande.plaque || "", data: full, at: new Date().toISOString() });
-      return key;
-    }
     async function answer(demande, retour) {
       const now = new Date().toISOString();
       await db.doc("demandes/" + demande.id).update({ retour: { ...retour, at: now }, updatedAt: now });
@@ -1859,7 +1854,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, addProof, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -1869,7 +1864,7 @@ window.SUIVI_FIREBASE_CONFIG = {
 // Provider screen: what a provider sees after signing in. Only its own requests are loaded
 // (the access rules refuse anything else).
 // 1. "À valider": a new request is accepted, refused, or answered with another date.
-// 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), done with a photo of the plate.
+// 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), closed with "OK prestation réalisée".
 // 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
 // 4. "Faits": history and counts.
 (function (root) {
@@ -1881,7 +1876,7 @@ window.SUIVI_FIREBASE_CONFIG = {
   ];
 
   function start({ store, account, email, D, ui }) {
-    const { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } = ui;
+    const { $, esc, toast, icon, plateTag, safeImageSrc } = ui;
     const state = { demandes: [], models: new Map(), providerName: "", tab: null, openForm: null, busy: new Set(), query: "" };
     const today = () => D.toIsoDate(new Date());
     const view = $("#view-presta");
@@ -1923,10 +1918,14 @@ window.SUIVI_FIREBASE_CONFIG = {
       return `<p class="job-answer">${icon("alert")}<span>${esc(D.answerSummary(r))}${r.vu ? "" : " · en attente de l'équipe"}</span></p>`;
     }
 
-    // ---------- inline forms (another date, missing vehicle, not possible) ----------
+    // ---------- inline forms (done, another date, missing vehicle, not possible) ----------
     function formHtml(d) {
       const cancel = (kind) => `<button type="button" class="ghost" data-form="${kind}:${esc(d.id)}">Annuler</button>`;
       const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note placeholder="${placeholder}"></label>`;
+      // "Done": one confirmation step so a slip of the finger does not close a job. No photo: providers are trusted.
+      if (state.openForm === "done:" + d.id) return `<div class="job-form">
+        ${note("Un mot pour l'équipe (facultatif)", "Ex. rayure côté passager")}
+        <div class="job-form-actions">${cancel("done")}<button type="button" class="primary" data-send="done:${esc(d.id)}">${icon("check")}Confirmer : réalisée</button></div></div>`;
       if (state.openForm === "date:" + d.id) return `<div class="job-form">
         <div class="job-form-row"><label class="field"><span>Date proposée</span><input type="date" data-date min="${today()}"></label>
         <label class="field"><span>Heure</span><input type="time" data-time step="900"></label></div>
@@ -1955,7 +1954,8 @@ window.SUIVI_FIREBASE_CONFIG = {
     function doCard(d, { early = false } = {}) {
       return `<article class="job">${jobHead(d)}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
         ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
-          <button type="button" class="primary big" data-done="${esc(d.id)}">${icon("camera")}${early ? "Fait en avance" : "Fait"} · photo de la plaque</button>
+          <button type="button" class="primary big" data-form="done:${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
+          <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Reporter</button>
           <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button></div>`}
       </article>`;
     }
@@ -2000,7 +2000,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       const counts = D.providerCounts(state.demandes, today());
       const list = filtered(all);
       return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci<span aria-hidden="true">·</span><b>${counts.year}</b> cette année</p>${searchBox()}` +
-        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque véhicule validé avec sa photo s'ajoute ici."));
+        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici."));
     }
     const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
@@ -2029,38 +2029,20 @@ window.SUIVI_FIREBASE_CONFIG = {
       finally { state.busy.delete(d.id); render(); }
     }
 
-    // "Fait": the camera opens; the photo of the plate is the proof.
-    const camera = Object.assign(document.createElement("input"), { type: "file", accept: "image/*", hidden: true });
-    camera.setAttribute("capture", "environment");
-    document.body.append(camera);
-    let doneTarget = null;
-    camera.addEventListener("change", async () => {
-      const file = camera.files[0]; camera.value = "";
-      const d = doneTarget && byId(doneTarget);
-      if (!file || !d) return;
-      state.busy.add(d.id); render();
-      try {
-        const { full } = await prepareImage(file);
-        const preuve = await store.addProof(d, full);
-        state.busy.delete(d.id);
-        await send(d, { etat: "fait", preuve }, `${d.plaque} validé, merci !`);
-      } catch { state.busy.delete(d.id); render(); toast("La photo n'est pas partie : réessaie"); }
-    });
-
     view.addEventListener("input", (e) => { if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); } });
     view.addEventListener("click", (e) => {
       const el = (sel) => e.target.closest(sel);
       let b;
       if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
-      else if ((b = el("[data-done]"))) { doneTarget = b.dataset.done; camera.click(); }
       else if ((b = el("[data-form]"))) { state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; render(); }
       else if ((b = el("[data-send]"))) {
         const [kind, id] = b.dataset.send.split(":");
         const form = b.closest(".job-form");
         const note = form.querySelector("[data-note]").value.trim();
         const withNote = note ? { note } : {};
-        if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
+        if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
+        else if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
         else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");
         else {
           const date = form.querySelector("[data-date]").value;
