@@ -1094,11 +1094,11 @@
   }
   function renderHayon() {
     const rows = D.hayonFollowUp(state.hayons, state.demandes, today());
-    const count = (level) => rows.filter((r) => r.level === level).length;
+    const count = (...levels) => rows.filter((r) => levels.includes(r.level)).length;
     const urgent = rows.filter((r) => !r.booked && ["depasse", "urgent"].includes(r.level)).length;
     $("#hayonBadge").hidden = !urgent; $("#hayonBadge").textContent = urgent;
-    $("#hy-kpis").innerHTML = rows.length ? [["depasse", "Dépassés"], ["urgent", "5 jours ou moins"], ["bientot", "30 jours ou moins"], ["ok", "À jour"]]
-      .map(([level, label]) => `<div class="hy-kpi lv-${level}"><b>${count(level)}</b><span>${label}</span></div>`).join("") : "";
+    $("#hy-kpis").innerHTML = rows.length ? [[["depasse", "urgent"], "Dépassés ou 5 jours ou moins"], [["bientot"], "30 jours ou moins"], [["ok"], "À jour"]]
+      .map(([levels, label]) => `<div class="hy-kpi lv-${levels[levels.length - 1]}"><b>${count(...levels)}</b><span>${label}</span></div>`).join("") : "";
     const query = $("#hy-q").value, filter = HAYON_FILTERS[$("#hy-filter").value] || HAYON_FILTERS[""];
     const shown = rows.filter((r) => filter(r) && D.matchesSearch([r.plaque], query));
     $("#hy-list").innerHTML = !rows.length

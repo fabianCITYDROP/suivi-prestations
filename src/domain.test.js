@@ -382,7 +382,7 @@ test("hayon: next control is 180 days after the last one, from the sheet or a pa
   assert.equal(ef.lastRequest.id, "a");
 });
 
-test("hayon: levels are violet past due, red 5 days or less, orange 30 days or less", () => {
+test("hayon: levels: past due, 5 days or less (both red on screen), 30 days or less (orange)", () => {
   assert.equal(D.hayonLevel(-1), "depasse");
   assert.equal(D.hayonLevel(0), "urgent");
   assert.equal(D.hayonLevel(5), "urgent");

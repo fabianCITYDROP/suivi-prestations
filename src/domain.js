@@ -565,7 +565,7 @@
   // last control taken from the provider's sheet: hayons/<PLATEKEY> {plaque, dernierControle}.
   const HAYON_CYCLE_DAYS = 180;
   const HAYON_TOO_SOON_DAYS = 7;
-  // Colours chosen by Fabian (2026-11-18): violet = past due, red = 5 days or less, orange = 30 days or less.
+  // Levels (2026-11-18). On screen only three colours: red = past due or 5 days or less, orange = 30 days or less, green = fine.
   const HAYON_LEVELS = [
     { id: "depasse", label: "Dépassé", upTo: -1 },
     { id: "urgent", label: "5 jours ou moins", upTo: 5 },
