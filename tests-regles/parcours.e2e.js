@@ -119,6 +119,8 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   await k.click('[data-send="date:lav2"]'); await k.waitForTimeout(1200);
   await k.click('[data-tab="today"]'); await k.waitForTimeout(300);
   ok('vehicle on site for several days shows today', (await k.textContent('#view-presta')).includes('GH-333-CC'));
+  const row = await k.$$eval('#view-presta .job-actions button:not(.big)', (els) => els.map((e) => e.getBoundingClientRect()));
+  ok('« Reporter » and « Véhicule absent » share one full row under the big button', row.length === 2 && Math.abs(row[0].top - row[1].top) < 1 && Math.abs(row[0].width - row[1].width) < 1);
   if (process.env.SHOTS) await k.screenshot({ path: process.env.SHOTS + '/3-aujourdhui.png', fullPage: true });
   await k.click('[data-tab="upcoming"]'); await k.waitForTimeout(300);
   await k.fill('[data-search]', 'gh-111'); await k.waitForTimeout(300);

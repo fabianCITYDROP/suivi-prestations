@@ -1781,6 +1781,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return `<article class="job">${jobHead(d)}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
         ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
           <button type="button" class="primary big" data-form="done:${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
+          <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Reporter</button>
           <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button></div>`}
       </article>`;
     }
