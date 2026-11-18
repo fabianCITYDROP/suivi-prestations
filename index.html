@@ -19,6 +19,10 @@
 #login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:100;padding:16px}
 .login-card{width:min(380px,100%);display:grid;gap:14px}
 .login-error{color:var(--danger);font-size:13px}
+.login-sent{font-size:14px;line-height:1.45;color:var(--ink);background:var(--st-done-bg);border-radius:var(--r-sm);padding:10px 12px;margin:0}
+.login-link{justify-self:center;background:none;border:0;padding:6px 8px;color:var(--ink-2);font:inherit;font-size:14px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;border-radius:var(--r-sm)}
+.login-link:hover{color:var(--ink)}
+.login-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .account{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:14px;color:var(--ink-2)}
 
 /* Layout: full-width work surface. App bar with underline tabs; each view uses a main column plus a sticky "send" column on wide screens. */
@@ -270,6 +274,13 @@ details.more[open] > summary { margin-bottom: 10px; }
 
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 11px 18px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 20; max-width: calc(100% - 32px); box-shadow: var(--shadow); }
 .banner { background: var(--st-todo-bg); color: var(--ink); border-radius: var(--r-sm); padding: 10px 14px; font-size: 14px; margin-bottom: 16px; }
+.robot-alert.alert { background: var(--danger); color: #fff; font-weight: 500; }
+.robot-alert.alert a { color: #fff; }
+.robot-alert a { font-weight: 600; white-space: nowrap; }
+.robot-state { margin: 0 0 8px; font-size: 14px; }
+.robot-state.alert { color: var(--danger); font-weight: 600; }
+.robot-state.warn { color: var(--st-todo); font-weight: 600; }
+.robot-state.ok { color: var(--st-done); }
 .intro { max-width: 75ch; margin-bottom: 16px; color: var(--ink-2); }
 
 /* Tables */
@@ -620,6 +631,7 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 
 <main class="wrap">
   <div class="banner" id="banner" hidden></div>
+  <div class="banner robot-alert" id="robotAlert" role="alert" hidden><span id="robotAlertText"></span> <a href="#reglages">Que faire ?</a></div>
 
   <!-- PLANNING -->
   <section id="view-planning">
@@ -855,6 +867,12 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
         <div id="a-prepare" class="row" hidden style="margin-top:12px"><p class="hint" style="flex:1 1 220px">À faire une fois avant de publier les nouvelles règles : <span id="a-prepare-text"></span></p><button type="button" class="primary" id="a-prepare-btn">Préparer les accès</button></div>
       </div>
       <div class="panel">
+        <h2>Robot des mails</h2>
+        <p class="robot-state" id="s-robot"></p>
+        <p class="hint">Le robot ajoute tout seul les demandes reçues par mail. S'il s'arrête (mot de passe changé, blocage Google), un bandeau rouge s'affiche en haut de l'appli et le robot envoie un mail d'alerte quand il le peut.
+          Pour le remettre en route : ouvrir le script Apps Script de la boîte du robot › Exécutions pour voir l'erreur, corriger (souvent ROBOT_MOT_DE_PASSE dans les Propriétés du script), puis relancer <b>installer</b>.</p>
+      </div>
+      <div class="panel">
         <h2>Sites et adresses</h2>
         <p class="hint">L'adresse se remplit toute seule dans la demande quand on choisit le site.</p>
         <div class="list-edit" id="s-sites"></div>
@@ -934,7 +952,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (document.getElementById("login")) return;
     const box = document.createElement("div");
     box.id = "login";
-    box.innerHTML = `<form class="panel login-card">
+    box.innerHTML = `<form class="panel login-card" data-view="login">
         <img src="assets/logo-full.svg" alt="" width="64" height="64" style="display:block;border-radius:14px">
         <h2>City-Drop × Presta</h2>
         <p class="hint">Connecte-toi avec ton adresse et ton mot de passe. C'est demandé une seule fois sur cet ordinateur.</p>
@@ -942,16 +960,74 @@ window.SUIVI_FIREBASE_CONFIG = {
         <label class="field"><span>Mot de passe</span><input type="password" name="password" autocomplete="current-password" required></label>
         <p class="login-error" hidden>Adresse ou mot de passe incorrect.</p>
         <button class="primary big" type="submit">Ouvrir</button>
+        <button class="login-link" type="button" data-go="reset">Mot de passe oublié ?</button>
+      </form>
+      <form class="panel login-card" data-view="reset" hidden>
+        <img src="assets/logo-full.svg" alt="" width="64" height="64" style="display:block;border-radius:14px">
+        <h2>Mot de passe oublié</h2>
+        <p class="hint">Indique ton adresse e-mail. Tu vas recevoir un lien pour choisir un nouveau mot de passe.</p>
+        <label class="field"><span>Adresse e-mail</span><input type="email" name="email" autocomplete="username" required></label>
+        <p class="login-sent" role="status" hidden>Si cette adresse a un compte, un e-mail vient de partir. Ouvre-le et clique sur le lien (pense à regarder dans les spams). Le lien est valable 1 heure.</p>
+        <p class="login-error" hidden></p>
+        <button class="primary big" type="submit">Recevoir le lien</button>
+        <button class="login-link" type="button" data-go="login">Retour à la connexion</button>
       </form>`;
     document.body.append(box);
-    box.querySelector("input").focus();
-    box.querySelector("form").addEventListener("submit", async (e) => {
+    const login = box.querySelector('[data-view="login"]');
+    const reset = box.querySelector('[data-view="reset"]');
+    const show = (view) => {
+      login.hidden = view !== "login"; reset.hidden = view !== "reset";
+      const form = view === "login" ? login : reset;
+      const other = view === "login" ? reset : login;
+      if (!form.email.value) form.email.value = other.email.value; // keep what was typed
+      form.querySelectorAll(".login-error, .login-sent").forEach((p) => { p.hidden = true; });
+      form.email.focus();
+    };
+    box.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => show(b.dataset.go)));
+    login.email.focus();
+    login.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const form = e.target;
       try {
-        await auth.signInWithEmailAndPassword(form.email.value.trim(), form.password.value);
+        await auth.signInWithEmailAndPassword(login.email.value.trim(), login.password.value);
         box.remove();
-      } catch { box.querySelector(".login-error").hidden = false; }
+      } catch { login.querySelector(".login-error").hidden = false; }
+    });
+    // Same answer whether the address has an account or not: nobody can use this screen to find out who has access.
+    // The button stays off for 60 s after each send, so it cannot be used to flood someone's inbox.
+    reset.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const button = reset.querySelector('button[type="submit"]');
+      const error = reset.querySelector(".login-error");
+      const sent = reset.querySelector(".login-sent");
+      const email = reset.email.value.trim();
+      button.disabled = true; error.hidden = true; sent.hidden = true;
+      auth.languageCode = "fr";
+      const back = { url: location.origin + location.pathname };
+      let failure = null;
+      try {
+        await auth.sendPasswordResetEmail(email, back).catch((err) => {
+          // A site address missing from Firebase's allowed list: send the e-mail without the « back to the app » link.
+          if (err && /continue-uri|unauthorized-domain/.test(err.code || "")) return auth.sendPasswordResetEmail(email);
+          throw err;
+        });
+      } catch (err) { failure = err && err.code; }
+      if (failure === "auth/network-request-failed") {
+        error.textContent = "Pas de connexion internet. Réessaie dans un instant.";
+        error.hidden = false; button.disabled = false; return;
+      }
+      if (failure === "auth/too-many-requests") {
+        error.textContent = "Trop de demandes d'un coup. Réessaie dans quelques minutes.";
+        error.hidden = false;
+      } else {
+        sent.hidden = false; // also for « no such account » or « invalid address »: never say which
+      }
+      let wait = 60;
+      const tick = () => {
+        if (wait <= 0) { button.disabled = false; button.textContent = "Renvoyer le lien"; return; }
+        button.textContent = `Renvoyer le lien (${wait--} s)`;
+        setTimeout(tick, 1000);
+      };
+      tick();
     });
   }
 
@@ -1679,6 +1755,27 @@ window.SUIVI_FIREBASE_CONFIG = {
     return [...all.values()];
   }
 
+  // ---------- health of the mail robot (apps-script/import-mails.js writes robot/etat) ----------
+  // robot/etat: {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} (ISO dates).
+  // The robot leaves a trace at least every 30 minutes. When it stops (password changed, Google block, error),
+  // the team app is the one that notices, since a stopped robot cannot warn anyone itself.
+  const ROBOT_LATE_MINUTES = 120;  // Google sometimes runs a 5-minute trigger late: two hours without a trace is a real stop.
+  const ROBOT_QUIET_DAYS = 4;      // no City-Drop mail at all for that long: the box may no longer receive them.
+  function robotHealth(etat, now = new Date()) {
+    if (!etat || !etat.passage) return { level: "off", text: "Le robot des mails n'est pas encore installé (ou n'a encore jamais tourné)." };
+    const at = (iso) => { const d = new Date(iso); return `${numericDate(toIsoDate(d))} à ${String(d.getHours()).padStart(2, "0")}h${String(d.getMinutes()).padStart(2, "0")}`; };
+    const minutes = (now - new Date(etat.passage)) / 60000;
+    if (minutes > ROBOT_LATE_MINUTES)
+      return { level: "alert", text: `Le robot des mails ne tourne plus depuis le ${at(etat.passage)} : les demandes reçues par mail depuis n'arrivent plus dans l'appli.` };
+    if (etat.erreur)
+      return { level: "alert", text: `Le robot des mails a un problème depuis le ${at(etat.erreurDepuis || etat.passage)} : ${etat.erreur}` };
+    if (etat.nonCompris && etat.nonComprisLe && (now - new Date(etat.nonComprisLe)) / 86400000 <= 3)
+      return { level: "warn", text: `Le robot n'a pas su lire le mail « ${etat.nonCompris} » (le ${at(etat.nonComprisLe)}) : cette demande n'est pas dans l'appli, saisis-la à la main.` };
+    if (etat.dernierMail && (now - new Date(etat.dernierMail)) / 86400000 > ROBOT_QUIET_DAYS)
+      return { level: "warn", text: `Aucun mail de City-Drop reçu depuis le ${at(etat.dernierMail)}. Normal s'il n'y a eu aucun rendez-vous, sinon la boîte du robot ne reçoit peut-être plus les mails du groupe.` };
+    return { level: "ok", text: `Le robot des mails tourne bien : dernier passage le ${at(etat.passage)}${etat.dernierMail ? `, dernier mail reçu le ${at(etat.dernierMail)}` : ""}.` };
+  }
+
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
@@ -1695,7 +1792,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_MONTHS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
-    providerFromGarage, mailCompletion, mailMarkers,
+    providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
   };
@@ -1704,7 +1801,8 @@ window.SUIVI_FIREBASE_CONFIG = {
 <script>
 // Shared database access. The page talks to the data only through this object.
 // Layout: demandes/<id>, vehicules/<PLATEKEY>, photos/<key>, config/reglages,
-//         hayons/<PLATEKEY> {plaque, dernierControle}, prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId}.
+//         hayons/<PLATEKEY> {plaque, dernierControle}, prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId},
+//         robot/etat {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} written by the mail robot.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./domain.js"));
   else root.SuiviStore = factory(root.SuiviDomain);
@@ -1751,7 +1849,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return { add, stop };
     }
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onError, recentFrom }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onRobot, onError, recentFrom }) {
       const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const requests = db.collection("demandes");
       demandesFeed = createDemandesFeed(onDemandes, onError);
@@ -1774,6 +1872,8 @@ window.SUIVI_FIREBASE_CONFIG = {
       if (onHayons) unsubs.push(db.collection("hayons").onSnapshot((s) => onHayons(toRows(s)), () => onHayons([])));
       // Only the team may list accounts: for anyone else this one simply stays empty.
       if (onAccounts) unsubs.push(db.collection("comptes").onSnapshot((s) => onAccounts(toRows(s)), () => onAccounts([])));
+      // Trace left by the mail robot: refused until the new rules are published, then simply "not installed".
+      if (onRobot) unsubs.push(db.doc("robot/etat").onSnapshot((s) => onRobot(s.exists ? s.data() : null), () => onRobot(null)));
       return () => unsubs.forEach((u) => u());
     }
 
@@ -2227,6 +2327,7 @@ function page(texte) {
     userEmail: "",
     recentFrom: D.recentWindowStart(D.toIsoDate(new Date())), // requests before this day are loaded only on demand
     olderRanges: [],         // [{from, to, ready}] older periods already asked for
+    robot: null,             // robot/etat: last trace left by the mail robot
   };
   // Providers who have their own access get a link to answer in the app instead of WhatsApp.
   const appLink = (providerName) => state.accounts.some((a) => a.role === "prestataire" && a.prestataireId === D.providerId(providerName))
@@ -3470,6 +3571,18 @@ function page(texte) {
     renderFormSide();
   }
 
+  // ---------- mail robot: a stopped robot cannot warn anyone, so the team app shows it ----------
+  function renderRobot() {
+    const health = D.robotHealth(state.robot);
+    const loud = health.level === "alert" || health.level === "warn";
+    $("#robotAlert").hidden = !loud || state.providerMode;
+    $("#robotAlert").classList.toggle("alert", health.level === "alert");
+    $("#robotAlertText").textContent = health.text;
+    $("#s-robot").textContent = health.text;
+    $("#s-robot").className = "robot-state " + health.level;
+  }
+  setInterval(() => state.robot && renderRobot(), 5 * 60000); // the alert also appears when the page stays open without new data
+
   function applySettings(settings) {
     if (Array.isArray(settings.sites)) state.sites = D.normalizeSites(settings.sites);
     if (Array.isArray(settings.flotte)) state.fleet = settings.flotte.slice();
@@ -3521,6 +3634,7 @@ function page(texte) {
       onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); completeMailRequests(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
+      onRobot: (etat) => { state.robot = etat; renderRobot(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
         if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe City-Drop de t'ajouter dans Réglages › Accès.");
@@ -3530,7 +3644,7 @@ function page(texte) {
 
   try { state.providerFilter = localStorage.getItem("suivi.provFilter") || ""; } catch {}
 
-  renderSelects(); resetForm(); renderAll(); show(location.hash.slice(1) || "planning");
+  renderSelects(); resetForm(); renderAll(); renderRobot(); show(location.hash.slice(1) || "planning");
   connect();
 })();
 </script>

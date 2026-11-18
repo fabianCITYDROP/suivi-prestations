@@ -57,6 +57,7 @@
 
 <main class="wrap">
   <div class="banner" id="banner" hidden></div>
+  <div class="banner robot-alert" id="robotAlert" role="alert" hidden><span id="robotAlertText"></span> <a href="#reglages">Que faire ?</a></div>
 
   <!-- PLANNING -->
   <section id="view-planning">
@@ -290,6 +291,12 @@
           <select id="a-prov" aria-label="Prestataire du compte" style="flex:1 1 140px"></select>
           <button type="button" id="a-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
         <div id="a-prepare" class="row" hidden style="margin-top:12px"><p class="hint" style="flex:1 1 220px">À faire une fois avant de publier les nouvelles règles : <span id="a-prepare-text"></span></p><button type="button" class="primary" id="a-prepare-btn">Préparer les accès</button></div>
+      </div>
+      <div class="panel">
+        <h2>Robot des mails</h2>
+        <p class="robot-state" id="s-robot"></p>
+        <p class="hint">Le robot ajoute tout seul les demandes reçues par mail. S'il s'arrête (mot de passe changé, blocage Google), un bandeau rouge s'affiche en haut de l'appli et le robot envoie un mail d'alerte quand il le peut.
+          Pour le remettre en route : ouvrir le script Apps Script de la boîte du robot › Exécutions pour voir l'erreur, corriger (souvent ROBOT_MOT_DE_PASSE dans les Propriétés du script), puis relancer <b>installer</b>.</p>
       </div>
       <div class="panel">
         <h2>Sites et adresses</h2>
