@@ -30,8 +30,9 @@ function texteDuMail(html) {
 
 const dateIso = (jjmmaaaa) => { const [j, m, a] = jjmmaaaa.split('/'); return a + '-' + m.padStart(2, '0') + '-' + j.padStart(2, '0'); };
 
-// Les lignes « - Lavage extérieur » disent le service : que du lavage, du pare-brise, sinon une intervention.
-function serviceDe(taches) {
+// Les lignes « - Lavage extérieur » disent le service : contrôle hayon, que du lavage, du pare-brise, sinon une intervention.
+function serviceDe(taches, garage) {
+  if (taches.some((t) => /hayon|haillon/i.test(t)) || /dhol+iand/i.test(String(garage || ''))) return 'hayon';
   if (taches.length && taches.every((t) => /lavage|nettoyage/i.test(t))) return 'lavage';
   if (taches.some((t) => /pare.?brise/i.test(t))) return 'pare-brise';
   return 'intervention';
@@ -50,7 +51,7 @@ function lireMail(sujet, html) {
   if (!creneau || !vehicule || !garage) return null;
   const plaque = vehicule[1].toUpperCase();
   if (plaqueSujet && plaqueSujet.replace(/[^A-Z0-9]/gi, '').toUpperCase() !== plaque.replace(/[^A-Z0-9]/g, '')) return null;
-  const service = serviceDe(taches);
+  const service = serviceDe(taches, garage);
   return {
     source: 'mail', statut: 'envoyee', service, plaque,
     modeleMail: creneau[1].trim(),

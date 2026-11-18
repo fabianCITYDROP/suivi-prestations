@@ -168,3 +168,14 @@ test("le robot annule ou replanifie seulement une demande venue d'un mail", asyn
   await assertSucceeds(updateDoc(doc(db, "demandes/mail-1"), { statut: "envoyee", fin: "21:00", updatedAt: "2026-11-11" }));
   await assertFails(updateDoc(doc(db, "demandes/d2"), { statut: "annulee" }), "une demande saisie dans l'appli reste intouchable");
 });
+
+test("contrôles hayon : l'équipe gère la liste, Jérôme la lit, personne d'autre n'y touche", async () => {
+  await assertSucceeds(setDoc(doc(as("fabian"), "hayons/AB123CD"), { plaque: "AB-123-CD", dernierControle: "2026-06-01" }));
+  await assertSucceeds(getDocs(collection(as("jerome"), "hayons")));
+  await assertFails(setDoc(doc(as("jerome"), "hayons/AB123CD"), { plaque: "AB-123-CD", dernierControle: "2026-11-01" }));
+  for (const who of ["allo", "khalid", "robot", "inconnu"]) {
+    await assertFails(getDoc(doc(as(who), "hayons/AB123CD")));
+    await assertFails(setDoc(doc(as(who), "hayons/AB123CD"), { plaque: "AB-123-CD", dernierControle: "2026-11-01" }));
+  }
+  await assertSucceeds(setDoc(doc(as("robot"), "demandes/mail-h"), { ...mail, service: "hayon" }), "le robot importe aussi les mails de contrôle hayon");
+});

@@ -8,12 +8,14 @@
     { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise" },
     { id: "lavage", label: "Lavage", title: "lavage véhicule" },
     // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
-    { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: true },
+    { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: "interventions" },
+    // Tailgate inspection (every 180 days), only for the providers who do them (Dhollianda).
+    { id: "hayon", label: "Contrôle hayon", title: "contrôle hayon", onRequest: "hayon" },
   ];
   const TASK_SUGGESTIONS = ["Vérification du véhicule", "Changer une ampoule", "Niveau d'huile", "AdBlue", "Pression des pneus"];
   const isIntervention = (d) => d.service === "intervention";
-  // Services offered by a provider: windshield and washing for all, interventions when enabled in Réglages.
-  const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.interventions).map((s) => s.id);
+  // Services offered by a provider: windshield and washing for all, interventions and tailgate controls when enabled in Réglages.
+  const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.[s.onRequest]).map((s) => s.id);
   const STATUSES = [
     { id: "a_envoyer", label: "À envoyer" },
     { id: "envoyee", label: "Envoyée" },
@@ -557,6 +559,100 @@
     return { sites, added, updated };
   }
 
+  // ---------- tailgate (hayon) controls: one every 180 days per vehicle ----------
+  // The provider sends no report we can rely on, so a booked control counts as done once its day has passed,
+  // unless the team cancelled it or marked it "pas fait". The starting point of each vehicle is the date of its
+  // last control taken from the provider's sheet: hayons/<PLATEKEY> {plaque, dernierControle}.
+  const HAYON_CYCLE_DAYS = 180;
+  const HAYON_TOO_SOON_DAYS = 7;
+  // Colours chosen by Fabian (2026-11-18): violet = past due, red = 5 days or less, orange = 30 days or less.
+  const HAYON_LEVELS = [
+    { id: "depasse", label: "Dépassé", upTo: -1 },
+    { id: "urgent", label: "5 jours ou moins", upTo: 5 },
+    { id: "bientot", label: "30 jours ou moins", upTo: 30 },
+    { id: "ok", label: "À jour", upTo: Infinity },
+  ];
+  const isHayon = (d) => d.service === "hayon";
+  const daysBetween = (fromIso, toIso) => Math.round((parseIsoDate(toIso) - parseIsoDate(fromIso)) / 86400000);
+  const hayonLevel = (daysLeft) => (daysLeft == null ? "inconnu" : HAYON_LEVELS.find((l) => daysLeft <= l.upTo).id);
+  const isBookedHayon = (d) => isHayon(d) && !!d.date && d.statut !== "annulee";
+  const hayonDone = (d, todayIso) => isBookedHayon(d) && (d.statut === "realisee" || d.date < todayIso);
+  // What the team app writes on its own: a sent or confirmed control whose day has passed is done.
+  const hayonAutoClose = (d, todayIso) => isBookedHayon(d) && ["envoyee", "confirmee"].includes(d.statut) && d.date < todayIso;
+  const latest = (dates) => dates.filter(Boolean).sort().pop() || "";
+
+  function hayonFollowUp(hayons, demandes, todayIso) {
+    const vehicles = new Map();
+    const entry = (plate) => {
+      const key = plateKey(plate);
+      if (!vehicles.has(key)) vehicles.set(key, { plaque: normalizePlate(plate), base: null, requests: [] });
+      return vehicles.get(key);
+    };
+    hayons.filter((h) => plateKey(h.plaque)).forEach((h) => (entry(h.plaque).base = h));
+    demandes.filter((d) => isHayon(d) && plateKey(d.plaque)).forEach((d) => entry(d.plaque).requests.push(d));
+    return [...vehicles.values()].map(({ plaque, base, requests }) => {
+      const doneRequests = requests.filter((d) => hayonDone(d, todayIso));
+      const lastControl = latest([base?.dernierControle, ...doneRequests.map((d) => d.date)]);
+      const lastRequest = doneRequests.sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+      const nextDue = lastControl ? addDays(lastControl, HAYON_CYCLE_DAYS) : "";
+      const daysLeft = nextDue ? daysBetween(todayIso, nextDue) : null;
+      const booked = requests.filter((d) => isBookedHayon(d) && !hayonDone(d, todayIso)).sort(byDateThenTime)[0] || null;
+      const notDone = requests.filter((d) => d.nonFait && d.date > lastControl).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+      return { plaque, lastControl, lastRequest: lastRequest?.date === lastControl ? lastRequest : null, nextDue, daysLeft,
+        level: hayonLevel(daysLeft), booked, notDone, tooSoon: hayonTooSoonPair(requests), site: booked?.site || lastRequest?.site || "" };
+    }).sort((a, b) => (a.daysLeft ?? -Infinity) - (b.daysLeft ?? -Infinity) || a.plaque.localeCompare(b.plaque));
+  }
+  // Two controls of the same vehicle less than a week apart: one is probably a mistake (it happened once, 2026-11).
+  // Sometimes it is on purpose (a problem on the tailgate), so the app warns and never blocks.
+  function hayonTooSoon(candidate, demandes, ignoreIds = []) {
+    const key = plateKey(candidate.plaque);
+    if (!key || !candidate.date) return null;
+    return demandes.filter((d) => !ignoreIds.includes(d.id) && isBookedHayon(d) && plateKey(d.plaque) === key)
+      .map((d) => ({ other: d, gap: Math.abs(daysBetween(d.date, candidate.date)) }))
+      .filter((x) => x.gap < HAYON_TOO_SOON_DAYS).sort((a, b) => a.gap - b.gap)[0] || null;
+  }
+  function hayonTooSoonPair(requests) {
+    const booked = requests.filter(isBookedHayon).sort((a, b) => a.date.localeCompare(b.date));
+    for (let i = 1; i < booked.length; i++) {
+      const gap = daysBetween(booked[i - 1].date, booked[i].date);
+      if (gap < HAYON_TOO_SOON_DAYS) return { first: booked[i - 1], second: booked[i], gap };
+    }
+    return null;
+  }
+  // Warnings shown before saving a new tailgate control (never blocking).
+  function hayonWarnings(candidate, demandes, hayons, todayIso, ignoreIds = []) {
+    if (!isHayon(candidate) || !plateKey(candidate.plaque)) return [];
+    const warnings = [];
+    const close = hayonTooSoon(candidate, demandes, ignoreIds);
+    if (close) warnings.push(`Un contrôle hayon est déjà posé pour ${normalizePlate(candidate.plaque)} le ${shortDate(close.other.date)}${close.gap ? `, à ${close.gap} jour${close.gap > 1 ? "s" : ""} de celui-ci` : ", le même jour"}.`);
+    const others = demandes.filter((d) => !ignoreIds.includes(d.id));
+    const row = hayonFollowUp(hayons, others, todayIso).find((r) => plateKey(r.plaque) === plateKey(candidate.plaque));
+    if (!close && row?.nextDue && candidate.date && daysBetween(candidate.date, row.nextDue) > 30) {
+      warnings.push(`Dernier contrôle le ${shortDate(row.lastControl)} : le prochain n'est dû que le ${shortDate(row.nextDue)} (dans ${row.daysLeft} jours).`);
+    }
+    return warnings;
+  }
+  // Provider sheet pasted from Google Sheets: each line holds a plate and, optionally, the date of the last control.
+  const DATE_IN_TEXT = /\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})\b|\b(\d{4})-(\d{2})-(\d{2})\b/;
+  function dateInText(text) {
+    const m = String(text || "").match(DATE_IN_TEXT);
+    if (!m) return "";
+    const [y, mo, d] = m[4] ? [+m[4], +m[5], +m[6]] : [+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2], +m[1]];
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return "";
+    return `${y}-${pad2(mo)}-${pad2(d)}`;
+  }
+  function parseHayonList(text) {
+    const seen = new Map();
+    String(text || "").replace(/\r/g, "").split("\n").forEach((line) => {
+      const plate = platesInText(line)[0];
+      if (!plate) return;
+      const date = dateInText(line.toUpperCase().replace(PLATE_IN_TEXT, " "));
+      const previous = seen.get(plate);
+      if (!previous || date > previous.dernierControle) seen.set(plate, { plaque: normalizePlate(plate), dernierControle: date });
+    });
+    return [...seen.values()];
+  }
+
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
@@ -574,6 +670,7 @@
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers,
+    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
   };
 });

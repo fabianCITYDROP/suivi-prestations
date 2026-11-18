@@ -285,6 +285,7 @@ test("interventions are offered only by the providers who do them, and say what 
   assert.deepEqual(D.servicesFor(null), ["pare-brise", "lavage"]);
   assert.deepEqual(D.servicesFor({ interventions: false }), ["pare-brise", "lavage"]);
   assert.deepEqual(D.servicesFor({ interventions: true }), ["pare-brise", "lavage", "intervention"]);
+  assert.deepEqual(D.servicesFor({ hayon: true }), ["pare-brise", "lavage", "hayon"]);
   const job = demande({ service: "intervention", tache: "" });
   assert.ok(D.missingFields(job).includes("ce qu'il faut faire"));
   const ready = { ...job, tache: "AdBlue" };
@@ -361,4 +362,76 @@ test("the garage named in a mail is matched to a provider of the app", () => {
 test("editing an imported request keeps what lets a later mail cancel it", () => {
   assert.deepEqual(D.mailMarkers({ source: "mail", mailId: "mail-X", garageMail: "DSAT", km: 1, plaque: "X", statut: "envoyee" }),
     { source: "mail", mailId: "mail-X", garageMail: "DSAT", km: 1 });
+});
+
+// ---------- tailgate (hayon) controls ----------
+const hayon = (over) => demande({ service: "hayon", prestataire: "DHOLLIANDA", ...over });
+const TODAY = "2026-11-18";
+
+test("hayon: next control is 180 days after the last one, from the sheet or a past booking", () => {
+  const rows = D.hayonFollowUp([{ plaque: "AB-123-CD", dernierControle: "2026-06-01" }, { plaque: "EF-456-GH", dernierControle: "2026-01-10" }],
+    [hayon({ id: "a", plaque: "EF-456-GH", date: "2026-11-10" })], TODAY);
+  const ab = rows.find((r) => r.plaque === "AB-123-CD");
+  assert.equal(ab.nextDue, "2026-11-28");
+  assert.equal(ab.daysLeft, 10);
+  assert.equal(ab.level, "bientot");
+  const ef = rows.find((r) => r.plaque === "EF-456-GH");
+  assert.equal(ef.lastControl, "2026-11-10"); // the booking whose day has passed counts as done
+  assert.equal(ef.nextDue, "2027-05-09");
+  assert.equal(ef.level, "ok");
+  assert.equal(ef.lastRequest.id, "a");
+});
+
+test("hayon: levels are violet past due, red 5 days or less, orange 30 days or less", () => {
+  assert.equal(D.hayonLevel(-1), "depasse");
+  assert.equal(D.hayonLevel(0), "urgent");
+  assert.equal(D.hayonLevel(5), "urgent");
+  assert.equal(D.hayonLevel(6), "bientot");
+  assert.equal(D.hayonLevel(30), "bientot");
+  assert.equal(D.hayonLevel(31), "ok");
+  assert.equal(D.hayonLevel(null), "inconnu");
+});
+
+test("hayon: cancelled or not-done bookings do not count, upcoming ones show as booked, most urgent first", () => {
+  const rows = D.hayonFollowUp([{ plaque: "AB-123-CD", dernierControle: "2026-05-01" }, { plaque: "EF-456-GH", dernierControle: "2026-06-01" }], [
+    hayon({ id: "x", date: "2026-11-01", statut: "annulee" }),
+    hayon({ id: "y", date: "2026-11-05", statut: "annulee", nonFait: true }),
+    hayon({ id: "z", date: "2026-11-25" }),
+  ], TODAY);
+  assert.equal(rows[0].plaque, "AB-123-CD");
+  assert.equal(rows[0].lastControl, "2026-05-01");
+  assert.equal(rows[0].level, "depasse");
+  assert.equal(rows[0].booked.id, "z");
+  assert.equal(rows[0].notDone.id, "y");
+});
+
+test("hayon: only sent or confirmed controls whose day has passed are closed automatically", () => {
+  assert.equal(D.hayonAutoClose(hayon({ date: "2026-11-17" }), TODAY), true);
+  assert.equal(D.hayonAutoClose(hayon({ date: TODAY }), TODAY), false);
+  assert.equal(D.hayonAutoClose(hayon({ date: "2026-11-17", statut: "a_envoyer" }), TODAY), false);
+  assert.equal(D.hayonAutoClose(hayon({ date: "2026-11-17", statut: "annulee" }), TODAY), false);
+  assert.equal(D.hayonAutoClose(demande({ date: "2026-11-17" }), TODAY), false);
+});
+
+test("hayon: warns when the same vehicle is booked twice within a week, or long before it is due", () => {
+  const existing = [hayon({ id: "a", date: "2026-11-12" })];
+  const [close] = D.hayonWarnings(hayon({ date: "2026-11-15" }), existing, [], TODAY);
+  assert.match(close, /déjà posé pour AB-123-CD le .* à 3 jours/);
+  assert.deepEqual(D.hayonWarnings(hayon({ id: "a", date: "2026-11-15" }), existing, [], TODAY, ["a"]), []);
+  const [early] = D.hayonWarnings(hayon({ date: "2026-12-01" }), existing, [], TODAY);
+  assert.match(early, /prochain n'est dû que le/);
+  assert.deepEqual(D.hayonWarnings(hayon({ date: "2026-12-01" }), [], [{ plaque: "AB-123-CD", dernierControle: "2026-06-10" }], TODAY), []);
+  assert.deepEqual(D.hayonWarnings(demande({ date: "2026-11-15" }), existing, [], TODAY), []);
+  const rows = D.hayonFollowUp([], [...existing, hayon({ id: "b", date: "2026-11-15" })], TODAY);
+  assert.equal(rows[0].tooSoon.gap, 3);
+});
+
+test("hayon: the provider's sheet is read line by line (plate + last control date)", () => {
+  const list = D.parseHayonList("Immat\tDernier contrôle\nab-123-cd\t12/05/2026\tOK\nEF456GH  2026-04-03\nGH-789-IJ\n\nAB-123-CD\t01/02/2026");
+  assert.deepEqual(list, [
+    { plaque: "AB-123-CD", dernierControle: "2026-05-12" },
+    { plaque: "EF-456-GH", dernierControle: "2026-04-03" },
+    { plaque: "GH-789-IJ", dernierControle: "" },
+  ]);
+  assert.equal(D.dateInText("le 3/4/26"), "2026-04-03");
 });

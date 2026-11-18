@@ -499,4 +499,37 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 .power-btn.armed { width: auto; padding: 0 14px 0 11px; color: #fff; background: var(--danger); border-color: var(--danger); }
 .power-btn.armed span { display: inline; }
 @media (max-width: 480px) { header.top .wrap:has(.power-btn.armed) .brand-word { display: none; } }
+/* ===== Tailgate controls (hayon): violet = past due, red = 5 days or less, orange = 30 days or less ===== */
+:root { --lv-late: #7a2fb8; --lv-late-bg: #efe3fa; --lv-urgent: #c0261c; --lv-urgent-bg: #fbe2df; --lv-soon: #b25a00; --lv-soon-bg: #fdebd3; --lv-ok: var(--st-done); --lv-ok-bg: var(--st-done-bg); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --lv-late: #c79af5; --lv-late-bg: #2c1d40; --lv-urgent: #f2867c; --lv-urgent-bg: #3d1b18; --lv-soon: #f0a54a; --lv-soon-bg: #382812; } }
+.lv-depasse { --lv: var(--lv-late); --lv-bg: var(--lv-late-bg); }
+.lv-urgent { --lv: var(--lv-urgent); --lv-bg: var(--lv-urgent-bg); }
+.lv-bientot { --lv: var(--lv-soon); --lv-bg: var(--lv-soon-bg); }
+.lv-ok { --lv: var(--lv-ok); --lv-bg: var(--lv-ok-bg); }
+.lv-inconnu { --lv: var(--st-off); --lv-bg: var(--st-off-bg); }
+.hayon-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-bottom: 20px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+.hy-kpi { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; border-top: 4px solid var(--lv); }
+.hy-kpi b { font-family: var(--f-display); font-size: 38px; line-height: 1; color: var(--lv); font-variant-numeric: tabular-nums; }
+.hy-kpi span { font-size: 13px; color: var(--ink-2); }
+.hy-list { list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hy-row { display: grid; grid-template-columns: 170px auto 1fr auto; gap: 8px 16px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--lv); border-radius: var(--r); padding: 10px 14px; box-shadow: var(--shadow); }
+.hy-days { justify-self: start; font-weight: 700; font-size: 14px; color: var(--lv); background: var(--lv-bg); padding: 4px 10px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hy-dates { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--ink-2); }
+.hy-dates b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.hy-warn { flex-basis: 100%; display: inline-flex; align-items: center; gap: 6px; color: var(--lv-urgent); font-weight: 600; }
+.hy-warn .icon { width: 16px; height: 16px; }
+.hy-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.hy-rdv { background: var(--st-sent-bg); color: var(--st-sent); border-color: transparent; font-weight: 600; }
+.small-btn { min-height: 32px; padding: 4px 10px; font-size: 13px; }
+.small-btn.confirm { color: var(--danger); border-color: var(--danger); }
+#hy-pastebox textarea { min-height: 120px; margin: 8px 0; }
+.hint.warn, #vehHint.warn { color: var(--lv-urgent); font-weight: 600; }
+.menu-badge { display: inline-block; min-width: 20px; height: 20px; margin-left: auto; padding: 0 6px; border-radius: 999px; background: var(--lv-late); color: #fff; font: 700 12px/20px var(--f-body); text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .hayon-kpis { grid-template-columns: 1fr 1fr; }
+  .hy-row { grid-template-columns: auto 1fr; }
+  .hy-row .plate { justify-self: end; }
+  .hy-dates, .hy-actions { grid-column: 1 / -1; }
+  .hy-actions { justify-content: flex-start; }
+}
 </style>

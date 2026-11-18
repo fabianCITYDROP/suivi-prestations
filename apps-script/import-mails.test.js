@@ -20,6 +20,9 @@ test("le service se déduit des lignes d'intervention", () => {
   assert.equal(M.serviceDe(["Remplacement pare-brise"]), "pare-brise");
   assert.equal(M.serviceDe(["Lavage extérieur", "AdBlue"]), "intervention");
   assert.equal(M.serviceDe([]), "intervention");
+  assert.equal(M.serviceDe(["Contrôle hayon"]), "hayon");
+  assert.equal(M.serviceDe(["Vérification du haillon"]), "hayon");
+  assert.equal(M.serviceDe([], "DHOLLIANDA Trappes"), "hayon");
 });
 
 test("un mail qui n'a pas la forme attendue est laissé de côté", () => {

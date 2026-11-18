@@ -24,6 +24,8 @@
     openModelKey: null,
     providerDocs: new Map(), // providerId -> {nom, tarifs}
     accounts: [],            // [{id: email, role, prestataireId}]
+    hayons: [],              // [{plaque, dernierControle}] vehicles with a tailgate, from the provider's sheet
+    hayonWarned: "",         // warning already shown once for the form being saved
     userEmail: "",
   };
   // Providers who have their own access get a link to answer in the app instead of WhatsApp.
@@ -282,7 +284,7 @@
   }
 
   // ================= navigation =================
-  const VIEWS = ["planning", "retours", "demande", "photos", "verif", "bilan", "historique", "reglages"];
+  const VIEWS = ["planning", "retours", "demande", "hayon", "photos", "verif", "bilan", "historique", "reglages"];
   const navButtons = () => document.querySelectorAll("nav.tabs [data-view]");
   function show(view) {
     if (state.providerMode) return;
@@ -295,7 +297,7 @@
   function markCurrentNav(view) {
     navButtons().forEach((b) => b.toggleAttribute("aria-current", b.dataset.view === view));
     const inMore = $(`#navMore [data-view="${view}"]`);
-    $("#navMoreLabel").textContent = inMore ? inMore.textContent.trim() : "Plus";
+    $("#navMoreLabel").textContent = inMore ? (inMore.querySelector(".menu-label") || inMore).textContent.trim() : "Plus";
     $("#navMore").classList.toggle("current", !!inMore);
     $("#navMore").open = false;
   }
@@ -523,7 +525,9 @@
     $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others) + appLink(d.prestataire), vehicles });
     renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
-    $("#vehHint").textContent = vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "";
+    const hayonWarning = state.store ? hayonFormWarnings(d, readExtras())[0] : "";
+    $("#vehHint").textContent = hayonWarning || (vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "");
+    $("#vehHint").classList.toggle("warn", !!hayonWarning);
     const current = demandeById(state.editingId);
     $("#formSheet").innerHTML = current && ["confirmee", "realisee"].includes(current.statut) ? sheetLink([d.plaque]) : "";
   }
@@ -596,11 +600,19 @@
     const chip = $("#formStatusChip");
     chip.hidden = false; chip.className = "chip st-" + d.statut; chip.textContent = D.statusOf(d.statut).label;
     $("#saveBtn").textContent = "Enregistrer les modifications";
-    $("#delZone").innerHTML = state.canWrite ? `<button type="button" class="ghost danger" data-delete>Supprimer</button>` : "";
+    $("#delZone").innerHTML = deleteZone(d);
   }
+  // « Annuler » keeps the request in the history (and stops the tailgate counter from using it); « Supprimer » erases it.
+  const deleteZone = (d) => !state.canWrite ? "" : (d?.statut === "annulee"
+    ? `<button type="button" class="ghost" data-restore>Rétablir la demande</button>`
+    : `<button type="button" class="ghost" data-cancel>Annuler la demande</button>`) + `<button type="button" class="ghost danger" data-delete>Supprimer</button>`;
 
   // Status is not edited in the form: a new request starts "à envoyer" and becomes "envoyée" once copied or opened in WhatsApp.
   // What stops the form from being saved, as a sentence for the toast; "" when it can be saved.
+  function hayonFormWarnings(main, extras) {
+    const ownIds = [state.editingId, ...extras.map((x) => x.id)].filter(Boolean);
+    return [main, ...extras.map((x) => groupMember(main, x))].flatMap((v) => D.hayonWarnings(v, state.demandes, state.hayons, today(), ownIds));
+  }
   function formProblem(main, extras) {
     const missing = D.missingFields(main);
     if (missing.length) return "Il manque " + missing.join(", ");
@@ -628,6 +640,14 @@
     const main = readForm();
     const problem = formProblem(main, extras);
     if (problem) { toast(problem); return false; }
+    // A tailgate control booked twice within a week, or long before it is due: warn once, save on the second click.
+    const warnings = hayonFormWarnings(main, extras);
+    if (warnings.length && state.hayonWarned !== warnings.join("|")) {
+      state.hayonWarned = warnings.join("|");
+      toast(`${warnings[0]} Clique encore une fois pour le poser quand même.`);
+      return false;
+    }
+    state.hayonWarned = "";
     if (extras.length && !state.groupe) state.groupe = demandeById(state.editingId)?.groupe || "g" + Date.now().toString(36);
     const options = { groupe: state.groupe || "", markSent };
     try {
@@ -650,7 +670,15 @@
     if (e.target.closest("[data-delete]")) {
       $("#delZone").innerHTML = `<span class="row">Supprimer définitivement ? <button type="button" class="danger" data-delete-yes>Oui, supprimer</button><button type="button" class="ghost" data-delete-no>Non</button></span>`;
     } else if (e.target.closest("[data-delete-no]")) {
-      $("#delZone").innerHTML = `<button type="button" class="ghost danger" data-delete>Supprimer</button>`;
+      $("#delZone").innerHTML = deleteZone(demandeById(state.editingId));
+    } else if (e.target.closest("[data-cancel], [data-restore]") && state.editingId && requireStore()) {
+      const cancel = !!e.target.closest("[data-cancel]");
+      const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id).filter(Boolean)];
+      try {
+        for (const d of ids.map(demandeById).filter(Boolean)) await state.store.setStatus(d, cancel ? "annulee" : (d.sentAt ? "envoyee" : "a_envoyer"));
+        toast(cancel ? "Demande annulée : elle reste dans l'historique" : "Demande rétablie");
+        if (cancel) show("planning");
+      } catch (err) { reportWriteError(err); }
     } else if (e.target.closest("[data-delete-yes]") && state.editingId && requireStore()) {
       const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id).filter(Boolean)];
       try { await Promise.all(ids.map((id) => state.store.deleteDemande(id))); toast(ids.length > 1 ? "Demande groupée supprimée" : "Demande supprimée"); resetForm(); show("planning"); }
@@ -855,7 +883,8 @@
       <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}">${removeButton("data-remove-site", i, s.nom)}</div>`).join("");
     $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
     $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
-      <label class="check"><input type="checkbox" data-prov-interventions="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.interventions ? "checked" : ""}>Interventions</label>${removeButton("data-remove-provider", i, p)}</div>`).join("");
+      <label class="check"><input type="checkbox" data-prov-flag="interventions" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.interventions ? "checked" : ""}>Interventions</label>
+      <label class="check"><input type="checkbox" data-prov-flag="hayon" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.hayon ? "checked" : ""}>Contrôle hayon</label>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
     renderPrices(); renderAccounts();
   }
@@ -949,10 +978,11 @@
     persistSettings(added || updated ? `${plural(added, "site")} ajouté${added > 1 ? "s" : ""}, ${updated} mis à jour` : "Tous ces sites étaient déjà à jour");
   };
   $("#s-provs").addEventListener("change", async (e) => {
-    const box = e.target.closest("[data-prov-interventions]");
+    const box = e.target.closest("[data-prov-flag]");
     if (!box || !requireStore()) return;
-    const nom = box.dataset.provInterventions;
-    try { await state.store.saveProvider(D.providerId(nom), { nom, interventions: box.checked }); toast(box.checked ? `${nom} peut recevoir des interventions` : `${nom} ne reçoit plus d'interventions`); }
+    const nom = box.dataset.prov, flag = box.dataset.provFlag;
+    const what = flag === "hayon" ? "des contrôles hayon" : "des interventions";
+    try { await state.store.saveProvider(D.providerId(nom), { nom, [flag]: box.checked }); toast(box.checked ? `${nom} peut recevoir ${what}` : `${nom} ne reçoit plus ${what.replace(/^des /, "de ")}`); }
     catch (err) { box.checked = !box.checked; reportWriteError(err); }
   });
   $("#s-addprov").onclick = () => !state.providers.includes($("#s-newprov").value.trim()) && addFromInput("#s-newprov", state.providers, (p) => p, "Prestataire ajouté");
@@ -1020,6 +1050,109 @@
       state.store.completeDemande(d.id, patch).catch(() => {}).finally(() => completing.delete(d.id));
     });
   }
+  // ================= tailgate controls (hayon) =================
+  // A sent control whose day has passed is done: the provider never reports it, so the team app closes it.
+  const closingHayons = new Set();
+  function closePastHayons(rows) {
+    if (!state.canWrite) return;
+    rows.filter((d) => D.hayonAutoClose(d, today()) && !closingHayons.has(d.id)).forEach((d) => {
+      closingHayons.add(d.id);
+      state.store.setStatus(d, "realisee").catch(() => {}).finally(() => closingHayons.delete(d.id));
+    });
+  }
+  const HAYON_FILTERS = {
+    "": () => true,
+    atraiter: (r) => !r.booked && ["depasse", "urgent", "bientot", "inconnu"].includes(r.level),
+    rdv: (r) => !!r.booked,
+  };
+  function hayonDaysLabel(r) {
+    if (r.daysLeft == null) return "Date inconnue";
+    if (r.daysLeft < 0) return `Dépassé de ${plural(-r.daysLeft, "jour")}`;
+    if (r.daysLeft === 0) return "À faire aujourd'hui";
+    return `Reste ${plural(r.daysLeft, "jour")}`;
+  }
+  const slotOf = (d) => `${D.shortDate(d.date)}${d.debut && d.debut !== D.DEFAULT_SLOT.debut ? " à " + d.debut.replace(":", "h") : ""}`;
+  function hayonRow(r) {
+    const key = D.plateKey(r.plaque);
+    const known = state.hayons.some((h) => D.plateKey(h.plaque) === key);
+    const notes = [];
+    if (r.tooSoon) notes.push(`<span class="hy-warn">${icon("alert")}Deux contrôles posés à ${plural(r.tooSoon.gap, "jour")} d'écart (${esc(D.shortDate(r.tooSoon.first.date))} et ${esc(D.shortDate(r.tooSoon.second.date))})</span>`);
+    if (r.notDone) notes.push(`<span class="muted">Pas fait le ${esc(D.shortDate(r.notDone.date))}</span>`);
+    const recent = r.lastRequest && D.daysBetween(r.lastRequest.date, today()) <= 30;
+    const rdv = r.booked
+      ? `<button type="button" class="hy-rdv" data-open="${esc(r.booked.id)}">${icon("cal")}<span>RDV ${esc(slotOf(r.booked))}${r.booked.site ? ` · ${esc(r.booked.site)}` : ""}</span></button>`
+      : state.canWrite ? `<button type="button" class="${["depasse", "urgent", "bientot"].includes(r.level) ? "primary" : "ghost"}" data-hy-book="${esc(key)}">${icon("plus")}Poser le RDV</button>` : `<span class="muted">Aucun rendez-vous</span>`;
+    return `<li class="hy-row lv-${r.level}">
+      <span class="hy-days">${esc(hayonDaysLabel(r))}</span>
+      ${plateTag(r.plaque)}
+      <span class="hy-dates"><span>Dernier contrôle <b>${r.lastControl ? esc(D.numericDate(r.lastControl)) : "—"}</b></span><span>À refaire avant <b>${r.nextDue ? esc(D.numericDate(r.nextDue)) : "—"}</b></span>${notes.join("")}</span>
+      <span class="hy-actions">${rdv}
+        ${state.canWrite && recent ? `<button type="button" class="ghost small-btn" data-hy-notdone="${esc(r.lastRequest.id)}" title="Le contrôle du ${esc(D.shortDate(r.lastRequest.date))} n'a pas eu lieu">Pas fait ?</button>` : ""}
+        ${state.canWrite && r.notDone && !r.booked ? `<button type="button" class="ghost small-btn" data-hy-done="${esc(r.notDone.id)}">Finalement fait</button>` : ""}
+        ${state.canWrite && known ? `<button type="button" class="ghost small-btn" data-hy-remove="${esc(key)}" aria-label="Retirer ${esc(r.plaque)} de la liste">${icon("x")}</button>` : ""}</span>
+    </li>`;
+  }
+  function renderHayon() {
+    const rows = D.hayonFollowUp(state.hayons, state.demandes, today());
+    const count = (level) => rows.filter((r) => r.level === level).length;
+    const urgent = rows.filter((r) => !r.booked && ["depasse", "urgent"].includes(r.level)).length;
+    $("#hayonBadge").hidden = !urgent; $("#hayonBadge").textContent = urgent;
+    $("#hy-kpis").innerHTML = rows.length ? [["depasse", "Dépassés"], ["urgent", "5 jours ou moins"], ["bientot", "30 jours ou moins"], ["ok", "À jour"]]
+      .map(([level, label]) => `<div class="hy-kpi lv-${level}"><b>${count(level)}</b><span>${label}</span></div>`).join("") : "";
+    const query = $("#hy-q").value, filter = HAYON_FILTERS[$("#hy-filter").value] || HAYON_FILTERS[""];
+    const shown = rows.filter((r) => filter(r) && D.matchesSearch([r.plaque], query));
+    $("#hy-list").innerHTML = !rows.length
+      ? `<div class="empty"><b>Aucun véhicule à hayon pour l'instant.</b><span>Colle la liste du prestataire ci-dessous (plaque et date du dernier contrôle) : le compteur des 180 jours démarre tout de suite. Chaque contrôle hayon posé dans « Nouvelle demande » ou reçu par mail s'ajoute aussi ici.</span></div>`
+      : shown.length ? `<ul class="hy-list">${shown.map(hayonRow).join("")}</ul>` : `<div class="empty"><b>Aucun véhicule ne correspond.</b></div>`;
+    $("#hy-pastebox").hidden = !state.canWrite;
+    $("#hy-pastebox").open = state.canWrite && !rows.length ? true : $("#hy-pastebox").open;
+  }
+  ["#hy-q", "#hy-filter"].forEach((sel) => $(sel).addEventListener("input", renderHayon));
+  $("#hy-paste").addEventListener("input", () => {
+    const list = D.parseHayonList($("#hy-paste").value);
+    const undated = list.filter((h) => !h.dernierControle).length;
+    $("#hy-preview").textContent = list.length ? `${plural(list.length, "véhicule")} reconnu${list.length > 1 ? "s" : ""}${undated ? `, dont ${undated} sans date` : ""}` : "";
+  });
+  $("#hy-import").onclick = async () => {
+    const list = D.parseHayonList($("#hy-paste").value);
+    if (!list.length) return toast("Aucune plaque reconnue : colle une plaque et sa date par ligne");
+    if (!requireStore()) return;
+    try { await state.store.saveHayons(list); $("#hy-paste").value = ""; $("#hy-preview").textContent = ""; $("#hy-pastebox").open = false; toast(`${plural(list.length, "véhicule")} enregistré${list.length > 1 ? "s" : ""}`); }
+    catch (err) { reportWriteError(err); }
+  };
+  // Pre-fills a new tailgate control: the provider that does them, the vehicle, its usual site.
+  function bookHayon(plate) {
+    const row = D.hayonFollowUp(state.hayons, state.demandes, today()).find((r) => D.plateKey(r.plaque) === plate);
+    resetForm();
+    const provider = state.providers.find((p) => state.providerDocs.get(D.providerId(p))?.hayon);
+    if (provider) field("prest").value = provider;
+    renderServiceChoice();
+    if ($("#svc-hayon").closest("label").hidden) toast("Coche « Contrôle hayon » pour le bon prestataire dans Réglages › Prestataires");
+    else $("#svc-hayon").checked = true;
+    field("plaque").value = row?.plaque || plate;
+    if (row?.site && siteNames().includes(row.site)) { field("site").value = row.site; field("adresse").value = D.siteAddress(state.sites, row.site); }
+    fillFromVehicle(); renderServiceChoice(); show("demande"); window.scrollTo({ top: 0 });
+  }
+  $("#hy-list").addEventListener("click", async (e) => {
+    const open = e.target.closest("[data-open]"), book = e.target.closest("[data-hy-book]");
+    if (open) return openDemande(open.dataset.open);
+    if (book) return bookHayon(book.dataset.hyBook);
+    const notDone = e.target.closest("[data-hy-notdone], [data-hy-done]");
+    if (notDone && requireStore()) {
+      const missed = !!notDone.dataset.hyNotdone;
+      const d = demandeById(notDone.dataset.hyNotdone || notDone.dataset.hyDone);
+      try { await state.store.markHayonNotDone(d, missed); toast(missed ? `Contrôle du ${D.shortDate(d.date)} marqué « pas fait » : le compteur reprend l'ancien contrôle` : "Contrôle remis comme fait"); }
+      catch (err) { reportWriteError(err); }
+      return;
+    }
+    const remove = e.target.closest("[data-hy-remove]");
+    if (remove && requireStore()) {
+      if (!remove.classList.contains("confirm")) { remove.classList.add("confirm"); remove.textContent = "Retirer ?"; return; }
+      try { await state.store.deleteHayon(remove.dataset.hyRemove); toast("Véhicule retiré de la liste des hayons"); }
+      catch (err) { reportWriteError(err); }
+    }
+  });
+
   // ---------- answers from providers: Retours page, tab badge, window title, desktop notifications ----------
   const answerSentence = (d) => `${d.prestataire} ${D.answerOf(d.retour.etat)?.team || "a répondu pour"} ${d.plaque}`;
   function answerRow(d, { seen = false } = {}) {
@@ -1094,7 +1227,7 @@
   function renderAll() {
     shareRegistry.clear();
     renderSelects();
-    renderAnswers(); renderPlanning(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
+    renderAnswers(); renderPlanning(); renderHayon(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
     $("#dl-plaques").innerHTML = [...state.vehicles.values()].map((v) => `<option value="${esc(v.plaque)}">${esc(D.vehicleLabel(v))}</option>`).join("");
     renderFormSide();
   }
@@ -1142,12 +1275,13 @@
   }
   function subscribeTeam() {
     state.store.subscribe({
-      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
+      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); closePastHayons(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); completeMailRequests(); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
       onSettings: (settings) => { applySettings(settings); completeMailRequests(); renderAll(); },
       onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); completeMailRequests(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
+      onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
         if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe City-Drop de t'ajouter dans Réglages › Accès.");

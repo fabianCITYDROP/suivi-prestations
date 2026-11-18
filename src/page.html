@@ -27,6 +27,7 @@
   <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></symbol>
   <symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 17c2.5-6 5.5-9 9-9s6.5 3 9 9"/><path d="M3 17h18"/><path d="M8 14l3-3"/></symbol>
+  <symbol id="i-hayon" viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="12" rx="1.5"/><path d="M3 20.5h18M7 15.5v5M17 15.5v5M9 9.5h6"/></symbol>
   <symbol id="i-wa" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3z"/><path d="M9 10h6M9 14h4"/></symbol>
 </svg>
 
@@ -40,6 +41,7 @@
       <details class="nav-more" id="navMore">
         <summary><svg class="icon"><use href="#i-dots"/></svg><span id="navMoreLabel">Plus</span><svg class="icon chev"><use href="#i-chev-d"/></svg></summary>
         <div class="nav-menu">
+          <button type="button" data-view="hayon"><svg class="icon"><use href="#i-hayon"/></svg><span class="menu-label">Contrôles hayon</span><span class="menu-badge" id="hayonBadge" hidden></span></button>
           <button type="button" data-view="bilan"><svg class="icon"><use href="#i-chart"/></svg>Bilan du mois</button>
           <button type="button" data-view="verif"><svg class="icon"><use href="#i-check"/></svg>Vérification</button>
           <button type="button" data-view="photos"><svg class="icon"><use href="#i-image"/></svg>Photos des modèles</button>
@@ -216,6 +218,26 @@
     </div>
   </section>
 
+  <!-- TAILGATE CONTROLS -->
+  <section id="view-hayon" hidden>
+    <p class="intro">Un contrôle hayon tous les 180 jours. Dès que le jour d'un rendez-vous est passé, le contrôle compte comme fait et le compteur repart pour 180 jours, sauf si tu le marques « Pas fait ».</p>
+    <div class="hayon-kpis" id="hy-kpis"></div>
+    <div class="tools">
+      <input type="search" id="hy-q" placeholder="Rechercher une plaque…" aria-label="Rechercher une plaque">
+      <select id="hy-filter" aria-label="Afficher">
+        <option value="">Tous les véhicules</option>
+        <option value="atraiter">À traiter (30 jours ou moins, sans rendez-vous)</option>
+        <option value="rdv">Avec un rendez-vous posé</option>
+      </select>
+    </div>
+    <div id="hy-list"></div>
+    <details class="more" id="hy-pastebox"><summary><svg class="icon"><use href="#i-list"/></svg>Coller la liste des véhicules à hayon</summary>
+      <p class="hint">Copie les colonnes « immatriculation » et « date du dernier contrôle » du tableau du prestataire, puis colle-les ici. Une plaque déjà connue prend la date collée.</p>
+      <textarea id="hy-paste" placeholder="AB-123-CD&#9;12/05/2026&#10;EF-456-GH&#9;03/04/2026"></textarea>
+      <div class="actions"><button type="button" class="primary" id="hy-import">Ajouter ces véhicules</button><span class="muted small" id="hy-preview"></span></div>
+    </details>
+  </section>
+
   <!-- BILAN -->
   <section id="view-bilan" hidden>
     <div class="tools">
@@ -246,7 +268,7 @@
     <div class="settings">
       <div class="panel">
         <h2>Prestataires</h2>
-        <p class="hint">Le premier de la liste est choisi par défaut. Coche « Interventions » pour ceux à qui on peut demander autre chose qu'un pare-brise ou un lavage (vérification, ampoule, AdBlue…).</p>
+        <p class="hint">Le premier de la liste est choisi par défaut. Coche « Interventions » pour ceux à qui on peut demander autre chose qu'un pare-brise ou un lavage (vérification, ampoule, AdBlue…), et « Contrôle hayon » pour celui qui contrôle les hayons.</p>
         <div class="list-edit" id="s-provs"></div>
         <div class="row"><input id="s-newprov" placeholder="Nom du prestataire" style="flex:1 1 200px"><button type="button" id="s-addprov"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
       </div>
