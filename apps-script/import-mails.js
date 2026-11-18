@@ -163,7 +163,7 @@ function seConnecter(props) {
 
 // À lancer une seule fois (bouton ▶) : crée le déclencheur toutes les 5 minutes.
 function installer() {
-  ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
+  ScriptApp.getProjectTriggers().filter((t) => t.getHandlerFunction() === 'importer').forEach((t) => ScriptApp.deleteTrigger(t)); // laisse celui des alertes
   ScriptApp.newTrigger('importer').timeBased().everyMinutes(5).create();
   importer();
 }

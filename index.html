@@ -403,6 +403,11 @@ body.presta-mode .top .sync { display: none; }
 .presta-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(18, 33, 43, .08), 0 2px 8px -4px rgba(18, 33, 43, .2); }
 .presta-tabs .count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--line); color: var(--ink); font: 700 12px/20px var(--f-body); font-variant-numeric: tabular-nums; }
 .presta-tabs .count.hot { background: var(--st-todo); color: #fff; }
+.alert-card { display: grid; grid-template-columns: 40px 1fr; gap: 4px 12px; align-items: center; margin: 0 0 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 1px 2px rgba(18, 33, 43, .05); }
+.alert-icon { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); color: var(--accent); }
+.alert-title { margin: 0; font-weight: 600; font-size: 15px; }
+.alert-text { margin: 2px 0 0; color: var(--ink-2); font-size: 14px; line-height: 1.4; }
+.alert-card button { grid-column: 1 / -1; margin-top: 10px; width: 100%; }
 .presta-body { display: flex; flex-direction: column; gap: 12px; }
 .tab-intro { margin: 0 2px 2px; color: var(--ink-2); font-size: 14px; }
 
@@ -605,9 +610,10 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
     <div class="daybar">
       <h1>Retours des prestataires</h1>
       <span class="spacer"></span>
-      <button type="button" class="ghost" id="notifBtn" hidden>Activer les notifications</button>
+      <button type="button" class="ghost" id="notifBtn" hidden>Activer les alertes</button>
       <button type="button" id="allSeenBtn" hidden>Tout marquer comme vu</button>
     </div>
+    <p class="hint" id="alertHint" hidden></p>
     <p class="hint">Les réponses des prestataires arrivent ici. Un passage fait ou une acceptation est déjà appliqué à la demande : « Vu » range simplement le retour.</p>
     <div class="panel answers" id="answers"></div>
     <h2 class="section-title">Déjà vus</h2>
@@ -787,6 +793,12 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
           <select id="a-prov" aria-label="Prestataire du compte" style="flex:1 1 140px"></select>
           <button type="button" id="a-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
         <div id="a-prepare" class="row" hidden style="margin-top:12px"><p class="hint" style="flex:1 1 220px">À faire une fois avant de publier les nouvelles règles : <span id="a-prepare-text"></span></p><button type="button" class="primary" id="a-prepare-btn">Préparer les accès</button></div>
+      </div>
+      <div class="panel">
+        <h2>Alertes sur les téléphones</h2>
+        <p class="hint">Les prestataires sont prévenus d'une nouvelle demande, et l'équipe d'un retour, même appli fermée. Le script Google qui les envoie s'installe une fois (mode d'emploi : <a href="https://github.com/fabianCITYDROP/suivi-prestations/blob/main/apps-script/LISEZMOI.md#alertes-appli-fermée" target="_blank" rel="noopener">LISEZMOI</a>), puis on colle ici son adresse.</p>
+        <div class="row"><input id="al-url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Adresse du script des alertes" style="flex:1 1 260px"><button type="button" class="primary" id="al-save">Enregistrer</button></div>
+        <p class="hint" id="al-status" role="status"></p>
       </div>
       <div class="panel">
         <h2>Sites et adresses</h2>
@@ -1445,6 +1457,19 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (r.etat === "confirme" && ["a_envoyer", "envoyee"].includes(d.statut)) return "confirmee";
     return null;
   }
+  // What a provider's answer writes. A "fait" or an acceptance also moves the request's status right away, so the
+  // request is closed even when nobody of the team has the app open (the access rules allow exactly this).
+  function answerPatch(d, retour, nowIso) {
+    const r = { ...retour, at: nowIso };
+    const patch = { retour: r, updatedAt: nowIso };
+    const status = d.statut === "annulee" ? null : statusFromAnswer({ ...d, retour: r });
+    if (!status) return patch;
+    patch.statut = status;
+    if (!d.sentAt) patch.sentAt = nowIso;
+    if (!d.confirmedAt) patch.confirmedAt = nowIso;
+    if (status === "realisee") patch.doneAt = nowIso;
+    return patch;
+  }
   // Answers the team has not looked at yet, newest first.
   // Every answer already seen, newest first: the "Déjà vus" list of the Retours page.
   const seenAnswers = (demandes, limit = 40) => demandes.filter((d) => d.retour?.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || "")).slice(0, limit);
@@ -1502,7 +1527,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers,
-    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
+    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
   };
 });
 </script>
@@ -1543,27 +1568,43 @@ window.SUIVI_FIREBASE_CONFIG = {
         ...fields,
         ...(previous?.retour ? { retour: previous.retour } : {}), // the provider's answer survives an edit by the team
         ...(previous?.source === "mail" ? D.mailMarkers(previous) : {}), // an imported request stays cancellable by a later mail
+        ...(previous?.notifie ? { notifie: previous.notifie } : {}), // what the alerts already announced: never twice
         ...D.statusTimestamps(previous, fields.statut, now),
         createdAt: previous?.createdAt || now,
         updatedAt: now,
       });
+      changed();
       return ref.id;
     }
 
     async function setStatus(demande, status) {
       const now = new Date().toISOString();
       await db.doc("demandes/" + demande.id).update({ statut: status, ...D.statusTimestamps(demande, status, now), updatedAt: now });
+      changed();
     }
 
     // The team app completing a request imported from a mail (provider, model, site, price).
-    const completeDemande = (id, fields) => db.doc("demandes/" + id).update({ ...fields, updatedAt: new Date().toISOString() });
+    const completeDemande = (id, fields) => db.doc("demandes/" + id).update({ ...fields, updatedAt: new Date().toISOString() }).then(changed);
 
     const deleteDemande = (id) => db.doc("demandes/" + id).delete();
 
     // ----- providers, prices and accounts -----
     const saveProvider = (id, fields) => db.doc("prestataires/" + id).set({ ...fields, updatedAt: new Date().toISOString() }, { merge: true });
     const saveAccount = (email, fields) => db.doc("comptes/" + D.emailKey(email)).set({ ...fields, email: D.emailKey(email), updatedAt: new Date().toISOString() });
-    const deleteAccount = (email) => db.doc("comptes/" + D.emailKey(email)).delete();
+    // Removing an access also removes that person's alert devices: a former provider gets no more alerts.
+    async function deleteAccount(email) {
+      await db.doc("comptes/" + D.emailKey(email)).delete();
+      try {
+        const devices = await db.collection("abonnements").where("email", "==", D.emailKey(email)).get();
+        await Promise.all(devices.docs.map((d) => d.ref.delete()));
+      } catch {}
+    }
+    // ----- alerts on closed apps (apps-script/notifications.js) -----
+    let changed = () => {};
+    const onChange = (fn) => { changed = fn; };
+    const getAlertSettings = () => db.doc("public/notifications").get().then((s) => (s.exists ? s.data() : null)).catch(() => null);
+    const saveAlertSettings = (fields) => db.doc("public/notifications").set({ ...fields, updatedAt: new Date().toISOString() });
+    const saveDevice = (id, fields) => db.doc("abonnements/" + id).set(fields);
     async function getAccount(email) {
       if (!email) return null;
       try { const snap = await db.doc("comptes/" + D.emailKey(email)).get(); return snap.exists ? snap.data() : null; }
@@ -1580,8 +1621,8 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
     async function answer(demande, retour) {
-      const now = new Date().toISOString();
-      await db.doc("demandes/" + demande.id).update({ retour: { ...retour, at: now }, updatedAt: now });
+      await db.doc("demandes/" + demande.id).update(D.answerPatch(demande, retour, new Date().toISOString()));
+      changed();
     }
     async function loadProof(key) {
       const cacheKey = "preuve:" + key;
@@ -1680,11 +1721,118 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
 });
+</script>
+<script>
+// Alerts on a closed app (Web Push). The phone or computer registers with Apple, Google, Mozilla or Microsoft
+// using the public key of the team's Apps Script (apps-script/notifications.js), and its address is kept in
+// abonnements/<id> with a secret token. The script then sends an empty alert; sw.js fetches the text with that token.
+(function (root) {
+  const CACHE = "presta-alertes";
+  const supported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const installed = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const keyBytes = (b64) => Uint8Array.from(atob(b64.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((b64.length + 3) % 4)), (c) => c.charCodeAt(0));
+  const hex = (bytes) => Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
+  const sameKey = (sub, b64) => { try { return hex(sub.options.applicationServerKey) === hex(keyBytes(b64)); } catch { return false; } };
+  function deviceName() {
+    const ua = navigator.userAgent;
+    return /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : /Windows/.test(ua) ? "PC Windows" : /Mac/.test(ua) ? "Mac" : "Navigateur";
+  }
+  function token() {
+    let t = "";
+    try { t = localStorage.getItem("suivi.alertes.jeton") || ""; } catch {}
+    if (!/^[a-f0-9]{32}$/.test(t)) {
+      t = hex(crypto.getRandomValues(new Uint8Array(16)));
+      try { localStorage.setItem("suivi.alertes.jeton", t); } catch {}
+    }
+    return t;
+  }
+
+  // store: SuiviStore ; account: {role, prestataireId} ; email. listen(fn) is called whenever the state changes.
+  function create({ store, account, email }) {
+    let settings = null;
+    let state = "loading";
+    const listeners = new Set();
+    const set = (s) => { state = s; listeners.forEach((fn) => fn(s)); };
+
+    // "off": no alert script yet · "install": iPhone, must be added to the home screen first · "unsupported"
+    // "blocked": refused in the phone settings · "ask": can be turned on · "on": alerts arrive on this device
+    async function refresh({ silent = true } = {}) {
+      if (!settings?.url || !settings?.cle) return set("off");
+      if (!supported()) return set(isIos() && !installed() ? "install" : "unsupported");
+      if (Notification.permission === "denied") return set("blocked");
+      if (Notification.permission !== "granted") return set("ask");
+      try { await subscribe(); set("on"); }
+      catch { set(silent ? "ask" : "error"); }
+    }
+    async function subscribe() {
+      const reg = await navigator.serviceWorker.register("sw.js");
+      await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (sub && !sameKey(sub, settings.cle)) { await sub.unsubscribe().catch(() => {}); sub = null; }
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(settings.cle) });
+      const jeton = token();
+      const id = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(sub.endpoint))).slice(0, 40);
+      const saved = `${id}|${jeton}|${email}|${settings.cle}|${new Date().toISOString().slice(0, 7)}`; // re-saved each month
+      let known = "";
+      try { known = localStorage.getItem("suivi.alertes.ok") || ""; } catch {}
+      // What sw.js needs to fetch the text of an alert.
+      const cache = await caches.open(CACHE);
+      await cache.put("./__alertes", new Response(JSON.stringify({ url: settings.url, jeton })));
+      if (known === saved) return false;
+      const now = new Date().toISOString();
+      await store.saveDevice(id, {
+        email, role: account.role, ...(account.role === "prestataire" ? { prestataireId: account.prestataireId } : {}),
+        endpoint: sub.endpoint, jeton, appareil: deviceName(), createdAt: now, updatedAt: now,
+      });
+      try { localStorage.setItem("suivi.alertes.ok", saved); } catch {}
+      return true;
+    }
+    // Button "Activer les alertes": asks the permission, registers, and asks the script for a test alert.
+    async function activate() {
+      if (!settings?.url) return set("off");
+      const answer = await Notification.requestPermission();
+      if (answer !== "granted") return set(answer === "denied" ? "blocked" : "ask");
+      try {
+        await subscribe();
+        set("on");
+        fetch(settings.url + "?action=test&jeton=" + token(), { mode: "no-cors" }).catch(() => {});
+      } catch { set("error"); }
+    }
+    // After a save: the script looks at once instead of at its next 5-minute round.
+    let timer = null;
+    function ping() {
+      if (!settings?.url) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => fetch(settings.url + "?action=verifier", { mode: "no-cors" }).catch(() => {}), 1500);
+    }
+    async function load() {
+      settings = await store.getAlertSettings();
+      await refresh();
+    }
+    // A tap on an alert while the app is open: go to the right page.
+    if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
+      if (e.data?.type === "ouvrir" && typeof e.data.hash === "string") location.hash = e.data.hash;
+    });
+    store.onChange(ping);
+    load();
+    return { activate, ping, reload: load, listen: (fn) => listeners.add(fn), get state() { return state; }, get settings() { return settings; } };
+  }
+
+  // What to show for each state (provider card and team button share the words).
+  const TEXTS = {
+    install: "Sur iPhone : touche Partager puis « Sur l'écran d'accueil », puis ouvre l'appli depuis son icône pour activer les alertes.",
+    unsupported: "Ce navigateur ne reçoit pas les alertes. Ouvre l'appli avec Chrome, Safari ou Edge.",
+    blocked: "Alertes bloquées sur cet appareil : Réglages du téléphone › Notifications › Presta, puis « Autoriser ».",
+    error: "L'activation n'a pas marché. Vérifie ta connexion et réessaie.",
+  };
+  root.SuiviAlertes = { create, TEXTS };
+})(typeof self !== "undefined" ? self : this);
 </script>
 <script>
 // Provider screen: what a provider sees after signing in. Only its own requests are loaded
@@ -1701,7 +1849,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     { id: "done", label: "Faits", icon: "check" },
   ];
 
-  function start({ store, account, email, D, ui }) {
+  function start({ store, account, email, D, ui, alerts }) {
     const { $, esc, toast, icon, plateTag, safeImageSrc } = ui;
     const state = { demandes: [], models: new Map(), providerName: "", tab: null, openForm: null, busy: new Set(), query: "" };
     const today = () => D.toIsoDate(new Date());
@@ -1830,6 +1978,17 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
+    // Until alerts work on this phone: one card above the tabs, with the one thing to do.
+    function alertCard() {
+      const st = alerts?.state;
+      if (!st || ["off", "loading", "on"].includes(st)) return "";
+      const text = st === "ask" ? "Sois prévenu dès qu'une demande arrive, même téléphone verrouillé." : root.SuiviAlertes.TEXTS[st];
+      return `<div class="alert-card" role="region" aria-label="Alertes">
+          <span class="alert-icon" aria-hidden="true">${icon("bell")}</span>
+          <div><p class="alert-title">${st === "ask" || st === "error" ? "Alertes des nouvelles demandes" : "Alertes pas encore actives"}</p><p class="alert-text">${esc(text)}</p></div>
+          ${st === "ask" || st === "error" ? `<button type="button" class="primary big" data-alerts>Activer les alertes</button>` : ""}
+        </div>`;
+    }
     // Re-renders the whole screen, keeping the cursor in the search box while the provider types.
     function render() {
       const lists = D.providerLists(state.demandes, today());
@@ -1840,6 +1999,7 @@ window.SUIVI_FIREBASE_CONFIG = {
           <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
           <h1>${esc(cap(D.dayLabel(today())))}</h1>
         </header>
+        ${alertCard()}
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
@@ -1859,7 +2019,8 @@ window.SUIVI_FIREBASE_CONFIG = {
     view.addEventListener("click", (e) => {
       const el = (sel) => e.target.closest(sel);
       let b;
-      if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
+      if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
+      else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
       else if ((b = el("[data-form]"))) { state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; render(); }
       else if ((b = el("[data-send]"))) {
@@ -1879,6 +2040,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       }
     });
 
+    alerts?.listen(() => render());
     render();
     store.getProvider(account.prestataireId).then((p) => { state.providerName = p?.nom || ""; render(); }).catch(() => {});
     store.subscribeProvider(account.prestataireId, {
@@ -2968,7 +3130,7 @@ function page(texte) {
     try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
     renderRetoursSide(rows);
     $("#allSeenBtn").hidden = !n || !state.canWrite;
-    $("#notifBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
+    renderAlertButton();
     $("#answers").innerHTML = n ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
     const seen = D.seenAnswers(state.demandes);
     $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
@@ -2997,13 +3159,39 @@ function page(texte) {
   }
   // A system notification for answers that arrive while the app is open in another tab or window.
   function notifyAnswers(fresh) {
+    if (state.alerts?.state === "on") return; // the alert script already sends it to this device
     if (!("Notification" in window) || Notification.permission !== "granted" || document.visibilityState === "visible") return;
     const n = new Notification(fresh.length > 1 ? `${fresh.length} nouveaux retours des prestataires` : "Nouveau retour d'un prestataire", {
       body: fresh.slice(0, 3).map(answerSentence).join("\n"), icon: "assets/icon-180.png", tag: "retours",
     });
     n.onclick = () => { window.focus(); show("retours"); n.close(); };
   }
-  $("#notifBtn").onclick = () => Notification.requestPermission().then((p) => { renderAnswers(); toast(p === "granted" ? "Notifications activées sur cet ordinateur" : "Notifications refusées par le navigateur"); });
+  // ---------- alerts on a closed app (team side): button on the Retours page, settings panel ----------
+  const ALERT_TEAM_TEXTS = { on: "Alertes actives sur cet appareil.", ask: "Les alertes ne sont pas encore activées sur cet appareil.", loading: "" };
+  function renderAlertButton() {
+    const a = state.alerts;
+    const pushable = a && a.state !== "off" && a.state !== "loading" && state.canWrite;
+    $("#notifBtn").hidden = pushable ? !["ask", "error"].includes(a.state) : !("Notification" in window) || Notification.permission !== "default";
+    const hint = pushable && window.SuiviAlertes.TEXTS[a.state];
+    $("#alertHint").hidden = !hint; $("#alertHint").textContent = hint || "";
+    const status = !a || a.state === "off" ? (a?.settings?.url ? "" : "Pas encore branché : colle l'adresse du script.") : window.SuiviAlertes.TEXTS[a.state] || ALERT_TEAM_TEXTS[a.state] || "";
+    $("#al-status").textContent = status;
+    if (a?.settings?.url && document.activeElement !== $("#al-url")) $("#al-url").value = a.settings.url;
+  }
+  $("#notifBtn").onclick = () => {
+    if (state.alerts && state.alerts.state !== "off") return state.alerts.activate().then(() => { if (state.alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
+    Notification.requestPermission().then((p) => { renderAnswers(); toast(p === "granted" ? "Notifications activées sur cet ordinateur" : "Notifications refusées par le navigateur"); });
+  };
+  $("#al-save").onclick = async () => {
+    if (!requireStore()) return;
+    const url = $("#al-url").value.trim();
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) return toast("L'adresse doit commencer par https://script.google.com/macros/s/ et finir par /exec");
+    let cle = "";
+    try { cle = (await (await fetch(url + "?action=cle", { cache: "no-store" })).json()).cle || ""; } catch {}
+    if (!/^[\w-]{80,100}$/.test(cle)) return toast("Le script ne répond pas : vérifie qu'il est déployé en « Application Web », accès « Tout le monde »");
+    try { await state.store.saveAlertSettings({ url, cle }); await state.alerts?.reload(); toast("Script des alertes branché"); renderAnswers(); }
+    catch (err) { reportWriteError(err); }
+  };
   $("#allSeenBtn").onclick = async () => {
     if (!requireStore()) return;
     try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
@@ -3053,6 +3241,8 @@ function page(texte) {
     const user = await window.claude.use("user").catch(() => null);
     state.userEmail = user?.email || "";
     const account = await state.store.getAccount(state.userEmail);
+    state.alerts = window.SuiviAlertes.create({ store: state.store, account: account || { role: "admin" }, email: D.emailKey(state.userEmail) });
+    state.alerts.listen(() => (state.providerMode ? null : renderAnswers()));
     if (account?.role === "prestataire") return startProviderMode(account);
     if (account?.role === "lecture") setReadOnly("Accès en lecture : tu vois tout mais tu ne modifies rien.");
     if ((await user?.can("data.write")) === false) setReadOnly("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
@@ -3061,7 +3251,7 @@ function page(texte) {
   function startProviderMode(account) {
     state.providerMode = true;
     setSync("Connecté", true);
-    window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D,
+    window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D, alerts: state.alerts,
       ui: { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } });
   }
   function setReadOnly(message) {

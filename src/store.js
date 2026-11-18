@@ -34,27 +34,43 @@
         ...fields,
         ...(previous?.retour ? { retour: previous.retour } : {}), // the provider's answer survives an edit by the team
         ...(previous?.source === "mail" ? D.mailMarkers(previous) : {}), // an imported request stays cancellable by a later mail
+        ...(previous?.notifie ? { notifie: previous.notifie } : {}), // what the alerts already announced: never twice
         ...D.statusTimestamps(previous, fields.statut, now),
         createdAt: previous?.createdAt || now,
         updatedAt: now,
       });
+      changed();
       return ref.id;
     }
 
     async function setStatus(demande, status) {
       const now = new Date().toISOString();
       await db.doc("demandes/" + demande.id).update({ statut: status, ...D.statusTimestamps(demande, status, now), updatedAt: now });
+      changed();
     }
 
     // The team app completing a request imported from a mail (provider, model, site, price).
-    const completeDemande = (id, fields) => db.doc("demandes/" + id).update({ ...fields, updatedAt: new Date().toISOString() });
+    const completeDemande = (id, fields) => db.doc("demandes/" + id).update({ ...fields, updatedAt: new Date().toISOString() }).then(changed);
 
     const deleteDemande = (id) => db.doc("demandes/" + id).delete();
 
     // ----- providers, prices and accounts -----
     const saveProvider = (id, fields) => db.doc("prestataires/" + id).set({ ...fields, updatedAt: new Date().toISOString() }, { merge: true });
     const saveAccount = (email, fields) => db.doc("comptes/" + D.emailKey(email)).set({ ...fields, email: D.emailKey(email), updatedAt: new Date().toISOString() });
-    const deleteAccount = (email) => db.doc("comptes/" + D.emailKey(email)).delete();
+    // Removing an access also removes that person's alert devices: a former provider gets no more alerts.
+    async function deleteAccount(email) {
+      await db.doc("comptes/" + D.emailKey(email)).delete();
+      try {
+        const devices = await db.collection("abonnements").where("email", "==", D.emailKey(email)).get();
+        await Promise.all(devices.docs.map((d) => d.ref.delete()));
+      } catch {}
+    }
+    // ----- alerts on closed apps (apps-script/notifications.js) -----
+    let changed = () => {};
+    const onChange = (fn) => { changed = fn; };
+    const getAlertSettings = () => db.doc("public/notifications").get().then((s) => (s.exists ? s.data() : null)).catch(() => null);
+    const saveAlertSettings = (fields) => db.doc("public/notifications").set({ ...fields, updatedAt: new Date().toISOString() });
+    const saveDevice = (id, fields) => db.doc("abonnements/" + id).set(fields);
     async function getAccount(email) {
       if (!email) return null;
       try { const snap = await db.doc("comptes/" + D.emailKey(email)).get(); return snap.exists ? snap.data() : null; }
@@ -71,8 +87,8 @@
     }
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
     async function answer(demande, retour) {
-      const now = new Date().toISOString();
-      await db.doc("demandes/" + demande.id).update({ retour: { ...retour, at: now }, updatedAt: now });
+      await db.doc("demandes/" + demande.id).update(D.answerPatch(demande, retour, new Date().toISOString()));
+      changed();
     }
     async function loadProof(key) {
       const cacheKey = "preuve:" + key;
@@ -171,7 +187,7 @@
       return photoCache.get(key);
     }
 
-    return { subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

@@ -517,6 +517,19 @@
     if (r.etat === "confirme" && ["a_envoyer", "envoyee"].includes(d.statut)) return "confirmee";
     return null;
   }
+  // What a provider's answer writes. A "fait" or an acceptance also moves the request's status right away, so the
+  // request is closed even when nobody of the team has the app open (the access rules allow exactly this).
+  function answerPatch(d, retour, nowIso) {
+    const r = { ...retour, at: nowIso };
+    const patch = { retour: r, updatedAt: nowIso };
+    const status = d.statut === "annulee" ? null : statusFromAnswer({ ...d, retour: r });
+    if (!status) return patch;
+    patch.statut = status;
+    if (!d.sentAt) patch.sentAt = nowIso;
+    if (!d.confirmedAt) patch.confirmedAt = nowIso;
+    if (status === "realisee") patch.doneAt = nowIso;
+    return patch;
+  }
   // Answers the team has not looked at yet, newest first.
   // Every answer already seen, newest first: the "Déjà vus" list of the Retours page.
   const seenAnswers = (demandes, limit = 40) => demandes.filter((d) => d.retour?.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || "")).slice(0, limit);
@@ -574,6 +587,6 @@
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers,
-    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
+    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
   };
 });
