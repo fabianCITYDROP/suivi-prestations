@@ -902,6 +902,7 @@ details.history { margin-top: 18px; padding-top: 14px; border-top: 1px solid var
       <div class="panel">
         <h2>Tarifs hors taxe</h2>
         <p class="hint">Le prix est figé sur chaque demande au moment où elle est enregistrée : changer un tarif ne modifie pas les demandes déjà faites. Laisse le cubage vide pour « toutes tailles ».</p>
+        <div class="row" id="t-known-box" hidden><span class="hint" id="t-known-text" style="flex:1 1 220px"></span><button type="button" class="primary" id="t-known">Remplir les tarifs connus</button></div>
         <label class="field"><span>Prestataire</span><select id="t-prov"></select></label>
         <div class="list-edit" id="t-list"></div>
         <div class="row"><select id="t-svc" aria-label="Prestation" style="flex:1 1 120px"></select><input id="t-min" type="number" min="0" placeholder="de m³" aria-label="Cubage minimum" style="flex:0 1 80px"><input id="t-max" type="number" min="0" placeholder="à m³" aria-label="Cubage maximum" style="flex:0 1 80px"><input id="t-prix" inputmode="decimal" placeholder="€ HT" aria-label="Prix hors taxe" style="flex:0 1 90px"><button type="button" id="t-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
@@ -1586,6 +1587,33 @@ window.SUIVI_FIREBASE_CONFIG = {
     return `${jobLabel(line)} · ${range}`;
   }
 
+  // Prices HT agreed with the providers (Fabian and Jérôme, 2026-11), filled in one click from Réglages › Tarifs.
+  // Matched on a distinctive word of the provider's name; a line already there (same job and sizes) is never added twice.
+  // DHOLLIANDA (hayon) is paid by the month and Wash and Check depends on minibus plates: neither is here.
+  const WASH = (formule, prixHT) => ({ service: "lavage", formule, cubageMin: null, cubageMax: null, prixHT });
+  const KNOWN_PRICES = [
+    { words: ["allo"], lines: [
+      { service: "pare-brise", cubageMin: null, cubageMax: 11, prixHT: 320 },
+      { service: "pare-brise", cubageMin: 12, cubageMax: null, prixHT: 360 },
+      WASH("complet", 37), WASH("interieur", 25)] },
+    { words: ["khalid"], lines: [WASH("complet", 42), WASH("interieur", 25)] },
+    { words: ["dsat", "toit"], lines: [WASH("complet", 42), WASH("interieur", 25)] },
+    { words: ["asg"], lines: [WASH("complet", 42), WASH("interieur", 25)] },
+  ];
+  const sameKind = (a, b) => (a.service || "pare-brise") === (b.service || "pare-brise") && washKindOf(a).id === washKindOf(b).id
+    && (a.cubageMin ?? null) === (b.cubageMin ?? null) && (a.cubageMax ?? null) === (b.cubageMax ?? null);
+  // [{name, add: [lines]}] for each provider of the app that is missing some of the agreed prices.
+  function missingKnownPrices(providerNames, pricesOf) {
+    return providerNames.map((name) => {
+      const words = providerId(name).split("-");
+      const known = KNOWN_PRICES.find((k) => k.words.some((w) => words.includes(w)));
+      if (!known) return null;
+      const current = pricesOf(providerId(name)) || [];
+      const add = known.lines.filter((line) => !current.some((c) => sameKind(c, line)));
+      return add.length ? { name, add } : null;
+    }).filter(Boolean);
+  }
+
   // Fields stored on each request so access rules and invoices never depend on a later price change:
   // the provider id, and the price frozen when the request is first saved (kept while provider, service, wash kind and cubage stay the same).
   function providerFields(fields, previous, pricesOf) {
@@ -1955,7 +1983,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_MONTHS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, olderPart, mergeSlices,
-    providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
+    providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
@@ -3708,7 +3736,10 @@ function page(texte) {
     $("#t-list").innerHTML = lines.length
       ? lines.map((line, i) => `<div class="item price"><span>${esc(D.priceLineLabel(line))}</span>
           <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
-      : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;
+      : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;    const missing = D.missingKnownPrices(state.providers, pricesOf);
+    const count = missing.reduce((n, m) => n + m.add.length, 0);
+    $("#t-known-box").hidden = !count || !state.canWrite;
+    $("#t-known-text").textContent = count ? `${plural(count, "tarif")} à ajouter pour ${missing.map((m) => m.name).join(", ")}.` : "";
   }
   // One choice per price kind: windshield, complete wash, inside wash, intervention.
   const priceKinds = () => D.SERVICES.flatMap((x) => (x.id === "lavage" ? D.WASH_KINDS.map((k) => ({ service: x.id, formule: k.id })) : [{ service: x.id }]))
@@ -3719,6 +3750,15 @@ function page(texte) {
     catch (err) { reportWriteError(err); }
   }
   $("#t-prov").addEventListener("change", renderPrices);
+  // One click fills the prices agreed with Allo and the washers (see D.KNOWN_PRICES); lines already there are kept.
+  $("#t-known").onclick = async () => {
+    if (!requireStore()) return;
+    const missing = D.missingKnownPrices(state.providers, pricesOf);
+    try {
+      for (const m of missing) await state.store.saveProvider(D.providerId(m.name), { nom: m.name, tarifs: [...pricesOf(D.providerId(m.name)), ...m.add] });
+      toast(`${plural(missing.reduce((n, m) => n + m.add.length, 0), "tarif")} ajouté(s)`);
+    } catch (err) { reportWriteError(err); }
+  };
   $("#t-add").onclick = () => {
     const prix = parseFloat($("#t-prix").value.replace(",", "."));
     if (!Number.isFinite(prix) || prix < 0) return toast("Indique le prix hors taxe, par exemple 266,67");

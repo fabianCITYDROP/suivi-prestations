@@ -562,3 +562,22 @@ test("the team app notices when the mail robot stops, errs or stops receiving ma
   assert.match(unread.text, /saisis-la à la main/);
   assert.equal(D.robotHealth({ passage: ago(10), dernierMail: ago(30), nonCompris: "Prise de rendez-vous XX", nonComprisLe: ago(4 * 24 * 60) }, now).level, "ok");
 });
+
+test("agreed prices: filled once per provider, matched on its name, never twice", () => {
+  const stored = new Map([["khalid-lavage", [{ service: "lavage", formule: "complet", cubageMin: null, cubageMax: null, prixHT: 40 }]]]);
+  const pricesOf = (id) => stored.get(id) || [];
+  const missing = D.missingKnownPrices(["ALLO pare-brise 78", "Khalid Lavage", "DSAT (du sol au toit)", "ASG BDX LAVAGE", "DHOLLIANDA", "Lavage Rouag"], pricesOf);
+  assert.deepEqual(missing.map((m) => m.name), ["ALLO pare-brise 78", "Khalid Lavage", "DSAT (du sol au toit)", "ASG BDX LAVAGE"]);
+  const allo = missing[0].add;
+  assert.equal(D.priceFor(allo, { service: "pare-brise", cubage: 3 }), 320);
+  assert.equal(D.priceFor(allo, { service: "pare-brise", cubage: 6 }), 320);
+  assert.equal(D.priceFor(allo, { service: "pare-brise", cubage: 12 }), 360);
+  assert.equal(D.priceFor(allo, { service: "pare-brise", cubage: 20 }), 360);
+  assert.equal(D.priceFor(allo, { service: "lavage", formule: "complet", cubage: 20 }), 37);
+  assert.equal(D.priceFor(allo, { service: "lavage", formule: "interieur", cubage: 20 }), 25);
+  // Khalid already has a complete wash price: only the inside one is added, his own price is kept.
+  assert.deepEqual(missing[1].add.map((l) => l.formule), ["interieur"]);
+  assert.equal(D.priceFor(missing[2].add, { service: "lavage", formule: "complet", cubage: 12 }), 42);
+  stored.set("allo-pare-brise-78", allo);
+  assert.equal(D.missingKnownPrices(["ALLO pare-brise 78"], pricesOf).length, 0, "nothing left once filled");
+});

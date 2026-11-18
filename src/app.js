@@ -986,7 +986,10 @@
     $("#t-list").innerHTML = lines.length
       ? lines.map((line, i) => `<div class="item price"><span>${esc(D.priceLineLabel(line))}</span>
           <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
-      : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;
+      : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;    const missing = D.missingKnownPrices(state.providers, pricesOf);
+    const count = missing.reduce((n, m) => n + m.add.length, 0);
+    $("#t-known-box").hidden = !count || !state.canWrite;
+    $("#t-known-text").textContent = count ? `${plural(count, "tarif")} à ajouter pour ${missing.map((m) => m.name).join(", ")}.` : "";
   }
   // One choice per price kind: windshield, complete wash, inside wash, intervention.
   const priceKinds = () => D.SERVICES.flatMap((x) => (x.id === "lavage" ? D.WASH_KINDS.map((k) => ({ service: x.id, formule: k.id })) : [{ service: x.id }]))
@@ -997,6 +1000,15 @@
     catch (err) { reportWriteError(err); }
   }
   $("#t-prov").addEventListener("change", renderPrices);
+  // One click fills the prices agreed with Allo and the washers (see D.KNOWN_PRICES); lines already there are kept.
+  $("#t-known").onclick = async () => {
+    if (!requireStore()) return;
+    const missing = D.missingKnownPrices(state.providers, pricesOf);
+    try {
+      for (const m of missing) await state.store.saveProvider(D.providerId(m.name), { nom: m.name, tarifs: [...pricesOf(D.providerId(m.name)), ...m.add] });
+      toast(`${plural(missing.reduce((n, m) => n + m.add.length, 0), "tarif")} ajouté(s)`);
+    } catch (err) { reportWriteError(err); }
+  };
   $("#t-add").onclick = () => {
     const prix = parseFloat($("#t-prix").value.replace(",", "."));
     if (!Number.isFinite(prix) || prix < 0) return toast("Indique le prix hors taxe, par exemple 266,67");

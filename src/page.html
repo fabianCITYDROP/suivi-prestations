@@ -290,6 +290,7 @@
       <div class="panel">
         <h2>Tarifs hors taxe</h2>
         <p class="hint">Le prix est figé sur chaque demande au moment où elle est enregistrée : changer un tarif ne modifie pas les demandes déjà faites. Laisse le cubage vide pour « toutes tailles ».</p>
+        <div class="row" id="t-known-box" hidden><span class="hint" id="t-known-text" style="flex:1 1 220px"></span><button type="button" class="primary" id="t-known">Remplir les tarifs connus</button></div>
         <label class="field"><span>Prestataire</span><select id="t-prov"></select></label>
         <div class="list-edit" id="t-list"></div>
         <div class="row"><select id="t-svc" aria-label="Prestation" style="flex:1 1 120px"></select><input id="t-min" type="number" min="0" placeholder="de m³" aria-label="Cubage minimum" style="flex:0 1 80px"><input id="t-max" type="number" min="0" placeholder="à m³" aria-label="Cubage maximum" style="flex:0 1 80px"><input id="t-prix" inputmode="decimal" placeholder="€ HT" aria-label="Prix hors taxe" style="flex:0 1 90px"><button type="button" id="t-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>

@@ -460,6 +460,33 @@
     return `${jobLabel(line)} · ${range}`;
   }
 
+  // Prices HT agreed with the providers (Fabian and Jérôme, 2026-11), filled in one click from Réglages › Tarifs.
+  // Matched on a distinctive word of the provider's name; a line already there (same job and sizes) is never added twice.
+  // DHOLLIANDA (hayon) is paid by the month and Wash and Check depends on minibus plates: neither is here.
+  const WASH = (formule, prixHT) => ({ service: "lavage", formule, cubageMin: null, cubageMax: null, prixHT });
+  const KNOWN_PRICES = [
+    { words: ["allo"], lines: [
+      { service: "pare-brise", cubageMin: null, cubageMax: 11, prixHT: 320 },
+      { service: "pare-brise", cubageMin: 12, cubageMax: null, prixHT: 360 },
+      WASH("complet", 37), WASH("interieur", 25)] },
+    { words: ["khalid"], lines: [WASH("complet", 42), WASH("interieur", 25)] },
+    { words: ["dsat", "toit"], lines: [WASH("complet", 42), WASH("interieur", 25)] },
+    { words: ["asg"], lines: [WASH("complet", 42), WASH("interieur", 25)] },
+  ];
+  const sameKind = (a, b) => (a.service || "pare-brise") === (b.service || "pare-brise") && washKindOf(a).id === washKindOf(b).id
+    && (a.cubageMin ?? null) === (b.cubageMin ?? null) && (a.cubageMax ?? null) === (b.cubageMax ?? null);
+  // [{name, add: [lines]}] for each provider of the app that is missing some of the agreed prices.
+  function missingKnownPrices(providerNames, pricesOf) {
+    return providerNames.map((name) => {
+      const words = providerId(name).split("-");
+      const known = KNOWN_PRICES.find((k) => k.words.some((w) => words.includes(w)));
+      if (!known) return null;
+      const current = pricesOf(providerId(name)) || [];
+      const add = known.lines.filter((line) => !current.some((c) => sameKind(c, line)));
+      return add.length ? { name, add } : null;
+    }).filter(Boolean);
+  }
+
   // Fields stored on each request so access rules and invoices never depend on a later price change:
   // the provider id, and the price frozen when the request is first saved (kept while provider, service, wash kind and cubage stay the same).
   function providerFields(fields, previous, pricesOf) {
@@ -829,7 +856,7 @@
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_MONTHS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, olderPart, mergeSlices,
-    providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
+    providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
