@@ -453,3 +453,20 @@ test("hayon: the provider's sheet is read line by line (plate + last control dat
   ]);
   assert.equal(D.dateInText("le 3/4/26"), "2026-04-03");
 });
+
+test("historique : seuls les champs vraiment changés sont notés, avec des libellés lisibles", () => {
+  const before = { statut: "envoyee", prixHT: 300, date: "2026-11-20", notes: undefined };
+  const changes = D.changesBetween(before, { statut: "realisee", prixHT: 320, date: "2026-11-20", notes: "" });
+  assert.deepEqual(changes, [{ champ: "statut", avant: "envoyee", apres: "realisee" }, { champ: "prixHT", avant: 300, apres: 320 }]);
+  const [line] = D.historyLines([{ action: "modification", par: "fabian@city-drop.com", at: "2026-11-18T09:05:00", changes }], null);
+  assert.equal(line.when, "18/11/2026 à 09h05");
+  assert.deepEqual(line.changes.map((c) => `${c.label}: ${c.avant} > ${c.apres}`), ["Statut: Envoyée > Réalisée", "Prix HT: 300 € HT > 320 € HT"]);
+});
+
+test("historique : une demande d'avant le suivi garde une ligne de création", () => {
+  const lines = D.historyLines([{ action: "reponse", par: "contact@allo-pb.fr", at: { seconds: 1795000000 }, changes: D.answerChanges({ etat: "fait", note: "RAS" }) }],
+    { createdAt: "2026-11-01T10:00:00Z", source: "mail" });
+  assert.deepEqual(lines.map((l) => l.action), ["Réponse du prestataire", "Création"]);
+  assert.equal(lines[0].changes[0].apres, "Fait");
+  assert.equal(lines[1].who, "mail City-Drop");
+});

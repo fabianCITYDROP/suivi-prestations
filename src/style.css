@@ -538,4 +538,14 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
   .hy-dates, .hy-actions { grid-column: 1 / -1; }
   .hy-actions { justify-content: flex-start; }
 }
+/* Change history of a request (who changed what, when) */
+details.history { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.history-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 0; }
+.history-list > li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.history-list > li:last-child { border-bottom: 0; }
+.history-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; }
+.history-head .small { overflow-wrap: anywhere; }
+.history-list ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 14px; }
+.history-list s { color: var(--ink-2); }
+.history-list ul b { font-weight: 600; overflow-wrap: anywhere; }
 </style>

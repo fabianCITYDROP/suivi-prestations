@@ -2,7 +2,7 @@
 import { test, before, beforeEach, after } from "node:test";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, serverTimestamp, writeBatch } from "firebase/firestore";
 
 let env;
 const ALLO = "allo-pare-brise-78";
@@ -178,4 +178,37 @@ test("contrôles hayon : l'équipe gère la liste, Jérôme la lit, personne d'a
     await assertFails(setDoc(doc(as(who), "hayons/AB123CD"), { plaque: "AB-123-CD", dernierControle: "2026-11-01" }));
   }
   await assertSucceeds(setDoc(doc(as("robot"), "demandes/mail-h"), { ...mail, service: "hayon" }), "le robot importe aussi les mails de contrôle hayon");
+});
+
+test("historique : on ajoute une trace avec la modification, personne ne peut la changer ni l'effacer", async () => {
+  const entry = (who, extra = {}) => ({ demandeId: "d1", plaque: "AB-123-CD", action: "modification", changes: [{ champ: "prixHT", avant: 300, apres: 320 }],
+    par: people[who].email, at: serverTimestamp(), ...extra });
+  // L'équipe change le prix : la demande et sa trace partent ensemble.
+  const fabian = as("fabian");
+  const batch = writeBatch(fabian);
+  batch.update(doc(fabian, "demandes/d1"), { prixHT: 320 });
+  batch.set(doc(fabian, "historique/h1"), entry("fabian"));
+  await assertSucceeds(batch.commit());
+  await assertSucceeds(getDocs(collection(as("jerome"), "historique")));
+  // Une trace écrite ne bouge plus, même pour un administrateur.
+  await assertFails(updateDoc(doc(fabian, "historique/h1"), { changes: [] }));
+  await assertFails(deleteDoc(doc(fabian, "historique/h1")));
+  // Pas de fausse signature ni d'heure inventée.
+  await assertFails(setDoc(doc(fabian, "historique/h2"), entry("fabian", { par: people.jerome.email })));
+  await assertFails(setDoc(doc(fabian, "historique/h3"), entry("fabian", { at: "2026-01-01T00:00:00Z" })));
+  await assertFails(setDoc(doc(fabian, "historique/h4"), entry("fabian", { action: "paiement" })));
+  // Jérôme lit sans écrire ; les prestataires, le robot et les inconnus ne lisent pas l'historique.
+  await assertFails(setDoc(doc(as("jerome"), "historique/h5"), entry("jerome")));
+  for (const who of ["allo", "khalid", "robot", "inconnu"]) await assertFails(getDoc(doc(as(who), "historique/h1")));
+});
+
+test("historique : un prestataire ne trace que ses propres réponses", async () => {
+  const answer = (who, demandeId, action = "reponse") => ({ demandeId, plaque: "AB-123-CD", action, changes: [{ champ: "reponse", avant: "", apres: "fait" }],
+    par: people[who].email, at: serverTimestamp() });
+  await assertSucceeds(setDoc(doc(as("allo"), "historique/a1"), answer("allo", "d1")));
+  await assertFails(setDoc(doc(as("allo"), "historique/a2"), answer("allo", "d2")), "pas sur la demande d'un autre prestataire");
+  await assertFails(setDoc(doc(as("allo"), "historique/a3"), answer("allo", "d1", "modification")), "pas de fausse modification de prix");
+  await assertFails(updateDoc(doc(as("allo"), "historique/a1"), { changes: [] }));
+  await assertFails(deleteDoc(doc(as("allo"), "historique/a1")));
+  await assertFails(setDoc(doc(as("robot"), "historique/r1"), answer("robot", "d1")));
 });

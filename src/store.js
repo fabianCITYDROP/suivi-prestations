@@ -7,8 +7,36 @@
 })(typeof self !== "undefined" ? self : this, function (D) {
   const MAX_PHOTOS_PER_VEHICLE = 12;
 
-  function createStore(db) {
+  // options.email(): e-mail of the person signed in, written in the change history.
+  function createStore(db, options = {}) {
     const photoCache = new Map();
+    const signedInEmail = () => D.emailKey(options.email ? options.email() : "");
+
+    // ----- change history: historique/<auto id>, written in the same batch as the change itself -----
+    // The time comes from the server, so nobody can back-date an entry. Before the new access rules are
+    // published the history is refused: the change itself is then saved alone, as before.
+    const serverTime = () => (typeof firebase !== "undefined" && firebase.firestore?.FieldValue ? firebase.firestore.FieldValue.serverTimestamp() : new Date().toISOString());
+    function historyEntry(demande, action, changes, { auto = false } = {}) {
+      if (!changes.length && action !== "suppression") return null;
+      return { demandeId: demande.id, plaque: String(demande.plaque || "").slice(0, 20), action, changes: changes.slice(0, 30),
+        par: signedInEmail(), at: serverTime(), ...(auto ? { auto: true } : {}) };
+    }
+    const runWrite = (target, ref, op, data) => (op === "delete" ? target.delete(ref) : target[op](ref, data));
+    async function writeWithHistory(ref, op, data, entry) {
+      const alone = () => (op === "delete" ? ref.delete() : ref[op](data));
+      if (!entry) return alone();
+      if (!db.batch) { await alone(); return db.collection("historique").add(entry).catch(() => {}); }
+      const batch = db.batch();
+      runWrite(batch, ref, op, data);
+      batch.set(db.collection("historique").doc(), entry);
+      try { await batch.commit(); }
+      catch (err) { if (err?.code === "permission-denied") await alone(); else throw err; }
+    }
+    async function loadHistory(demandeId) {
+      const snap = await db.collection("historique").where("demandeId", "==", demandeId).get();
+      return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    }
+    const demandeRef = (id) => db.doc("demandes/" + id);
     const vehicleRef = (plate) => db.doc("vehicules/" + D.plateKey(plate));
 
     const modelRef = (key) => db.doc("modeles/" + key);
@@ -32,26 +60,32 @@
     async function saveDemande(id, fields, previous) {
       const ref = id ? db.doc("demandes/" + id) : db.collection("demandes").doc();
       const now = new Date().toISOString();
-      await ref.set({
+      const entry = historyEntry({ id: ref.id, plaque: fields.plaque }, previous ? "modification" : "creation",
+        D.changesBetween(previous || {}, fields).filter((c) => previous || c.apres !== ""));
+      await writeWithHistory(ref, "set", {
         ...fields,
         ...(previous?.retour ? { retour: previous.retour } : {}), // the provider's answer survives an edit by the team
         ...(previous?.source === "mail" ? D.mailMarkers(previous) : {}), // an imported request stays cancellable by a later mail
         ...D.statusTimestamps(previous, fields.statut, now),
         createdAt: previous?.createdAt || now,
         updatedAt: now,
-      });
+      }, entry);
       return ref.id;
     }
 
-    async function setStatus(demande, status) {
+    async function setStatus(demande, status, opts = {}) {
       const now = new Date().toISOString();
-      await db.doc("demandes/" + demande.id).update({ statut: status, ...D.statusTimestamps(demande, status, now), updatedAt: now });
+      await writeWithHistory(demandeRef(demande.id), "update", { statut: status, ...D.statusTimestamps(demande, status, now), updatedAt: now },
+        historyEntry(demande, "statut", D.changesBetween(demande, { statut: status }), opts));
     }
 
     // The team app completing a request imported from a mail (provider, model, site, price).
-    const completeDemande = (id, fields) => db.doc("demandes/" + id).update({ ...fields, updatedAt: new Date().toISOString() });
+    const completeDemande = (demande, fields) => writeWithHistory(demandeRef(demande.id), "update", { ...fields, updatedAt: new Date().toISOString() },
+      historyEntry(demande, "modification", D.changesBetween(demande, fields), { auto: true }));
 
-    const deleteDemande = (id) => db.doc("demandes/" + id).delete();
+    // The history keeps what the request was (plate, date, provider, price, status) after it is erased.
+    const deleteDemande = (demande) => writeWithHistory(demandeRef(demande.id), "delete", null,
+      historyEntry(demande, "suppression", D.changesBetween(demande, Object.fromEntries(D.HISTORY_FIELDS.map(([f]) => [f, ""]))).map((c) => ({ ...c, apres: "" }))));
 
     // ----- providers, prices and accounts -----
     const saveProvider = (id, fields) => db.doc("prestataires/" + id).set({ ...fields, updatedAt: new Date().toISOString() }, { merge: true });
@@ -74,7 +108,8 @@
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
     async function answer(demande, retour) {
       const now = new Date().toISOString();
-      await db.doc("demandes/" + demande.id).update({ retour: { ...retour, at: now }, updatedAt: now });
+      await writeWithHistory(demandeRef(demande.id), "update", { retour: { ...retour, at: now }, updatedAt: now },
+        historyEntry(demande, "reponse", D.answerChanges(retour)));
     }
     async function loadProof(key) {
       const cacheKey = "preuve:" + key;
@@ -88,17 +123,18 @@
     async function applyAnswer(demande, status) {
       const now = new Date().toISOString();
       const done = status === "realisee" && demande.retour?.at ? { ...D.statusTimestamps(demande, status, now), doneAt: demande.retour.at } : D.statusTimestamps(demande, status, now);
-      await db.doc("demandes/" + demande.id).update({ statut: status, ...done, retour: { ...demande.retour, applique: true }, updatedAt: now });
+      await writeWithHistory(demandeRef(demande.id), "update", { statut: status, ...done, retour: { ...demande.retour, applique: true }, updatedAt: now },
+        historyEntry(demande, "statut", D.changesBetween(demande, { statut: status }), { auto: true }));
     }
     const markAnswerSeen = (demande) => db.doc("demandes/" + demande.id).update({ retour: { ...demande.retour, vu: true } });
     // Accepting the provider's date also confirms the request: it moves to the provider's planning.
     function acceptProposedDate(demande) {
       const now = new Date().toISOString();
-      return db.doc("demandes/" + demande.id).update({
-        date: demande.retour.date, dateFin: demande.retour.date, debut: demande.retour.debut || demande.debut || "",
-        statut: "confirmee", ...D.statusTimestamps(demande, "confirmee", now),
+      const fields = { date: demande.retour.date, dateFin: demande.retour.date, debut: demande.retour.debut || demande.debut || "", statut: "confirmee" };
+      return writeWithHistory(demandeRef(demande.id), "update", {
+        ...fields, ...D.statusTimestamps(demande, "confirmee", now),
         retour: { ...demande.retour, vu: true }, updatedAt: now,
-      });
+      }, historyEntry(demande, "modification", D.changesBetween(demande, fields)));
     }
 
     // One-off preparation before the access rules are published: link every request to its provider.
@@ -126,7 +162,8 @@
     function markHayonNotDone(demande, notDone) {
       const now = new Date().toISOString();
       const statut = notDone ? "annulee" : "realisee";
-      return db.doc("demandes/" + demande.id).update({ statut, nonFait: notDone, ...D.statusTimestamps(demande, statut, now), ...(notDone ? { annuleeAt: now } : {}), updatedAt: now });
+      return writeWithHistory(demandeRef(demande.id), "update", { statut, nonFait: notDone, ...D.statusTimestamps(demande, statut, now), ...(notDone ? { annuleeAt: now } : {}), updatedAt: now },
+        historyEntry(demande, "statut", D.changesBetween(demande, { statut })));
     }
 
     const saveSettings = (settings) => db.doc("config/reglages").set(settings);
@@ -192,7 +229,7 @@
       return photoCache.get(key);
     }
 
-    return { saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { loadHistory, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
