@@ -594,6 +594,16 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
   .hy-dates, .hy-actions { grid-column: 1 / -1; }
   .hy-actions { justify-content: flex-start; }
 }
+/* Change history of a request (who changed what, when) */
+details.history { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.history-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 0; }
+.history-list > li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.history-list > li:last-child { border-bottom: 0; }
+.history-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; }
+.history-head .small { overflow-wrap: anywhere; }
+.history-list ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 14px; }
+.history-list s { color: var(--ink-2); }
+.history-list ul b { font-weight: 600; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -768,6 +778,10 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
           <span class="spacer"></span>
           <span id="delZone"></span>
         </div>
+        <details class="more history" id="historyBox" hidden>
+          <summary><svg class="icon"><use href="#i-plus"/></svg>Historique des modifications</summary>
+          <div id="historyBody"></div>
+        </details>
       </form>
 
       <aside class="panel sticky" aria-labelledby="msgTitle">
@@ -1820,6 +1834,66 @@ window.SUIVI_FIREBASE_CONFIG = {
     return [...all.values()];
   }
 
+  // ---------- change history (historique/<auto id>): who changed what on a request, for a disagreement over an invoice ----------
+  // One entry per save: {demandeId, plaque, action, changes:[{champ, avant, apres}], par: e-mail, at: server time, auto?}.
+  // Nobody can change or delete an entry once written (see firestore.rules).
+  const HISTORY_FIELDS = [
+    ["statut", "Statut"], ["prixHT", "Prix HT"], ["date", "Date"], ["dateFin", "Date de fin"], ["debut", "Heure"], ["fin", "Heure de fin"],
+    ["prestataire", "Prestataire"], ["service", "Prestation"], ["formule", "Formule"], ["plaque", "Plaque"], ["modele", "Modèle"],
+    ["cubage", "Cubage"], ["site", "Site"], ["adresse", "Adresse"], ["tache", "Travail demandé"], ["notes", "Remarque"],
+  ];
+  const HISTORY_LABELS = { ...Object.fromEntries(HISTORY_FIELDS), reponse: "Réponse du prestataire", note: "Note du prestataire", dateProposee: "Date proposée" };
+  const plainValue = (v) => (v == null ? "" : typeof v === "number" ? v : String(v).slice(0, 300));
+  // Fields that really changed between the request before and the fields being written ("" for empty).
+  function changesBetween(before, after) {
+    return HISTORY_FIELDS.map(([champ]) => champ)
+      .filter((champ) => after && champ in after && String(plainValue(after[champ])) !== String(plainValue(before?.[champ])))
+      .map((champ) => ({ champ, avant: plainValue(before?.[champ]), apres: plainValue(after[champ]) }));
+  }
+  // What a provider answered, as history lines.
+  const answerChanges = (retour) => [
+    { champ: "reponse", avant: "", apres: retour.etat },
+    ...(retour.date ? [{ champ: "dateProposee", avant: "", apres: retour.date + (retour.debut ? " " + retour.debut : "") }] : []),
+    ...(retour.note ? [{ champ: "note", avant: "", apres: plainValue(retour.note) }] : []),
+  ];
+  function historyValue(champ, v) {
+    if (v === "" || v == null) return "vide";
+    if (champ === "statut") return statusOf(v).label;
+    if (champ === "prixHT") return Number.isFinite(+v) ? `${String(+v).replace(".", ",")} € HT` : String(v);
+    if (champ === "date" || champ === "dateFin") return /^\d{4}-\d{2}-\d{2}$/.test(v) ? numericDate(v) : String(v);
+    if (champ === "dateProposee") { const [day, time] = String(v).split(" "); return /^\d{4}-\d{2}-\d{2}$/.test(day) ? numericDate(day) + (time ? " à " + time : "") : String(v); }
+    if (champ === "cubage") return `${v} m³`;
+    if (champ === "service") return SERVICES.find((x) => x.id === v)?.label || String(v);
+    if (champ === "reponse") return answerOf(v)?.label || String(v);
+    return String(v);
+  }
+  const ACTION_LABELS = { creation: "Création", modification: "Modification", statut: "Changement de statut", reponse: "Réponse du prestataire", suppression: "Suppression" };
+  // Firestore time (Timestamp) or ISO text -> Date.
+  const historyTime = (at) => (at?.toDate ? at.toDate() : at?.seconds != null ? new Date(at.seconds * 1000) : at ? new Date(at) : null);
+  function historyWhen(at) {
+    const t = historyTime(at);
+    return t && !isNaN(t) ? `${pad2(t.getDate())}/${pad2(t.getMonth() + 1)}/${t.getFullYear()} à ${pad2(t.getHours())}h${pad2(t.getMinutes())}` : "";
+  }
+  // Newest first, ready to show. Requests saved before the history existed get one line from their creation date.
+  function historyLines(entries, demande) {
+    const lines = (entries || []).map((e) => ({
+      time: historyTime(e.at)?.getTime() || 0,
+      when: historyWhen(e.at),
+      who: e.auto ? `Appli (automatique, ouverte par ${e.par})` : e.par || "",
+      action: ACTION_LABELS[e.action] || e.action,
+      changes: (e.changes || []).map((c) => ({
+        label: HISTORY_LABELS[c.champ] || c.champ,
+        avant: e.action === "creation" || c.champ === "reponse" || c.champ === "note" || c.champ === "dateProposee" ? null : historyValue(c.champ, c.avant),
+        apres: e.action === "suppression" ? historyValue(c.champ, c.avant) : historyValue(c.champ, c.apres),
+      })),
+    }));
+    if (demande?.createdAt && !(entries || []).some((e) => e.action === "creation")) {
+      lines.push({ time: historyTime(demande.createdAt)?.getTime() || 0, when: historyWhen(demande.createdAt), who: demande.source === "mail" ? "mail City-Drop" : "",
+        action: "Création", changes: [] });
+    }
+    return lines.sort((a, b) => b.time - a.time);
+  }
+
   // ---------- health of the mail robot (apps-script/import-mails.js writes robot/etat) ----------
   // robot/etat: {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} (ISO dates).
   // The robot leaves a trace at least every 30 minutes. When it stops (password changed, Google block, error),
@@ -1859,6 +1933,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
+    HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
     PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
   };
@@ -1875,8 +1950,36 @@ window.SUIVI_FIREBASE_CONFIG = {
 })(typeof self !== "undefined" ? self : this, function (D) {
   const MAX_PHOTOS_PER_VEHICLE = 12;
 
-  function createStore(db) {
+  // options.email(): e-mail of the person signed in, written in the change history.
+  function createStore(db, options = {}) {
     const photoCache = new Map();
+    const signedInEmail = () => D.emailKey(options.email ? options.email() : "");
+
+    // ----- change history: historique/<auto id>, written in the same batch as the change itself -----
+    // The time comes from the server, so nobody can back-date an entry. Before the new access rules are
+    // published the history is refused: the change itself is then saved alone, as before.
+    const serverTime = () => (typeof firebase !== "undefined" && firebase.firestore?.FieldValue ? firebase.firestore.FieldValue.serverTimestamp() : new Date().toISOString());
+    function historyEntry(demande, action, changes, { auto = false } = {}) {
+      if (!changes.length && action !== "suppression") return null;
+      return { demandeId: demande.id, plaque: String(demande.plaque || "").slice(0, 20), action, changes: changes.slice(0, 30),
+        par: signedInEmail(), at: serverTime(), ...(auto ? { auto: true } : {}) };
+    }
+    const runWrite = (target, ref, op, data) => (op === "delete" ? target.delete(ref) : target[op](ref, data));
+    async function writeWithHistory(ref, op, data, entry) {
+      const alone = () => (op === "delete" ? ref.delete() : ref[op](data));
+      if (!entry) return alone();
+      if (!db.batch) { await alone(); return db.collection("historique").add(entry).catch(() => {}); }
+      const batch = db.batch();
+      runWrite(batch, ref, op, data);
+      batch.set(db.collection("historique").doc(), entry);
+      try { await batch.commit(); }
+      catch (err) { if (err?.code === "permission-denied") await alone(); else throw err; }
+    }
+    async function loadHistory(demandeId) {
+      const snap = await db.collection("historique").where("demandeId", "==", demandeId).get();
+      return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    }
+    const demandeRef = (id) => db.doc("demandes/" + id);
     const vehicleRef = (plate) => db.doc("vehicules/" + D.plateKey(plate));
 
     const modelRef = (key) => db.doc("modeles/" + key);
@@ -1947,26 +2050,32 @@ window.SUIVI_FIREBASE_CONFIG = {
     async function saveDemande(id, fields, previous) {
       const ref = id ? db.doc("demandes/" + id) : db.collection("demandes").doc();
       const now = new Date().toISOString();
-      await ref.set({
+      const entry = historyEntry({ id: ref.id, plaque: fields.plaque }, previous ? "modification" : "creation",
+        D.changesBetween(previous || {}, fields).filter((c) => previous || c.apres !== ""));
+      await writeWithHistory(ref, "set", {
         ...fields,
         ...(previous?.retour ? { retour: previous.retour } : {}), // the provider's answer survives an edit by the team
         ...(previous?.source === "mail" ? D.mailMarkers(previous) : {}), // an imported request stays cancellable by a later mail
         ...D.statusTimestamps(previous, fields.statut, now),
         createdAt: previous?.createdAt || now,
         updatedAt: now,
-      });
+      }, entry);
       return ref.id;
     }
 
-    async function setStatus(demande, status) {
+    async function setStatus(demande, status, opts = {}) {
       const now = new Date().toISOString();
-      await db.doc("demandes/" + demande.id).update({ statut: status, ...D.statusTimestamps(demande, status, now), updatedAt: now });
+      await writeWithHistory(demandeRef(demande.id), "update", { statut: status, ...D.statusTimestamps(demande, status, now), updatedAt: now },
+        historyEntry(demande, "statut", D.changesBetween(demande, { statut: status }), opts));
     }
 
     // The team app completing a request imported from a mail (provider, model, site, price).
-    const completeDemande = (id, fields) => db.doc("demandes/" + id).update({ ...fields, updatedAt: new Date().toISOString() });
+    const completeDemande = (demande, fields) => writeWithHistory(demandeRef(demande.id), "update", { ...fields, updatedAt: new Date().toISOString() },
+      historyEntry(demande, "modification", D.changesBetween(demande, fields), { auto: true }));
 
-    const deleteDemande = (id) => db.doc("demandes/" + id).delete();
+    // The history keeps what the request was (plate, date, provider, price, status) after it is erased.
+    const deleteDemande = (demande) => writeWithHistory(demandeRef(demande.id), "delete", null,
+      historyEntry(demande, "suppression", D.changesBetween(demande, Object.fromEntries(D.HISTORY_FIELDS.map(([f]) => [f, ""]))).map((c) => ({ ...c, apres: "" }))));
 
     // Requests whose day falls in [from, to) (to excluded), kept live once asked for. Resolves when they are in the list.
     function loadDemandesBetween(from, to) {
@@ -2000,7 +2109,8 @@ window.SUIVI_FIREBASE_CONFIG = {
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
     async function answer(demande, retour) {
       const now = new Date().toISOString();
-      await db.doc("demandes/" + demande.id).update({ retour: { ...retour, at: now }, updatedAt: now });
+      await writeWithHistory(demandeRef(demande.id), "update", { retour: { ...retour, at: now }, updatedAt: now },
+        historyEntry(demande, "reponse", D.answerChanges(retour)));
     }
     // A problem seen on a vehicle: the photo (optional) goes in preuves/<key> like a proof, then the report itself.
     async function reportProblem(demande, fields, photoFull) {
@@ -2028,17 +2138,18 @@ window.SUIVI_FIREBASE_CONFIG = {
     async function applyAnswer(demande, status) {
       const now = new Date().toISOString();
       const done = status === "realisee" && demande.retour?.at ? { ...D.statusTimestamps(demande, status, now), doneAt: demande.retour.at } : D.statusTimestamps(demande, status, now);
-      await db.doc("demandes/" + demande.id).update({ statut: status, ...done, retour: { ...demande.retour, applique: true }, updatedAt: now });
+      await writeWithHistory(demandeRef(demande.id), "update", { statut: status, ...done, retour: { ...demande.retour, applique: true }, updatedAt: now },
+        historyEntry(demande, "statut", D.changesBetween(demande, { statut: status }), { auto: true }));
     }
     const markAnswerSeen = (demande) => db.doc("demandes/" + demande.id).update({ retour: { ...demande.retour, vu: true } });
     // Accepting the provider's date also confirms the request: it moves to the provider's planning.
     function acceptProposedDate(demande) {
       const now = new Date().toISOString();
-      return db.doc("demandes/" + demande.id).update({
-        date: demande.retour.date, dateFin: demande.retour.date, debut: demande.retour.debut || demande.debut || "",
-        statut: "confirmee", ...D.statusTimestamps(demande, "confirmee", now),
+      const fields = { date: demande.retour.date, dateFin: demande.retour.date, debut: demande.retour.debut || demande.debut || "", statut: "confirmee" };
+      return writeWithHistory(demandeRef(demande.id), "update", {
+        ...fields, ...D.statusTimestamps(demande, "confirmee", now),
         retour: { ...demande.retour, vu: true }, updatedAt: now,
-      });
+      }, historyEntry(demande, "modification", D.changesBetween(demande, fields)));
     }
 
     // One-off preparation before the access rules are published: link every request to its provider.
@@ -2066,7 +2177,8 @@ window.SUIVI_FIREBASE_CONFIG = {
     function markHayonNotDone(demande, notDone) {
       const now = new Date().toISOString();
       const statut = notDone ? "annulee" : "realisee";
-      return db.doc("demandes/" + demande.id).update({ statut, nonFait: notDone, ...D.statusTimestamps(demande, statut, now), ...(notDone ? { annuleeAt: now } : {}), updatedAt: now });
+      return writeWithHistory(demandeRef(demande.id), "update", { statut, nonFait: notDone, ...D.statusTimestamps(demande, statut, now), ...(notDone ? { annuleeAt: now } : {}), updatedAt: now },
+        historyEntry(demande, "statut", D.changesBetween(demande, { statut })));
     }
 
     const saveSettings = (settings) => db.doc("config/reglages").set(settings);
@@ -2132,7 +2244,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { loadDemandesBetween, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { loadDemandesBetween, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -2973,7 +3085,7 @@ function page(texte) {
     const row = button.closest(".extra-veh");
     if (row.dataset.id) {
       if (!requireStore()) return;
-      try { await state.store.deleteDemande(row.dataset.id); toast("Véhicule retiré de la demande"); }
+      try { await state.store.deleteDemande(demandeById(row.dataset.id) || { id: row.dataset.id }); toast("Véhicule retiré de la demande"); }
       catch (err) { reportWriteError(err); return; }
     }
     row.remove(); renumberExtraRows(); renderFormSide();
@@ -3056,6 +3168,7 @@ function page(texte) {
     field("prest").value = state.providerFilter || defaultProvider();
     renderServiceChoice();
     $("#notesBox").open = false;
+    $("#historyBox").hidden = true; $("#historyBox").open = false; $("#historyBox").dataset.id = "";
     $("#formTitle").textContent = "Nouvelle demande";
     $("#formStatusChip").hidden = true;
     $("#saveBtn").textContent = "Enregistrer la demande";
@@ -3084,7 +3197,40 @@ function page(texte) {
     chip.hidden = false; chip.className = "chip st-" + d.statut; chip.textContent = D.statusOf(d.statut).label;
     $("#saveBtn").textContent = "Enregistrer les modifications";
     $("#delZone").innerHTML = deleteZone(d);
+    showHistoryBox();
   }
+  // ----- change history of the open request: loaded only when opened (saves reads on the free plan) -----
+  function showHistoryBox() {
+    const box = $("#historyBox");
+    box.hidden = !state.editingId || state.providerMode;
+    if (box.dataset.id === (state.editingId || "")) return; // same request re-drawn: keep the list open
+    box.dataset.id = state.editingId || "";
+    box.open = false;
+    $("#historyBody").innerHTML = "";
+  }
+  async function renderChangeLog() {
+    const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id)].filter(Boolean);
+    if (!ids.length || !state.store) return;
+    const body = $("#historyBody");
+    body.innerHTML = `<p class="muted small">Chargement…</p>`;
+    try {
+      const several = ids.length > 1;
+      const lines = (await Promise.all(ids.map(async (id) => {
+        const d = demandeById(id);
+        return D.historyLines(await state.store.loadHistory(id), d).map((line) => ({ ...line, plaque: several ? d?.plaque : "" }));
+      }))).flat().sort((a, b) => b.time - a.time);
+      body.innerHTML = lines.length ? `<ol class="history-list">${lines.map(historyItem).join("")}</ol>` : "";
+      body.insertAdjacentHTML("beforeend", `<p class="hint">Chaque changement de statut, de prix ou de date est noté ici avec son auteur et l'heure du serveur. Personne ne peut modifier ni effacer cette liste, même après la suppression de la demande.</p>`);
+    } catch {
+      body.innerHTML = `<p class="hint">L'historique n'est pas encore lisible : les nouvelles règles Firebase doivent être publiées.</p>`;
+    }
+  }
+  function historyItem(line) {
+    const changes = line.changes.map((c) => `<li><span class="muted">${esc(c.label)} :</span> ${c.avant != null ? `<s>${esc(c.avant)}</s> → ` : ""}<b>${esc(c.apres)}</b></li>`).join("");
+    const who = line.who || "avant le suivi des modifications";
+    return `<li><div class="history-head"><b>${esc(line.action)}${line.plaque ? " · " + esc(line.plaque) : ""}</b><span class="muted small">${esc(line.when)} · ${esc(who)}</span></div>${changes ? `<ul>${changes}</ul>` : ""}</li>`;
+  }
+  $("#historyBox").addEventListener("toggle", () => { if ($("#historyBox").open) renderChangeLog(); });
   // « Annuler » keeps the request in the history (and stops the tailgate counter from using it); « Supprimer » erases it.
   const deleteZone = (d) => !state.canWrite ? "" : (d?.statut === "annulee"
     ? `<button type="button" class="ghost" data-restore>Rétablir la demande</button>`
@@ -3137,6 +3283,7 @@ function page(texte) {
       state.editingId = await saveRequest(state.editingId, main, options);
       for (const extra of extras) extra.row.dataset.id = await saveRequest(extra.id || null, groupMember(main, extra), options);
       showSavedHeader(main);
+      if ($("#historyBox").open) setTimeout(renderChangeLog, 800); // the new line arrives once the save is written
       return true;
     } catch (err) { reportWriteError(err); return false; }
   }
@@ -3164,7 +3311,7 @@ function page(texte) {
       } catch (err) { reportWriteError(err); }
     } else if (e.target.closest("[data-delete-yes]") && state.editingId && requireStore()) {
       const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id).filter(Boolean)];
-      try { await Promise.all(ids.map((id) => state.store.deleteDemande(id))); toast(ids.length > 1 ? "Demande groupée supprimée" : "Demande supprimée"); resetForm(); show("planning"); }
+      try { await Promise.all(ids.map((id) => state.store.deleteDemande(demandeById(id) || { id }))); toast(ids.length > 1 ? "Demande groupée supprimée" : "Demande supprimée"); resetForm(); show("planning"); }
       catch (err) { reportWriteError(err); }
     }
   });
@@ -3551,7 +3698,7 @@ function page(texte) {
       const patch = D.mailCompletion(d, ctx);
       if (!patch || completing.has(d.id)) return;
       completing.add(d.id);
-      state.store.completeDemande(d.id, patch).catch(() => {}).finally(() => completing.delete(d.id));
+      state.store.completeDemande(d, patch).catch(() => {}).finally(() => completing.delete(d.id));
     });
   }
   // ================= tailgate controls (hayon) =================
@@ -3561,7 +3708,7 @@ function page(texte) {
     if (!state.canWrite) return;
     rows.filter((d) => D.hayonAutoClose(d, today()) && !closingHayons.has(d.id)).forEach((d) => {
       closingHayons.add(d.id);
-      state.store.setStatus(d, "realisee").catch(() => {}).finally(() => closingHayons.delete(d.id));
+      state.store.setStatus(d, "realisee", { auto: true }).catch(() => {}).finally(() => closingHayons.delete(d.id));
     });
   }
   const HAYON_FILTERS = {
@@ -3802,7 +3949,7 @@ function page(texte) {
       banner("La base de données n'est pas encore branchée : rien ne peut être enregistré pour l'instant.");
       return;
     }
-    state.store = createStore(db);
+    state.store = createStore(db, { email: () => state.userEmail });
     window.claude.use("downloads").then((d) => { state.downloads = d; $("#b-csv").hidden = !d; }).catch(() => {});
     const user = await window.claude.use("user").catch(() => null);
     state.userEmail = user?.email || "";

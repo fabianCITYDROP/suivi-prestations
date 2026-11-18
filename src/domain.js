@@ -720,6 +720,66 @@
     return [...all.values()];
   }
 
+  // ---------- change history (historique/<auto id>): who changed what on a request, for a disagreement over an invoice ----------
+  // One entry per save: {demandeId, plaque, action, changes:[{champ, avant, apres}], par: e-mail, at: server time, auto?}.
+  // Nobody can change or delete an entry once written (see firestore.rules).
+  const HISTORY_FIELDS = [
+    ["statut", "Statut"], ["prixHT", "Prix HT"], ["date", "Date"], ["dateFin", "Date de fin"], ["debut", "Heure"], ["fin", "Heure de fin"],
+    ["prestataire", "Prestataire"], ["service", "Prestation"], ["formule", "Formule"], ["plaque", "Plaque"], ["modele", "Modèle"],
+    ["cubage", "Cubage"], ["site", "Site"], ["adresse", "Adresse"], ["tache", "Travail demandé"], ["notes", "Remarque"],
+  ];
+  const HISTORY_LABELS = { ...Object.fromEntries(HISTORY_FIELDS), reponse: "Réponse du prestataire", note: "Note du prestataire", dateProposee: "Date proposée" };
+  const plainValue = (v) => (v == null ? "" : typeof v === "number" ? v : String(v).slice(0, 300));
+  // Fields that really changed between the request before and the fields being written ("" for empty).
+  function changesBetween(before, after) {
+    return HISTORY_FIELDS.map(([champ]) => champ)
+      .filter((champ) => after && champ in after && String(plainValue(after[champ])) !== String(plainValue(before?.[champ])))
+      .map((champ) => ({ champ, avant: plainValue(before?.[champ]), apres: plainValue(after[champ]) }));
+  }
+  // What a provider answered, as history lines.
+  const answerChanges = (retour) => [
+    { champ: "reponse", avant: "", apres: retour.etat },
+    ...(retour.date ? [{ champ: "dateProposee", avant: "", apres: retour.date + (retour.debut ? " " + retour.debut : "") }] : []),
+    ...(retour.note ? [{ champ: "note", avant: "", apres: plainValue(retour.note) }] : []),
+  ];
+  function historyValue(champ, v) {
+    if (v === "" || v == null) return "vide";
+    if (champ === "statut") return statusOf(v).label;
+    if (champ === "prixHT") return Number.isFinite(+v) ? `${String(+v).replace(".", ",")} € HT` : String(v);
+    if (champ === "date" || champ === "dateFin") return /^\d{4}-\d{2}-\d{2}$/.test(v) ? numericDate(v) : String(v);
+    if (champ === "dateProposee") { const [day, time] = String(v).split(" "); return /^\d{4}-\d{2}-\d{2}$/.test(day) ? numericDate(day) + (time ? " à " + time : "") : String(v); }
+    if (champ === "cubage") return `${v} m³`;
+    if (champ === "service") return SERVICES.find((x) => x.id === v)?.label || String(v);
+    if (champ === "reponse") return answerOf(v)?.label || String(v);
+    return String(v);
+  }
+  const ACTION_LABELS = { creation: "Création", modification: "Modification", statut: "Changement de statut", reponse: "Réponse du prestataire", suppression: "Suppression" };
+  // Firestore time (Timestamp) or ISO text -> Date.
+  const historyTime = (at) => (at?.toDate ? at.toDate() : at?.seconds != null ? new Date(at.seconds * 1000) : at ? new Date(at) : null);
+  function historyWhen(at) {
+    const t = historyTime(at);
+    return t && !isNaN(t) ? `${pad2(t.getDate())}/${pad2(t.getMonth() + 1)}/${t.getFullYear()} à ${pad2(t.getHours())}h${pad2(t.getMinutes())}` : "";
+  }
+  // Newest first, ready to show. Requests saved before the history existed get one line from their creation date.
+  function historyLines(entries, demande) {
+    const lines = (entries || []).map((e) => ({
+      time: historyTime(e.at)?.getTime() || 0,
+      when: historyWhen(e.at),
+      who: e.auto ? `Appli (automatique, ouverte par ${e.par})` : e.par || "",
+      action: ACTION_LABELS[e.action] || e.action,
+      changes: (e.changes || []).map((c) => ({
+        label: HISTORY_LABELS[c.champ] || c.champ,
+        avant: e.action === "creation" || c.champ === "reponse" || c.champ === "note" || c.champ === "dateProposee" ? null : historyValue(c.champ, c.avant),
+        apres: e.action === "suppression" ? historyValue(c.champ, c.avant) : historyValue(c.champ, c.apres),
+      })),
+    }));
+    if (demande?.createdAt && !(entries || []).some((e) => e.action === "creation")) {
+      lines.push({ time: historyTime(demande.createdAt)?.getTime() || 0, when: historyWhen(demande.createdAt), who: demande.source === "mail" ? "mail City-Drop" : "",
+        action: "Création", changes: [] });
+    }
+    return lines.sort((a, b) => b.time - a.time);
+  }
+
   // ---------- health of the mail robot (apps-script/import-mails.js writes robot/etat) ----------
   // robot/etat: {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} (ISO dates).
   // The robot leaves a trace at least every 30 minutes. When it stops (password changed, Google block, error),
@@ -759,6 +819,7 @@
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
+    HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
     PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
   };

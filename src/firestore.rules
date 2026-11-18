@@ -70,6 +70,26 @@ service cloud.firestore {
         && r.par == email();
     }
 
+    // Change history: who changed what on a request, at the server's time. Written with the change itself; afterwards
+    // nobody (not even an admin) can change or delete an entry. Providers can only add the trace of their own answers.
+    match /historique/{entryId} {
+      allow read: if canReadAll();
+      allow create: if validHistory(request.resource.data)
+        && (isAdmin()
+            || (isProvider() && request.resource.data.action == 'reponse'
+                && ownsRequest(get(/databases/$(database)/documents/demandes/$(request.resource.data.demandeId)).data)));
+      allow update, delete: if false;
+    }
+    function validHistory(h) {
+      return h.keys().hasOnly(['demandeId', 'plaque', 'action', 'changes', 'par', 'at', 'auto'])
+        && h.demandeId is string && h.demandeId.size() > 0 && h.demandeId.size() <= 60
+        && h.plaque is string && h.plaque.size() <= 20
+        && h.action in ['creation', 'modification', 'statut', 'reponse', 'suppression']
+        && h.changes is list && h.changes.size() <= 30
+        && h.par == email() && h.at == request.time
+        && h.get('auto', false) is bool;
+    }
+
     // Trace left by the mail robot at least every 30 minutes (last run, last City-Drop mail seen, current error,
     // last mail it could not read).
     // The team app shows a red alert when it gets old: a stopped robot cannot warn anyone itself.

@@ -526,7 +526,7 @@
     const row = button.closest(".extra-veh");
     if (row.dataset.id) {
       if (!requireStore()) return;
-      try { await state.store.deleteDemande(row.dataset.id); toast("Véhicule retiré de la demande"); }
+      try { await state.store.deleteDemande(demandeById(row.dataset.id) || { id: row.dataset.id }); toast("Véhicule retiré de la demande"); }
       catch (err) { reportWriteError(err); return; }
     }
     row.remove(); renumberExtraRows(); renderFormSide();
@@ -609,6 +609,7 @@
     field("prest").value = state.providerFilter || defaultProvider();
     renderServiceChoice();
     $("#notesBox").open = false;
+    $("#historyBox").hidden = true; $("#historyBox").open = false; $("#historyBox").dataset.id = "";
     $("#formTitle").textContent = "Nouvelle demande";
     $("#formStatusChip").hidden = true;
     $("#saveBtn").textContent = "Enregistrer la demande";
@@ -637,7 +638,40 @@
     chip.hidden = false; chip.className = "chip st-" + d.statut; chip.textContent = D.statusOf(d.statut).label;
     $("#saveBtn").textContent = "Enregistrer les modifications";
     $("#delZone").innerHTML = deleteZone(d);
+    showHistoryBox();
   }
+  // ----- change history of the open request: loaded only when opened (saves reads on the free plan) -----
+  function showHistoryBox() {
+    const box = $("#historyBox");
+    box.hidden = !state.editingId || state.providerMode;
+    if (box.dataset.id === (state.editingId || "")) return; // same request re-drawn: keep the list open
+    box.dataset.id = state.editingId || "";
+    box.open = false;
+    $("#historyBody").innerHTML = "";
+  }
+  async function renderChangeLog() {
+    const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id)].filter(Boolean);
+    if (!ids.length || !state.store) return;
+    const body = $("#historyBody");
+    body.innerHTML = `<p class="muted small">Chargement…</p>`;
+    try {
+      const several = ids.length > 1;
+      const lines = (await Promise.all(ids.map(async (id) => {
+        const d = demandeById(id);
+        return D.historyLines(await state.store.loadHistory(id), d).map((line) => ({ ...line, plaque: several ? d?.plaque : "" }));
+      }))).flat().sort((a, b) => b.time - a.time);
+      body.innerHTML = lines.length ? `<ol class="history-list">${lines.map(historyItem).join("")}</ol>` : "";
+      body.insertAdjacentHTML("beforeend", `<p class="hint">Chaque changement de statut, de prix ou de date est noté ici avec son auteur et l'heure du serveur. Personne ne peut modifier ni effacer cette liste, même après la suppression de la demande.</p>`);
+    } catch {
+      body.innerHTML = `<p class="hint">L'historique n'est pas encore lisible : les nouvelles règles Firebase doivent être publiées.</p>`;
+    }
+  }
+  function historyItem(line) {
+    const changes = line.changes.map((c) => `<li><span class="muted">${esc(c.label)} :</span> ${c.avant != null ? `<s>${esc(c.avant)}</s> → ` : ""}<b>${esc(c.apres)}</b></li>`).join("");
+    const who = line.who || "avant le suivi des modifications";
+    return `<li><div class="history-head"><b>${esc(line.action)}${line.plaque ? " · " + esc(line.plaque) : ""}</b><span class="muted small">${esc(line.when)} · ${esc(who)}</span></div>${changes ? `<ul>${changes}</ul>` : ""}</li>`;
+  }
+  $("#historyBox").addEventListener("toggle", () => { if ($("#historyBox").open) renderChangeLog(); });
   // « Annuler » keeps the request in the history (and stops the tailgate counter from using it); « Supprimer » erases it.
   const deleteZone = (d) => !state.canWrite ? "" : (d?.statut === "annulee"
     ? `<button type="button" class="ghost" data-restore>Rétablir la demande</button>`
@@ -690,6 +724,7 @@
       state.editingId = await saveRequest(state.editingId, main, options);
       for (const extra of extras) extra.row.dataset.id = await saveRequest(extra.id || null, groupMember(main, extra), options);
       showSavedHeader(main);
+      if ($("#historyBox").open) setTimeout(renderChangeLog, 800); // the new line arrives once the save is written
       return true;
     } catch (err) { reportWriteError(err); return false; }
   }
@@ -717,7 +752,7 @@
       } catch (err) { reportWriteError(err); }
     } else if (e.target.closest("[data-delete-yes]") && state.editingId && requireStore()) {
       const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id).filter(Boolean)];
-      try { await Promise.all(ids.map((id) => state.store.deleteDemande(id))); toast(ids.length > 1 ? "Demande groupée supprimée" : "Demande supprimée"); resetForm(); show("planning"); }
+      try { await Promise.all(ids.map((id) => state.store.deleteDemande(demandeById(id) || { id }))); toast(ids.length > 1 ? "Demande groupée supprimée" : "Demande supprimée"); resetForm(); show("planning"); }
       catch (err) { reportWriteError(err); }
     }
   });
@@ -1104,7 +1139,7 @@
       const patch = D.mailCompletion(d, ctx);
       if (!patch || completing.has(d.id)) return;
       completing.add(d.id);
-      state.store.completeDemande(d.id, patch).catch(() => {}).finally(() => completing.delete(d.id));
+      state.store.completeDemande(d, patch).catch(() => {}).finally(() => completing.delete(d.id));
     });
   }
   // ================= tailgate controls (hayon) =================
@@ -1114,7 +1149,7 @@
     if (!state.canWrite) return;
     rows.filter((d) => D.hayonAutoClose(d, today()) && !closingHayons.has(d.id)).forEach((d) => {
       closingHayons.add(d.id);
-      state.store.setStatus(d, "realisee").catch(() => {}).finally(() => closingHayons.delete(d.id));
+      state.store.setStatus(d, "realisee", { auto: true }).catch(() => {}).finally(() => closingHayons.delete(d.id));
     });
   }
   const HAYON_FILTERS = {
@@ -1355,7 +1390,7 @@
       banner("La base de données n'est pas encore branchée : rien ne peut être enregistré pour l'instant.");
       return;
     }
-    state.store = createStore(db);
+    state.store = createStore(db, { email: () => state.userEmail });
     window.claude.use("downloads").then((d) => { state.downloads = d; $("#b-csv").hidden = !d; }).catch(() => {});
     const user = await window.claude.use("user").catch(() => null);
     state.userEmail = user?.email || "";
