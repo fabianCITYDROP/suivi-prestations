@@ -8,12 +8,16 @@
     { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise" },
     { id: "lavage", label: "Lavage", title: "lavage véhicule" },
     // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
-    { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: true },
+    { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: "interventions" },
+    // Tailgate inspection (every 180 days), only for the providers who do them (Dhollianda).
+    { id: "hayon", label: "Contrôle hayon", title: "contrôle hayon", onRequest: "hayon" },
   ];
-  const TASK_SUGGESTIONS = ["Vérification du véhicule", "Changer une ampoule", "Niveau d'huile", "AdBlue", "Pression des pneus"];
+  // Small jobs the team asks washers for (Fabian, 2026-11-10); the text can be completed by hand.
+  const TASK_SUGGESTIONS = ["Monter la roue de secours", "Vérifier les pneus", "AdBlue + éteindre le voyant", "Déplacer le véhicule",
+    "Vérifier les ampoules", "Niveau d'huile", "Vérification du véhicule"];
   const isIntervention = (d) => d.service === "intervention";
-  // Services offered by a provider: windshield and washing for all, interventions when enabled in Réglages.
-  const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.interventions).map((s) => s.id);
+  // Services offered by a provider: windshield and washing for all, interventions and tailgate controls when enabled in Réglages.
+  const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.[s.onRequest]).map((s) => s.id);
   const STATUSES = [
     { id: "a_envoyer", label: "À envoyer" },
     { id: "envoyee", label: "Envoyée" },
@@ -114,13 +118,19 @@
 
   // ---------- labels ----------
   const serviceOf = (id) => SERVICES.find((s) => s.id === id) || SERVICES[0];
+  // A wash is complete (outside and inside) unless the request says inside only; each has its own price.
+  const WASH_KINDS = [{ id: "complet", label: "Lavage complet" }, { id: "interieur", label: "Lavage intérieur" }];
+  const washKindOf = (d) => WASH_KINDS.find((k) => k.id === d.formule) || WASH_KINDS[0];
+  const isWash = (d) => d.service === "lavage";
+  const jobLabel = (d) => (isWash(d) ? washKindOf(d).label : serviceOf(d.service).label);
+  const jobTitle = (d) => (isWash(d) ? washKindOf(d).label.toLowerCase() : serviceOf(d.service).title);
   const statusOf = (id) => STATUSES.find((s) => s.id === id) || STATUSES[0];
   const isWindshield = (d) => (d.service || "pare-brise") === "pare-brise";
   const isActive = (d) => d.statut !== "annulee";
   const isOpen = (d) => !CLOSED_STATUSES.includes(d.statut);
   const siteOf = (d) => d.site || NO_SITE;
   const vehicleLabel = (v) => fleetLabel(v);
-  const serviceSuffix = (d) => (isWindshield(d) ? "" : ` (${serviceOf(d.service).label.toLowerCase()})`);
+  const serviceSuffix = (d) => (isWindshield(d) ? "" : ` (${jobLabel(d).toLowerCase()})`);
   const byStartTime = (a, b) => (a.debut || "99").localeCompare(b.debut || "99");
   const byDateThenTime = (a, b) => (a.date || "").localeCompare(b.date || "") || byStartTime(a, b);
 
@@ -174,7 +184,7 @@
     const sameSlot = all.every((v) => timeSlotLabel(v) === timeSlotLabel(d));
     const lines = group
       ? [
-          `*Demande ${serviceOf(d.service).title} – ${count} véhicules*`,
+          `*Demande ${jobTitle(d)} – ${count} véhicules*`,
           `Disponibles ${availabilityLabel(d)}${sameSlot ? `, ${timeSlotLabel(d)}` : ""}`,
           `Site : ${d.site || "…"}${d.adresse ? ` – ${d.adresse}` : ""}`,
           ...(d.tache ? [`À faire : *${d.tache}*`] : []),
@@ -182,7 +192,7 @@
           ...all.map((v) => `• *${v.plaque || "…"}* – ${vehicleLabel(v) || "modèle à préciser"}${sameSlot ? "" : ` – ${timeSlotLabel(v)}`}`),
         ]
       : [
-          `*Demande ${serviceOf(d.service).title}*`,
+          `*Demande ${jobTitle(d)}*`,
           `Immatriculation : *${d.plaque || "…"}*`,
           `Véhicule : ${vehicleLabel(d) || "…"}`,
           `Disponible ${availabilityLabel(d)}, ${timeSlotLabel(d)}`,
@@ -350,7 +360,7 @@
   }
   const EXPORT_HEADER = ["Dispo du", "Dispo au", "Immatriculation", "Modèle", "Cubage (m³)", "Prestation", "Site", "Adresse", "Prestataire", "Statut", "Envoyée le", "Réalisée le"];
   function exportRow(d) {
-    return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", serviceOf(d.service).label,
+    return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", jobLabel(d),
       d.site, d.adresse, d.prestataire, statusOf(d.statut).label,
       d.sentAt ? numericDate(d.sentAt.slice(0, 10)) : "", d.doneAt ? numericDate(d.doneAt.slice(0, 10)) : ""];
   }
@@ -422,6 +432,7 @@
   // A price line applies to one service, optionally to a cubage range (bounds included).
   const priceMatches = (line, d) => {
     if ((line.service || "pare-brise") !== (d.service || "pare-brise")) return false;
+    if (isWash(line) && washKindOf(line).id !== washKindOf(d).id) return false;
     const cubage = d.cubage == null || d.cubage === "" ? null : +d.cubage;
     if (line.cubageMin == null && line.cubageMax == null) return true;
     if (cubage == null) return false;
@@ -439,15 +450,15 @@
   function priceLineLabel(line) {
     const { cubageMin: min, cubageMax: max } = line;
     const range = min != null && max != null ? `${min} à ${max} m³` : min != null ? `${min} m³ et plus` : max != null ? `jusqu'à ${max} m³` : "toutes tailles";
-    return `${serviceOf(line.service).label} · ${range}`;
+    return `${jobLabel(line)} · ${range}`;
   }
 
   // Fields stored on each request so access rules and invoices never depend on a later price change:
-  // the provider id, and the price frozen when the request is first saved (kept while provider, service and cubage stay the same).
+  // the provider id, and the price frozen when the request is first saved (kept while provider, service, wash kind and cubage stay the same).
   function providerFields(fields, previous, pricesOf) {
     const prestataireId = providerId(fields.prestataire);
     const same = previous && previous.prestataireId === prestataireId && (previous.service || "pare-brise") === (fields.service || "pare-brise")
-      && String(previous.cubage ?? "") === String(fields.cubage ?? "");
+      && String(previous.cubage ?? "") === String(fields.cubage ?? "") && washKindOf(previous).id === washKindOf(fields).id;
     const prixHT = same && previous.prixHT != null ? previous.prixHT : priceFor(pricesOf(prestataireId), fields);
     return { prestataireId, prixHT };
   }
@@ -557,6 +568,100 @@
     return { sites, added, updated };
   }
 
+  // ---------- tailgate (hayon) controls: one every 180 days per vehicle ----------
+  // The provider sends no report we can rely on, so a booked control counts as done once its day has passed,
+  // unless the team cancelled it or marked it "pas fait". The starting point of each vehicle is the date of its
+  // last control taken from the provider's sheet: hayons/<PLATEKEY> {plaque, dernierControle}.
+  const HAYON_CYCLE_DAYS = 180;
+  const HAYON_TOO_SOON_DAYS = 7;
+  // Levels (2026-11-18). On screen only three colours: red = past due or 5 days or less, orange = 30 days or less, green = fine.
+  const HAYON_LEVELS = [
+    { id: "depasse", label: "Dépassé", upTo: -1 },
+    { id: "urgent", label: "5 jours ou moins", upTo: 5 },
+    { id: "bientot", label: "30 jours ou moins", upTo: 30 },
+    { id: "ok", label: "À jour", upTo: Infinity },
+  ];
+  const isHayon = (d) => d.service === "hayon";
+  const daysBetween = (fromIso, toIso) => Math.round((parseIsoDate(toIso) - parseIsoDate(fromIso)) / 86400000);
+  const hayonLevel = (daysLeft) => (daysLeft == null ? "inconnu" : HAYON_LEVELS.find((l) => daysLeft <= l.upTo).id);
+  const isBookedHayon = (d) => isHayon(d) && !!d.date && d.statut !== "annulee";
+  const hayonDone = (d, todayIso) => isBookedHayon(d) && (d.statut === "realisee" || d.date < todayIso);
+  // What the team app writes on its own: a sent or confirmed control whose day has passed is done.
+  const hayonAutoClose = (d, todayIso) => isBookedHayon(d) && ["envoyee", "confirmee"].includes(d.statut) && d.date < todayIso;
+  const latest = (dates) => dates.filter(Boolean).sort().pop() || "";
+
+  function hayonFollowUp(hayons, demandes, todayIso) {
+    const vehicles = new Map();
+    const entry = (plate) => {
+      const key = plateKey(plate);
+      if (!vehicles.has(key)) vehicles.set(key, { plaque: normalizePlate(plate), base: null, requests: [] });
+      return vehicles.get(key);
+    };
+    hayons.filter((h) => plateKey(h.plaque)).forEach((h) => (entry(h.plaque).base = h));
+    demandes.filter((d) => isHayon(d) && plateKey(d.plaque)).forEach((d) => entry(d.plaque).requests.push(d));
+    return [...vehicles.values()].map(({ plaque, base, requests }) => {
+      const doneRequests = requests.filter((d) => hayonDone(d, todayIso));
+      const lastControl = latest([base?.dernierControle, ...doneRequests.map((d) => d.date)]);
+      const lastRequest = doneRequests.sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+      const nextDue = lastControl ? addDays(lastControl, HAYON_CYCLE_DAYS) : "";
+      const daysLeft = nextDue ? daysBetween(todayIso, nextDue) : null;
+      const booked = requests.filter((d) => isBookedHayon(d) && !hayonDone(d, todayIso)).sort(byDateThenTime)[0] || null;
+      const notDone = requests.filter((d) => d.nonFait && d.date > lastControl).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+      return { plaque, lastControl, lastRequest: lastRequest?.date === lastControl ? lastRequest : null, nextDue, daysLeft,
+        level: hayonLevel(daysLeft), booked, notDone, tooSoon: hayonTooSoonPair(requests), site: booked?.site || lastRequest?.site || "" };
+    }).sort((a, b) => (a.daysLeft ?? -Infinity) - (b.daysLeft ?? -Infinity) || a.plaque.localeCompare(b.plaque));
+  }
+  // Two controls of the same vehicle less than a week apart: one is probably a mistake (it happened once, 2026-11).
+  // Sometimes it is on purpose (a problem on the tailgate), so the app warns and never blocks.
+  function hayonTooSoon(candidate, demandes, ignoreIds = []) {
+    const key = plateKey(candidate.plaque);
+    if (!key || !candidate.date) return null;
+    return demandes.filter((d) => !ignoreIds.includes(d.id) && isBookedHayon(d) && plateKey(d.plaque) === key)
+      .map((d) => ({ other: d, gap: Math.abs(daysBetween(d.date, candidate.date)) }))
+      .filter((x) => x.gap < HAYON_TOO_SOON_DAYS).sort((a, b) => a.gap - b.gap)[0] || null;
+  }
+  function hayonTooSoonPair(requests) {
+    const booked = requests.filter(isBookedHayon).sort((a, b) => a.date.localeCompare(b.date));
+    for (let i = 1; i < booked.length; i++) {
+      const gap = daysBetween(booked[i - 1].date, booked[i].date);
+      if (gap < HAYON_TOO_SOON_DAYS) return { first: booked[i - 1], second: booked[i], gap };
+    }
+    return null;
+  }
+  // Warnings shown before saving a new tailgate control (never blocking).
+  function hayonWarnings(candidate, demandes, hayons, todayIso, ignoreIds = []) {
+    if (!isHayon(candidate) || !plateKey(candidate.plaque)) return [];
+    const warnings = [];
+    const close = hayonTooSoon(candidate, demandes, ignoreIds);
+    if (close) warnings.push(`Un contrôle hayon est déjà posé pour ${normalizePlate(candidate.plaque)} le ${shortDate(close.other.date)}${close.gap ? `, à ${close.gap} jour${close.gap > 1 ? "s" : ""} de celui-ci` : ", le même jour"}.`);
+    const others = demandes.filter((d) => !ignoreIds.includes(d.id));
+    const row = hayonFollowUp(hayons, others, todayIso).find((r) => plateKey(r.plaque) === plateKey(candidate.plaque));
+    if (!close && row?.nextDue && candidate.date && daysBetween(candidate.date, row.nextDue) > 30) {
+      warnings.push(`Dernier contrôle le ${shortDate(row.lastControl)} : le prochain n'est dû que le ${shortDate(row.nextDue)} (dans ${row.daysLeft} jours).`);
+    }
+    return warnings;
+  }
+  // Provider sheet pasted from Google Sheets: each line holds a plate and, optionally, the date of the last control.
+  const DATE_IN_TEXT = /\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})\b|\b(\d{4})-(\d{2})-(\d{2})\b/;
+  function dateInText(text) {
+    const m = String(text || "").match(DATE_IN_TEXT);
+    if (!m) return "";
+    const [y, mo, d] = m[4] ? [+m[4], +m[5], +m[6]] : [+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2], +m[1]];
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return "";
+    return `${y}-${pad2(mo)}-${pad2(d)}`;
+  }
+  function parseHayonList(text) {
+    const seen = new Map();
+    String(text || "").replace(/\r/g, "").split("\n").forEach((line) => {
+      const plate = platesInText(line)[0];
+      if (!plate) return;
+      const date = dateInText(line.toUpperCase().replace(PLATE_IN_TEXT, " "));
+      const previous = seen.get(plate);
+      if (!previous || date > previous.dernierControle) seen.set(plate, { plaque: normalizePlate(plate), dernierControle: date });
+    });
+    return [...seen.values()];
+  }
+
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
@@ -567,13 +672,14 @@
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
     plateKey, normalizePlate, platesInText,
     fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress, parseSiteList, mergeSites,
-    serviceOf, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
+    serviceOf, WASH_KINDS, washKindOf, jobLabel, jobTitle, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers,
+    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
   };
 });

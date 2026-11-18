@@ -1,6 +1,6 @@
 // Shared database access. The page talks to the data only through this object.
 // Layout: demandes/<id>, vehicules/<PLATEKEY>, photos/<key>, config/reglages,
-//         prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId}.
+//         hayons/<PLATEKEY> {plaque, dernierControle}, prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId}.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./domain.js"));
   else root.SuiviStore = factory(root.SuiviDomain);
@@ -13,7 +13,7 @@
 
     const modelRef = (key) => db.doc("modeles/" + key);
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onError }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onError }) {
       const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const unsubs = [
         db.collection("demandes").onSnapshot((s) => onDemandes(toRows(s)), onError),
@@ -22,6 +22,8 @@
         db.doc("config/reglages").onSnapshot((s) => s.exists && onSettings(s.data()), onError),
         db.collection("prestataires").onSnapshot((s) => onProviders(toRows(s)), onError),
       ];
+      // Before the rules allowing it are published, this list simply stays empty.
+      if (onHayons) unsubs.push(db.collection("hayons").onSnapshot((s) => onHayons(toRows(s)), () => onHayons([])));
       // Only the team may list accounts: for anyone else this one simply stays empty.
       if (onAccounts) unsubs.push(db.collection("comptes").onSnapshot((s) => onAccounts(toRows(s)), () => onAccounts([])));
       return () => unsubs.forEach((u) => u());
@@ -108,6 +110,25 @@
         await batch.commit();
       }
     }
+    // ----- tailgate controls: hayons/<PLATEKEY> {plaque, dernierControle} -----
+    async function saveHayons(list) {
+      const now = new Date().toISOString();
+      const write = (h) => db.doc("hayons/" + D.plateKey(h.plaque)).set({ plaque: h.plaque, dernierControle: h.dernierControle || "", updatedAt: now });
+      if (!db.batch) { for (const h of list) await write(h); return; }
+      for (let i = 0; i < list.length; i += 400) {
+        const batch = db.batch();
+        list.slice(i, i + 400).forEach((h) => batch.set(db.doc("hayons/" + D.plateKey(h.plaque)), { plaque: h.plaque, dernierControle: h.dernierControle || "", updatedAt: now }));
+        await batch.commit();
+      }
+    }
+    const deleteHayon = (plate) => db.doc("hayons/" + D.plateKey(plate)).delete();
+    // "Pas fait": the control did not happen, so it does not restart the 180 days. "Finalement fait" undoes it.
+    function markHayonNotDone(demande, notDone) {
+      const now = new Date().toISOString();
+      const statut = notDone ? "annulee" : "realisee";
+      return db.doc("demandes/" + demande.id).update({ statut, nonFait: notDone, ...D.statusTimestamps(demande, statut, now), ...(notDone ? { annuleeAt: now } : {}), updatedAt: now });
+    }
+
     const saveSettings = (settings) => db.doc("config/reglages").set(settings);
 
     // Vehicle sheet: fleet model from the latest request, plus its windshield photos.
@@ -171,7 +192,7 @@
       return photoCache.get(key);
     }
 
-    return { subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

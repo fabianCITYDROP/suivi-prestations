@@ -24,6 +24,8 @@
     openModelKey: null,
     providerDocs: new Map(), // providerId -> {nom, tarifs}
     accounts: [],            // [{id: email, role, prestataireId}]
+    hayons: [],              // [{plaque, dernierControle}] vehicles with a tailgate, from the provider's sheet
+    hayonWarned: "",         // warning already shown once for the form being saved
     userEmail: "",
   };
   // Providers who have their own access get a link to answer in the app instead of WhatsApp.
@@ -282,7 +284,7 @@
   }
 
   // ================= navigation =================
-  const VIEWS = ["planning", "retours", "demande", "photos", "verif", "bilan", "historique", "reglages"];
+  const VIEWS = ["planning", "retours", "demande", "hayon", "photos", "verif", "bilan", "historique", "reglages"];
   const navButtons = () => document.querySelectorAll("nav.tabs [data-view]");
   function show(view) {
     if (state.providerMode) return;
@@ -295,7 +297,7 @@
   function markCurrentNav(view) {
     navButtons().forEach((b) => b.toggleAttribute("aria-current", b.dataset.view === view));
     const inMore = $(`#navMore [data-view="${view}"]`);
-    $("#navMoreLabel").textContent = inMore ? inMore.textContent.trim() : "Plus";
+    $("#navMoreLabel").textContent = inMore ? (inMore.querySelector(".menu-label") || inMore).textContent.trim() : "Plus";
     $("#navMore").classList.toggle("current", !!inMore);
     $("#navMore").open = false;
   }
@@ -323,8 +325,18 @@
   }
   $("#h-statut").innerHTML = `<option value="">Tous les statuts</option><option value="ouvert">En cours (hors réalisées / annulées)</option>` + D.STATUSES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
   $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
-  $("#dl-taches").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<option value="${esc(t)}">`).join("");
+  $("#taskChips").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<button type="button" class="chip-btn" data-task="${esc(t)}">${esc(t)}</button>`).join("");
+  // A tapped task is added to the text, which stays editable so the request can be made more precise.
+  $("#taskChips").addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-task]");
+    if (!chip) return;
+    const input = field("tache");
+    const tasks = input.value.split(",").map((t) => t.trim()).filter(Boolean);
+    if (!tasks.includes(chip.dataset.task)) input.value = [...tasks, chip.dataset.task].join(", ");
+    input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+  });
   $("#svcSeg").innerHTML = D.SERVICES.map((s, i) => `<label><input type="radio" name="svc" id="svc-${s.id}" value="${s.id}" ${i === 0 ? "checked" : ""}><span>${s.label}</span></label>`).join("");
+  $("#washSeg").innerHTML = D.WASH_KINDS.map((k, i) => `<label><input type="radio" name="wash" id="wash-${k.id}" value="${k.id}" ${i === 0 ? "checked" : ""}><span>${k.label.replace("Lavage ", "")}</span></label>`).join("");
 
   // ================= planning =================
   function renderPlanning() {
@@ -365,7 +377,7 @@
     const sub = [d.adresse !== D.siteAddress(state.sites, d.site) ? d.adresse : "", D.isMultiDay(d) ? `dispo ${D.availabilityLabel(d)}` : "", d.notes].filter(Boolean).join(" · ");
     return `<button class="veh-row ${D.isActive(d) ? "" : "cancel"}" data-open="${esc(d.id)}">
       ${plateTag(d.plaque)}
-      <span class="what"><span class="model">${esc(D.vehicleLabel(d) || "Modèle non précisé")}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span>
+      <span class="what"><span class="model">${esc(D.vehicleLabel(d) || "Modèle non précisé")}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span>
       <span class="right"><span class="time">${esc(D.timeSlotLabel(d))}</span>${statusChip(d.statut)}${thumb ? `<img class="thumb" src="${safeImageSrc(thumb)}" alt="">` : ""}</span>
     </button>`;
   }
@@ -400,7 +412,9 @@
     D.SERVICES.forEach((s) => ($("#svc-" + s.id).closest("label").hidden = !allowed.includes(s.id)));
     if (!allowed.includes(chosenService())) $("#svc-pare-brise").checked = true;
     $("#taskRow").hidden = chosenService() !== "intervention";
+    $("#washRow").hidden = chosenService() !== "lavage";
   }
+  const chosenWashKind = () => document.querySelector('input[name="wash"]:checked')?.value || "complet";
   function selectedFleetModel() {
     const index = field("modele").value;
     return index === "" ? { modele: "", cubage: null } : state.fleet[+index];
@@ -421,6 +435,7 @@
       prestataire: field("prest").value || defaultProvider(),
       notes: field("notes").value.trim(),
       tache: chosenService() === "intervention" ? field("tache").value.trim() : "",
+      ...(chosenService() === "lavage" ? { formule: chosenWashKind() } : {}),
     };
   }
   // ----- model picker: brand + model first, then cubage (year shown only when the cubage is ambiguous) -----
@@ -498,6 +513,7 @@
   function setAvailability(start, end) { field("date").value = start; field("dateFin").value = end || start; }
   function fillForm(d) {
     (document.getElementById("svc-" + d.service) || document.getElementById("svc-pare-brise")).checked = true;
+    $("#wash-" + D.washKindOf(d).id).checked = true;
     ["plaque", "adresse", "debut", "fin", "notes", "tache"].forEach((k) => (field(k).value = d[k] || ""));
     setAvailability(d.date, d.dateFin);
     if (d.prestataire && !state.providers.includes(d.prestataire)) state.providers.push(d.prestataire);
@@ -523,7 +539,9 @@
     $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others) + appLink(d.prestataire), vehicles });
     renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
-    $("#vehHint").textContent = vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "";
+    const hayonWarning = state.store ? hayonFormWarnings(d, readExtras())[0] : "";
+    $("#vehHint").textContent = hayonWarning || (vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "");
+    $("#vehHint").classList.toggle("warn", !!hayonWarning);
     const current = demandeById(state.editingId);
     $("#formSheet").innerHTML = current && ["confirmee", "realisee"].includes(current.statut) ? sheetLink([d.plaque]) : "";
   }
@@ -596,11 +614,19 @@
     const chip = $("#formStatusChip");
     chip.hidden = false; chip.className = "chip st-" + d.statut; chip.textContent = D.statusOf(d.statut).label;
     $("#saveBtn").textContent = "Enregistrer les modifications";
-    $("#delZone").innerHTML = state.canWrite ? `<button type="button" class="ghost danger" data-delete>Supprimer</button>` : "";
+    $("#delZone").innerHTML = deleteZone(d);
   }
+  // « Annuler » keeps the request in the history (and stops the tailgate counter from using it); « Supprimer » erases it.
+  const deleteZone = (d) => !state.canWrite ? "" : (d?.statut === "annulee"
+    ? `<button type="button" class="ghost" data-restore>Rétablir la demande</button>`
+    : `<button type="button" class="ghost" data-cancel>Annuler la demande</button>`) + `<button type="button" class="ghost danger" data-delete>Supprimer</button>`;
 
   // Status is not edited in the form: a new request starts "à envoyer" and becomes "envoyée" once copied or opened in WhatsApp.
   // What stops the form from being saved, as a sentence for the toast; "" when it can be saved.
+  function hayonFormWarnings(main, extras) {
+    const ownIds = [state.editingId, ...extras.map((x) => x.id)].filter(Boolean);
+    return [main, ...extras.map((x) => groupMember(main, x))].flatMap((v) => D.hayonWarnings(v, state.demandes, state.hayons, today(), ownIds));
+  }
   function formProblem(main, extras) {
     const missing = D.missingFields(main);
     if (missing.length) return "Il manque " + missing.join(", ");
@@ -609,7 +635,7 @@
     const ownIds = [state.editingId, ...extras.map((x) => x.id)].filter(Boolean);
     for (const vehicle of [main, ...extras.map((x) => groupMember(main, x))]) {
       const same = D.existingDuplicate(vehicle, state.demandes, ownIds);
-      if (same) return `${D.normalizePlate(vehicle.plaque)} a déjà une demande ${D.serviceOf(same.service).label.toLowerCase()} le ${D.shortDate(same.date)} (${D.statusOf(same.statut || "a_envoyer").label.toLowerCase()}) : ouvre-la plutôt que d'en créer une deuxième`;
+      if (same) return `${D.normalizePlate(vehicle.plaque)} a déjà une demande ${D.jobLabel(same).toLowerCase()} le ${D.shortDate(same.date)} (${D.statusOf(same.statut || "a_envoyer").label.toLowerCase()}) : ouvre-la plutôt que d'en créer une deuxième`;
     }
     return "";
   }
@@ -628,6 +654,14 @@
     const main = readForm();
     const problem = formProblem(main, extras);
     if (problem) { toast(problem); return false; }
+    // A tailgate control booked twice within a week, or long before it is due: warn once, save on the second click.
+    const warnings = hayonFormWarnings(main, extras);
+    if (warnings.length && state.hayonWarned !== warnings.join("|")) {
+      state.hayonWarned = warnings.join("|");
+      toast(`${warnings[0]} Clique encore une fois pour le poser quand même.`);
+      return false;
+    }
+    state.hayonWarned = "";
     if (extras.length && !state.groupe) state.groupe = demandeById(state.editingId)?.groupe || "g" + Date.now().toString(36);
     const options = { groupe: state.groupe || "", markSent };
     try {
@@ -650,7 +684,15 @@
     if (e.target.closest("[data-delete]")) {
       $("#delZone").innerHTML = `<span class="row">Supprimer définitivement ? <button type="button" class="danger" data-delete-yes>Oui, supprimer</button><button type="button" class="ghost" data-delete-no>Non</button></span>`;
     } else if (e.target.closest("[data-delete-no]")) {
-      $("#delZone").innerHTML = `<button type="button" class="ghost danger" data-delete>Supprimer</button>`;
+      $("#delZone").innerHTML = deleteZone(demandeById(state.editingId));
+    } else if (e.target.closest("[data-cancel], [data-restore]") && state.editingId && requireStore()) {
+      const cancel = !!e.target.closest("[data-cancel]");
+      const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id).filter(Boolean)];
+      try {
+        for (const d of ids.map(demandeById).filter(Boolean)) await state.store.setStatus(d, cancel ? "annulee" : (d.sentAt ? "envoyee" : "a_envoyer"));
+        toast(cancel ? "Demande annulée : elle reste dans l'historique" : "Demande rétablie");
+        if (cancel) show("planning");
+      } catch (err) { reportWriteError(err); }
     } else if (e.target.closest("[data-delete-yes]") && state.editingId && requireStore()) {
       const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id).filter(Boolean)];
       try { await Promise.all(ids.map((id) => state.store.deleteDemande(id))); toast(ids.length > 1 ? "Demande groupée supprimée" : "Demande supprimée"); resetForm(); show("planning"); }
@@ -837,7 +879,7 @@
     const slot = esc(D.timeSlotLabel(d));
     // data-slot / data-provider let the phone layout show a compact card without a second markup.
     return `<tr class="click" data-open="${esc(d.id)}"><td class="date" data-slot="· ${slot}">${esc(span)}</td><td class="date">${slot}</td><td>${plateTag(d.plaque)}</td>
-      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.serviceOf(d.service).label)}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
+      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
       <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
   }
   ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site"].forEach((s) => $(s).addEventListener("input", renderHistory));
@@ -855,7 +897,8 @@
       <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}">${removeButton("data-remove-site", i, s.nom)}</div>`).join("");
     $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
     $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
-      <label class="check"><input type="checkbox" data-prov-interventions="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.interventions ? "checked" : ""}>Interventions</label>${removeButton("data-remove-provider", i, p)}</div>`).join("");
+      <label class="check"><input type="checkbox" data-prov-flag="interventions" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.interventions ? "checked" : ""}>Interventions</label>
+      <label class="check"><input type="checkbox" data-prov-flag="hayon" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.hayon ? "checked" : ""}>Contrôle hayon</label>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
     renderPrices(); renderAccounts();
   }
@@ -864,13 +907,16 @@
   const pricesProvider = () => $("#t-prov").value || defaultProvider();
   function renderPrices() {
     setSelectOptions($("#t-prov"), options(state.providers));
-    setSelectOptions($("#t-svc"), D.SERVICES.map((x) => `<option value="${x.id}">${esc(x.label)}</option>`).join(""));
+    setSelectOptions($("#t-svc"), priceKinds().map(([value, line]) => `<option value="${value}">${esc(D.jobLabel(line))}</option>`).join(""));
     const lines = pricesOf(D.providerId(pricesProvider()));
     $("#t-list").innerHTML = lines.length
       ? lines.map((line, i) => `<div class="item price"><span>${esc(D.priceLineLabel(line))}</span>
           <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
       : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;
   }
+  // One choice per price kind: windshield, complete wash, inside wash, intervention.
+  const priceKinds = () => D.SERVICES.flatMap((x) => (x.id === "lavage" ? D.WASH_KINDS.map((k) => ({ service: x.id, formule: k.id })) : [{ service: x.id }]))
+    .map((line) => [[line.service, line.formule].filter(Boolean).join(":"), line]);
   async function savePrices(providerName, tarifs, message) {
     if (!requireStore()) return;
     try { await state.store.saveProvider(D.providerId(providerName), { nom: providerName, tarifs }); toast(message); }
@@ -881,7 +927,8 @@
     const prix = parseFloat($("#t-prix").value.replace(",", "."));
     if (!Number.isFinite(prix) || prix < 0) return toast("Indique le prix hors taxe, par exemple 266,67");
     const bound = (sel) => ($(sel).value === "" ? null : +$(sel).value);
-    const line = { service: $("#t-svc").value, cubageMin: bound("#t-min"), cubageMax: bound("#t-max"), prixHT: Math.round(prix * 100) / 100 };
+    const kind = priceKinds().find(([value]) => value === $("#t-svc").value)[1];
+    const line = { ...kind, cubageMin: bound("#t-min"), cubageMax: bound("#t-max"), prixHT: Math.round(prix * 100) / 100 };
     if (line.cubageMin != null && line.cubageMax != null && line.cubageMin > line.cubageMax) return toast("Le cubage « de » doit être plus petit que « à »");
     const name = pricesProvider();
     savePrices(name, [...pricesOf(D.providerId(name)), line], "Tarif ajouté");
@@ -949,10 +996,11 @@
     persistSettings(added || updated ? `${plural(added, "site")} ajouté${added > 1 ? "s" : ""}, ${updated} mis à jour` : "Tous ces sites étaient déjà à jour");
   };
   $("#s-provs").addEventListener("change", async (e) => {
-    const box = e.target.closest("[data-prov-interventions]");
+    const box = e.target.closest("[data-prov-flag]");
     if (!box || !requireStore()) return;
-    const nom = box.dataset.provInterventions;
-    try { await state.store.saveProvider(D.providerId(nom), { nom, interventions: box.checked }); toast(box.checked ? `${nom} peut recevoir des interventions` : `${nom} ne reçoit plus d'interventions`); }
+    const nom = box.dataset.prov, flag = box.dataset.provFlag;
+    const what = flag === "hayon" ? "des contrôles hayon" : "des interventions";
+    try { await state.store.saveProvider(D.providerId(nom), { nom, [flag]: box.checked }); toast(box.checked ? `${nom} peut recevoir ${what}` : `${nom} ne reçoit plus ${what.replace(/^des /, "de ")}`); }
     catch (err) { box.checked = !box.checked; reportWriteError(err); }
   });
   $("#s-addprov").onclick = () => !state.providers.includes($("#s-newprov").value.trim()) && addFromInput("#s-newprov", state.providers, (p) => p, "Prestataire ajouté");
@@ -1020,12 +1068,101 @@
       state.store.completeDemande(d.id, patch).catch(() => {}).finally(() => completing.delete(d.id));
     });
   }
+  // ================= tailgate controls (hayon) =================
+  // A sent control whose day has passed is done: the provider never reports it, so the team app closes it.
+  const closingHayons = new Set();
+  function closePastHayons(rows) {
+    if (!state.canWrite) return;
+    rows.filter((d) => D.hayonAutoClose(d, today()) && !closingHayons.has(d.id)).forEach((d) => {
+      closingHayons.add(d.id);
+      state.store.setStatus(d, "realisee").catch(() => {}).finally(() => closingHayons.delete(d.id));
+    });
+  }
+  const HAYON_FILTERS = {
+    "": () => true,
+    atraiter: (r) => !r.booked && ["depasse", "urgent", "bientot", "inconnu"].includes(r.level),
+    rdv: (r) => !!r.booked,
+  };
+  function hayonDaysLabel(r) {
+    if (r.daysLeft == null) return "Date inconnue";
+    if (r.daysLeft < 0) return `Dépassé de ${plural(-r.daysLeft, "jour")}`;
+    if (r.daysLeft === 0) return "À faire aujourd'hui";
+    return `Reste ${plural(r.daysLeft, "jour")}`;
+  }
+  const slotOf = (d) => `${D.shortDate(d.date)}${d.debut && d.debut !== D.DEFAULT_SLOT.debut ? " à " + d.debut.replace(":", "h") : ""}`;
+  function hayonRow(r) {
+    const key = D.plateKey(r.plaque);
+    const known = state.hayons.some((h) => D.plateKey(h.plaque) === key);
+    const notes = [];
+    if (r.tooSoon) notes.push(`<span class="hy-warn">${icon("alert")}Deux contrôles posés à ${plural(r.tooSoon.gap, "jour")} d'écart (${esc(D.shortDate(r.tooSoon.first.date))} et ${esc(D.shortDate(r.tooSoon.second.date))})</span>`);
+    if (r.notDone) notes.push(`<span class="muted">Pas fait le ${esc(D.shortDate(r.notDone.date))}</span>`);
+    const recent = r.lastRequest && D.daysBetween(r.lastRequest.date, today()) <= 30;
+    const rdv = r.booked
+      ? `<button type="button" class="hy-rdv" data-open="${esc(r.booked.id)}">${icon("cal")}<span>RDV ${esc(slotOf(r.booked))}${r.booked.site ? ` · ${esc(r.booked.site)}` : ""}</span></button>`
+      : `<span class="muted hy-nordv">Pas de RDV</span>`;
+    return `<li class="hy-row lv-${r.level}">
+      <span class="hy-days">${esc(hayonDaysLabel(r))}</span>
+      ${plateTag(r.plaque)}
+      <span class="hy-dates"><span>Dernier contrôle <b>${r.lastControl ? esc(D.numericDate(r.lastControl)) : "—"}</b></span><span>À refaire avant <b>${r.nextDue ? esc(D.numericDate(r.nextDue)) : "—"}</b></span>${notes.join("")}</span>
+      <span class="hy-actions">${rdv}
+        ${state.canWrite && recent ? `<button type="button" class="ghost small-btn" data-hy-notdone="${esc(r.lastRequest.id)}" title="Le contrôle du ${esc(D.shortDate(r.lastRequest.date))} n'a pas eu lieu">Pas fait ?</button>` : ""}
+        ${state.canWrite && r.notDone && !r.booked ? `<button type="button" class="ghost small-btn" data-hy-done="${esc(r.notDone.id)}">Finalement fait</button>` : ""}
+        ${state.canWrite && known ? `<button type="button" class="ghost small-btn" data-hy-remove="${esc(key)}" aria-label="Retirer ${esc(r.plaque)} de la liste">${icon("x")}</button>` : ""}</span>
+    </li>`;
+  }
+  function renderHayon() {
+    const rows = D.hayonFollowUp(state.hayons, state.demandes, today());
+    const count = (...levels) => rows.filter((r) => levels.includes(r.level)).length;
+    const urgent = rows.filter((r) => !r.booked && ["depasse", "urgent"].includes(r.level)).length;
+    $("#hayonBadge").hidden = !urgent; $("#hayonBadge").textContent = urgent;
+    $("#hy-kpis").innerHTML = rows.length ? [[["depasse", "urgent"], "Dépassés ou 5 jours ou moins"], [["bientot"], "30 jours ou moins"], [["ok"], "À jour"]]
+      .map(([levels, label]) => `<div class="hy-kpi lv-${levels[levels.length - 1]}"><b>${count(...levels)}</b><span>${label}</span></div>`).join("") : "";
+    const query = $("#hy-q").value, filter = HAYON_FILTERS[$("#hy-filter").value] || HAYON_FILTERS[""];
+    const shown = rows.filter((r) => filter(r) && D.matchesSearch([r.plaque], query));
+    $("#hy-list").innerHTML = !rows.length
+      ? `<div class="empty"><b>Aucun véhicule à hayon pour l'instant.</b><span>Colle la liste du prestataire ci-dessous (plaque et date du dernier contrôle) : le compteur des 180 jours démarre tout de suite. Chaque contrôle hayon reçu par mail s'ajoute aussi ici.</span></div>`
+      : shown.length ? `<ul class="hy-list">${shown.map(hayonRow).join("")}</ul>` : `<div class="empty"><b>Aucun véhicule ne correspond.</b></div>`;
+    $("#hy-pastebox").hidden = !state.canWrite;
+    $("#hy-pastebox").open = state.canWrite && !rows.length ? true : $("#hy-pastebox").open;
+  }
+  ["#hy-q", "#hy-filter"].forEach((sel) => $(sel).addEventListener("input", renderHayon));
+  $("#hy-paste").addEventListener("input", () => {
+    const list = D.parseHayonList($("#hy-paste").value);
+    const undated = list.filter((h) => !h.dernierControle).length;
+    $("#hy-preview").textContent = list.length ? `${plural(list.length, "véhicule")} reconnu${list.length > 1 ? "s" : ""}${undated ? `, dont ${undated} sans date` : ""}` : "";
+  });
+  $("#hy-import").onclick = async () => {
+    const list = D.parseHayonList($("#hy-paste").value);
+    if (!list.length) return toast("Aucune plaque reconnue : colle une plaque et sa date par ligne");
+    if (!requireStore()) return;
+    try { await state.store.saveHayons(list); $("#hy-paste").value = ""; $("#hy-preview").textContent = ""; $("#hy-pastebox").open = false; toast(`${plural(list.length, "véhicule")} enregistré${list.length > 1 ? "s" : ""}`); }
+    catch (err) { reportWriteError(err); }
+  };
+  $("#hy-list").addEventListener("click", async (e) => {
+    const open = e.target.closest("[data-open]");
+    if (open) return openDemande(open.dataset.open);
+    const notDone = e.target.closest("[data-hy-notdone], [data-hy-done]");
+    if (notDone && requireStore()) {
+      const missed = !!notDone.dataset.hyNotdone;
+      const d = demandeById(notDone.dataset.hyNotdone || notDone.dataset.hyDone);
+      try { await state.store.markHayonNotDone(d, missed); toast(missed ? `Contrôle du ${D.shortDate(d.date)} marqué « pas fait » : le compteur reprend l'ancien contrôle` : "Contrôle remis comme fait"); }
+      catch (err) { reportWriteError(err); }
+      return;
+    }
+    const remove = e.target.closest("[data-hy-remove]");
+    if (remove && requireStore()) {
+      if (!remove.classList.contains("confirm")) { remove.classList.add("confirm"); remove.textContent = "Retirer ?"; return; }
+      try { await state.store.deleteHayon(remove.dataset.hyRemove); toast("Véhicule retiré de la liste des hayons"); }
+      catch (err) { reportWriteError(err); }
+    }
+  });
+
   // ---------- answers from providers: Retours page, tab badge, window title, desktop notifications ----------
   const answerSentence = (d) => `${d.prestataire} ${D.answerOf(d.retour.etat)?.team || "a répondu pour"} ${d.plaque}`;
   function answerRow(d, { seen = false } = {}) {
     const r = d.retour;
     return `<div class="answer-row${seen ? " seen" : ""}">${plateTag(d.plaque)}
-      <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(r))}<br><span class="muted">${esc([D.serviceOf(d.service).label, d.tache, D.vehicleLabel(d), D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(D.numericDate(r.at.slice(0, 10)))} ${esc(r.at.slice(11, 16))}</span></span>
+      <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(r))}<br><span class="muted">${esc([D.jobLabel(d), d.tache, D.vehicleLabel(d), D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(D.numericDate(r.at.slice(0, 10)))} ${esc(r.at.slice(11, 16))}</span></span>
       <span class="row">${r.preuve ? `<button type="button" data-proof="${esc(r.preuve)}">${icon("image")}Photo</button>` : ""}
       ${!seen && r.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
       ${!seen && state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
@@ -1094,7 +1231,7 @@
   function renderAll() {
     shareRegistry.clear();
     renderSelects();
-    renderAnswers(); renderPlanning(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
+    renderAnswers(); renderPlanning(); renderHayon(); renderPhotoLibrary(); renderVerification(); renderReport(); renderHistory(); renderSettings();
     $("#dl-plaques").innerHTML = [...state.vehicles.values()].map((v) => `<option value="${esc(v.plaque)}">${esc(D.vehicleLabel(v))}</option>`).join("");
     renderFormSide();
   }
@@ -1142,12 +1279,13 @@
   }
   function subscribeTeam() {
     state.store.subscribe({
-      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
+      onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); closePastHayons(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); completeMailRequests(); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
       onSettings: (settings) => { applySettings(settings); completeMailRequests(); renderAll(); },
       onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); completeMailRequests(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
+      onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
         if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe City-Drop de t'ajouter dans Réglages › Accès.");
