@@ -248,6 +248,13 @@ details.more[open] > summary { margin-bottom: 10px; }
 
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 11px 18px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 20; max-width: calc(100% - 32px); box-shadow: var(--shadow); }
 .banner { background: var(--st-todo-bg); color: var(--ink); border-radius: var(--r-sm); padding: 10px 14px; font-size: 14px; margin-bottom: 16px; }
+.robot-alert.alert { background: var(--danger); color: #fff; font-weight: 500; }
+.robot-alert.alert a { color: #fff; }
+.robot-alert a { font-weight: 600; white-space: nowrap; }
+.robot-state { margin: 0 0 8px; font-size: 14px; }
+.robot-state.alert { color: var(--danger); font-weight: 600; }
+.robot-state.warn { color: var(--st-todo); font-weight: 600; }
+.robot-state.ok { color: var(--st-done); }
 .intro { max-width: 75ch; margin-bottom: 16px; color: var(--ink-2); }
 
 /* Tables */

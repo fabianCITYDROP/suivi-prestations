@@ -32,11 +32,29 @@ si aucun ne correspond, la demande reste sans prestataire et l'équipe le choisi
 2. **Règles** : console Firebase › Firestore › Règles : coller `src/firestore.rules`, Publier.
 3. **Boîte mail** : abonner la boîte Gmail dédiée au groupe gestion-flotte@city-drop.com.
 4. **Script** : connecté à cette boîte, ouvrir https://script.new, coller `import-mails.js`, enregistrer.
-   ⚙️ Paramètres du projet › Propriétés du script : ajouter `ROBOT_EMAIL` et `ROBOT_MOT_DE_PASSE`.
+   ⚙️ Paramètres du projet › Propriétés du script : ajouter `ROBOT_EMAIL`, `ROBOT_MOT_DE_PASSE`
+   et `ALERTE_EMAIL` (l'adresse qui reçoit les alertes, plusieurs possibles séparées par des virgules).
 5. Choisir la fonction `installer` puis ▶ Exécuter, accepter les autorisations Google.
    Le journal affiche « Ajoutée : <plaque> » pour chaque mail des 3 derniers jours.
 
+## Si le robot s'arrête
+
+Un robot arrêté ne se voit pas : les demandes manqueraient en silence dans le bilan. Trois filets :
+
+1. **Bandeau rouge dans l'appli** (équipe) : le robot laisse une trace (`robot/etat`) au moins toutes les 30 minutes.
+   Si elle a plus de 2 heures, ou si le robot signale une erreur, l'appli affiche « Le robot des mails ne tourne plus… ».
+   Ça marche même si Google a complètement bloqué le script, puisque c'est l'appli qui s'en aperçoit.
+   Bandeau orange si aucun mail City-Drop n'est arrivé depuis 4 jours (la boîte n'est peut-être plus abonnée au groupe)
+   ou si un mail n'a pas pu être lu. Réglages › Robot des mails montre toujours le dernier passage.
+2. **Mail d'alerte** à `ALERTE_EMAIL` quand le robot voit lui-même le problème (mot de passe refusé, règles non publiées…) :
+   au début de la panne, puis toutes les 6 heures au plus, et un mail « reparti » quand c'est réglé.
+3. **Rattrapage** : une fois réparé, le robot reprend les mails des 3 derniers jours, rien n'est perdu si on agit vite.
+
+Pour réparer : Apps Script › Exécutions montre l'erreur. Le plus souvent, remettre le bon `ROBOT_MOT_DE_PASSE`
+dans les Propriétés du script, puis exécuter `installer`.
+
 ## Si un mail n'est pas compris
 
-Il est noté « Mail non compris » dans le journal (Apps Script › Exécutions) et doit être saisi à la main.
+Il est noté « Mail non compris » dans le journal (Apps Script › Exécutions), un mail part à `ALERTE_EMAIL`
+et un bandeau orange s'affiche dans l'appli : la demande doit être saisie à la main.
 Les tests `node --test apps-script/import-mails.test.js` vérifient la lecture d'un vrai mail.
