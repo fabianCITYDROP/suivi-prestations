@@ -493,6 +493,30 @@ test("mergeSlices keeps one copy per request, the most recently changed", () => 
   assert.equal(rows.find((r) => r.id === "a").statut, "realisee");
 });
 
+test("problème sur un véhicule: the report carries the request, the plate and who saw it", () => {
+  const d = { id: "d1", plaque: "AB-123-CD", prestataireId: "allo" };
+  const r = D.problemReport(d, { type: "pneu", texte: "  pneu avant gauche lisse " }, "allo@x.fr", "2026-11-18T10:00:00.000Z");
+  assert.deepEqual(r, { demandeId: "d1", plaque: "AB-123-CD", prestataireId: "allo", type: "pneu", texte: "pneu avant gauche lisse", statut: "nouveau", at: "2026-11-18T10:00:00.000Z", par: "allo@x.fr" });
+  assert.equal(D.problemReport(d, { type: "pneu", photo: "k1" }, "a", "t").photo, "k1");
+  assert.match(D.problemReport(d, { texte: "rayure" }, "a", "t").error, /type/);
+  assert.match(D.problemReport(d, { type: "autre", texte: " " }, "a", "t").error, /quelques mots/);
+  assert.equal(D.problemReport(d, { type: "choc", texte: "x".repeat(900) }, "a", "t").texte.length, D.PROBLEM_TEXT_MAX);
+  assert.equal(D.problemSummary({ type: "voyant", texte: "moteur orange" }), "Voyant allumé – moteur orange");
+  assert.equal(D.problemSummary({ type: "choc", texte: "" }), "Choc / carrosserie");
+});
+
+test("problème sur un véhicule: open ones first, newest first; handled ones apart", () => {
+  const list = [
+    { id: "a", demandeId: "d1", plaque: "AB-123-CD", statut: "nouveau", at: "2026-11-17T08:00" },
+    { id: "b", demandeId: "d2", plaque: "ab123cd", statut: "traite", at: "2026-11-16T08:00" },
+    { id: "c", demandeId: "d1", plaque: "EF-456-GH", statut: "nouveau", at: "2026-11-18T08:00" },
+  ];
+  assert.deepEqual(D.openProblems(list).map((s) => s.id), ["c", "a"]);
+  assert.deepEqual(D.handledProblems(list).map((s) => s.id), ["b"]);
+  assert.deepEqual(D.problemsOfRequest(list, "d1").map((s) => s.id), ["c", "a"]);
+  assert.deepEqual(D.problemsOfPlate(list, "AB 123 CD").map((s) => s.id), ["a", "b"]);
+});
+
 test("the team app notices when the mail robot stops, errs or stops receiving mails", () => {
   const now = new Date("2026-11-18T12:00:00Z");
   const ago = (minutes) => new Date(now - minutes * 60000).toISOString();

@@ -535,6 +535,34 @@
     if (r.etat === "confirme" && ["a_envoyer", "envoyee"].includes(d.statut)) return "confirmee";
     return null;
   }
+  // ---------- problems seen on a vehicle (collection "signalements", written by the provider) ----------
+  // {demandeId, plaque, prestataireId, type, texte, photo?, statut "nouveau"|"traite", at, par, traiteAt?, traitePar?}
+  // A provider often sees a shock, a worn tyre or a warning light before City-Drop does: one tap tells the team.
+  const PROBLEMS = [
+    { id: "choc", label: "Choc / carrosserie" },
+    { id: "pneu", label: "Pneu" },
+    { id: "voyant", label: "Voyant allumé" },
+    { id: "autre", label: "Autre" },
+  ];
+  const PROBLEM_TEXT_MAX = 500;
+  const problemOf = (id) => PROBLEMS.find((p) => p.id === id) || null;
+  const problemSummary = (s) => [problemOf(s.type)?.label || "Problème", s.texte].filter(Boolean).join(" – ");
+  // The document a provider writes. Returns {error} when something is missing, so the form can say what.
+  function problemReport(demande, { type, texte, photo } = {}, email, nowIso) {
+    const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
+    if (!problemOf(type)) return { error: "Choisis le type de problème" };
+    if (type === "autre" && !text) return { error: "Dis en quelques mots ce que tu as vu" };
+    return {
+      demandeId: demande.id, plaque: demande.plaque, prestataireId: demande.prestataireId,
+      type, texte: text, ...(photo ? { photo } : {}), statut: "nouveau", at: nowIso, par: email,
+    };
+  }
+  const byNewest = (a, b) => (b.at || "").localeCompare(a.at || "");
+  const openProblems = (list) => list.filter((s) => s.statut !== "traite").sort(byNewest);
+  const handledProblems = (list, limit = 40) => list.filter((s) => s.statut === "traite").sort(byNewest).slice(0, limit);
+  const problemsOfRequest = (list, demandeId) => list.filter((s) => s.demandeId === demandeId).sort(byNewest);
+  const problemsOfPlate = (list, plate) => list.filter((s) => plateKey(s.plaque) === plateKey(plate)).sort(byNewest);
+
   // Answers the team has not looked at yet, newest first.
   // Every answer already seen, newest first: the "Déjà vus" list of the Retours page.
   const seenAnswers = (demandes, limit = 40) => demandes.filter((d) => d.retour?.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || "")).slice(0, limit);
@@ -732,5 +760,6 @@
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
   };
 });

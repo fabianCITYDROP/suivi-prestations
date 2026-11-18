@@ -180,6 +180,35 @@ test("contrôles hayon : l'équipe gère la liste, Jérôme la lit, personne d'a
   await assertSucceeds(setDoc(doc(as("robot"), "demandes/mail-h"), { ...mail, service: "hayon" }), "le robot importe aussi les mails de contrôle hayon");
 });
 
+test("un prestataire signale un problème sur ses véhicules, et seulement les siens", async () => {
+  const khalid = as("khalid");
+  const report = { demandeId: "d2", plaque: "EF-456-GH", prestataireId: KHALID, type: "pneu", texte: "Pneu avant lisse", statut: "nouveau", at: "2026-11-18T10:00:00Z", par: people.khalid.email };
+  await assertSucceeds(setDoc(doc(khalid, "signalements/s1"), report));
+  await assertSucceeds(setDoc(doc(khalid, "signalements/s2"), { ...report, photo: "sig_EF456GH_x" }));
+  // Not on another provider's request, not in another provider's name, not for someone else, not already "handled".
+  await assertFails(setDoc(doc(khalid, "signalements/s3"), { ...report, demandeId: "d1", plaque: "AB-123-CD" }));
+  await assertFails(setDoc(doc(khalid, "signalements/s3"), { ...report, prestataireId: ALLO }));
+  await assertFails(setDoc(doc(khalid, "signalements/s3"), { ...report, par: people.allo.email }));
+  await assertFails(setDoc(doc(khalid, "signalements/s3"), { ...report, statut: "traite" }));
+  await assertFails(setDoc(doc(khalid, "signalements/s3"), { ...report, plaque: "ZZ-999-ZZ" }));
+  await assertFails(setDoc(doc(khalid, "signalements/s3"), { ...report, type: "inconnu" }));
+  await assertFails(setDoc(doc(khalid, "signalements/s3"), { ...report, texte: "x".repeat(501) }));
+  await assertFails(setDoc(doc(khalid, "signalements/s3"), { ...report, demandeId: "absente" }));
+  // Read only its own, change nothing afterwards.
+  await assertSucceeds(getDocs(query(collection(khalid, "signalements"), where("prestataireId", "==", KHALID))));
+  await assertFails(getDocs(collection(khalid, "signalements")));
+  await assertFails(getDoc(doc(as("allo"), "signalements/s1")));
+  await assertFails(updateDoc(doc(khalid, "signalements/s1"), { texte: "autre chose" }));
+  await assertFails(updateDoc(doc(khalid, "signalements/s1"), { statut: "traite" }));
+  await assertFails(deleteDoc(doc(khalid, "signalements/s1")));
+  // The team reads everything; only an admin marks it handled, and only that.
+  await assertSucceeds(getDocs(collection(as("jerome"), "signalements")));
+  await assertFails(updateDoc(doc(as("jerome"), "signalements/s1"), { statut: "traite" }));
+  await assertSucceeds(updateDoc(doc(as("fabian"), "signalements/s1"), { statut: "traite", traiteAt: "2026-11-18T11:00:00Z", traitePar: people.fabian.email }));
+  await assertFails(updateDoc(doc(as("fabian"), "signalements/s1"), { texte: "réécrit" }));
+  await assertFails(setDoc(doc(as("robot"), "signalements/s9"), report));
+});
+
 test("le robot laisse sa trace dans robot/etat, l'équipe la lit, personne d'autre n'y touche", async () => {
   const trace = { passage: "2026-11-18T12:00:00Z", dernierMail: "2026-11-18T09:12:00Z", erreur: null, erreurDepuis: null, nonCompris: "Prise de rendez-vous XX", nonComprisLe: "2026-11-18T11:00:00Z" };
   const robot = as("robot");

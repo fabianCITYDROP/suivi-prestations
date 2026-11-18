@@ -399,6 +399,13 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 #answersSeen { border-color: var(--line); }
 .answer-row.seen { color: var(--ink-2); }
 .answers { margin-bottom: 16px; border-color: var(--accent, #0f6f8f); }
+.problem-type { font-weight: 700; color: var(--danger); }
+.answer-row.seen .problem-type { color: inherit; }
+.problems-handled { margin: 10px 0 4px; }
+.problems-handled summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--ink-2); padding: 6px 0; }
+.problems-handled[open] summary { margin-bottom: 8px; }
+.side-problems { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--danger); text-decoration: none; }
+.side-problems .icon { width: 17px; height: 17px; }
 .answer-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
 .answer-row:first-of-type { border-top: 0; padding-top: 0; }
 @media (max-width: 640px) { .answer-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } .answer-row > .plate { justify-self: start; } .answer-row > .row { margin-left: -12px; } }
@@ -445,6 +452,21 @@ body.presta-mode .top .sync { display: none; }
 .job-form input { min-height: 44px; font-size: 16px; }
 .job-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .job-form-actions .primary { flex: 1; min-height: 46px; }
+/* Problem seen on a vehicle: a quiet link under the actions, a radio row of chips, an optional photo. Red only for the reported line. */
+.job-report { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 2px; background: none; border: 0; color: var(--ink-2); font: 600 14px var(--f-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.job-report .icon { width: 16px; height: 16px; }
+.job-problem { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--danger); }
+.job-problem .icon { width: 17px; height: 17px; margin-top: 1px; flex: none; }
+.job-problem small { display: block; color: var(--ink-2); font-size: 12px; }
+.problem-pick { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px; }
+.problem-pick legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.problem-pick .chip-btn { min-height: 40px; background: var(--surface); }
+.problem-pick .chip-btn[aria-checked="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.job-form textarea { font: 16px var(--f-body); min-height: 64px; resize: vertical; }
+.problem-photo { display: flex; align-items: center; gap: 12px; }
+.problem-photo img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.problem-photo-add { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; align-self: flex-start; border: 1px dashed var(--line-strong); border-radius: 10px; font-size: 14px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+.problem-photo-add .icon { width: 18px; height: 18px; }
 .job-busy { margin: 0; display: flex; gap: 10px; align-items: center; color: var(--ink-2); font-weight: 600; min-height: 46px; }
 .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line-strong); border-top-color: var(--accent); animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -666,6 +688,13 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
       <button type="button" id="allSeenBtn" hidden>Tout marquer comme vu</button>
     </div>
     <p class="hint">Les réponses des prestataires arrivent ici. Un passage fait ou une acceptation est déjà appliqué à la demande : « Vu » range simplement le retour.</p>
+    <div id="problemsBlock" hidden>
+      <h2 class="section-title">Problèmes signalés sur les véhicules</h2>
+      <p class="hint">Un choc, un pneu, un voyant vu par un prestataire. « Traité » le range une fois que tu t'en es occupé.</p>
+      <div class="panel answers" id="problems"></div>
+      <details class="problems-handled" id="problemsHandled" hidden></details>
+      <h2 class="section-title">Réponses aux demandes</h2>
+    </div>
     <div class="panel answers" id="answers"></div>
     <h2 class="section-title">Déjà vus</h2>
     <div class="panel answers" id="answersSeen"></div>
@@ -1606,6 +1635,34 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (r.etat === "confirme" && ["a_envoyer", "envoyee"].includes(d.statut)) return "confirmee";
     return null;
   }
+  // ---------- problems seen on a vehicle (collection "signalements", written by the provider) ----------
+  // {demandeId, plaque, prestataireId, type, texte, photo?, statut "nouveau"|"traite", at, par, traiteAt?, traitePar?}
+  // A provider often sees a shock, a worn tyre or a warning light before City-Drop does: one tap tells the team.
+  const PROBLEMS = [
+    { id: "choc", label: "Choc / carrosserie" },
+    { id: "pneu", label: "Pneu" },
+    { id: "voyant", label: "Voyant allumé" },
+    { id: "autre", label: "Autre" },
+  ];
+  const PROBLEM_TEXT_MAX = 500;
+  const problemOf = (id) => PROBLEMS.find((p) => p.id === id) || null;
+  const problemSummary = (s) => [problemOf(s.type)?.label || "Problème", s.texte].filter(Boolean).join(" – ");
+  // The document a provider writes. Returns {error} when something is missing, so the form can say what.
+  function problemReport(demande, { type, texte, photo } = {}, email, nowIso) {
+    const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
+    if (!problemOf(type)) return { error: "Choisis le type de problème" };
+    if (type === "autre" && !text) return { error: "Dis en quelques mots ce que tu as vu" };
+    return {
+      demandeId: demande.id, plaque: demande.plaque, prestataireId: demande.prestataireId,
+      type, texte: text, ...(photo ? { photo } : {}), statut: "nouveau", at: nowIso, par: email,
+    };
+  }
+  const byNewest = (a, b) => (b.at || "").localeCompare(a.at || "");
+  const openProblems = (list) => list.filter((s) => s.statut !== "traite").sort(byNewest);
+  const handledProblems = (list, limit = 40) => list.filter((s) => s.statut === "traite").sort(byNewest).slice(0, limit);
+  const problemsOfRequest = (list, demandeId) => list.filter((s) => s.demandeId === demandeId).sort(byNewest);
+  const problemsOfPlate = (list, plate) => list.filter((s) => plateKey(s.plaque) === plateKey(plate)).sort(byNewest);
+
   // Answers the team has not looked at yet, newest first.
   // Every answer already seen, newest first: the "Déjà vus" list of the Retours page.
   const seenAnswers = (demandes, limit = 40) => demandes.filter((d) => d.retour?.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || "")).slice(0, limit);
@@ -1803,6 +1860,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
   };
 });
 </script>
@@ -1857,7 +1915,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return { add, stop };
     }
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onRobot, onError, recentFrom }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onError, recentFrom }) {
       const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const requests = db.collection("demandes");
       demandesFeed = createDemandesFeed(onDemandes, onError);
@@ -1878,6 +1936,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       ];
       // Before the rules allowing it are published, this list simply stays empty.
       if (onHayons) unsubs.push(db.collection("hayons").onSnapshot((s) => onHayons(toRows(s)), () => onHayons([])));
+      if (onProblems) unsubs.push(db.collection("signalements").onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
       // Only the team may list accounts: for anyone else this one simply stays empty.
       if (onAccounts) unsubs.push(db.collection("comptes").onSnapshot((s) => onAccounts(toRows(s)), () => onAccounts([])));
       // Trace left by the mail robot: refused until the new rules are published, then simply "not installed".
@@ -1928,12 +1987,14 @@ window.SUIVI_FIREBASE_CONFIG = {
       catch { return null; }
     }
     // ----- provider side: only its own requests (the rules refuse an unfiltered list) -----
-    function subscribeProvider(prestataireId, { onDemandes, onModels, onError }) {
+    function subscribeProvider(prestataireId, { onDemandes, onModels, onProblems, onError }) {
       const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const unsubs = [
         db.collection("demandes").where("prestataireId", "==", prestataireId).onSnapshot((s) => onDemandes(toRows(s)), onError),
         db.collection("modeles").onSnapshot((s) => onModels(toRows(s)), onError),
       ];
+      // Its own problem reports, so it does not report the same thing twice. Empty until the rules are published.
+      if (onProblems) unsubs.push(db.collection("signalements").where("prestataireId", "==", prestataireId).onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
       return () => unsubs.forEach((u) => u());
     }
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
@@ -1941,6 +2002,20 @@ window.SUIVI_FIREBASE_CONFIG = {
       const now = new Date().toISOString();
       await db.doc("demandes/" + demande.id).update({ retour: { ...retour, at: now }, updatedAt: now });
     }
+    // A problem seen on a vehicle: the photo (optional) goes in preuves/<key> like a proof, then the report itself.
+    async function reportProblem(demande, fields, photoFull) {
+      let photo = "";
+      if (photoFull) {
+        photo = `sig_${D.plateKey(demande.plaque)}_${Date.now().toString(36)}`;
+        await db.doc("preuves/" + photo).set({ prestataireId: demande.prestataireId, plaque: demande.plaque, data: photoFull, at: new Date().toISOString() });
+        photoCache.set("preuve:" + photo, photoFull);
+      }
+      const report = D.problemReport(demande, { ...fields, photo }, fields.par, new Date().toISOString());
+      if (report.error) throw { code: "invalid", message: report.error };
+      await db.collection("signalements").doc().set(report);
+    }
+    const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
+      handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
     async function loadProof(key) {
       const cacheKey = "preuve:" + key;
       if (!photoCache.has(cacheKey)) {
@@ -2057,7 +2132,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { loadDemandesBetween, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { loadDemandesBetween, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -2070,6 +2145,7 @@ window.SUIVI_FIREBASE_CONFIG = {
 // 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), closed with "OK prestation réalisée".
 // 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
 // 4. "Faits": history and counts.
+// On any accepted vehicle, the provider can report a problem seen on it (shock, tyre, warning light), with an optional photo.
 (function (root) {
   const TABS = [
     { id: "validate", label: "À valider", icon: "bell" },
@@ -2079,8 +2155,9 @@ window.SUIVI_FIREBASE_CONFIG = {
   ];
 
   function start({ store, account, email, D, ui }) {
-    const { $, esc, toast, icon, plateTag, safeImageSrc } = ui;
-    const state = { demandes: [], models: new Map(), providerName: "", tab: null, openForm: null, busy: new Set(), query: "" };
+    const { $, esc, toast, icon, plateTag, safeImageSrc, prepareImage } = ui;
+    // draft: what the provider is typing in the open form, kept across re-renders (a new request arriving redraws the screen).
+    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "" };
     const today = () => D.toIsoDate(new Date());
     const view = $("#view-presta");
 
@@ -2115,6 +2192,10 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
+    // Problems already reported on this request: the provider sees the team got them, and does not send them twice.
+    function problemLines(d) {
+      return D.problemsOfRequest(state.problems, d.id).map((p) => `<p class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}</small></span></p>`).join("");
+    }
     function answerLine(d) {
       const r = d.retour;
       if (!r || r.etat === "fait" || r.etat === "confirme") return "";
@@ -2124,11 +2205,18 @@ window.SUIVI_FIREBASE_CONFIG = {
     // ---------- inline forms (done, another date, missing vehicle, not possible) ----------
     function formHtml(d) {
       const cancel = (kind) => `<button type="button" class="ghost" data-form="${kind}:${esc(d.id)}">Annuler</button>`;
-      const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note placeholder="${placeholder}"></label>`;
+      const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note value="${esc(state.draft.note || "")}" placeholder="${placeholder}" maxlength="${D.PROBLEM_TEXT_MAX}"></label>`;
       // "Done": one confirmation step so a slip of the finger does not close a job. No photo: providers are trusted.
+      // A problem seen while working (shock, tyre, warning light) can be ticked here: the note then goes with it.
       if (state.openForm === "done:" + d.id) return `<div class="job-form">
         ${note("Un mot pour l'équipe (facultatif)", "Ex. rayure côté passager")}
+        <fieldset class="problem-pick"><legend>Un problème vu sur le véhicule ? (facultatif)</legend>${problemChips()}</fieldset>
         <div class="job-form-actions">${cancel("done")}<button type="button" class="primary" data-send="done:${esc(d.id)}">${icon("check")}Confirmer : réalisée</button></div></div>`;
+      if (state.openForm === "problem:" + d.id) return `<div class="job-form">
+        <fieldset class="problem-pick"><legend>Quel problème ?</legend>${problemChips()}</fieldset>
+        <label class="field"><span>Ce que tu as vu${state.draft.type === "autre" ? "" : " (facultatif)"}</span><textarea data-note rows="2" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat">${esc(state.draft.note || "")}</textarea></label>
+        ${photoPicker()}
+        <div class="job-form-actions">${cancel("problem")}<button type="button" class="primary" data-send="problem:${esc(d.id)}">${icon("alert")}Envoyer à l'équipe</button></div></div>`;
       if (state.openForm === "date:" + d.id) return `<div class="job-form">
         <div class="job-form-row"><label class="field"><span>Date proposée</span><input type="date" data-date min="${today()}"></label>
         <label class="field"><span>Heure</span><input type="time" data-time step="900"></label></div>
@@ -2141,6 +2229,15 @@ window.SUIVI_FIREBASE_CONFIG = {
         ${note("Pourquoi ? (facultatif)", "Ex. pièce indisponible")}
         <div class="job-form-actions">${cancel("refuse")}<button type="button" class="primary" data-send="refuse:${esc(d.id)}">Confirmer : pas possible</button></div></div>`;
       return "";
+    }
+    function problemChips() {
+      return `<div class="task-chips" role="radiogroup">${D.PROBLEMS.map((p) => `<button type="button" class="chip-btn" role="radio" data-ptype="${p.id}" aria-checked="${state.draft.type === p.id}">${esc(p.label)}</button>`).join("")}</div>`;
+    }
+    function photoPicker() {
+      const ph = state.draft.photo;
+      if (state.draft.photoBusy) return `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`;
+      if (ph) return `<div class="problem-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer la photo</button></div>`;
+      return `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
     }
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
     const formOpen = (d) => state.openForm?.endsWith(":" + d.id);
@@ -2159,8 +2256,9 @@ window.SUIVI_FIREBASE_CONFIG = {
         ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
           <button type="button" class="primary big" data-form="done:${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
           <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Reporter</button>
-          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button></div>`}
-      </article>`;
+          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button></div>
+        <button type="button" class="job-report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème sur le véhicule</button>`}
+      ${problemLines(d)}</article>`;
     }
     function doneRow(d) {
       const day = (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
@@ -2212,7 +2310,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       const lists = D.providerLists(state.demandes, today());
       if (!state.tab && state.loaded) state.tab = lists.validate.length ? "validate" : "today";
       const body = state.loaded ? TAB_BODY[state.tab](lists[state.tab]) : loadingHtml;
-      const focusSearch = document.activeElement?.matches?.("[data-search]");
+      const typing = document.activeElement?.matches?.("[data-search], [data-note]") ? (document.activeElement.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
       view.innerHTML = `<header class="presta-top">
           <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
           <h1>${esc(cap(D.dayLabel(today())))}</h1>
@@ -2220,7 +2318,8 @@ window.SUIVI_FIREBASE_CONFIG = {
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
-      if (focusSearch) { const input = view.querySelector("[data-search]"); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+      const input = typing && view.querySelector(typing);
+      if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
     }
 
     // ---------- actions ----------
@@ -2232,19 +2331,60 @@ window.SUIVI_FIREBASE_CONFIG = {
       finally { state.busy.delete(d.id); render(); }
     }
 
-    view.addEventListener("input", (e) => { if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); } });
+    // A problem report; the photo is optional. Nothing is lost if it fails: the form stays open with what was typed.
+    async function sendProblem(d, note) {
+      const check = D.problemReport(d, { type: state.draft.type, texte: note }, email, "");
+      if (check.error) return toast(check.error);
+      const draft = { ...state.draft, note };
+      state.busy.add(d.id); state.openForm = null; render();
+      try {
+        await store.reportProblem(d, { type: draft.type, texte: note, par: email }, draft.photo?.full);
+        state.draft = {}; toast("Problème envoyé à l'équipe, merci !");
+      } catch { state.openForm = "problem:" + d.id; state.draft = draft; toast("Envoi impossible : vérifie ta connexion et réessaie"); }
+      finally { state.busy.delete(d.id); render(); }
+    }
+    // "Done" with a problem ticked: the job is closed and the problem reported, the note going with the problem.
+    async function doneWithProblem(d, note) {
+      const type = state.draft.type;
+      state.busy.add(d.id); state.openForm = null; render();
+      try {
+        await store.answer(d, { etat: "fait", par: email });
+        await store.reportProblem(d, { type, texte: note, par: email });
+        state.draft = {}; toast(`${d.plaque} réalisé, problème envoyé à l'équipe`);
+      } catch { toast("Envoi impossible : vérifie ta connexion et réessaie"); }
+      finally { state.busy.delete(d.id); render(); }
+    }
+    async function addPhoto(file) {
+      state.draft.photoBusy = true; render();
+      try { state.draft.photo = await prepareImage(file); }
+      catch { toast("Photo illisible : essaie avec une autre"); }
+      finally { state.draft.photoBusy = false; render(); }
+    }
+
+    view.addEventListener("change", (e) => { if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]); });
+    view.addEventListener("input", (e) => {
+      if (e.target.matches("[data-note]")) state.draft.note = e.target.value;
+      else if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); }
+    });
     view.addEventListener("click", (e) => {
       const el = (sel) => e.target.closest(sel);
       let b;
       if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
-      else if ((b = el("[data-form]"))) { state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; render(); }
+      else if ((b = el("[data-form]"))) { state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; state.draft = {}; render(); }
+      else if ((b = el("[data-ptype]"))) {
+        state.draft.type = state.draft.type === b.dataset.ptype ? "" : b.dataset.ptype;
+        render(); view.querySelector(`[data-ptype="${b.dataset.ptype}"]`)?.focus();
+      }
+      else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
       else if ((b = el("[data-send]"))) {
         const [kind, id] = b.dataset.send.split(":");
         const form = b.closest(".job-form");
         const note = form.querySelector("[data-note]").value.trim();
         const withNote = note ? { note } : {};
-        if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
+        if (kind === "problem") sendProblem(byId(id), note);
+        else if (kind === "done" && state.draft.type) doneWithProblem(byId(id), note);
+        else if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
         else if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
         else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");
         else {
@@ -2261,6 +2401,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     store.subscribeProvider(account.prestataireId, {
       onDemandes: (rows) => { state.demandes = rows; state.loaded = true; render(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); render(); },
+      onProblems: (rows) => { state.problems = rows; render(); },
       onError: () => toast("Connexion interrompue : recharge la page"),
     });
   }
@@ -2331,7 +2472,8 @@ function page(texte) {
     providerDocs: new Map(), // providerId -> {nom, tarifs}
     accounts: [],            // [{id: email, role, prestataireId}]
     hayons: [],              // [{plaque, dernierControle}] vehicles with a tailgate, from the provider's sheet
-    hayonWarned: "",         // warning already shown once for the form being saved
+    hayonWarned: "",
+    problems: [],            // [{demandeId, plaque, prestataireId, type, texte, photo?, statut, at, par}] problems seen by providers         // warning already shown once for the form being saved
     userEmail: "",
     recentFrom: D.recentWindowStart(D.toIsoDate(new Date())), // requests before this day are loaded only on demand
     olderRanges: [],         // [{from, to, ready}] older periods already asked for
@@ -2866,7 +3008,7 @@ function page(texte) {
     $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others) + appLink(d.prestataire), vehicles });
     renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
-    const hayonWarning = state.store ? hayonFormWarnings(d, readExtras())[0] : "";
+    const hayonWarning = (state.store ? hayonFormWarnings(d, readExtras())[0] : "") || problemHint(d.plaque);
     $("#vehHint").textContent = hayonWarning || (vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "");
     $("#vehHint").classList.toggle("warn", !!hayonWarning);
     const current = demandeById(state.editingId);
@@ -3512,16 +3654,54 @@ function page(texte) {
       ${!seen && state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
       <button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button></span></div>`;
   }
+  // ---------- problems seen on a vehicle by a provider (shock, tyre, warning light) ----------
+  const providerOfProblem = (p) => demandeById(p.demandeId)?.prestataire || state.providerDocs.get(p.prestataireId)?.nom || "Prestataire";
+  const atLabel = (iso) => `${D.numericDate(iso.slice(0, 10))} ${iso.slice(11, 16)}`;
+  function problemHint(plate) {
+    const open = D.openProblems(D.problemsOfPlate(state.problems, plate));
+    return open.length && D.plateKey(plate) ? `Problème signalé par ${providerOfProblem(open[0])} le ${D.shortDate(open[0].at.slice(0, 10))} : ${D.problemSummary(open[0])}` : "";
+  }
+  function problemRow(p, { handled = false } = {}) {
+    const d = demandeById(p.demandeId);
+    return `<div class="answer-row problem-row${handled ? " seen" : ""}">${plateTag(p.plaque)}
+      <span><span class="problem-type">${esc(D.problemOf(p.type)?.label || "Problème")}</span>${p.texte ? ` · ${esc(p.texte)}` : ""}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
+      <span class="row">${p.photo ? `<button type="button" data-proof="${esc(p.photo)}">${icon("image")}Photo</button>` : ""}
+      ${state.canWrite ? (handled ? `<button type="button" class="ghost" data-problem-undo="${esc(p.id)}">Rouvrir</button>` : `<button type="button" data-problem-done="${esc(p.id)}">${icon("check")}Traité</button>`) : ""}
+      ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : ""}</span></div>`;
+  }
+  function renderProblems() {
+    const open = D.openProblems(state.problems);
+    const handled = D.handledProblems(state.problems);
+    $("#problemsBlock").hidden = !open.length && !handled.length;
+    $("#problems").innerHTML = open.length ? open.map((p) => problemRow(p)).join("") : `<p class="hint">Aucun problème en attente.</p>`;
+    $("#problemsHandled").hidden = !handled.length;
+    $("#problemsHandled").innerHTML = handled.length ? `<summary>Problèmes déjà traités (${handled.length})</summary><div class="panel answers">${handled.map((p) => problemRow(p, { handled: true })).join("")}</div>` : "";
+    return open.length;
+  }
+  let knownProblems = null;
+  function followProblems(rows) {
+    const fresh = D.openProblems(rows).filter((p) => knownProblems && !knownProblems.has(p.id));
+    knownProblems = new Set(rows.map((p) => p.id));
+    if (!fresh.length) return;
+    const sentence = (p) => `${providerOfProblem(p)} signale un problème sur ${p.plaque} : ${D.problemSummary(p)}`;
+    toast(fresh.length > 1 ? `${fresh.length} problèmes signalés sur des véhicules` : sentence(fresh[0]));
+    if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") {
+      const n = new Notification("Problème signalé sur un véhicule", { body: fresh.slice(0, 3).map(sentence).join("\n"), icon: "assets/icon-180.png", tag: "problemes" });
+      n.onclick = () => { window.focus(); show("retours"); n.close(); };
+    }
+  }
+
   function renderAnswers() {
     const rows = D.unseenAnswers(state.demandes);
-    const n = rows.length;
+    const openProblems = renderProblems();
+    const n = rows.length + openProblems;
     $("#retoursBadge").hidden = !n; $("#retoursBadge").textContent = n;
     document.title = (n ? `(${n}) ` : "") + "City-Drop × Presta";
     try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
-    renderRetoursSide(rows);
-    $("#allSeenBtn").hidden = !n || !state.canWrite;
+    renderRetoursSide(rows, openProblems);
+    $("#allSeenBtn").hidden = !rows.length || !state.canWrite;
     $("#notifBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
-    $("#answers").innerHTML = n ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
+    $("#answers").innerHTML = rows.length ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
     const seen = D.seenAnswers(state.demandes);
     $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
   }
@@ -3540,10 +3720,11 @@ function page(texte) {
         <span class="side-what">${esc(d.prestataire)} · ${esc(D.answerSummary(r))}</span></button>
       <span class="side-quick">${quick}</span></li>`;
   }
-  function renderRetoursSide(rows) {
+  function renderRetoursSide(rows, openProblems = 0) {
     const n = rows.length;
-    const head = `<div class="panel-head"><h2>Retours${n ? ` <span class="tab-badge">${n}</span>` : ""}</h2><a href="#retours" class="side-all">Tout voir</a></div>`;
-    $("#retoursSide").innerHTML = head + (n
+    const head = `<div class="panel-head"><h2>Retours${n + openProblems ? ` <span class="tab-badge">${n + openProblems}</span>` : ""}</h2><a href="#retours" class="side-all">Tout voir</a></div>`;
+    const problems = openProblems ? `<a href="#retours" class="side-problems">${icon("alert")}${openProblems > 1 ? `${openProblems} problèmes signalés sur des véhicules` : "1 problème signalé sur un véhicule"}</a>` : "";
+    $("#retoursSide").innerHTML = head + problems + (n
       ? `<ul class="side-list">${rows.slice(0, SIDE_MAX).map(sideRow).join("")}</ul>${n > SIDE_MAX ? `<a href="#retours" class="side-more">+ ${plural(n - SIDE_MAX, "autre retour")}</a>` : ""}`
       : `<p class="side-empty">Aucun nouveau retour des prestataires.</p>`);
   }
@@ -3561,6 +3742,15 @@ function page(texte) {
     try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
     catch (err) { reportWriteError(err); }
   };
+  ["#problems", "#problemsHandled"].forEach((sel) => $(sel).addEventListener("click", (e) => {
+    const b = e.target.closest("[data-problem-done], [data-problem-undo], [data-open]");
+    if (!b) return;
+    if (b.dataset.open) return openDemande(b.dataset.open);
+    const p = state.problems.find((x) => x.id === (b.dataset.problemDone || b.dataset.problemUndo));
+    if (!p || !requireStore()) return;
+    state.store.markProblemHandled(p, state.userEmail, !!b.dataset.problemDone)
+      .then(() => toast(b.dataset.problemDone ? `Problème sur ${p.plaque} marqué comme traité` : `Problème sur ${p.plaque} rouvert`), reportWriteError);
+  }));
   ["#answers", "#answersSeen", "#retoursSide"].forEach((sel) => $(sel).addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
     const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
@@ -3643,6 +3833,7 @@ function page(texte) {
       onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); completeMailRequests(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
+      onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderFormSide(); },
       onRobot: (etat) => { state.robot = etat; renderRobot(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);

@@ -93,6 +93,28 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Problem seen on a vehicle (shock, tyre, warning light…): the provider reports it on one of its own requests,
+    // the team reads it and marks it handled. A provider sees only its own reports and can neither change nor delete them.
+    match /signalements/{reportId} {
+      allow read: if canReadAll() || (isProvider() && resource.data.prestataireId == account().prestataireId);
+      allow create: if isProvider() && validReport(request.resource.data);
+      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'traiteAt', 'traitePar'])
+                    && request.resource.data.statut in ['nouveau', 'traite'];
+      allow delete: if isAdmin();
+    }
+    function validReport(s) {
+      return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'statut', 'at', 'par'])
+        && s.keys().hasAll(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'statut', 'at', 'par'])
+        && s.prestataireId == account().prestataireId && s.par == email() && s.statut == 'nouveau'
+        && s.type in ['choc', 'pneu', 'voyant', 'autre']
+        && s.texte is string && s.texte.size() <= 500
+        && s.at is string && s.at.size() <= 40
+        && (!('photo' in s) || (s.photo is string && s.photo.size() <= 80))
+        && s.demandeId is string
+        && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.prestataireId == account().prestataireId
+        && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.plaque == s.plaque;
+    }
+
     // Fleet models and their windshield photos: useful to every provider, changed only by the team.
     match /modeles/{modelKey} {
       allow read: if canReadAll() || isProvider();

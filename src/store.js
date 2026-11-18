@@ -48,7 +48,7 @@
       return { add, stop };
     }
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onRobot, onError, recentFrom }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onError, recentFrom }) {
       const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const requests = db.collection("demandes");
       demandesFeed = createDemandesFeed(onDemandes, onError);
@@ -69,6 +69,7 @@
       ];
       // Before the rules allowing it are published, this list simply stays empty.
       if (onHayons) unsubs.push(db.collection("hayons").onSnapshot((s) => onHayons(toRows(s)), () => onHayons([])));
+      if (onProblems) unsubs.push(db.collection("signalements").onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
       // Only the team may list accounts: for anyone else this one simply stays empty.
       if (onAccounts) unsubs.push(db.collection("comptes").onSnapshot((s) => onAccounts(toRows(s)), () => onAccounts([])));
       // Trace left by the mail robot: refused until the new rules are published, then simply "not installed".
@@ -119,12 +120,14 @@
       catch { return null; }
     }
     // ----- provider side: only its own requests (the rules refuse an unfiltered list) -----
-    function subscribeProvider(prestataireId, { onDemandes, onModels, onError }) {
+    function subscribeProvider(prestataireId, { onDemandes, onModels, onProblems, onError }) {
       const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const unsubs = [
         db.collection("demandes").where("prestataireId", "==", prestataireId).onSnapshot((s) => onDemandes(toRows(s)), onError),
         db.collection("modeles").onSnapshot((s) => onModels(toRows(s)), onError),
       ];
+      // Its own problem reports, so it does not report the same thing twice. Empty until the rules are published.
+      if (onProblems) unsubs.push(db.collection("signalements").where("prestataireId", "==", prestataireId).onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
       return () => unsubs.forEach((u) => u());
     }
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
@@ -132,6 +135,20 @@
       const now = new Date().toISOString();
       await db.doc("demandes/" + demande.id).update({ retour: { ...retour, at: now }, updatedAt: now });
     }
+    // A problem seen on a vehicle: the photo (optional) goes in preuves/<key> like a proof, then the report itself.
+    async function reportProblem(demande, fields, photoFull) {
+      let photo = "";
+      if (photoFull) {
+        photo = `sig_${D.plateKey(demande.plaque)}_${Date.now().toString(36)}`;
+        await db.doc("preuves/" + photo).set({ prestataireId: demande.prestataireId, plaque: demande.plaque, data: photoFull, at: new Date().toISOString() });
+        photoCache.set("preuve:" + photo, photoFull);
+      }
+      const report = D.problemReport(demande, { ...fields, photo }, fields.par, new Date().toISOString());
+      if (report.error) throw { code: "invalid", message: report.error };
+      await db.collection("signalements").doc().set(report);
+    }
+    const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
+      handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
     async function loadProof(key) {
       const cacheKey = "preuve:" + key;
       if (!photoCache.has(cacheKey)) {
@@ -248,7 +265,7 @@
       return photoCache.get(key);
     }
 
-    return { loadDemandesBetween, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { loadDemandesBetween, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
