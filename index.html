@@ -530,11 +530,11 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 .lv-ok { --lv: var(--lv-ok); --lv-bg: var(--lv-ok-bg); }
 .lv-inconnu { --lv: var(--st-off); --lv-bg: var(--st-off-bg); }
 .hayon-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-bottom: 20px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
-.hy-kpi { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; border-top: 4px solid var(--lv); }
+.hy-kpi { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
 .hy-kpi b { font-family: var(--f-display); font-size: 38px; line-height: 1; color: var(--lv); font-variant-numeric: tabular-nums; }
 .hy-kpi span { font-size: 13px; color: var(--ink-2); }
 .hy-list { list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.hy-row { display: grid; grid-template-columns: 170px auto 1fr auto; gap: 8px 16px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--lv); border-radius: var(--r); padding: 10px 14px; box-shadow: var(--shadow); }
+.hy-row { display: grid; grid-template-columns: 170px auto 1fr auto; gap: 8px 16px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; box-shadow: var(--shadow); }
 .hy-days { justify-self: start; font-weight: 700; font-size: 14px; color: var(--lv); background: var(--lv-bg); padding: 4px 10px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .hy-dates { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--ink-2); }
 .hy-dates b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
