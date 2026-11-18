@@ -377,6 +377,16 @@ test("editing an imported request keeps what lets a later mail cancel it", () =>
     { source: "mail", mailId: "mail-X", garageMail: "DSAT", km: 1 });
 });
 
+test("la réponse du prestataire clôt ou confirme la demande elle-même", () => {
+  const at = "2026-11-19T10:00:00.000Z";
+  const d = { statut: "envoyee", sentAt: "2026-11-18T08:00:00.000Z" };
+  assert.deepEqual(D.answerPatch(d, { etat: "fait", par: "k" }, at), { retour: { etat: "fait", par: "k", at }, updatedAt: at, statut: "realisee", confirmedAt: at, doneAt: at });
+  assert.deepEqual(D.answerPatch(d, { etat: "confirme", par: "k" }, at), { retour: { etat: "confirme", par: "k", at }, updatedAt: at, statut: "confirmee", confirmedAt: at });
+  assert.deepEqual(D.answerPatch({ ...d, statut: "confirmee", confirmedAt: "x" }, { etat: "fait", par: "k" }, at), { retour: { etat: "fait", par: "k", at }, updatedAt: at, statut: "realisee", doneAt: at });
+  assert.deepEqual(D.answerPatch(d, { etat: "absent", par: "k" }, at), { retour: { etat: "absent", par: "k", at }, updatedAt: at });
+  assert.deepEqual(D.answerPatch({ ...d, statut: "annulee" }, { etat: "fait", par: "k" }, at), { retour: { etat: "fait", par: "k", at }, updatedAt: at });
+});
+
 test("washes are complete unless marked inside only, each with its own price", () => {
   const prices = [
     { service: "lavage", formule: "complet", cubageMin: null, cubageMax: null, prixHT: 42 },

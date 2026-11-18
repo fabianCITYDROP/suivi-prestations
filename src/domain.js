@@ -563,6 +563,19 @@
   const problemsOfRequest = (list, demandeId) => list.filter((s) => s.demandeId === demandeId).sort(byNewest);
   const problemsOfPlate = (list, plate) => list.filter((s) => plateKey(s.plaque) === plateKey(plate)).sort(byNewest);
 
+  // What a provider's answer writes. A "fait" or an acceptance also moves the request's status right away, so the
+  // request is closed even when nobody of the team has the app open (the access rules allow exactly this).
+  function answerPatch(d, retour, nowIso) {
+    const r = { ...retour, at: nowIso };
+    const patch = { retour: r, updatedAt: nowIso };
+    const status = d.statut === "annulee" ? null : statusFromAnswer({ ...d, retour: r });
+    if (!status) return patch;
+    patch.statut = status;
+    if (!d.sentAt) patch.sentAt = nowIso;
+    if (!d.confirmedAt) patch.confirmedAt = nowIso;
+    if (status === "realisee") patch.doneAt = nowIso;
+    return patch;
+  }
   // Answers the team has not looked at yet, newest first.
   // Every answer already seen, newest first: the "Déjà vus" list of the Retours page.
   const seenAnswers = (demandes, limit = 40) => demandes.filter((d) => d.retour?.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || "")).slice(0, limit);
@@ -820,7 +833,7 @@
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
-    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
+    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
   };
 });

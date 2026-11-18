@@ -396,6 +396,11 @@ body.presta-mode .top .sync { display: none; }
 .presta-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(18, 33, 43, .08), 0 2px 8px -4px rgba(18, 33, 43, .2); }
 .presta-tabs .count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--line); color: var(--ink); font: 700 12px/20px var(--f-body); font-variant-numeric: tabular-nums; }
 .presta-tabs .count.hot { background: var(--st-todo); color: #fff; }
+.alert-card { display: grid; grid-template-columns: 40px 1fr; gap: 4px 12px; align-items: center; margin: 0 0 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 1px 2px rgba(18, 33, 43, .05); }
+.alert-icon { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); color: var(--accent); }
+.alert-title { margin: 0; font-weight: 600; font-size: 15px; }
+.alert-text { margin: 2px 0 0; color: var(--ink-2); font-size: 14px; line-height: 1.4; }
+.alert-card button { grid-column: 1 / -1; margin-top: 10px; width: 100%; }
 .presta-body { display: flex; flex-direction: column; gap: 12px; }
 .tab-intro { margin: 0 2px 2px; color: var(--ink-2); font-size: 14px; }
 

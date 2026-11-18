@@ -13,7 +13,7 @@
     { id: "done", label: "Faits", icon: "check" },
   ];
 
-  function start({ store, account, email, D, ui }) {
+  function start({ store, account, email, D, ui, alerts }) {
     const { $, esc, toast, icon, plateTag, safeImageSrc, prepareImage } = ui;
     // draft: what the provider is typing in the open form, kept across re-renders (a new request arriving redraws the screen).
     const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "" };
@@ -164,6 +164,17 @@
     }
     const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
+    // Until alerts work on this phone: one card above the tabs, with the one thing to do.
+    function alertCard() {
+      const st = alerts?.state;
+      if (!st || ["off", "loading", "on"].includes(st)) return "";
+      const text = st === "ask" ? "Sois prévenu dès qu'une demande arrive, même téléphone verrouillé." : root.SuiviAlertes.TEXTS[st];
+      return `<div class="alert-card" role="region" aria-label="Alertes">
+          <span class="alert-icon" aria-hidden="true">${icon("bell")}</span>
+          <div><p class="alert-title">${st === "ask" || st === "error" ? "Alertes des nouvelles demandes" : "Alertes pas encore actives"}</p><p class="alert-text">${esc(text)}</p></div>
+          ${st === "ask" || st === "error" ? `<button type="button" class="primary big" data-alerts>Activer les alertes</button>` : ""}
+        </div>`;
+    }
     // Re-renders the whole screen, keeping the cursor in the search box while the provider types.
     function render() {
       const lists = D.providerLists(state.demandes, today());
@@ -174,6 +185,7 @@
           <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
           <h1>${esc(cap(D.dayLabel(today())))}</h1>
         </header>
+        ${alertCard()}
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
@@ -228,7 +240,8 @@
     view.addEventListener("click", (e) => {
       const el = (sel) => e.target.closest(sel);
       let b;
-      if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
+      if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
+      else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
       else if ((b = el("[data-form]"))) { state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; state.draft = {}; render(); }
       else if ((b = el("[data-ptype]"))) {
@@ -255,6 +268,7 @@
       }
     });
 
+    alerts?.listen(() => render());
     render();
     store.getProvider(account.prestataireId).then((p) => { state.providerName = p?.nom || ""; render(); }).catch(() => {});
     store.subscribeProvider(account.prestataireId, {

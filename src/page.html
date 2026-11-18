@@ -87,9 +87,10 @@
     <div class="daybar">
       <h1>Retours des prestataires</h1>
       <span class="spacer"></span>
-      <button type="button" class="ghost" id="notifBtn" hidden>Activer les notifications</button>
+      <button type="button" class="ghost" id="notifBtn" hidden>Activer les alertes</button>
       <button type="button" id="allSeenBtn" hidden>Tout marquer comme vu</button>
     </div>
+    <p class="hint" id="alertHint" hidden></p>
     <p class="hint">Les réponses des prestataires arrivent ici. Un passage fait ou une acceptation est déjà appliqué à la demande : « Vu » range simplement le retour.</p>
     <div id="problemsBlock" hidden>
       <h2 class="section-title">Problèmes signalés sur les véhicules</h2>
@@ -302,6 +303,12 @@
           <select id="a-prov" aria-label="Prestataire du compte" style="flex:1 1 140px"></select>
           <button type="button" id="a-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
         <div id="a-prepare" class="row" hidden style="margin-top:12px"><p class="hint" style="flex:1 1 220px">À faire une fois avant de publier les nouvelles règles : <span id="a-prepare-text"></span></p><button type="button" class="primary" id="a-prepare-btn">Préparer les accès</button></div>
+      </div>
+      <div class="panel">
+        <h2>Alertes sur les téléphones</h2>
+        <p class="hint">Les prestataires sont prévenus d'une nouvelle demande, et l'équipe d'un retour, même appli fermée. Le script Google qui les envoie s'installe une fois (mode d'emploi : <a href="https://github.com/fabianCITYDROP/suivi-prestations/blob/main/apps-script/LISEZMOI.md#alertes-appli-fermée" target="_blank" rel="noopener">LISEZMOI</a>), puis on colle ici son adresse.</p>
+        <div class="row"><input id="al-url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Adresse du script des alertes" style="flex:1 1 260px"><button type="button" class="primary" id="al-save">Enregistrer</button></div>
+        <p class="hint" id="al-status" role="status"></p>
       </div>
       <div class="panel">
         <h2>Robot des mails</h2>

@@ -1288,7 +1288,7 @@
     try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
     renderRetoursSide(rows, openProblems);
     $("#allSeenBtn").hidden = !rows.length || !state.canWrite;
-    $("#notifBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
+    renderAlertButton();
     $("#answers").innerHTML = rows.length ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
     const seen = D.seenAnswers(state.demandes);
     $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
@@ -1318,13 +1318,39 @@
   }
   // A system notification for answers that arrive while the app is open in another tab or window.
   function notifyAnswers(fresh) {
+    if (state.alerts?.state === "on") return; // the alert script already sends it to this device
     if (!("Notification" in window) || Notification.permission !== "granted" || document.visibilityState === "visible") return;
     const n = new Notification(fresh.length > 1 ? `${fresh.length} nouveaux retours des prestataires` : "Nouveau retour d'un prestataire", {
       body: fresh.slice(0, 3).map(answerSentence).join("\n"), icon: "assets/icon-180.png", tag: "retours",
     });
     n.onclick = () => { window.focus(); show("retours"); n.close(); };
   }
-  $("#notifBtn").onclick = () => Notification.requestPermission().then((p) => { renderAnswers(); toast(p === "granted" ? "Notifications activées sur cet ordinateur" : "Notifications refusées par le navigateur"); });
+  // ---------- alerts on a closed app (team side): button on the Retours page, settings panel ----------
+  const ALERT_TEAM_TEXTS = { on: "Alertes actives sur cet appareil.", ask: "Les alertes ne sont pas encore activées sur cet appareil.", loading: "" };
+  function renderAlertButton() {
+    const a = state.alerts;
+    const pushable = a && a.state !== "off" && a.state !== "loading" && state.canWrite;
+    $("#notifBtn").hidden = pushable ? !["ask", "error"].includes(a.state) : !("Notification" in window) || Notification.permission !== "default";
+    const hint = pushable && window.SuiviAlertes.TEXTS[a.state];
+    $("#alertHint").hidden = !hint; $("#alertHint").textContent = hint || "";
+    const status = !a || a.state === "off" ? (a?.settings?.url ? "" : "Pas encore branché : colle l'adresse du script.") : window.SuiviAlertes.TEXTS[a.state] || ALERT_TEAM_TEXTS[a.state] || "";
+    $("#al-status").textContent = status;
+    if (a?.settings?.url && document.activeElement !== $("#al-url")) $("#al-url").value = a.settings.url;
+  }
+  $("#notifBtn").onclick = () => {
+    if (state.alerts && state.alerts.state !== "off") return state.alerts.activate().then(() => { if (state.alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
+    Notification.requestPermission().then((p) => { renderAnswers(); toast(p === "granted" ? "Notifications activées sur cet ordinateur" : "Notifications refusées par le navigateur"); });
+  };
+  $("#al-save").onclick = async () => {
+    if (!requireStore()) return;
+    const url = $("#al-url").value.trim();
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) return toast("L'adresse doit commencer par https://script.google.com/macros/s/ et finir par /exec");
+    let cle = "";
+    try { cle = (await (await fetch(url + "?action=cle", { cache: "no-store" })).json()).cle || ""; } catch {}
+    if (!/^[\w-]{80,100}$/.test(cle)) return toast("Le script ne répond pas : vérifie qu'il est déployé en « Application Web », accès « Tout le monde »");
+    try { await state.store.saveAlertSettings({ url, cle }); await state.alerts?.reload(); toast("Script des alertes branché"); renderAnswers(); }
+    catch (err) { reportWriteError(err); }
+  };
   $("#allSeenBtn").onclick = async () => {
     if (!requireStore()) return;
     try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
@@ -1395,6 +1421,8 @@
     const user = await window.claude.use("user").catch(() => null);
     state.userEmail = user?.email || "";
     const account = await state.store.getAccount(state.userEmail);
+    state.alerts = window.SuiviAlertes.create({ store: state.store, account: account || { role: "admin" }, email: D.emailKey(state.userEmail) });
+    state.alerts.listen(() => (state.providerMode ? null : renderAnswers()));
     if (account?.role === "prestataire") return startProviderMode(account);
     if (account?.role === "lecture") setReadOnly("Accès en lecture : tu vois tout mais tu ne modifies rien.");
     if ((await user?.can("data.write")) === false) setReadOnly("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
@@ -1403,7 +1431,7 @@
   function startProviderMode(account) {
     state.providerMode = true;
     setSync("Connecté", true);
-    window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D,
+    window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D, alerts: state.alerts,
       ui: { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } });
   }
   function setReadOnly(message) {

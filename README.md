@@ -19,3 +19,10 @@ Page en ligne : https://fabiancitydrop.github.io/suivi-prestations/
   Un prestataire ne voit que les demandes dont `prestataireId` est le sien. Tout se gère dans Réglages › Accès à l'appli.
 - Les tarifs sont en HT par prestataire (Réglages › Tarifs hors taxe) ; le prix est figé sur la demande (`prixHT`).
 - `tests-regles/` vérifie les règles et le parcours dans les émulateurs Firebase (voir son LISEZMOI).
+
+## Alertes appli fermée (phase 3)
+
+- `sw.js` reçoit les alertes ; `src/notifs.js` inscrit l'appareil (`abonnements/<id>`) ; `apps-script/notifications.js` les envoie
+  (Web Push gratuit, même projet Apps Script que l'import des mails). Adresse du script : `public/notifications`, réglée dans Réglages.
+- La réponse « fait » / « accepté » d'un prestataire change le statut de la demande elle-même (`D.answerPatch`), sans attendre l'équipe.
+- Mise en place : `apps-script/LISEZMOI.md`, section « Alertes appli fermée ».

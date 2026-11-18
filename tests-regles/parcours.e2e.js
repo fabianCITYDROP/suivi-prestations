@@ -86,7 +86,7 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   await p.goto('http://localhost:8765/#planning'); await p.click('#newOnDay'); await p.waitForTimeout(100);
   await p.selectOption('#f-prest', 'ALLO pare-brise 78'); await p.dispatchEvent('#f-prest', 'change');
   ok('no "Intervention" for a windshield-only provider', await p.isHidden('label:has(#svc-intervention)'));
-  await p.goto('http://localhost:8765/#reglages'); await p.check('[data-prov-interventions="Khalid"]'); await p.waitForTimeout(800);
+  await p.goto('http://localhost:8765/#reglages'); await p.check('[data-prov-flag="interventions"][data-prov="Khalid"]'); await p.waitForTimeout(800);
   const provs = await list('prestataires');
   ok('interventions saved on Khalid', provs.find(x => x.id === 'khalid')?.interventions?.booleanValue === true);
   await p.goto('http://localhost:8765/#planning'); await p.click('#newOnDay'); await p.selectOption('#f-prest', 'Khalid'); await p.dispatchEvent('#f-prest', 'change');
