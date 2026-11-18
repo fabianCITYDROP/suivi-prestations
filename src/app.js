@@ -25,7 +25,8 @@
     providerDocs: new Map(), // providerId -> {nom, tarifs}
     accounts: [],            // [{id: email, role, prestataireId}]
     hayons: [],              // [{plaque, dernierControle}] vehicles with a tailgate, from the provider's sheet
-    hayonWarned: "",         // warning already shown once for the form being saved
+    hayonWarned: "",
+    problems: [],            // [{demandeId, plaque, prestataireId, type, texte, photo?, statut, at, par}] problems seen by providers         // warning already shown once for the form being saved
     userEmail: "",
   };
   // Providers who have their own access get a link to answer in the app instead of WhatsApp.
@@ -539,7 +540,7 @@
     $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others) + appLink(d.prestataire), vehicles });
     renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
-    const hayonWarning = state.store ? hayonFormWarnings(d, readExtras())[0] : "";
+    const hayonWarning = (state.store ? hayonFormWarnings(d, readExtras())[0] : "") || problemHint(d.plaque);
     $("#vehHint").textContent = hayonWarning || (vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "");
     $("#vehHint").classList.toggle("warn", !!hayonWarning);
     const current = demandeById(state.editingId);
@@ -1168,16 +1169,54 @@
       ${!seen && state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
       <button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button></span></div>`;
   }
+  // ---------- problems seen on a vehicle by a provider (shock, tyre, warning light) ----------
+  const providerOfProblem = (p) => demandeById(p.demandeId)?.prestataire || state.providerDocs.get(p.prestataireId)?.nom || "Prestataire";
+  const atLabel = (iso) => `${D.numericDate(iso.slice(0, 10))} ${iso.slice(11, 16)}`;
+  function problemHint(plate) {
+    const open = D.openProblems(D.problemsOfPlate(state.problems, plate));
+    return open.length && D.plateKey(plate) ? `Problème signalé par ${providerOfProblem(open[0])} le ${D.shortDate(open[0].at.slice(0, 10))} : ${D.problemSummary(open[0])}` : "";
+  }
+  function problemRow(p, { handled = false } = {}) {
+    const d = demandeById(p.demandeId);
+    return `<div class="answer-row problem-row${handled ? " seen" : ""}">${plateTag(p.plaque)}
+      <span><span class="problem-type">${esc(D.problemOf(p.type)?.label || "Problème")}</span>${p.texte ? ` · ${esc(p.texte)}` : ""}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
+      <span class="row">${p.photo ? `<button type="button" data-proof="${esc(p.photo)}">${icon("image")}Photo</button>` : ""}
+      ${state.canWrite ? (handled ? `<button type="button" class="ghost" data-problem-undo="${esc(p.id)}">Rouvrir</button>` : `<button type="button" data-problem-done="${esc(p.id)}">${icon("check")}Traité</button>`) : ""}
+      ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : ""}</span></div>`;
+  }
+  function renderProblems() {
+    const open = D.openProblems(state.problems);
+    const handled = D.handledProblems(state.problems);
+    $("#problemsBlock").hidden = !open.length && !handled.length;
+    $("#problems").innerHTML = open.length ? open.map((p) => problemRow(p)).join("") : `<p class="hint">Aucun problème en attente.</p>`;
+    $("#problemsHandled").hidden = !handled.length;
+    $("#problemsHandled").innerHTML = handled.length ? `<summary>Problèmes déjà traités (${handled.length})</summary><div class="panel answers">${handled.map((p) => problemRow(p, { handled: true })).join("")}</div>` : "";
+    return open.length;
+  }
+  let knownProblems = null;
+  function followProblems(rows) {
+    const fresh = D.openProblems(rows).filter((p) => knownProblems && !knownProblems.has(p.id));
+    knownProblems = new Set(rows.map((p) => p.id));
+    if (!fresh.length) return;
+    const sentence = (p) => `${providerOfProblem(p)} signale un problème sur ${p.plaque} : ${D.problemSummary(p)}`;
+    toast(fresh.length > 1 ? `${fresh.length} problèmes signalés sur des véhicules` : sentence(fresh[0]));
+    if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") {
+      const n = new Notification("Problème signalé sur un véhicule", { body: fresh.slice(0, 3).map(sentence).join("\n"), icon: "assets/icon-180.png", tag: "problemes" });
+      n.onclick = () => { window.focus(); show("retours"); n.close(); };
+    }
+  }
+
   function renderAnswers() {
     const rows = D.unseenAnswers(state.demandes);
-    const n = rows.length;
+    const openProblems = renderProblems();
+    const n = rows.length + openProblems;
     $("#retoursBadge").hidden = !n; $("#retoursBadge").textContent = n;
     document.title = (n ? `(${n}) ` : "") + "City-Drop × Presta";
     try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
-    renderRetoursSide(rows);
-    $("#allSeenBtn").hidden = !n || !state.canWrite;
+    renderRetoursSide(rows, openProblems);
+    $("#allSeenBtn").hidden = !rows.length || !state.canWrite;
     $("#notifBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
-    $("#answers").innerHTML = n ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
+    $("#answers").innerHTML = rows.length ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
     const seen = D.seenAnswers(state.demandes);
     $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
   }
@@ -1196,10 +1235,11 @@
         <span class="side-what">${esc(d.prestataire)} · ${esc(D.answerSummary(r))}</span></button>
       <span class="side-quick">${quick}</span></li>`;
   }
-  function renderRetoursSide(rows) {
+  function renderRetoursSide(rows, openProblems = 0) {
     const n = rows.length;
-    const head = `<div class="panel-head"><h2>Retours${n ? ` <span class="tab-badge">${n}</span>` : ""}</h2><a href="#retours" class="side-all">Tout voir</a></div>`;
-    $("#retoursSide").innerHTML = head + (n
+    const head = `<div class="panel-head"><h2>Retours${n + openProblems ? ` <span class="tab-badge">${n + openProblems}</span>` : ""}</h2><a href="#retours" class="side-all">Tout voir</a></div>`;
+    const problems = openProblems ? `<a href="#retours" class="side-problems">${icon("alert")}${openProblems > 1 ? `${openProblems} problèmes signalés sur des véhicules` : "1 problème signalé sur un véhicule"}</a>` : "";
+    $("#retoursSide").innerHTML = head + problems + (n
       ? `<ul class="side-list">${rows.slice(0, SIDE_MAX).map(sideRow).join("")}</ul>${n > SIDE_MAX ? `<a href="#retours" class="side-more">+ ${plural(n - SIDE_MAX, "autre retour")}</a>` : ""}`
       : `<p class="side-empty">Aucun nouveau retour des prestataires.</p>`);
   }
@@ -1217,6 +1257,15 @@
     try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
     catch (err) { reportWriteError(err); }
   };
+  ["#problems", "#problemsHandled"].forEach((sel) => $(sel).addEventListener("click", (e) => {
+    const b = e.target.closest("[data-problem-done], [data-problem-undo], [data-open]");
+    if (!b) return;
+    if (b.dataset.open) return openDemande(b.dataset.open);
+    const p = state.problems.find((x) => x.id === (b.dataset.problemDone || b.dataset.problemUndo));
+    if (!p || !requireStore()) return;
+    state.store.markProblemHandled(p, state.userEmail, !!b.dataset.problemDone)
+      .then(() => toast(b.dataset.problemDone ? `Problème sur ${p.plaque} marqué comme traité` : `Problème sur ${p.plaque} rouvert`), reportWriteError);
+  }));
   ["#answers", "#answersSeen", "#retoursSide"].forEach((sel) => $(sel).addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
     const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
@@ -1286,6 +1335,7 @@
       onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); completeMailRequests(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
+      onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderFormSide(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
         if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe City-Drop de t'ajouter dans Réglages › Accès.");
