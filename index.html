@@ -327,6 +327,7 @@ td.date { font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Settings */
 .list-edit { display: flex; flex-direction: column; gap: 8px; }
 .list-edit .item { display: grid; grid-template-columns: minmax(96px, 140px) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.prov-flags { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .list-edit .item.price { grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px 14px; }
 .list-edit .item.account { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; }
 .list-edit .item.account > :first-child { overflow-wrap: anywhere; }
@@ -841,7 +842,7 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
     <div class="settings">
       <div class="panel">
         <h2>Prestataires</h2>
-        <p class="hint">Le premier de la liste est choisi par défaut. Coche « Interventions » pour ceux à qui on peut demander autre chose qu'un pare-brise ou un lavage (vérification, ampoule, AdBlue…), et « Contrôle hayon » pour celui qui contrôle les hayons.</p>
+        <p class="hint">Le premier de la liste est choisi par défaut. Tous peuvent recevoir des lavages. Coche « Pare-brise » seulement pour ceux qui changent les pare-brise : les autres ne pourront jamais en recevoir. « Interventions » : vérification, ampoule, AdBlue… « Contrôle hayon » : celui qui contrôle les hayons.</p>
         <div class="list-edit" id="s-provs"></div>
         <div class="row"><input id="s-newprov" placeholder="Nom du prestataire" style="flex:1 1 200px"><button type="button" id="s-addprov"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
       </div>
@@ -1071,7 +1072,8 @@ window.SUIVI_FIREBASE_CONFIG = {
   else root.SuiviDomain = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   const SERVICES = [
-    { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise" },
+    // Windshields only go to the providers ticked "Pare-brise" in Réglages (ALLO pare-brise 78 by default).
+    { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise", onRequest: "pareBrise" },
     { id: "lavage", label: "Lavage", title: "lavage véhicule" },
     // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
     { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: "interventions" },
@@ -1082,8 +1084,14 @@ window.SUIVI_FIREBASE_CONFIG = {
   const TASK_SUGGESTIONS = ["Monter la roue de secours", "Vérifier les pneus", "AdBlue + éteindre le voyant", "Déplacer le véhicule",
     "Vérifier les ampoules", "Niveau d'huile", "Vérification du véhicule"];
   const isIntervention = (d) => d.service === "intervention";
-  // Services offered by a provider: windshield and washing for all, interventions and tailgate controls when enabled in Réglages.
-  const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.[s.onRequest]).map((s) => s.id);
+  // Services offered by a provider: washing for all; windshield, interventions and tailgate controls when ticked in Réglages.
+  // Before the "Pare-brise" box existed only ALLO did windshields: a provider never ticked/unticked keeps that rule.
+  const offers = (providerDoc, flag, name) => {
+    const value = providerDoc?.[flag];
+    if (value === undefined && flag === "pareBrise") return providerId(name || providerDoc?.nom) === providerId(DEFAULT_PROVIDERS[0]);
+    return !!value;
+  };
+  const servicesFor = (providerDoc, name) => SERVICES.filter((s) => !s.onRequest || offers(providerDoc, s.onRequest, name)).map((s) => s.id);
   const STATUSES = [
     { id: "a_envoyer", label: "À envoyer" },
     { id: "envoyee", label: "Envoyée" },
@@ -1753,7 +1761,7 @@ window.SUIVI_FIREBASE_CONFIG = {
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
   return {
-    DEFAULT_SLOT, TASK_SUGGESTIONS, existingDuplicate, isIntervention, servicesFor,
+    DEFAULT_SLOT, TASK_SUGGESTIONS, existingDuplicate, isIntervention, servicesFor, offers,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
@@ -2626,10 +2634,11 @@ function page(texte) {
   const chosenService = () => document.querySelector('input[name="svc"]:checked')?.value || "pare-brise";
   // Shows only the services the chosen provider does; "Intervention" also asks what to do.
   function renderServiceChoice() {
-    const allowed = D.servicesFor(state.providerDocs.get(D.providerId(field("prest").value)));
+    const name = field("prest").value;
+    const allowed = D.servicesFor(state.providerDocs.get(D.providerId(name)), name);
     if (state.editingId) allowed.push(demandeById(state.editingId)?.service);
     D.SERVICES.forEach((s) => ($("#svc-" + s.id).closest("label").hidden = !allowed.includes(s.id)));
-    if (!allowed.includes(chosenService())) $("#svc-pare-brise").checked = true;
+    if (!allowed.includes(chosenService())) $("#svc-" + allowed[0]).checked = true;
     $("#taskRow").hidden = chosenService() !== "intervention";
     $("#washRow").hidden = chosenService() !== "lavage";
   }
@@ -3115,9 +3124,9 @@ function page(texte) {
     $("#s-sites").innerHTML = state.sites.map((s, i) => `<div class="item"><b>${esc(s.nom)}</b>
       <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}">${removeButton("data-remove-site", i, s.nom)}</div>`).join("");
     $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
+    const provFlag = (p, flag, label) => `<label class="check"><input type="checkbox" data-prov-flag="${flag}" data-prov="${esc(p)}" ${D.offers(state.providerDocs.get(D.providerId(p)), flag, p) ? "checked" : ""}>${label}</label>`;
     $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
-      <label class="check"><input type="checkbox" data-prov-flag="interventions" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.interventions ? "checked" : ""}>Interventions</label>
-      <label class="check"><input type="checkbox" data-prov-flag="hayon" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.hayon ? "checked" : ""}>Contrôle hayon</label>${removeButton("data-remove-provider", i, p)}</div>`).join("");
+      <div class="prov-flags">${provFlag(p, "pareBrise", "Pare-brise")}${provFlag(p, "interventions", "Interventions")}${provFlag(p, "hayon", "Contrôle hayon")}</div>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
     renderPrices(); renderAccounts();
   }
@@ -3218,7 +3227,7 @@ function page(texte) {
     const box = e.target.closest("[data-prov-flag]");
     if (!box || !requireStore()) return;
     const nom = box.dataset.prov, flag = box.dataset.provFlag;
-    const what = flag === "hayon" ? "des contrôles hayon" : "des interventions";
+    const what = { hayon: "des contrôles hayon", pareBrise: "des pare-brise" }[flag] || "des interventions";
     try { await state.store.saveProvider(D.providerId(nom), { nom, [flag]: box.checked }); toast(box.checked ? `${nom} peut recevoir ${what}` : `${nom} ne reçoit plus ${what.replace(/^des /, "de ")}`); }
     catch (err) { box.checked = !box.checked; reportWriteError(err); }
   });

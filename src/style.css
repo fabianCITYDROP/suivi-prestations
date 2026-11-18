@@ -301,6 +301,7 @@ td.date { font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Settings */
 .list-edit { display: flex; flex-direction: column; gap: 8px; }
 .list-edit .item { display: grid; grid-template-columns: minmax(96px, 140px) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.prov-flags { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .list-edit .item.price { grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px 14px; }
 .list-edit .item.account { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; }
 .list-edit .item.account > :first-child { overflow-wrap: anywhere; }

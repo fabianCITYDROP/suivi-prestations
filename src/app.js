@@ -408,10 +408,11 @@
   const chosenService = () => document.querySelector('input[name="svc"]:checked')?.value || "pare-brise";
   // Shows only the services the chosen provider does; "Intervention" also asks what to do.
   function renderServiceChoice() {
-    const allowed = D.servicesFor(state.providerDocs.get(D.providerId(field("prest").value)));
+    const name = field("prest").value;
+    const allowed = D.servicesFor(state.providerDocs.get(D.providerId(name)), name);
     if (state.editingId) allowed.push(demandeById(state.editingId)?.service);
     D.SERVICES.forEach((s) => ($("#svc-" + s.id).closest("label").hidden = !allowed.includes(s.id)));
-    if (!allowed.includes(chosenService())) $("#svc-pare-brise").checked = true;
+    if (!allowed.includes(chosenService())) $("#svc-" + allowed[0]).checked = true;
     $("#taskRow").hidden = chosenService() !== "intervention";
     $("#washRow").hidden = chosenService() !== "lavage";
   }
@@ -897,9 +898,9 @@
     $("#s-sites").innerHTML = state.sites.map((s, i) => `<div class="item"><b>${esc(s.nom)}</b>
       <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}">${removeButton("data-remove-site", i, s.nom)}</div>`).join("");
     $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
+    const provFlag = (p, flag, label) => `<label class="check"><input type="checkbox" data-prov-flag="${flag}" data-prov="${esc(p)}" ${D.offers(state.providerDocs.get(D.providerId(p)), flag, p) ? "checked" : ""}>${label}</label>`;
     $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
-      <label class="check"><input type="checkbox" data-prov-flag="interventions" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.interventions ? "checked" : ""}>Interventions</label>
-      <label class="check"><input type="checkbox" data-prov-flag="hayon" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.hayon ? "checked" : ""}>Contrôle hayon</label>${removeButton("data-remove-provider", i, p)}</div>`).join("");
+      <div class="prov-flags">${provFlag(p, "pareBrise", "Pare-brise")}${provFlag(p, "interventions", "Interventions")}${provFlag(p, "hayon", "Contrôle hayon")}</div>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
     renderPrices(); renderAccounts();
   }
@@ -1000,7 +1001,7 @@
     const box = e.target.closest("[data-prov-flag]");
     if (!box || !requireStore()) return;
     const nom = box.dataset.prov, flag = box.dataset.provFlag;
-    const what = flag === "hayon" ? "des contrôles hayon" : "des interventions";
+    const what = { hayon: "des contrôles hayon", pareBrise: "des pare-brise" }[flag] || "des interventions";
     try { await state.store.saveProvider(D.providerId(nom), { nom, [flag]: box.checked }); toast(box.checked ? `${nom} peut recevoir ${what}` : `${nom} ne reçoit plus ${what.replace(/^des /, "de ")}`); }
     catch (err) { box.checked = !box.checked; reportWriteError(err); }
   });

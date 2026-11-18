@@ -5,7 +5,8 @@
   else root.SuiviDomain = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   const SERVICES = [
-    { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise" },
+    // Windshields only go to the providers ticked "Pare-brise" in Réglages (ALLO pare-brise 78 by default).
+    { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise", onRequest: "pareBrise" },
     { id: "lavage", label: "Lavage", title: "lavage véhicule" },
     // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
     { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: "interventions" },
@@ -16,8 +17,14 @@
   const TASK_SUGGESTIONS = ["Monter la roue de secours", "Vérifier les pneus", "AdBlue + éteindre le voyant", "Déplacer le véhicule",
     "Vérifier les ampoules", "Niveau d'huile", "Vérification du véhicule"];
   const isIntervention = (d) => d.service === "intervention";
-  // Services offered by a provider: windshield and washing for all, interventions and tailgate controls when enabled in Réglages.
-  const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.[s.onRequest]).map((s) => s.id);
+  // Services offered by a provider: washing for all; windshield, interventions and tailgate controls when ticked in Réglages.
+  // Before the "Pare-brise" box existed only ALLO did windshields: a provider never ticked/unticked keeps that rule.
+  const offers = (providerDoc, flag, name) => {
+    const value = providerDoc?.[flag];
+    if (value === undefined && flag === "pareBrise") return providerId(name || providerDoc?.nom) === providerId(DEFAULT_PROVIDERS[0]);
+    return !!value;
+  };
+  const servicesFor = (providerDoc, name) => SERVICES.filter((s) => !s.onRequest || offers(providerDoc, s.onRequest, name)).map((s) => s.id);
   const STATUSES = [
     { id: "a_envoyer", label: "À envoyer" },
     { id: "envoyee", label: "Envoyée" },
@@ -687,7 +694,7 @@
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
   return {
-    DEFAULT_SLOT, TASK_SUGGESTIONS, existingDuplicate, isIntervention, servicesFor,
+    DEFAULT_SLOT, TASK_SUGGESTIONS, existingDuplicate, isIntervention, servicesFor, offers,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,

@@ -281,11 +281,24 @@ test("unseen answers come newest first and read as a sentence", () => {
   assert.equal(D.answerSummary({ etat: "absent", note: "pas sur le parking" }), "Véhicule absent – pas sur le parking");
 });
 
+test("windshields go only to the providers ticked Pare-brise, ALLO by default", () => {
+  // ALLO never ticked nor unticked: keeps windshields, with or without a provider document.
+  assert.deepEqual(D.servicesFor(null, "ALLO pare-brise 78"), ["pare-brise", "lavage"]);
+  assert.deepEqual(D.servicesFor({ nom: "ALLO pare-brise 78", interventions: false }), ["pare-brise", "lavage"]);
+  assert.equal(D.offers({ nom: "ALLO pare-brise 78" }, "pareBrise"), true);
+  // Every other provider gets no windshield unless ticked.
+  assert.deepEqual(D.servicesFor({ nom: "DHOLLIANDA", hayon: true }), ["lavage", "hayon"]);
+  assert.deepEqual(D.servicesFor(null, "Khalid"), ["lavage"]);
+  assert.deepEqual(D.servicesFor({ nom: "Khalid", pareBrise: true }), ["pare-brise", "lavage"]);
+  // Unticking ALLO is respected.
+  assert.deepEqual(D.servicesFor({ nom: "ALLO pare-brise 78", pareBrise: false }), ["lavage"]);
+});
+
 test("interventions are offered only by the providers who do them, and say what to do", () => {
-  assert.deepEqual(D.servicesFor(null), ["pare-brise", "lavage"]);
-  assert.deepEqual(D.servicesFor({ interventions: false }), ["pare-brise", "lavage"]);
-  assert.deepEqual(D.servicesFor({ interventions: true }), ["pare-brise", "lavage", "intervention"]);
-  assert.deepEqual(D.servicesFor({ hayon: true }), ["pare-brise", "lavage", "hayon"]);
+  assert.deepEqual(D.servicesFor(null), ["lavage"]);
+  assert.deepEqual(D.servicesFor({ interventions: false }), ["lavage"]);
+  assert.deepEqual(D.servicesFor({ interventions: true }), ["lavage", "intervention"]);
+  assert.deepEqual(D.servicesFor({ hayon: true }), ["lavage", "hayon"]);
   const job = demande({ service: "intervention", tache: "" });
   assert.ok(D.missingFields(job).includes("ce qu'il faut faire"));
   const ready = { ...job, tache: "AdBlue" };
