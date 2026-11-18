@@ -723,6 +723,27 @@
     return lines.sort((a, b) => b.time - a.time);
   }
 
+  // ---------- health of the mail robot (apps-script/import-mails.js writes robot/etat) ----------
+  // robot/etat: {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} (ISO dates).
+  // The robot leaves a trace at least every 30 minutes. When it stops (password changed, Google block, error),
+  // the team app is the one that notices, since a stopped robot cannot warn anyone itself.
+  const ROBOT_LATE_MINUTES = 120;  // Google sometimes runs a 5-minute trigger late: two hours without a trace is a real stop.
+  const ROBOT_QUIET_DAYS = 4;      // no City-Drop mail at all for that long: the box may no longer receive them.
+  function robotHealth(etat, now = new Date()) {
+    if (!etat || !etat.passage) return { level: "off", text: "Le robot des mails n'est pas encore installé (ou n'a encore jamais tourné)." };
+    const at = (iso) => { const d = new Date(iso); return `${numericDate(toIsoDate(d))} à ${String(d.getHours()).padStart(2, "0")}h${String(d.getMinutes()).padStart(2, "0")}`; };
+    const minutes = (now - new Date(etat.passage)) / 60000;
+    if (minutes > ROBOT_LATE_MINUTES)
+      return { level: "alert", text: `Le robot des mails ne tourne plus depuis le ${at(etat.passage)} : les demandes reçues par mail depuis n'arrivent plus dans l'appli.` };
+    if (etat.erreur)
+      return { level: "alert", text: `Le robot des mails a un problème depuis le ${at(etat.erreurDepuis || etat.passage)} : ${etat.erreur}` };
+    if (etat.nonCompris && etat.nonComprisLe && (now - new Date(etat.nonComprisLe)) / 86400000 <= 3)
+      return { level: "warn", text: `Le robot n'a pas su lire le mail « ${etat.nonCompris} » (le ${at(etat.nonComprisLe)}) : cette demande n'est pas dans l'appli, saisis-la à la main.` };
+    if (etat.dernierMail && (now - new Date(etat.dernierMail)) / 86400000 > ROBOT_QUIET_DAYS)
+      return { level: "warn", text: `Aucun mail de City-Drop reçu depuis le ${at(etat.dernierMail)}. Normal s'il n'y a eu aucun rendez-vous, sinon la boîte du robot ne reçoit peut-être plus les mails du groupe.` };
+    return { level: "ok", text: `Le robot des mails tourne bien : dernier passage le ${at(etat.passage)}${etat.dernierMail ? `, dernier mail reçu le ${at(etat.dernierMail)}` : ""}.` };
+  }
+
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
@@ -739,7 +760,7 @@
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
-    providerFromGarage, mailCompletion, mailMarkers,
+    providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,

@@ -470,3 +470,22 @@ test("historique : une demande d'avant le suivi garde une ligne de création", (
   assert.equal(lines[0].changes[0].apres, "Fait");
   assert.equal(lines[1].who, "mail City-Drop");
 });
+
+test("the team app notices when the mail robot stops, errs or stops receiving mails", () => {
+  const now = new Date("2026-11-18T12:00:00Z");
+  const ago = (minutes) => new Date(now - minutes * 60000).toISOString();
+  assert.equal(D.robotHealth(null, now).level, "off");
+  assert.equal(D.robotHealth({ passage: ago(20), dernierMail: ago(60), erreur: "" }, now).level, "ok");
+  const stopped = D.robotHealth({ passage: ago(3 * 60), dernierMail: ago(4 * 60), erreur: "" }, now);
+  assert.equal(stopped.level, "alert");
+  assert.match(stopped.text, /ne tourne plus depuis le 18\/11\/2026/);
+  const failing = D.robotHealth({ passage: ago(10), erreur: "connexion refusée", erreurDepuis: ago(50) }, now);
+  assert.equal(failing.level, "alert");
+  assert.match(failing.text, /connexion refusée/);
+  assert.equal(D.robotHealth({ passage: ago(10), dernierMail: ago(5 * 24 * 60), erreur: "" }, now).level, "warn");
+  assert.equal(D.robotHealth({ passage: ago(10), dernierMail: ago(3 * 24 * 60), erreur: "" }, now).level, "ok");
+  const unread = D.robotHealth({ passage: ago(10), dernierMail: ago(30), nonCompris: "Prise de rendez-vous XX", nonComprisLe: ago(30) }, now);
+  assert.equal(unread.level, "warn");
+  assert.match(unread.text, /saisis-la à la main/);
+  assert.equal(D.robotHealth({ passage: ago(10), dernierMail: ago(30), nonCompris: "Prise de rendez-vous XX", nonComprisLe: ago(4 * 24 * 60) }, now).level, "ok");
+});

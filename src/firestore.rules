@@ -5,7 +5,7 @@ rules_version = '2';
 //   lecture     : sees everything (report), changes nothing.
 //   prestataire : sees only the requests of its own provider, and can only answer them (field "retour").
 //   robot       : the mail-import script. Can only create a request read from a City-Drop mail, cancel it, or re-plan
-//                 it after a cancellation; reads nothing, touches no other request.
+//                 it after a cancellation, and leave its trace in robot/etat; reads nothing, touches no other request.
 // A signed-in person without a comptes document sees nothing.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -88,6 +88,22 @@ service cloud.firestore {
         && h.changes is list && h.changes.size() <= 30
         && h.par == email() && h.at == request.time
         && h.get('auto', false) is bool;
+    }
+
+    // Trace left by the mail robot at least every 30 minutes (last run, last City-Drop mail seen, current error,
+    // last mail it could not read).
+    // The team app shows a red alert when it gets old: a stopped robot cannot warn anyone itself.
+    match /robot/{doc} {
+      allow read: if canReadAll();
+      allow create, update: if isRobot() && doc == 'etat' && validRobotState(request.resource.data);
+      allow delete: if isAdmin();
+    }
+    function optionalText(d, key, max) { return !(key in d) || d[key] == null || (d[key] is string && d[key].size() <= max); }
+    function validRobotState(d) {
+      return d.keys().hasOnly(['passage', 'dernierMail', 'erreur', 'erreurDepuis', 'nonCompris', 'nonComprisLe'])
+        && d.passage is string && d.passage.size() <= 40
+        && optionalText(d, 'dernierMail', 40) && optionalText(d, 'erreur', 300) && optionalText(d, 'erreurDepuis', 40)
+        && optionalText(d, 'nonCompris', 200) && optionalText(d, 'nonComprisLe', 40);
     }
 
     // Proof photo taken by the provider when the job is done: the provider adds it, the team reads it.

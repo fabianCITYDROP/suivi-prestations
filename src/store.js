@@ -1,6 +1,7 @@
 // Shared database access. The page talks to the data only through this object.
 // Layout: demandes/<id>, vehicules/<PLATEKEY>, photos/<key>, config/reglages,
-//         hayons/<PLATEKEY> {plaque, dernierControle}, prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId}.
+//         hayons/<PLATEKEY> {plaque, dernierControle}, prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId},
+//         robot/etat {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} written by the mail robot.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./domain.js"));
   else root.SuiviStore = factory(root.SuiviDomain);
@@ -41,7 +42,7 @@
 
     const modelRef = (key) => db.doc("modeles/" + key);
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onError }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onRobot, onError }) {
       const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       const unsubs = [
         db.collection("demandes").onSnapshot((s) => onDemandes(toRows(s)), onError),
@@ -54,6 +55,8 @@
       if (onHayons) unsubs.push(db.collection("hayons").onSnapshot((s) => onHayons(toRows(s)), () => onHayons([])));
       // Only the team may list accounts: for anyone else this one simply stays empty.
       if (onAccounts) unsubs.push(db.collection("comptes").onSnapshot((s) => onAccounts(toRows(s)), () => onAccounts([])));
+      // Trace left by the mail robot: refused until the new rules are published, then simply "not installed".
+      if (onRobot) unsubs.push(db.doc("robot/etat").onSnapshot((s) => onRobot(s.exists ? s.data() : null), () => onRobot(null)));
       return () => unsubs.forEach((u) => u());
     }
 
