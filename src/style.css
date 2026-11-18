@@ -499,6 +499,11 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 .power-btn.armed { width: auto; padding: 0 14px 0 11px; color: #fff; background: var(--danger); border-color: var(--danger); }
 .power-btn.armed span { display: inline; }
 @media (max-width: 480px) { header.top .wrap:has(.power-btn.armed) .brand-word { display: none; } }
+.task-row { display: grid; gap: 10px; }
+.task-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { font: 600 13px var(--f-body); color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; min-height: 36px; cursor: pointer; transition: transform 140ms ease-out, background-color 140ms ease; }
+.chip-btn:hover { background: var(--surface); color: var(--ink); }
+.chip-btn:active { transform: scale(0.97); }
 /* ===== Tailgate controls (hayon): only three colours (Fabian, 2026-11-18): green = fine, orange = 30 days or less, red = 5 days or less or past due ===== */
 :root { --lv-urgent: #c0261c; --lv-urgent-bg: #fbe2df; --lv-soon: #b25a00; --lv-soon-bg: #fdebd3; --lv-ok: var(--st-done); --lv-ok-bg: var(--st-done-bg); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --lv-urgent: #f2867c; --lv-urgent-bg: #3d1b18; --lv-soon: #f0a54a; --lv-soon-bg: #382812; } }
