@@ -13,10 +13,54 @@
 
     const modelRef = (key) => db.doc("modeles/" + key);
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onError }) {
+    // ----- requests: several live "slices" merged into one list -----
+    // Reading the whole collection at every opening would eat the free plan's daily reads as the history grows,
+    // so the team app listens only to recent, open and tailgate requests; older ones are added on demand.
+    let demandesFeed = null;
+    function createDemandesFeed(onDemandes, onError) {
+      const slices = new Map(); // key -> {rows, loaded, ready, unsub}
+      const base = [];
+      let pending = null;
+      const emit = () => {
+        pending = null;
+        if (!base.every((k) => slices.get(k)?.loaded)) return; // first list only once every base slice is in
+        onDemandes(D.mergeSlices([...slices.values()].map((s) => s.rows)));
+      };
+      const scheduleEmit = () => { if (!pending) pending = setTimeout(emit, 0); };
+      function add(key, query, { isBase = false } = {}) {
+        if (slices.has(key)) return slices.get(key).ready;
+        const slice = { rows: [], loaded: false };
+        slices.set(key, slice);
+        if (isBase) base.push(key);
+        slice.ready = new Promise((resolve, reject) => {
+          slice.unsub = query.onSnapshot((snap) => {
+            slice.rows = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+            slice.loaded = true; resolve(); scheduleEmit();
+          }, (err) => {
+            if (isBase) { onError(err); return; }
+            slices.delete(key); reject(err); // an older period that failed can be asked again
+          });
+        });
+        return slice.ready;
+      }
+      const stop = () => { slices.forEach((s) => s.unsub && s.unsub()); slices.clear(); };
+      return { add, stop };
+    }
+
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onError, recentFrom }) {
       const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const requests = db.collection("demandes");
+      demandesFeed = createDemandesFeed(onDemandes, onError);
+      if (typeof requests.where === "function" && recentFrom) {
+        demandesFeed.add("recent", requests.where("date", ">=", recentFrom), { isBase: true });
+        demandesFeed.add("open", requests.where("statut", "in", ["a_envoyer", "envoyee", "confirmee"]), { isBase: true });
+        demandesFeed.add("hayon", requests.where("service", "==", "hayon"), { isBase: true });
+      } else {
+        demandesFeed.add("all", requests, { isBase: true }); // a database without queries: everything, as before
+        demandesFeed = { ...demandesFeed, everything: true };
+      }
       const unsubs = [
-        db.collection("demandes").onSnapshot((s) => onDemandes(toRows(s)), onError),
+        () => demandesFeed && demandesFeed.stop(),
         db.collection("vehicules").onSnapshot((s) => onVehicles(toRows(s)), onError),
         db.collection("modeles").onSnapshot((s) => onModels(toRows(s)), onError),
         db.doc("config/reglages").onSnapshot((s) => s.exists && onSettings(s.data()), onError),
@@ -52,6 +96,15 @@
     const completeDemande = (id, fields) => db.doc("demandes/" + id).update({ ...fields, updatedAt: new Date().toISOString() });
 
     const deleteDemande = (id) => db.doc("demandes/" + id).delete();
+
+    // Requests whose day falls in [from, to) (to excluded), kept live once asked for. Resolves when they are in the list.
+    function loadDemandesBetween(from, to) {
+      if (!demandesFeed || demandesFeed.everything) return Promise.resolve();
+      let query = db.collection("demandes");
+      if (from && from > D.OLDEST_DAY) query = query.where("date", ">=", from);
+      if (to) query = query.where("date", "<", to);
+      return demandesFeed.add(`range:${from || ""}|${to || ""}`, query);
+    }
 
     // ----- providers, prices and accounts -----
     const saveProvider = (id, fields) => db.doc("prestataires/" + id).set({ ...fields, updatedAt: new Date().toISOString() }, { merge: true });
@@ -192,7 +245,7 @@
       return photoCache.get(key);
     }
 
-    return { saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { loadDemandesBetween, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

@@ -453,3 +453,29 @@ test("hayon: the provider's sheet is read line by line (plate + last control dat
   ]);
   assert.equal(D.dateInText("le 3/4/26"), "2026-04-03");
 });
+
+test("recentWindowStart keeps the current month and the two before", () => {
+  assert.equal(D.recentWindowStart("2026-11-18"), "2026-09-01");
+  assert.equal(D.recentWindowStart("2026-01-05"), "2025-11-01");
+  assert.equal(D.recentWindowStart("2026-03-31"), "2026-01-01");
+  assert.equal(D.nextMonthStart("2026-12-15"), "2027-01-01");
+  assert.equal(D.monthStart("2026-02-28"), "2026-02-01");
+});
+
+test("olderPart only asks for what lies before the loaded window", () => {
+  assert.equal(D.olderPart("2026-09-01", "2026-10-01", "2026-09-01"), null);
+  assert.equal(D.olderPart("2026-10-12", null, "2026-09-01"), null);
+  assert.deepEqual(D.olderPart("2026-08-01", "2026-09-01", "2026-09-01"), { from: "2026-08-01", to: "2026-09-01" });
+  assert.deepEqual(D.olderPart("2026-08-20", "2026-09-10", "2026-09-01"), { from: "2026-08-20", to: "2026-09-01" });
+  assert.deepEqual(D.olderPart(D.OLDEST_DAY, null, "2026-09-01"), { from: D.OLDEST_DAY, to: "2026-09-01" });
+});
+
+test("mergeSlices keeps one copy per request, the most recently changed", () => {
+  const rows = D.mergeSlices([
+    [{ id: "a", statut: "envoyee", updatedAt: "2026-11-01T10:00" }, { id: "b", statut: "realisee" }],
+    [{ id: "a", statut: "realisee", updatedAt: "2026-11-02T10:00" }],
+    [{ id: "a", statut: "confirmee", updatedAt: "2026-10-30T10:00" }, { id: "c" }],
+  ]);
+  assert.deepEqual(rows.map((r) => r.id).sort(), ["a", "b", "c"]);
+  assert.equal(rows.find((r) => r.id === "a").statut, "realisee");
+});

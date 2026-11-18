@@ -27,6 +27,8 @@
     hayons: [],              // [{plaque, dernierControle}] vehicles with a tailgate, from the provider's sheet
     hayonWarned: "",         // warning already shown once for the form being saved
     userEmail: "",
+    recentFrom: D.recentWindowStart(D.toIsoDate(new Date())), // requests before this day are loaded only on demand
+    olderRanges: [],         // [{from, to, ready}] older periods already asked for
   };
   // Providers who have their own access get a link to answer in the app instead of WhatsApp.
   const appLink = (providerName) => state.accounts.some((a) => a.role === "prestataire" && a.prestataireId === D.providerId(providerName))
@@ -35,6 +37,21 @@
   const today = () => D.toIsoDate(new Date());
   const siteNames = () => state.sites.map((s) => s.nom);
   const defaultProvider = () => state.providers[0] || "";
+  // Older requests (before state.recentFrom) are read only when a page shows their period.
+  // Returns "loading" while they arrive, "" when the period is already in the list.
+  function needOlder(from, to) {
+    const part = D.olderPart(from, to, state.recentFrom);
+    if (!part || !state.store?.loadDemandesBetween) return "";
+    const known = state.olderRanges.find((r) => r.from <= part.from && part.to <= r.to);
+    if (known) return known.ready ? "" : "loading";
+    const range = { ...part, ready: false };
+    state.olderRanges.push(range);
+    state.store.loadDemandesBetween(range.from, range.to)
+      .then(() => { range.ready = true; renderAll(); })
+      .catch(() => { state.olderRanges = state.olderRanges.filter((r) => r !== range); toast("Impossible de charger les anciennes demandes, réessaie"); renderAll(); });
+    return "loading";
+  }
+  const allOlderLoaded = () => state.olderRanges.some((r) => r.ready && r.from === D.OLDEST_DAY);
   const demandeById = (id) => state.demandes.find((x) => x.id === id) || null;
 
   // ================= DOM helpers =================
@@ -343,6 +360,8 @@
     const { day, providerFilter } = state;
     $("#dayTitle").textContent = (day === today() ? "Aujourd'hui · " : "") + D.dayLabel(day);
     $("#dayPick").value = day;
+    const monday = D.mondayOf(day);
+    needOlder(D.monthStart(monday), D.nextMonthStart(D.addDays(monday, 6)));
     renderWeekStrip();
     const ofDay = state.demandes.filter((d) => D.isAvailableOn(d, day) && (!providerFilter || d.prestataire === providerFilter));
     $("#dayList").innerHTML = ofDay.length
@@ -767,6 +786,7 @@
       .sort(D.byDateThenTime);
   }
   function renderVerification() {
+    if ($("#v-from").value) needOlder($("#v-from").value, $("#v-to").value ? D.addDays($("#v-to").value, 1) : null);
     const rows = verificationRows();
     const checked = state.checkedForVerification;
     [...checked].forEach((id) => { if (!rows.some((r) => r.id === id)) checked.delete(id); });
@@ -821,7 +841,12 @@
   }
   function renderReport() {
     const month = $("#b-month").value, provider = $("#b-prest").value;
+    const loading = month && needOlder(D.monthStart(month + "-01"), D.nextMonthStart(month + "-01"));
     const report = currentReport();
+    if (loading && !report.rows.length) {
+      $("#b-body").innerHTML = `<div class="empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les ouvres.</span></div>`;
+      return;
+    }
     if (!report.rows.length) {
       $("#b-body").innerHTML = `<div class="empty"><b>Aucune demande en ${esc(D.monthLabel(month))}${provider ? " avec " + esc(provider) : ""}.</b><span>Le bilan compte les demandes selon leur premier jour de disponibilité : demandées, réalisées, annulées et encore en attente.</span></div>`;
       return;
@@ -864,6 +889,7 @@
   function renderHistory() {
     const query = $("#q").value, provider = $("#h-prest").value, status = $("#h-statut").value, service = $("#h-svc").value, site = $("#h-site").value;
     const statusFilter = HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
+    renderOlderNote();
     const rows = state.demandes.filter((d) =>
       (!provider || d.prestataire === provider) && (!service || d.service === service) && (!site || d.site === site) && statusFilter(d) &&
       D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire], query)
@@ -874,6 +900,16 @@
     }
     $("#histWrap").innerHTML = `<div class="tablewrap"><table class="wide hist"><thead><tr><th>Dispo</th><th>Créneau</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th><th>Envoyée le</th></tr></thead><tbody>${rows.map(historyLine).join("")}</tbody></table></div>`;
   }
+  // Below the history: older requests stay unread until asked for, to spare the free plan's daily reads.
+  function renderOlderNote() {
+    const note = $("#h-older");
+    const loading = state.olderRanges.some((r) => !r.ready && r.from === D.OLDEST_DAY);
+    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded();
+    if (note.hidden) return;
+    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours et les contrôles hayon.
+      <button type="button" class="ghost small-btn" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
+  }
+  $("#h-older").addEventListener("click", (e) => { if (e.target.closest("#h-older-btn")) { needOlder(D.OLDEST_DAY, null); renderHistory(); } });
   function historyLine(d) {
     const span = D.isMultiDay(d) ? `${D.shortDate(d.date)} → ${D.shortDate(D.lastDay(d))}` : D.shortDate(d.date);
     const slot = esc(D.timeSlotLabel(d));
@@ -1279,6 +1315,7 @@
   }
   function subscribeTeam() {
     state.store.subscribe({
+      recentFrom: state.recentFrom,
       onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); closePastHayons(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); completeMailRequests(); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
