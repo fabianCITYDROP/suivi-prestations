@@ -1081,7 +1081,7 @@
     const recent = r.lastRequest && D.daysBetween(r.lastRequest.date, today()) <= 30;
     const rdv = r.booked
       ? `<button type="button" class="hy-rdv" data-open="${esc(r.booked.id)}">${icon("cal")}<span>RDV ${esc(slotOf(r.booked))}${r.booked.site ? ` · ${esc(r.booked.site)}` : ""}</span></button>`
-      : state.canWrite ? `<button type="button" class="${["depasse", "urgent", "bientot"].includes(r.level) ? "primary" : "ghost"}" data-hy-book="${esc(key)}">${icon("plus")}Poser le RDV</button>` : `<span class="muted">Aucun rendez-vous</span>`;
+      : `<span class="muted hy-nordv">Pas de RDV</span>`;
     return `<li class="hy-row lv-${r.level}">
       <span class="hy-days">${esc(hayonDaysLabel(r))}</span>
       ${plateTag(r.plaque)}
@@ -1102,7 +1102,7 @@
     const query = $("#hy-q").value, filter = HAYON_FILTERS[$("#hy-filter").value] || HAYON_FILTERS[""];
     const shown = rows.filter((r) => filter(r) && D.matchesSearch([r.plaque], query));
     $("#hy-list").innerHTML = !rows.length
-      ? `<div class="empty"><b>Aucun véhicule à hayon pour l'instant.</b><span>Colle la liste du prestataire ci-dessous (plaque et date du dernier contrôle) : le compteur des 180 jours démarre tout de suite. Chaque contrôle hayon posé dans « Nouvelle demande » ou reçu par mail s'ajoute aussi ici.</span></div>`
+      ? `<div class="empty"><b>Aucun véhicule à hayon pour l'instant.</b><span>Colle la liste du prestataire ci-dessous (plaque et date du dernier contrôle) : le compteur des 180 jours démarre tout de suite. Chaque contrôle hayon reçu par mail s'ajoute aussi ici.</span></div>`
       : shown.length ? `<ul class="hy-list">${shown.map(hayonRow).join("")}</ul>` : `<div class="empty"><b>Aucun véhicule ne correspond.</b></div>`;
     $("#hy-pastebox").hidden = !state.canWrite;
     $("#hy-pastebox").open = state.canWrite && !rows.length ? true : $("#hy-pastebox").open;
@@ -1120,23 +1120,9 @@
     try { await state.store.saveHayons(list); $("#hy-paste").value = ""; $("#hy-preview").textContent = ""; $("#hy-pastebox").open = false; toast(`${plural(list.length, "véhicule")} enregistré${list.length > 1 ? "s" : ""}`); }
     catch (err) { reportWriteError(err); }
   };
-  // Pre-fills a new tailgate control: the provider that does them, the vehicle, its usual site.
-  function bookHayon(plate) {
-    const row = D.hayonFollowUp(state.hayons, state.demandes, today()).find((r) => D.plateKey(r.plaque) === plate);
-    resetForm();
-    const provider = state.providers.find((p) => state.providerDocs.get(D.providerId(p))?.hayon);
-    if (provider) field("prest").value = provider;
-    renderServiceChoice();
-    if ($("#svc-hayon").closest("label").hidden) toast("Coche « Contrôle hayon » pour le bon prestataire dans Réglages › Prestataires");
-    else $("#svc-hayon").checked = true;
-    field("plaque").value = row?.plaque || plate;
-    if (row?.site && siteNames().includes(row.site)) { field("site").value = row.site; field("adresse").value = D.siteAddress(state.sites, row.site); }
-    fillFromVehicle(); renderServiceChoice(); show("demande"); window.scrollTo({ top: 0 });
-  }
   $("#hy-list").addEventListener("click", async (e) => {
-    const open = e.target.closest("[data-open]"), book = e.target.closest("[data-hy-book]");
+    const open = e.target.closest("[data-open]");
     if (open) return openDemande(open.dataset.open);
-    if (book) return bookHayon(book.dataset.hyBook);
     const notDone = e.target.closest("[data-hy-notdone], [data-hy-done]");
     if (notDone && requireStore()) {
       const missed = !!notDone.dataset.hyNotdone;

@@ -519,6 +519,7 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 .hy-warn .icon { width: 16px; height: 16px; }
 .hy-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .hy-rdv { font-weight: 600; }
+.hy-nordv { font-size: 13px; padding: 0 6px; }
 .small-btn { min-height: 32px; padding: 4px 10px; font-size: 13px; }
 .small-btn.confirm { color: var(--danger); border-color: var(--danger); }
 #hy-pastebox textarea { min-height: 120px; margin: 8px 0; }
