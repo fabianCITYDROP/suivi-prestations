@@ -135,3 +135,49 @@ test("lecture et écriture au format Firestore", () => {
   assert.deepEqual(N.docVersObjet(doc), { id: "d1", plaque: "AB", km: 12, retour: { etat: "fait", vu: true }, x: null });
   assert.deepEqual(N.marqueVersFirestore({ demande: "k", annulee: false, retour: "t" }), { fields: { notifie: { mapValue: { fields: { demande: { stringValue: "k" }, annulee: { booleanValue: false }, retour: { stringValue: "t" } } } } } });
 });
+
+test("rappel du matin : prestations pas faites", () => {
+  const auj = "2026-11-19", maintenant = "2026-11-19T07:00:00.000Z";
+  const o = (l) => N.oublisDuMatin(l, auj, maintenant);
+  const vieille = { ...base, id: "a", date: "2026-11-10", plaque: "AA-111-AA" };
+  const hier = { ...base, id: "b", date: "2026-11-18", plaque: "BB-222-BB", prestataire: undefined };
+  assert.deepEqual(o([hier, vieille]).pasFaites, ["AA-111-AA · Lavage · Saint-Cloud · 10/11 (Khalid)", "BB-222-BB · Lavage · Saint-Cloud · 18/11"], "la plus ancienne d'abord");
+  assert.deepEqual(o([{ ...base, date: "2026-11-19" }]).pasFaites, [], "aujourd'hui n'est pas encore passé");
+  assert.deepEqual(o([{ ...vieille, dateFin: "2026-11-20" }]).pasFaites, [], "période pas encore terminée");
+  assert.equal(o([{ ...vieille, dateFin: "2026-11-15" }]).pasFaites.length, 1, "période terminée");
+  assert.deepEqual(o([{ ...vieille, service: "hayon" }]), { pasFaites: [], sansReponse: [] });
+  assert.deepEqual(o([{ ...vieille, retour: { etat: "fait", at: "2026-11-11T10:00:00.000Z" } }]), { pasFaites: [], sansReponse: [] });
+  assert.deepEqual(o([{ ...vieille, statut: "annulee" }, { ...vieille, statut: "realisee" }]), { pasFaites: [], sansReponse: [] });
+});
+
+test("rappel du matin : demandes sans réponse depuis 24 h", () => {
+  const auj = "2026-11-19", maintenant = "2026-11-19T08:00:00.000Z";
+  const o = (l) => N.oublisDuMatin(l, auj, maintenant);
+  const d = { ...base, date: "2026-11-25" };
+  assert.deepEqual(o([{ ...d, createdAt: "2026-11-18T09:00:00.000Z" }]).sansReponse, [], "23 h : trop tôt");
+  assert.deepEqual(o([{ ...d, createdAt: "2026-11-18T07:00:00.000Z" }]).sansReponse, ["GS-487-PR · Lavage · Saint-Cloud · 25/11 (Khalid)"], "25 h");
+  assert.equal(o([{ ...d, createdAt: "2026-11-01T00:00:00.000Z", sentAt: "2026-11-18T09:00:00.000Z" }]).sansReponse.length, 0, "sentAt préféré à createdAt");
+  assert.equal(o([{ ...d, createdAt: "2026-11-18T09:00:00.000Z", sentAt: "2026-11-17T09:00:00.000Z" }]).sansReponse.length, 1, "sentAt préféré à createdAt");
+  assert.deepEqual(o([{ ...d, createdAt: "2026-11-10T00:00:00.000Z", retour: { etat: "autre-date", at: "2026-11-11T00:00:00.000Z" } }]).sansReponse, [], "une réponse suffit");
+  assert.deepEqual(o([{ ...d, createdAt: "2026-11-10T00:00:00.000Z", prestataireId: undefined }]).sansReponse, []);
+  assert.deepEqual(o([{ ...d, createdAt: "2026-11-10T00:00:00.000Z", statut: "confirmee" }]).sansReponse, []);
+  const vieux = { ...base, date: "2026-11-10", createdAt: "2026-11-05T00:00:00.000Z" };
+  const r = o([vieux]);
+  assert.equal(r.pasFaites.length, 1);
+  assert.deepEqual(r.sansReponse, [], "pas en double");
+  const a = { ...d, id: "x", plaque: "XX", createdAt: "2026-11-15T00:00:00.000Z" }, b = { ...d, id: "y", plaque: "YY", createdAt: "2026-11-12T00:00:00.000Z" };
+  assert.deepEqual(o([a, b]).sansReponse.map((l) => l.slice(0, 2)), ["YY", "XX"], "la plus ancienne d'abord");
+});
+
+test("textes du rappel du matin", () => {
+  assert.equal(N.messageRappel({ pasFaites: [], sansReponse: [] }), null);
+  assert.deepEqual(N.messageRappel({ pasFaites: ["A"], sansReponse: [] }), { titre: "Rappel du matin : 1 prestation pas faite", texte: "Pas faite : A", url: "./" });
+  assert.equal(N.messageRappel({ pasFaites: [], sansReponse: ["B"] }).titre, "Rappel du matin : 1 demande sans réponse depuis 24 h");
+  const m = N.messageRappel({ pasFaites: ["A", "B"], sansReponse: ["C", "D", "E"] });
+  assert.equal(m.titre, "Rappel du matin : 2 prestations pas faites · 3 demandes sans réponse depuis 24 h");
+  assert.equal(m.texte, "Pas faite : A\nPas faite : B\nSans réponse : C\nSans réponse : D\nSans réponse : E");
+  const long = N.messageRappel({ pasFaites: ["1", "2", "3", "4"], sansReponse: ["5", "6", "7"] });
+  assert.equal(long.texte.split("\n").length, 7);
+  assert.ok(long.texte.endsWith("\n…"));
+  assert.ok(!N.messageRappel({ pasFaites: ["1", "2", "3", "4", "5", "6"], sansReponse: [] }).texte.endsWith("…"));
+});

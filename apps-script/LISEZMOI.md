@@ -97,5 +97,21 @@ et ouverte depuis son icône : l'encadré le dit au prestataire.
 (donner la clé publique, regarder les demandes, rendre le texte d'une alerte à l'appareil qui a le bon jeton) et n'appelle que les vrais
 services d'alertes (Apple, Google, Mozilla, Microsoft). La clé privée qui signe les alertes reste dans les Propriétés du script.
 
+## Rappel du matin (8 h)
+
+Chaque matin vers 8 h (heure de Paris), l'équipe reçoit une alerte qui liste ce qui a été oublié :
+- les **prestations pas faites** : la date prévue (ou le dernier jour de la période) est passée et la demande n'est ni réalisée, ni annulée, ni marquée « fait » par le prestataire ;
+- les **demandes sans réponse depuis 24 h** : envoyées au prestataire il y a plus de 24 h, sans aucune réponse de sa part.
+
+Les demandes de hayon sont ignorées (elles se clôturent toutes seules). L'alerte arrive sur les comptes équipe qui ont activé les alertes.
+S'il n'y a rien d'oublié, **aucune alerte n'est envoyée**.
+
+Mise en place (une fois) :
+1. Dans le projet Apps Script, remplacer le contenu du fichier `notifications` par le nouveau `notifications.js`, enregistrer.
+2. Choisir la fonction `installerRappelDuMatin` puis ▶ Exécuter (accepter les autorisations Google si on les demande).
+3. Pour essayer tout de suite : choisir `rappelDuMatin` puis ▶ Exécuter.
+
+Pas de nouveau déploiement à faire, et pas de changement des règles Firestore.
+
 Tests : `node --test apps-script` (signature vérifiée par Node et par le vecteur officiel RFC 6979) ;
 `cd tests-regles && npm run alertes` rejoue tout le parcours dans les émulateurs Firebase.

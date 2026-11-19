@@ -7,6 +7,7 @@
 //   - une demande annulée qu'il avait reçue      -> alerte « Demande annulée » chez lui ;
 //   - une réponse d'un prestataire (fait, accepté, autre date…) -> alerte chez l'équipe (comptes admin) ;
 //   - un problème signalé sur un véhicule (choc, pneu, voyant…)  -> alerte chez l'équipe aussi.
+// Chaque matin vers 8 h (Paris), une alerte à l'équipe liste les prestations pas faites et les demandes sans réponse.
 // Il note sur la demande ce qui a été annoncé (champ « notifie ») : une alerte ne part jamais deux fois.
 //
 // L'alerte envoyée au téléphone est vide (rien de lisible ne passe par Apple ou Google) : le téléphone
@@ -181,6 +182,34 @@ function messageEquipe(retours, problemes) {
   return { titre: titres.join(' · '), texte: lignes.slice(0, 5).join('\n') + (lignes.length > 5 ? '\n…' : ''), url: './#retours' };
 }
 
+// Rappel du matin : ce qui a été oublié. aujourdhuiIso : date de Paris 'AAAA-MM-JJ' ; maintenantIso : instant actuel.
+// Renvoie { pasFaites: [lignes], sansReponse: [lignes] } (les plus anciennes en premier).
+// Les demandes « hayon » sont ignorées (clôturées automatiquement ailleurs), comme celles déjà faites, réalisées ou annulées.
+function oublisDuMatin(demandes, aujourdhuiIso, maintenantIso) {
+  const limite = new Date(maintenantIso).getTime() - 24 * 3600 * 1000;
+  const ligne = (d) => ligneDemande(d) + (d.prestataire ? ' (' + d.prestataire + ')' : '');
+  const pasFaites = [], sansReponse = [];
+  demandes.forEach((d) => {
+    if (d.statut === 'realisee' || d.statut === 'annulee' || d.service === 'hayon' || (d.retour && d.retour.etat === 'fait')) return;
+    const dernierJour = d.dateFin || d.date;
+    if (d.date && dernierJour < aujourdhuiIso) { pasFaites.push({ cle: dernierJour, texte: ligne(d) }); return; }
+    const depuis = d.sentAt || d.createdAt;
+    if (['a_envoyer', 'envoyee'].includes(d.statut) && d.prestataireId && !d.retour && depuis && new Date(depuis).getTime() <= limite) {
+      sansReponse.push({ cle: depuis, texte: ligne(d) });
+    }
+  });
+  const trier = (l) => l.sort((a, b) => (a.cle < b.cle ? -1 : a.cle > b.cle ? 1 : 0)).map((x) => x.texte);
+  return { pasFaites: trier(pasFaites), sansReponse: trier(sansReponse) };
+}
+function messageRappel({ pasFaites, sansReponse }) {
+  if (!pasFaites.length && !sansReponse.length) return null;
+  const titres = [];
+  if (pasFaites.length) titres.push(pluriel(pasFaites.length, '1 prestation pas faite', 'prestations pas faites'));
+  if (sansReponse.length) titres.push(pluriel(sansReponse.length, '1 demande sans réponse depuis 24 h', 'demandes sans réponse depuis 24 h'));
+  const lignes = [...pasFaites.map((l) => 'Pas faite : ' + l), ...sansReponse.map((l) => 'Sans réponse : ' + l)];
+  return { titre: 'Rappel du matin : ' + titres.join(' · '), texte: lignes.slice(0, 6).join('\n') + (lignes.length > 6 ? '\n…' : ''), url: './' };
+}
+
 // ---------- Firestore (format REST) ----------
 function depuisFirestore(v) {
   if (!v || 'nullValue' in v) return null;
@@ -244,6 +273,16 @@ function demandesRecentes() {
     limit: 300,
   } });
   if (r.getResponseCode() !== 200) throw new Error('Lecture des demandes refusée (' + r.getResponseCode() + ') : ' + r.getContentText().slice(0, 300));
+  return JSON.parse(r.getContentText()).filter((x) => x.document).map((x) => docVersObjet(x.document));
+}
+// Demandes encore ouvertes (pas réalisées, pas annulées), pour le rappel du matin.
+function demandesOuvertes() {
+  const r = notifFirestore('post', ':runQuery', { structuredQuery: {
+    from: [{ collectionId: 'demandes' }],
+    where: { fieldFilter: { field: { fieldPath: 'statut' }, op: 'IN', value: { arrayValue: { values: ['a_envoyer', 'envoyee', 'confirmee'].map((v) => ({ stringValue: v })) } } } },
+    limit: 500,
+  } });
+  if (r.getResponseCode() !== 200) throw new Error('Lecture des demandes ouvertes refusée (' + r.getResponseCode() + ') : ' + r.getContentText().slice(0, 300));
   return JSON.parse(r.getContentText()).filter((x) => x.document).map((x) => docVersObjet(x.document));
 }
 // Problèmes signalés dans les 15 dernières minutes. Avant la publication des règles qui l'autorisent,
@@ -380,9 +419,29 @@ function installerNotifications() {
   ScriptApp.newTrigger('verifierNotifications').timeBased().everyMinutes(5).create();
   notifRobot();
   abonnements();
+  installerRappelDuMatin();
   console.log('Prêt. Étape suivante : Déployer › Nouveau déploiement › Application Web (exécuter en tant que Moi, accès Tout le monde), puis coller l\'adresse /exec dans l\'appli › Réglages › Alertes.');
 }
 
+// Chaque matin vers 8 h : alerte à l'équipe (comptes admin) s'il reste des prestations pas faites ou des demandes sans réponse.
+function rappelDuMatin() {
+  const verrou = LockService.getScriptLock();
+  if (!verrou.tryLock(30000)) { console.warn('Rappel du matin reporté : un autre passage est en cours.'); return; }
+  try {
+    const aujourdhui = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
+    const msg = messageRappel(oublisDuMatin(demandesOuvertes(), aujourdhui, new Date().toISOString()));
+    if (!msg) { console.log('Rien d\'oublié ce matin.'); return; }
+    abonnements().filter((a) => a.role === 'admin').forEach((a) => envoyer(a, msg));
+    console.log(msg.titre);
+  } finally { verrou.releaseLock(); }
+}
+// À lancer une fois (bouton ▶) : programme le rappel tous les jours vers 8 h, heure de Paris.
+function installerRappelDuMatin() {
+  ScriptApp.getProjectTriggers().filter((t) => t.getHandlerFunction() === 'rappelDuMatin').forEach((t) => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('rappelDuMatin').timeBased().atHour(8).nearMinute(0).everyDays(1).inTimezone('Europe/Paris').create();
+  console.log('Prêt. Le rappel part chaque matin vers 8 h. Pour l\'essayer tout de suite : choisis rappelDuMatin puis ▶ Exécuter.');
+}
+
 if (typeof module === 'object' && module.exports) {
-  module.exports = { EC, ecMul, creerCles, signerES256, jetonVapid, base64url, depuisBase64url, texteVersOctets, serviceAutorise, aAnnoncer, problemesAAnnoncer, messagePrestataire, messageEquipe, depuisFirestore, docVersObjet, marqueVersFirestore };
+  module.exports = { EC, ecMul, creerCles, signerES256, jetonVapid, base64url, depuisBase64url, texteVersOctets, serviceAutorise, aAnnoncer, problemesAAnnoncer, messagePrestataire, messageEquipe, oublisDuMatin, messageRappel, depuisFirestore, docVersObjet, marqueVersFirestore };
 }
