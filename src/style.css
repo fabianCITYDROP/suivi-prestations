@@ -435,6 +435,12 @@ body.presta-mode .top .sync { display: none; }
 .job-report { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 2px; background: none; border: 0; color: var(--ink-2); font: 600 14px var(--f-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .job-report .icon { width: 16px; height: 16px; }
 .job-problem { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--danger); }
+.job-problem > span { flex: 1; min-width: 0; }
+.job-problem .job-report { min-height: 32px; font-size: 13px; color: var(--ink-2); margin-top: -6px; }
+.done-more { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; }
+.done-more .job-report { min-height: 32px; font-size: 13px; }
+.problem-photo-kept { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.problem-photo-kept .icon { width: 17px; height: 17px; }
 .job-problem .icon { width: 17px; height: 17px; margin-top: 1px; flex: none; }
 .job-problem small { display: block; color: var(--ink-2); font-size: 12px; }
 .problem-pick { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px; }

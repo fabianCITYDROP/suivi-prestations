@@ -515,6 +515,18 @@ test("problème sur un véhicule: the report carries the request, the plate and 
   assert.equal(D.problemSummary({ type: "choc", texte: "" }), "Choc / carrosserie");
 });
 
+test("problème sur un véhicule: its author corrects it until the team has handled it; reportable 7 days after done", () => {
+  const s = { id: "s1", par: "allo@x.fr", statut: "nouveau", type: "pneu", texte: "x" };
+  assert.equal(D.canEditProblem(s, "allo@x.fr"), true);
+  assert.equal(D.canEditProblem(s, "autre@x.fr"), false);
+  assert.equal(D.canEditProblem({ ...s, statut: "traite" }, "allo@x.fr"), false);
+  assert.deepEqual(D.problemEdit(s, { type: "choc", texte: " rayure ", photo: "" }, "T"), { type: "choc", texte: "rayure", photo: "", modifieAt: "T" });
+  assert.match(D.problemEdit(s, { type: "autre", texte: "" }, "T").error, /quelques mots/);
+  assert.equal(D.canReportAfterDone("2026-11-12T10:00:00Z", "2026-11-19"), true);
+  assert.equal(D.canReportAfterDone("2026-11-11", "2026-11-19"), false);
+  assert.equal(D.canReportAfterDone("", "2026-11-19"), false);
+});
+
 test("problème sur un véhicule: open ones first, newest first; handled ones apart", () => {
   const list = [
     { id: "a", demandeId: "d1", plaque: "AB-123-CD", statut: "nouveau", at: "2026-11-17T08:00" },

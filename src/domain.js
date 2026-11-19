@@ -584,6 +584,17 @@
       type, texte: text, ...(photo ? { photo } : {}), statut: "nouveau", at: nowIso, par: email,
     };
   }
+  // A provider corrects its own report while the team has not handled it yet: type, words, photo.
+  const canEditProblem = (s, email) => !!s && s.statut !== "traite" && !!email && s.par === email;
+  function problemEdit(s, { type, texte, photo } = {}, nowIso) {
+    const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
+    if (!problemOf(type)) return { error: "Choisis le type de problème" };
+    if (type === "autre" && !text) return { error: "Dis en quelques mots ce que tu as vu" };
+    return { type, texte: text, photo: photo || "", modifieAt: nowIso };
+  }
+  // Problems can still be reported on a vehicle done in the last days (the provider may notice it afterwards).
+  const PROBLEM_AFTER_DONE_DAYS = 7;
+  const canReportAfterDone = (doneIso, todayIso) => !!doneIso && daysBetween(doneIso.slice(0, 10), todayIso) <= PROBLEM_AFTER_DONE_DAYS;
   const byNewest = (a, b) => (b.at || "").localeCompare(a.at || "");
   const openProblems = (list) => list.filter((s) => s.statut !== "traite").sort(byNewest);
   const handledProblems = (list, limit = 40) => list.filter((s) => s.statut === "traite").sort(byNewest).slice(0, limit);
@@ -861,6 +872,6 @@
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
-    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, canEditProblem, problemEdit, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
   };
 });

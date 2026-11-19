@@ -254,8 +254,19 @@ test("un prestataire signale un problème sur ses véhicules, et seulement les s
   await assertSucceeds(getDocs(collection(as("jerome"), "signalements")));
   await assertFails(updateDoc(doc(as("jerome"), "signalements/s1"), { statut: "traite" }));
   await assertSucceeds(updateDoc(doc(as("fabian"), "signalements/s1"), { statut: "traite", traiteAt: "2026-11-18T11:00:00Z", traitePar: people.fabian.email }));
+  await assertFails(updateDoc(doc(khalid, "signalements/s1"), { type: "choc", texte: "trop tard", modifieAt: "2026-11-18T12:00:00Z" }), "plus de correction une fois traité");
   await assertFails(updateDoc(doc(as("fabian"), "signalements/s1"), { texte: "réécrit" }));
   await assertFails(setDoc(doc(as("robot"), "signalements/s9"), report));
+  // Its author corrects it (type, words, photo) while it is not handled; nobody else, and nothing else.
+  const fix = { type: "choc", texte: "Rayure, pas le pneu", photo: "", modifieAt: "2026-11-18T10:10:00Z" };
+  await assertSucceeds(updateDoc(doc(khalid, "signalements/s2"), fix));
+  await assertFails(updateDoc(doc(khalid, "signalements/s2"), { ...fix, statut: "traite" }), "pas se marquer traité");
+  await assertFails(updateDoc(doc(khalid, "signalements/s2"), { ...fix, plaque: "AB-123-CD" }), "pas changer de véhicule");
+  await assertFails(updateDoc(doc(khalid, "signalements/s2"), { texte: "sans date" }), "date de correction obligatoire");
+  await assertFails(updateDoc(doc(khalid, "signalements/s2"), { ...fix, texte: "x".repeat(501) }));
+  await assertFails(updateDoc(doc(as("allo"), "signalements/s2"), fix), "pas le signalement d'un autre");
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "signalements/s5"), { ...report, par: "collegue@lavage.fr" }));
+  await assertFails(updateDoc(doc(khalid, "signalements/s5"), fix), "pas celui d'un collègue");
   // The robot reads the reports (to alert the team's phones) but never changes them.
   await assertSucceeds(getDocs(collection(as("robot"), "signalements")));
   await assertFails(updateDoc(doc(as("robot"), "signalements/s1"), { statut: "traite" }));

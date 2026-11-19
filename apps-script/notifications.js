@@ -147,7 +147,8 @@ function aAnnoncer(demandes, depuis) {
   return { prestataires, equipe, marques };
 }
 // Problèmes signalés sur un véhicule (collection « signalements », jamais modifiée par ce script).
-// dejaVus : { id du signalement: date } déjà annoncés ; nomDe(signalement) : nom du prestataire.
+// dejaVus : { id du signalement: date annoncée } ; nomDe(signalement) : nom du prestataire.
+// Un signalement corrigé par le prestataire (champ modifieAt) est annoncé de nouveau, comme « corrigé ».
 // Renvoie { lignes: [textes pour l'équipe], vus: { id: date } à retenir (les anciens sont oubliés au bout d'une heure) }.
 const PROBLEMES_NOTIF = { choc: 'Choc / carrosserie', pneu: 'Pneu', voyant: 'Voyant allumé', autre: 'Autre' };
 function problemesAAnnoncer(signalements, dejaVus, depuis, maintenantIso, nomDe) {
@@ -155,10 +156,12 @@ function problemesAAnnoncer(signalements, dejaVus, depuis, maintenantIso, nomDe)
   const limite = new Date(new Date(maintenantIso).getTime() - 3600 * 1000).toISOString();
   const vus = Object.fromEntries(Object.entries(dejaVus || {}).filter(([, at]) => at > limite));
   signalements.forEach((s) => {
-    if (!s.at || s.at < depuis || s.statut === 'traite' || vus[s.id] || (dejaVus || {})[s.id]) return;
+    const date = s.modifieAt || s.at;
+    if (!date || date < depuis || s.statut === 'traite' || vus[s.id] === date || (dejaVus || {})[s.id] === date) return;
     const quoi = [PROBLEMES_NOTIF[s.type] || 'Problème', s.texte].filter(Boolean).join(' – ');
-    lignes.push((nomDe(s) || 'Un prestataire') + ' signale un problème sur ' + s.plaque + ' : ' + quoi);
-    vus[s.id] = s.at;
+    const verbe = s.modifieAt ? ' a corrigé son signalement sur ' : ' signale un problème sur ';
+    lignes.push((nomDe(s) || 'Un prestataire') + verbe + s.plaque + ' : ' + quoi);
+    vus[s.id] = date;
   });
   return { lignes, vus };
 }
@@ -247,15 +250,20 @@ function demandesRecentes() {
 }
 // Problèmes signalés dans les 15 dernières minutes. Avant la publication des règles qui l'autorisent,
 // la lecture est refusée : on continue sans, les autres alertes ne sont pas gênées.
+// Les nouveaux (champ at) et les corrigés (champ modifieAt), sans doublon.
 function signalementsRecents() {
   const seuil = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-  const r = notifFirestore('post', ':runQuery', { structuredQuery: {
-    from: [{ collectionId: 'signalements' }],
-    where: { fieldFilter: { field: { fieldPath: 'at' }, op: 'GREATER_THAN', value: { stringValue: seuil } } },
-    limit: 100,
-  } });
-  if (r.getResponseCode() !== 200) { console.warn('Lecture des problèmes signalés refusée (' + r.getResponseCode() + ') : les règles Firestore sont-elles à jour ?'); return []; }
-  return JSON.parse(r.getContentText()).filter((x) => x.document).map((x) => docVersObjet(x.document));
+  const parId = {};
+  ['at', 'modifieAt'].forEach((champ) => {
+    const r = notifFirestore('post', ':runQuery', { structuredQuery: {
+      from: [{ collectionId: 'signalements' }],
+      where: { fieldFilter: { field: { fieldPath: champ }, op: 'GREATER_THAN', value: { stringValue: seuil } } },
+      limit: 100,
+    } });
+    if (r.getResponseCode() !== 200) { console.warn('Lecture des problèmes signalés refusée (' + r.getResponseCode() + ') : les règles Firestore sont-elles à jour ?'); return; }
+    JSON.parse(r.getContentText()).filter((x) => x.document).forEach((x) => { const s = docVersObjet(x.document); parId[s.id] = s; });
+  });
+  return Object.values(parId);
 }
 function nomPrestataire(signalement, demandes) {
   const d = demandes.find((x) => x.id === signalement.demandeId);

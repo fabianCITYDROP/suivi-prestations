@@ -1264,7 +1264,7 @@
   function problemRow(p, { handled = false } = {}) {
     const d = demandeById(p.demandeId);
     return `<div class="answer-row problem-row${handled ? " seen" : ""}">${plateTag(p.plaque)}
-      <span><span class="problem-type">${esc(D.problemOf(p.type)?.label || "Problème")}</span>${p.texte ? ` · ${esc(p.texte)}` : ""}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
+      <span><span class="problem-type">${esc(D.problemOf(p.type)?.label || "Problème")}</span>${p.texte ? ` · ${esc(p.texte)}` : ""}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${p.modifieAt ? ` · corrigé à ${esc(p.modifieAt.slice(11, 16))}` : ""}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
       <span class="row">${p.photo ? `<button type="button" data-proof="${esc(p.photo)}">${icon("image")}Photo</button>` : ""}
       ${state.canWrite ? (handled ? `<button type="button" class="ghost" data-problem-undo="${esc(p.id)}">Rouvrir</button>` : `<button type="button" data-problem-done="${esc(p.id)}">${icon("check")}Traité</button>`) : ""}
       ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : ""}</span></div>`;
@@ -1280,8 +1280,9 @@
   }
   let knownProblems = null;
   function followProblems(rows) {
-    const fresh = D.openProblems(rows).filter((p) => knownProblems && !knownProblems.has(p.id));
-    knownProblems = new Set(rows.map((p) => p.id));
+    const stamp = (p) => p.id + "|" + (p.modifieAt || p.at); // a corrected report is announced again
+    const fresh = D.openProblems(rows).filter((p) => knownProblems && !knownProblems.has(stamp(p)));
+    knownProblems = new Set(rows.map(stamp));
     if (!fresh.length) return;
     const sentence = (p) => `${providerOfProblem(p)} signale un problème sur ${p.plaque} : ${D.problemSummary(p)}`;
     toast(fresh.length > 1 ? `${fresh.length} problèmes signalés sur des véhicules` : sentence(fresh[0]));
