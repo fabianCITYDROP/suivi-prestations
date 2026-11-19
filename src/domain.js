@@ -885,7 +885,39 @@
   // A full plate (SIV AB-123-CD or old 123 ABC 45): worth one targeted read of its older requests.
   const isFullPlate = (text) => /^[A-Z]{2}\d{3}[A-Z]{2}$|^\d{1,4}[A-Z]{2,3}\d{2}$/.test(plateKey(text));
 
+  // ----- who receives the alerts on a closed app (abonnements, see src/notifs.js) -----
+  // Each phone or computer re-saves its registration when the app is opened in a new month: an older date means the
+  // device has not opened the app for a long time (alerts may still arrive, but worth checking).
+  const ALERT_STALE_DAYS = 62;
+  function alertDevicesOf(devices, email) {
+    const key = emailKey(email);
+    return (devices || []).filter((d) => emailKey(d.email) === key)
+      .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+  }
+  // {level: "on" | "stale" | "none", text, title} for one person; null while the list is unknown (no right to read it).
+  function alertStatus(devices, email, now = new Date()) {
+    if (!devices) return null;
+    const mine = alertDevicesOf(devices, email);
+    if (!mine.length) return { level: "none", text: "Alertes pas activées", short: "Pas d'alertes", title: "Aucun téléphone ni ordinateur n'a touché « Activer les alertes » avec ce compte." };
+    const last = mine[0].updatedAt ? new Date(mine[0].updatedAt) : null;
+    const when = last && !isNaN(last) ? last.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: last.getFullYear() === now.getFullYear() ? undefined : "numeric" }) : "";
+    const names = [...new Set(mine.map((d) => d.appareil || "Appareil"))].join(", ");
+    const stale = last && !isNaN(last) && (now - last) / 86400000 > ALERT_STALE_DAYS;
+    return stale
+      ? { level: "stale", text: `Alertes à vérifier · ${names}`, short: "Alertes à vérifier", title: `Appli pas ouverte sur cet appareil depuis le ${when} : les alertes arrivent peut-être encore, à vérifier avec la personne.` }
+      : { level: "on", text: `Alertes actives · ${names}`, short: "Alertes actives", title: when ? `Dernière activation ou ouverture : ${when}` : "" };
+  }
+  // A provider is reached as soon as one of its accounts has alerts on: "on" > "stale" > "none"; "nobody" without account.
+  function providerAlertStatus(devices, accounts, prestataireId, now = new Date()) {
+    if (!devices) return null;
+    const people = (accounts || []).filter((a) => a.role === "prestataire" && a.prestataireId === prestataireId);
+    if (!people.length) return { level: "nobody", text: "Aucun compte", short: "Aucun compte", title: "Personne de ce prestataire n'a d'accès à l'appli." };
+    const rank = { on: 0, stale: 1, none: 2 };
+    return people.map((a) => alertStatus(devices, a.id || a.email, now)).sort((x, y) => rank[x.level] - rank[y.level])[0];
+  }
+
   return {
+    ALERT_STALE_DAYS, alertDevicesOf, alertStatus, providerAlertStatus,
     DEFAULT_SLOT, TASK_SUGGESTIONS, existingDuplicate, isIntervention, servicesFor, offers,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,

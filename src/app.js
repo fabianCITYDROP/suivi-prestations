@@ -24,6 +24,7 @@
     openModelKey: null,
     providerDocs: new Map(), // providerId -> {nom, tarifs}
     accounts: [],            // [{id: email, role, prestataireId}]
+    alertDevices: null,      // alert devices (abonnements) without their secrets; null = not readable
     hayons: [],              // [{plaque, dernierControle}] vehicles with a tailgate, from the provider's sheet
     hayonWarned: "",
     problems: [],            // [{demandeId, plaque, prestataireId, type, texte, photo?, statut, at, par}] problems seen by providers         // warning already shown once for the form being saved
@@ -1046,10 +1047,33 @@
       <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}">${removeButton("data-remove-site", i, s.nom)}</div>`).join("");
     $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
     const provFlag = (p, flag, label) => `<label class="check"><input type="checkbox" data-prov-flag="${flag}" data-prov="${esc(p)}" ${D.offers(state.providerDocs.get(D.providerId(p)), flag, p) ? "checked" : ""}>${label}</label>`;
-    $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
+    $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><div class="prov-name"><b>${esc(p)}</b>${alertChip(D.providerAlertStatus(state.alertDevices, state.accounts, D.providerId(p)), true)}</div>
       <div class="prov-flags">${provFlag(p, "lavage", "Lavage")}${provFlag(p, "pareBrise", "Pare-brise")}${provFlag(p, "interventions", "Interventions")}${provFlag(p, "hayon", "Contrôle hayon")}</div>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
-    renderPrices(); renderAccounts();
+    renderPrices(); renderAccounts(); renderAlertSummary();
+  }
+  // Who receives the alerts on a closed app: green = on, orange = not on (or app not opened for 2 months).
+  const ALERT_CHIP = { on: "st-realisee", stale: "st-a_envoyer", none: "st-a_envoyer", nobody: "st-annulee" };
+  const alertChip = (st, short) => (st ? `<span class="chip alert-chip ${ALERT_CHIP[st.level]}" title="${esc(st.title)}">${esc(short ? st.short : st.text)}</span>` : "");
+  function renderAlertSummary() {
+    const box = $("#al-who");
+    if (!box) return;
+    const devices = state.alertDevices;
+    box.hidden = !devices;
+    if (!devices) return;
+    const people = state.accounts.filter((a) => a.role === "prestataire" || a.role === "admin");
+    const count = (role) => {
+      const list = people.filter((a) => a.role === role);
+      return [list.filter((a) => D.alertStatus(devices, a.id).level === "on").length, list.length];
+    };
+    const [provOn, provAll] = count("prestataire");
+    const [teamOn, teamAll] = count("admin");
+    const names = (level) => [...new Set(people.filter((a) => a.role === "prestataire" && D.alertStatus(devices, a.id).level === level)
+      .map((a) => providerName(a.prestataireId) || a.id))].join(", ");
+    const missing = names("none"), stale = names("stale");
+    $("#al-who-text").innerHTML = `Alertes actives : <b>${provOn} compte${provOn > 1 ? "s" : ""} prestataire sur ${provAll}</b>, ${teamOn} de l'équipe sur ${teamAll}.`
+      + (missing ? ` Pas encore activées chez : ${esc(missing)}.` : "") + (stale ? ` À vérifier (appli pas ouverte depuis 2 mois) : ${esc(stale)}.` : "")
+      + (provAll && provOn === provAll ? " Tous les prestataires les reçoivent." : "");
   }
 
   // ----- prices (HT), per provider -----
@@ -1105,7 +1129,7 @@
     const sorted = state.accounts.slice().sort((a, b) => (a.role || "").localeCompare(b.role || "") || a.id.localeCompare(b.id));
     $("#a-list").innerHTML = sorted.length
       ? sorted.map((a) => `<div class="item account"><span>${esc(a.id)}</span>
-          <span class="muted">${esc(a.role === "prestataire" ? providerName(a.prestataireId) : D.roleOf(a.role)?.label.split(" (")[0] || a.role)}</span>
+          <span class="account-meta"><span class="muted">${esc(a.role === "prestataire" ? providerName(a.prestataireId) : D.roleOf(a.role)?.label.split(" (")[0] || a.role)}</span>${["prestataire", "admin"].includes(a.role) ? alertChip(D.alertStatus(state.alertDevices, a.id)) : ""}</span>
           ${removeButton("data-remove-account", esc(a.id), a.id)}</div>`).join("")
       : `<p class="hint">Aucun accès enregistré pour l'instant.</p>`;
     const toLink = D.accessMigration(state.demandes, pricesOf).length;
@@ -1539,6 +1563,7 @@
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
       onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderFormSide(); },
       onRobot: (etat) => { state.robot = etat; renderRobot(); },
+      onDevices: (rows) => { state.alertDevices = rows; renderSettings(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
         if (err?.code === "permission-denied") banner("Ton compte n'a pas encore d'accès à l'appli : demande à l'équipe City-Drop de t'ajouter dans Réglages › Accès.");

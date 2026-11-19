@@ -86,7 +86,7 @@
     }
     const OPEN_STATUSES = ["a_envoyer", "envoyee", "confirmee"];
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onError, recentFrom, hayonFrom }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onError, recentFrom, hayonFrom }) {
       const requests = db.collection("demandes");
       demandesFeed = createFeed(onDemandes, onError);
       const canQuery = typeof requests.where === "function" && recentFrom;
@@ -122,6 +122,10 @@
       }
       // Only the team may list accounts: for anyone else this one simply stays empty.
       if (onAccounts) unsubs.push(db.collection("comptes").onSnapshot((s) => onAccounts(toRows(s)), () => onAccounts([])));
+      // Devices registered for alerts (team only): kept without their address and secret token, which the page never needs.
+      if (onDevices) unsubs.push(db.collection("abonnements").onSnapshot(
+        (s) => onDevices(toRows(s).map(({ email, role, prestataireId, appareil, createdAt, updatedAt }) => ({ email, role, prestataireId, appareil, createdAt, updatedAt }))),
+        () => onDevices(null)));
       // Trace left by the mail robot: refused until the new rules are published, then simply "not installed".
       if (onRobot) unsubs.push(db.doc("robot/etat").onSnapshot((s) => onRobot(s.exists ? s.data() : null), () => onRobot(null)));
       return () => unsubs.forEach((u) => u());
