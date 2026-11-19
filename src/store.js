@@ -86,7 +86,7 @@
     }
     const OPEN_STATUSES = ["a_envoyer", "envoyee", "confirmee"];
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onError, recentFrom, hayonFrom }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onError, recentFrom, hayonFrom, problemsFrom }) {
       const requests = db.collection("demandes");
       demandesFeed = createFeed(onDemandes, onError);
       const canQuery = typeof requests.where === "function" && recentFrom;
@@ -116,7 +116,7 @@
         if (canQuery) {
           const problemsFeed = createFeed(onProblems, () => onProblems([]));
           problemsFeed.add("nouveau", reports.where("statut", "==", "nouveau"), { isBase: true });
-          problemsFeed.add("recent", reports.where("at", ">=", recentFrom), { isBase: true });
+          problemsFeed.add("recent", reports.where("at", ">=", problemsFrom || recentFrom), { isBase: true });
           unsubs.push(problemsFeed.stop);
         } else unsubs.push(reports.onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
       }

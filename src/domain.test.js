@@ -490,10 +490,12 @@ test("hayon: the provider's sheet is read line by line (plate + last control dat
   assert.equal(D.dateInText("le 3/4/26"), "2026-04-03");
 });
 
-test("recentWindowStart keeps the last 40 days, hayonWindowStart the last year", () => {
+test("recentWindowStart keeps 40 days (15 for the team), hayonWindowStart 240 days", () => {
   assert.equal(D.recentWindowStart("2026-11-19"), "2026-10-10");
   assert.equal(D.recentWindowStart("2026-01-05"), "2025-11-26");
-  assert.equal(D.hayonWindowStart("2026-11-19"), "2025-11-19");
+  assert.equal(D.recentWindowStart("2026-11-19", D.TEAM_RECENT_DAYS), "2026-11-04");
+  assert.equal(D.hayonWindowStart("2026-11-19"), "2026-03-24");
+  assert.ok(D.HAYON_WINDOW_DAYS >= D.HAYON_CYCLE_DAYS + 30, "a vehicle due soon always has its last control loaded");
   assert.ok(D.recentWindowStart("2026-03-31") < D.monthStart("2026-03-31"), "the whole current month is always loaded");
 });
 

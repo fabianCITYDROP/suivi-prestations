@@ -1,4 +1,4 @@
-// The team app reads only the last 40 days, open requests and the year's tailgate controls at opening; older ones arrive when a page asks for them.
+// The team app reads only the last 15 days, open requests and the tailgate controls of the last 240 days at opening; older ones arrive when a page asks for them.
 // Run from tests-regles/ after `npm install`: npm run chargement (local emulators only, Playwright must be installed).
 const { chromium } = require('playwright');
 const http = require('http'); const fs = require('fs'); const path = require('path');
@@ -23,6 +23,7 @@ const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); retur
   await put('demandes/oldOpen', { ...base, plaque: 'OP-002-BB', date: '2025-04-01', statut: 'envoyee' });
   await put('demandes/oldHayon', { ...base, service: 'hayon', plaque: 'HA-003-CC', date: daysAgo(200), statut: 'realisee' });
   await put('demandes/oldDone', { ...base, plaque: 'OD-004-DD', date: '2025-05-10', statut: 'realisee' });
+  await put('demandes/midDone', { ...base, plaque: 'MI-006-FF', date: daysAgo(25), statut: 'realisee' }); // within the providers' 40 days, not the team's 15
   await put('demandes/veryOld', { ...base, plaque: 'VO-005-EE', date: '2024-12-03', statut: 'annulee' });
   await signUp('fabian@city-drop.com');
 
@@ -43,9 +44,13 @@ const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); retur
 
   ok('opening reads only recent + open + tailgate requests', (await p.textContent('#sync')).includes('3 demandes'));
   ok('history lists those three', (await histPlates()) === 'HA-003-CC OP-002-BB RE-001-AA');
+  await p.selectOption('#h-mois', '2025-05'); await p.waitForTimeout(800);
+  ok('history: an old month picked shows only that month', (await histPlates()) === 'OD-004-DD');
+  await p.selectOption('#h-mois', ''); await p.waitForTimeout(300);
+  ok('history: back to the recent list (the month looked at stays loaded)', (await histPlates()) === 'HA-003-CC OD-004-DD OP-002-BB RE-001-AA');
   ok('history offers the older ones', await p.isVisible('#h-older-btn'));
   await p.click('#h-older-btn'); await p.waitForTimeout(800);
-  ok('older ones added after the click', (await histPlates()) === 'HA-003-CC OD-004-DD OP-002-BB RE-001-AA VO-005-EE');
+  ok('older ones added after the click', (await histPlates()) === 'HA-003-CC MI-006-FF OD-004-DD OP-002-BB RE-001-AA VO-005-EE');
   ok('the note disappears once everything is loaded', !(await p.isVisible('#h-older')));
   await put('demandes/veryOld', { ...base, plaque: 'VO-005-EE', date: '2024-12-03', statut: 'realisee', updatedAt: '2026-02-01T00:00:00Z' }); await p.waitForTimeout(600);
   ok('an older request stays live once loaded', (await p.textContent('#histWrap')).includes('Réalisée') && (await p.$$eval('#histWrap .chip', (c) => c.filter((x) => x.textContent === 'Annulée').length)) === 0);
@@ -57,11 +62,19 @@ const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); retur
   await p.fill('#b-month', '2025-05'); await p.dispatchEvent('#b-month', 'change'); await p.waitForTimeout(800);
   ok('old month report shows its request', (await p.textContent('#b-body')).includes('OD-004-DD'));
   const syncText = await p.textContent('#sync'); ok('…without loading the other old months (' + syncText.trim() + ')', syncText.includes('3 demandes'));
+  // The report of the month of a 25-day-old job: read when the Bilan page opens, not before.
+  await p.goto('http://localhost:8766/#planning'); await p.reload(); await p.waitForTimeout(1500);
+  // (RE-001-AA was deleted above: 2 requests left at opening.)
+  ok('planning opening does not read the start of the month (' + (await p.textContent('#sync')).trim() + ')', (await p.textContent('#sync')).includes('2 demandes'));
+  await p.evaluate((m) => { const i = document.querySelector('#b-month'); i.value = m; i.dispatchEvent(new Event('change')); }, daysAgo(25).slice(0, 7)); await p.waitForTimeout(600);
+  ok('…not even when the hidden Bilan month changes', (await p.textContent('#sync')).includes('2 demandes'));
+  await p.click('nav.tabs [data-view="bilan"]').catch(() => p.evaluate(() => { location.hash = 'bilan'; })); await p.waitForTimeout(1000);
+  ok('opening Bilan reads its month', (await p.textContent('#b-body')).includes('MI-006-FF'));
   // Planning on an old day.
   await p.goto('http://localhost:8766/#planning'); await p.reload(); await p.waitForTimeout(1500);
   await p.fill('#dayPick', '2024-12-03'); await p.dispatchEvent('#dayPick', 'change'); await p.waitForTimeout(800);
   ok('planning of an old day shows its request', (await p.textContent('#dayList')).includes('VO-005-EE'));
-  // Tailgate follow-up still knows a control from 200 days ago (the year of controls is loaded at opening).
+  // Tailgate follow-up still knows a control from 200 days ago (240 days of controls are loaded at opening).
   await p.goto('http://localhost:8766/#hayon'); await p.reload(); await p.waitForTimeout(1500);
   ok('tailgate page still sees the old control', (await p.textContent('#view-hayon')).includes('HA-003-CC'));
   ok('no page error', errs.length === 0); if (errs.length) console.log(errs);
