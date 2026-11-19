@@ -583,7 +583,6 @@ details.history { margin-top: 18px; padding-top: 14px; border-top: 1px solid var
 .history-list ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 14px; }
 .history-list s { color: var(--ink-2); }
 .history-list ul b { font-weight: 600; overflow-wrap: anywhere; }
-</style>
-
 /* History: older requests are read only on demand */
 .older-note { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+</style>
