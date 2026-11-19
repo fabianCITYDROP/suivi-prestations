@@ -281,11 +281,24 @@ test("unseen answers come newest first and read as a sentence", () => {
   assert.equal(D.answerSummary({ etat: "absent", note: "pas sur le parking" }), "Véhicule absent – pas sur le parking");
 });
 
+test("windshields go only to the providers ticked Pare-brise, ALLO by default", () => {
+  // ALLO never ticked nor unticked: keeps windshields, with or without a provider document.
+  assert.deepEqual(D.servicesFor(null, "ALLO pare-brise 78"), ["pare-brise", "lavage"]);
+  assert.deepEqual(D.servicesFor({ nom: "ALLO pare-brise 78", interventions: false }), ["pare-brise", "lavage"]);
+  assert.equal(D.offers({ nom: "ALLO pare-brise 78" }, "pareBrise"), true);
+  // Every other provider gets no windshield unless ticked.
+  assert.deepEqual(D.servicesFor({ nom: "DHOLLIANDA", hayon: true }), ["lavage", "hayon"]);
+  assert.deepEqual(D.servicesFor(null, "Khalid"), ["lavage"]);
+  assert.deepEqual(D.servicesFor({ nom: "Khalid", pareBrise: true }), ["pare-brise", "lavage"]);
+  // Unticking ALLO is respected.
+  assert.deepEqual(D.servicesFor({ nom: "ALLO pare-brise 78", pareBrise: false }), ["lavage"]);
+});
+
 test("interventions are offered only by the providers who do them, and say what to do", () => {
-  assert.deepEqual(D.servicesFor(null), ["pare-brise", "lavage"]);
-  assert.deepEqual(D.servicesFor({ interventions: false }), ["pare-brise", "lavage"]);
-  assert.deepEqual(D.servicesFor({ interventions: true }), ["pare-brise", "lavage", "intervention"]);
-  assert.deepEqual(D.servicesFor({ hayon: true }), ["pare-brise", "lavage", "hayon"]);
+  assert.deepEqual(D.servicesFor(null), ["lavage"]);
+  assert.deepEqual(D.servicesFor({ interventions: false }), ["lavage"]);
+  assert.deepEqual(D.servicesFor({ interventions: true }), ["lavage", "intervention"]);
+  assert.deepEqual(D.servicesFor({ hayon: true }), ["lavage", "hayon"]);
   const job = demande({ service: "intervention", tache: "" });
   assert.ok(D.missingFields(job).includes("ce qu'il faut faire"));
   const ready = { ...job, tache: "AdBlue" };
@@ -362,6 +375,16 @@ test("the garage named in a mail is matched to a provider of the app", () => {
 test("editing an imported request keeps what lets a later mail cancel it", () => {
   assert.deepEqual(D.mailMarkers({ source: "mail", mailId: "mail-X", garageMail: "DSAT", km: 1, plaque: "X", statut: "envoyee" }),
     { source: "mail", mailId: "mail-X", garageMail: "DSAT", km: 1 });
+});
+
+test("la réponse du prestataire clôt ou confirme la demande elle-même", () => {
+  const at = "2026-11-19T10:00:00.000Z";
+  const d = { statut: "envoyee", sentAt: "2026-11-18T08:00:00.000Z" };
+  assert.deepEqual(D.answerPatch(d, { etat: "fait", par: "k" }, at), { retour: { etat: "fait", par: "k", at }, updatedAt: at, statut: "realisee", confirmedAt: at, doneAt: at });
+  assert.deepEqual(D.answerPatch(d, { etat: "confirme", par: "k" }, at), { retour: { etat: "confirme", par: "k", at }, updatedAt: at, statut: "confirmee", confirmedAt: at });
+  assert.deepEqual(D.answerPatch({ ...d, statut: "confirmee", confirmedAt: "x" }, { etat: "fait", par: "k" }, at), { retour: { etat: "fait", par: "k", at }, updatedAt: at, statut: "realisee", doneAt: at });
+  assert.deepEqual(D.answerPatch(d, { etat: "absent", par: "k" }, at), { retour: { etat: "absent", par: "k", at }, updatedAt: at });
+  assert.deepEqual(D.answerPatch({ ...d, statut: "annulee" }, { etat: "fait", par: "k" }, at), { retour: { etat: "fait", par: "k", at }, updatedAt: at });
 });
 
 test("washes are complete unless marked inside only, each with its own price", () => {
@@ -454,6 +477,73 @@ test("hayon: the provider's sheet is read line by line (plate + last control dat
   assert.equal(D.dateInText("le 3/4/26"), "2026-04-03");
 });
 
+test("recentWindowStart keeps the current month and the two before", () => {
+  assert.equal(D.recentWindowStart("2026-11-18"), "2026-09-01");
+  assert.equal(D.recentWindowStart("2026-01-05"), "2025-11-01");
+  assert.equal(D.recentWindowStart("2026-03-31"), "2026-01-01");
+  assert.equal(D.nextMonthStart("2026-12-15"), "2027-01-01");
+  assert.equal(D.monthStart("2026-02-28"), "2026-02-01");
+});
+
+test("olderPart only asks for what lies before the loaded window", () => {
+  assert.equal(D.olderPart("2026-09-01", "2026-10-01", "2026-09-01"), null);
+  assert.equal(D.olderPart("2026-10-12", null, "2026-09-01"), null);
+  assert.deepEqual(D.olderPart("2026-08-01", "2026-09-01", "2026-09-01"), { from: "2026-08-01", to: "2026-09-01" });
+  assert.deepEqual(D.olderPart("2026-08-20", "2026-09-10", "2026-09-01"), { from: "2026-08-20", to: "2026-09-01" });
+  assert.deepEqual(D.olderPart(D.OLDEST_DAY, null, "2026-09-01"), { from: D.OLDEST_DAY, to: "2026-09-01" });
+});
+
+test("mergeSlices keeps one copy per request, the most recently changed", () => {
+  const rows = D.mergeSlices([
+    [{ id: "a", statut: "envoyee", updatedAt: "2026-11-01T10:00" }, { id: "b", statut: "realisee" }],
+    [{ id: "a", statut: "realisee", updatedAt: "2026-11-02T10:00" }],
+    [{ id: "a", statut: "confirmee", updatedAt: "2026-10-30T10:00" }, { id: "c" }],
+  ]);
+  assert.deepEqual(rows.map((r) => r.id).sort(), ["a", "b", "c"]);
+  assert.equal(rows.find((r) => r.id === "a").statut, "realisee");
+});
+
+test("problème sur un véhicule: the report carries the request, the plate and who saw it", () => {
+  const d = { id: "d1", plaque: "AB-123-CD", prestataireId: "allo" };
+  const r = D.problemReport(d, { type: "pneu", texte: "  pneu avant gauche lisse " }, "allo@x.fr", "2026-11-18T10:00:00.000Z");
+  assert.deepEqual(r, { demandeId: "d1", plaque: "AB-123-CD", prestataireId: "allo", type: "pneu", texte: "pneu avant gauche lisse", statut: "nouveau", at: "2026-11-18T10:00:00.000Z", par: "allo@x.fr" });
+  assert.equal(D.problemReport(d, { type: "pneu", photo: "k1" }, "a", "t").photo, "k1");
+  assert.match(D.problemReport(d, { texte: "rayure" }, "a", "t").error, /type/);
+  assert.match(D.problemReport(d, { type: "autre", texte: " " }, "a", "t").error, /quelques mots/);
+  assert.equal(D.problemReport(d, { type: "choc", texte: "x".repeat(900) }, "a", "t").texte.length, D.PROBLEM_TEXT_MAX);
+  assert.equal(D.problemSummary({ type: "voyant", texte: "moteur orange" }), "Voyant allumé – moteur orange");
+  assert.equal(D.problemSummary({ type: "choc", texte: "" }), "Choc / carrosserie");
+});
+
+test("problème sur un véhicule: open ones first, newest first; handled ones apart", () => {
+  const list = [
+    { id: "a", demandeId: "d1", plaque: "AB-123-CD", statut: "nouveau", at: "2026-11-17T08:00" },
+    { id: "b", demandeId: "d2", plaque: "ab123cd", statut: "traite", at: "2026-11-16T08:00" },
+    { id: "c", demandeId: "d1", plaque: "EF-456-GH", statut: "nouveau", at: "2026-11-18T08:00" },
+  ];
+  assert.deepEqual(D.openProblems(list).map((s) => s.id), ["c", "a"]);
+  assert.deepEqual(D.handledProblems(list).map((s) => s.id), ["b"]);
+  assert.deepEqual(D.problemsOfRequest(list, "d1").map((s) => s.id), ["c", "a"]);
+  assert.deepEqual(D.problemsOfPlate(list, "AB 123 CD").map((s) => s.id), ["a", "b"]);
+});
+
+test("historique : seuls les champs vraiment changés sont notés, avec des libellés lisibles", () => {
+  const before = { statut: "envoyee", prixHT: 300, date: "2026-11-20", notes: undefined };
+  const changes = D.changesBetween(before, { statut: "realisee", prixHT: 320, date: "2026-11-20", notes: "" });
+  assert.deepEqual(changes, [{ champ: "statut", avant: "envoyee", apres: "realisee" }, { champ: "prixHT", avant: 300, apres: 320 }]);
+  const [line] = D.historyLines([{ action: "modification", par: "fabian@city-drop.com", at: "2026-11-18T09:05:00", changes }], null);
+  assert.equal(line.when, "18/11/2026 à 09h05");
+  assert.deepEqual(line.changes.map((c) => `${c.label}: ${c.avant} > ${c.apres}`), ["Statut: Envoyée > Réalisée", "Prix HT: 300 € HT > 320 € HT"]);
+});
+
+test("historique : une demande d'avant le suivi garde une ligne de création", () => {
+  const lines = D.historyLines([{ action: "reponse", par: "contact@allo-pb.fr", at: { seconds: 1795000000 }, changes: D.answerChanges({ etat: "fait", note: "RAS" }) }],
+    { createdAt: "2026-11-01T10:00:00Z", source: "mail" });
+  assert.deepEqual(lines.map((l) => l.action), ["Réponse du prestataire", "Création"]);
+  assert.equal(lines[0].changes[0].apres, "Fait");
+  assert.equal(lines[1].who, "mail City-Drop");
+});
+
 test("the team app notices when the mail robot stops, errs or stops receiving mails", () => {
   const now = new Date("2026-11-18T12:00:00Z");
   const ago = (minutes) => new Date(now - minutes * 60000).toISOString();
@@ -471,4 +561,23 @@ test("the team app notices when the mail robot stops, errs or stops receiving ma
   assert.equal(unread.level, "warn");
   assert.match(unread.text, /saisis-la à la main/);
   assert.equal(D.robotHealth({ passage: ago(10), dernierMail: ago(30), nonCompris: "Prise de rendez-vous XX", nonComprisLe: ago(4 * 24 * 60) }, now).level, "ok");
+});
+
+test("agreed prices: filled once per provider, matched on its name, never twice", () => {
+  const stored = new Map([["khalid-lavage", [{ service: "lavage", formule: "complet", cubageMin: null, cubageMax: null, prixHT: 40 }]]]);
+  const pricesOf = (id) => stored.get(id) || [];
+  const missing = D.missingKnownPrices(["ALLO pare-brise 78", "Khalid Lavage", "DSAT (du sol au toit)", "ASG BDX LAVAGE", "DHOLLIANDA", "Lavage Rouag"], pricesOf);
+  assert.deepEqual(missing.map((m) => m.name), ["ALLO pare-brise 78", "Khalid Lavage", "DSAT (du sol au toit)", "ASG BDX LAVAGE"]);
+  const allo = missing[0].add;
+  assert.equal(D.priceFor(allo, { service: "pare-brise", cubage: 3 }), 320);
+  assert.equal(D.priceFor(allo, { service: "pare-brise", cubage: 6 }), 320);
+  assert.equal(D.priceFor(allo, { service: "pare-brise", cubage: 12 }), 360);
+  assert.equal(D.priceFor(allo, { service: "pare-brise", cubage: 20 }), 360);
+  assert.equal(D.priceFor(allo, { service: "lavage", formule: "complet", cubage: 20 }), 37);
+  assert.equal(D.priceFor(allo, { service: "lavage", formule: "interieur", cubage: 20 }), 25);
+  // Khalid already has a complete wash price: only the inside one is added, his own price is kept.
+  assert.deepEqual(missing[1].add.map((l) => l.formule), ["interieur"]);
+  assert.equal(D.priceFor(missing[2].add, { service: "lavage", formule: "complet", cubage: 12 }), 42);
+  stored.set("allo-pare-brise-78", allo);
+  assert.equal(D.missingKnownPrices(["ALLO pare-brise 78"], pricesOf).length, 0, "nothing left once filled");
 });

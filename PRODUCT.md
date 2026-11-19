@@ -30,7 +30,7 @@ One place where City-Drop asks a subcontractor to treat a fleet vehicle (a utili
 - Static site on GitHub Pages, vanilla JS, Firebase (Firestore europe-west9, email/password accounts). No build tool beyond `node src/build.js`; no paid Firebase plan.
 - Services: Pare-brise, Lavage, Intervention (Intervention only for providers flagged for it).
 - Default slot 08h30–19h30. Duplicate requests (same plate, service, overlapping days) are refused.
-- Push notifications to closed apps are planned (phase 3) through the Apps Script Web Push already used by the runners app.
+- Alerts on closed apps (phase 3): providers get new / cancelled requests, the team gets provider answers, through a free Apps Script Web Push (`apps-script/notifications.js`). A provider's « fait » closes the request at once, without a team member online.
 
 ## Brand Commitments
 

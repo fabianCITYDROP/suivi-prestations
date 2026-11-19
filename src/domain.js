@@ -5,7 +5,8 @@
   else root.SuiviDomain = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   const SERVICES = [
-    { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise" },
+    // Windshields only go to the providers ticked "Pare-brise" in Réglages (ALLO pare-brise 78 by default).
+    { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise", onRequest: "pareBrise" },
     { id: "lavage", label: "Lavage", title: "lavage véhicule" },
     // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
     { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: "interventions" },
@@ -16,8 +17,14 @@
   const TASK_SUGGESTIONS = ["Monter la roue de secours", "Vérifier les pneus", "AdBlue + éteindre le voyant", "Déplacer le véhicule",
     "Vérifier les ampoules", "Niveau d'huile", "Vérification du véhicule"];
   const isIntervention = (d) => d.service === "intervention";
-  // Services offered by a provider: windshield and washing for all, interventions and tailgate controls when enabled in Réglages.
-  const servicesFor = (providerDoc) => SERVICES.filter((s) => !s.onRequest || !!providerDoc?.[s.onRequest]).map((s) => s.id);
+  // Services offered by a provider: washing for all; windshield, interventions and tailgate controls when ticked in Réglages.
+  // Before the "Pare-brise" box existed only ALLO did windshields: a provider never ticked/unticked keeps that rule.
+  const offers = (providerDoc, flag, name) => {
+    const value = providerDoc?.[flag];
+    if (value === undefined && flag === "pareBrise") return providerId(name || providerDoc?.nom) === providerId(DEFAULT_PROVIDERS[0]);
+    return !!value;
+  };
+  const servicesFor = (providerDoc, name) => SERVICES.filter((s) => !s.onRequest || offers(providerDoc, s.onRequest, name)).map((s) => s.id);
   const STATUSES = [
     { id: "a_envoyer", label: "À envoyer" },
     { id: "envoyee", label: "Envoyée" },
@@ -453,6 +460,33 @@
     return `${jobLabel(line)} · ${range}`;
   }
 
+  // Prices HT agreed with the providers (Fabian and Jérôme, 2026-11), filled in one click from Réglages › Tarifs.
+  // Matched on a distinctive word of the provider's name; a line already there (same job and sizes) is never added twice.
+  // DHOLLIANDA (hayon) is paid by the month and Wash and Check depends on minibus plates: neither is here.
+  const WASH = (formule, prixHT) => ({ service: "lavage", formule, cubageMin: null, cubageMax: null, prixHT });
+  const KNOWN_PRICES = [
+    { words: ["allo"], lines: [
+      { service: "pare-brise", cubageMin: null, cubageMax: 11, prixHT: 320 },
+      { service: "pare-brise", cubageMin: 12, cubageMax: null, prixHT: 360 },
+      WASH("complet", 37), WASH("interieur", 25)] },
+    { words: ["khalid"], lines: [WASH("complet", 42), WASH("interieur", 25)] },
+    { words: ["dsat", "toit"], lines: [WASH("complet", 42), WASH("interieur", 25)] },
+    { words: ["asg"], lines: [WASH("complet", 42), WASH("interieur", 25)] },
+  ];
+  const sameKind = (a, b) => (a.service || "pare-brise") === (b.service || "pare-brise") && washKindOf(a).id === washKindOf(b).id
+    && (a.cubageMin ?? null) === (b.cubageMin ?? null) && (a.cubageMax ?? null) === (b.cubageMax ?? null);
+  // [{name, add: [lines]}] for each provider of the app that is missing some of the agreed prices.
+  function missingKnownPrices(providerNames, pricesOf) {
+    return providerNames.map((name) => {
+      const words = providerId(name).split("-");
+      const known = KNOWN_PRICES.find((k) => k.words.some((w) => words.includes(w)));
+      if (!known) return null;
+      const current = pricesOf(providerId(name)) || [];
+      const add = known.lines.filter((line) => !current.some((c) => sameKind(c, line)));
+      return add.length ? { name, add } : null;
+    }).filter(Boolean);
+  }
+
   // Fields stored on each request so access rules and invoices never depend on a later price change:
   // the provider id, and the price frozen when the request is first saved (kept while provider, service, wash kind and cubage stay the same).
   function providerFields(fields, previous, pricesOf) {
@@ -527,6 +561,47 @@
     if (r.etat === "fait" && d.statut !== "realisee") return "realisee";
     if (r.etat === "confirme" && ["a_envoyer", "envoyee"].includes(d.statut)) return "confirmee";
     return null;
+  }
+  // ---------- problems seen on a vehicle (collection "signalements", written by the provider) ----------
+  // {demandeId, plaque, prestataireId, type, texte, photo?, statut "nouveau"|"traite", at, par, traiteAt?, traitePar?}
+  // A provider often sees a shock, a worn tyre or a warning light before City-Drop does: one tap tells the team.
+  const PROBLEMS = [
+    { id: "choc", label: "Choc / carrosserie" },
+    { id: "pneu", label: "Pneu" },
+    { id: "voyant", label: "Voyant allumé" },
+    { id: "autre", label: "Autre" },
+  ];
+  const PROBLEM_TEXT_MAX = 500;
+  const problemOf = (id) => PROBLEMS.find((p) => p.id === id) || null;
+  const problemSummary = (s) => [problemOf(s.type)?.label || "Problème", s.texte].filter(Boolean).join(" – ");
+  // The document a provider writes. Returns {error} when something is missing, so the form can say what.
+  function problemReport(demande, { type, texte, photo } = {}, email, nowIso) {
+    const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
+    if (!problemOf(type)) return { error: "Choisis le type de problème" };
+    if (type === "autre" && !text) return { error: "Dis en quelques mots ce que tu as vu" };
+    return {
+      demandeId: demande.id, plaque: demande.plaque, prestataireId: demande.prestataireId,
+      type, texte: text, ...(photo ? { photo } : {}), statut: "nouveau", at: nowIso, par: email,
+    };
+  }
+  const byNewest = (a, b) => (b.at || "").localeCompare(a.at || "");
+  const openProblems = (list) => list.filter((s) => s.statut !== "traite").sort(byNewest);
+  const handledProblems = (list, limit = 40) => list.filter((s) => s.statut === "traite").sort(byNewest).slice(0, limit);
+  const problemsOfRequest = (list, demandeId) => list.filter((s) => s.demandeId === demandeId).sort(byNewest);
+  const problemsOfPlate = (list, plate) => list.filter((s) => plateKey(s.plaque) === plateKey(plate)).sort(byNewest);
+
+  // What a provider's answer writes. A "fait" or an acceptance also moves the request's status right away, so the
+  // request is closed even when nobody of the team has the app open (the access rules allow exactly this).
+  function answerPatch(d, retour, nowIso) {
+    const r = { ...retour, at: nowIso };
+    const patch = { retour: r, updatedAt: nowIso };
+    const status = d.statut === "annulee" ? null : statusFromAnswer({ ...d, retour: r });
+    if (!status) return patch;
+    patch.statut = status;
+    if (!d.sentAt) patch.sentAt = nowIso;
+    if (!d.confirmedAt) patch.confirmedAt = nowIso;
+    if (status === "realisee") patch.doneAt = nowIso;
+    return patch;
   }
   // Answers the team has not looked at yet, newest first.
   // Every answer already seen, newest first: the "Déjà vus" list of the Retours page.
@@ -662,6 +737,89 @@
     return [...seen.values()];
   }
 
+  // ---------- what the team app keeps loaded (free Firestore plan: every request read counts) ----------
+  // Always loaded: requests whose day is in the current month or the two before, every open request,
+  // every tailgate control (they set the 180-day due dates). Older ones are loaded only when a page asks for them.
+  const RECENT_MONTHS = 2;
+  const OLDEST_DAY = "0000-01-01";
+  const monthStart = (iso) => iso.slice(0, 7) + "-01";
+  const nextMonthStart = (iso) => { const d = parseIsoDate(monthStart(iso)); d.setMonth(d.getMonth() + 1); return toIsoDate(d); };
+  const recentWindowStart = (todayIso, months = RECENT_MONTHS) => { const d = parseIsoDate(monthStart(todayIso)); d.setMonth(d.getMonth() - months); return toIsoDate(d); };
+  // The part of [from, to) that lies before the loaded window, or null when the window already holds it all.
+  function olderPart(from, to, recentFrom) {
+    if (!from || from >= recentFrom) return null;
+    return { from, to: !to || to > recentFrom ? recentFrom : to };
+  }
+  // Same request seen in several loaded slices: keep the most recently changed copy.
+  function mergeSlices(slices) {
+    const all = new Map();
+    slices.forEach((rows) => rows.forEach((row) => {
+      const kept = all.get(row.id);
+      if (!kept || (row.updatedAt || "") >= (kept.updatedAt || "")) all.set(row.id, row);
+    }));
+    return [...all.values()];
+  }
+
+  // ---------- change history (historique/<auto id>): who changed what on a request, for a disagreement over an invoice ----------
+  // One entry per save: {demandeId, plaque, action, changes:[{champ, avant, apres}], par: e-mail, at: server time, auto?}.
+  // Nobody can change or delete an entry once written (see firestore.rules).
+  const HISTORY_FIELDS = [
+    ["statut", "Statut"], ["prixHT", "Prix HT"], ["date", "Date"], ["dateFin", "Date de fin"], ["debut", "Heure"], ["fin", "Heure de fin"],
+    ["prestataire", "Prestataire"], ["service", "Prestation"], ["formule", "Formule"], ["plaque", "Plaque"], ["modele", "Modèle"],
+    ["cubage", "Cubage"], ["site", "Site"], ["adresse", "Adresse"], ["tache", "Travail demandé"], ["notes", "Remarque"],
+  ];
+  const HISTORY_LABELS = { ...Object.fromEntries(HISTORY_FIELDS), reponse: "Réponse du prestataire", note: "Note du prestataire", dateProposee: "Date proposée" };
+  const plainValue = (v) => (v == null ? "" : typeof v === "number" ? v : String(v).slice(0, 300));
+  // Fields that really changed between the request before and the fields being written ("" for empty).
+  function changesBetween(before, after) {
+    return HISTORY_FIELDS.map(([champ]) => champ)
+      .filter((champ) => after && champ in after && String(plainValue(after[champ])) !== String(plainValue(before?.[champ])))
+      .map((champ) => ({ champ, avant: plainValue(before?.[champ]), apres: plainValue(after[champ]) }));
+  }
+  // What a provider answered, as history lines.
+  const answerChanges = (retour) => [
+    { champ: "reponse", avant: "", apres: retour.etat },
+    ...(retour.date ? [{ champ: "dateProposee", avant: "", apres: retour.date + (retour.debut ? " " + retour.debut : "") }] : []),
+    ...(retour.note ? [{ champ: "note", avant: "", apres: plainValue(retour.note) }] : []),
+  ];
+  function historyValue(champ, v) {
+    if (v === "" || v == null) return "vide";
+    if (champ === "statut") return statusOf(v).label;
+    if (champ === "prixHT") return Number.isFinite(+v) ? `${String(+v).replace(".", ",")} € HT` : String(v);
+    if (champ === "date" || champ === "dateFin") return /^\d{4}-\d{2}-\d{2}$/.test(v) ? numericDate(v) : String(v);
+    if (champ === "dateProposee") { const [day, time] = String(v).split(" "); return /^\d{4}-\d{2}-\d{2}$/.test(day) ? numericDate(day) + (time ? " à " + time : "") : String(v); }
+    if (champ === "cubage") return `${v} m³`;
+    if (champ === "service") return SERVICES.find((x) => x.id === v)?.label || String(v);
+    if (champ === "reponse") return answerOf(v)?.label || String(v);
+    return String(v);
+  }
+  const ACTION_LABELS = { creation: "Création", modification: "Modification", statut: "Changement de statut", reponse: "Réponse du prestataire", suppression: "Suppression" };
+  // Firestore time (Timestamp) or ISO text -> Date.
+  const historyTime = (at) => (at?.toDate ? at.toDate() : at?.seconds != null ? new Date(at.seconds * 1000) : at ? new Date(at) : null);
+  function historyWhen(at) {
+    const t = historyTime(at);
+    return t && !isNaN(t) ? `${pad2(t.getDate())}/${pad2(t.getMonth() + 1)}/${t.getFullYear()} à ${pad2(t.getHours())}h${pad2(t.getMinutes())}` : "";
+  }
+  // Newest first, ready to show. Requests saved before the history existed get one line from their creation date.
+  function historyLines(entries, demande) {
+    const lines = (entries || []).map((e) => ({
+      time: historyTime(e.at)?.getTime() || 0,
+      when: historyWhen(e.at),
+      who: e.auto ? `Appli (automatique, ouverte par ${e.par})` : e.par || "",
+      action: ACTION_LABELS[e.action] || e.action,
+      changes: (e.changes || []).map((c) => ({
+        label: HISTORY_LABELS[c.champ] || c.champ,
+        avant: e.action === "creation" || c.champ === "reponse" || c.champ === "note" || c.champ === "dateProposee" ? null : historyValue(c.champ, c.avant),
+        apres: e.action === "suppression" ? historyValue(c.champ, c.avant) : historyValue(c.champ, c.apres),
+      })),
+    }));
+    if (demande?.createdAt && !(entries || []).some((e) => e.action === "creation")) {
+      lines.push({ time: historyTime(demande.createdAt)?.getTime() || 0, when: historyWhen(demande.createdAt), who: demande.source === "mail" ? "mail City-Drop" : "",
+        action: "Création", changes: [] });
+    }
+    return lines.sort((a, b) => b.time - a.time);
+  }
+
   // ---------- health of the mail robot (apps-script/import-mails.js writes robot/etat) ----------
   // robot/etat: {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} (ISO dates).
   // The robot leaves a trace at least every 30 minutes. When it stops (password changed, Google block, error),
@@ -687,7 +845,7 @@
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
   return {
-    DEFAULT_SLOT, TASK_SUGGESTIONS, existingDuplicate, isIntervention, servicesFor,
+    DEFAULT_SLOT, TASK_SUGGESTIONS, existingDuplicate, isIntervention, servicesFor, offers,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
@@ -697,10 +855,12 @@
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
-    matchesSearch,
-    providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, providerFields, accessMigration,
+    matchesSearch, RECENT_MONTHS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, olderPart, mergeSlices,
+    providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
-    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, unseenAnswers, seenAnswers,
+    HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
+    ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
   };
 });

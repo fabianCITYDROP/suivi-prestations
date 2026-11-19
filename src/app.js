@@ -25,8 +25,11 @@
     providerDocs: new Map(), // providerId -> {nom, tarifs}
     accounts: [],            // [{id: email, role, prestataireId}]
     hayons: [],              // [{plaque, dernierControle}] vehicles with a tailgate, from the provider's sheet
-    hayonWarned: "",         // warning already shown once for the form being saved
+    hayonWarned: "",
+    problems: [],            // [{demandeId, plaque, prestataireId, type, texte, photo?, statut, at, par}] problems seen by providers         // warning already shown once for the form being saved
     userEmail: "",
+    recentFrom: D.recentWindowStart(D.toIsoDate(new Date())), // requests before this day are loaded only on demand
+    olderRanges: [],         // [{from, to, ready}] older periods already asked for
     robot: null,             // robot/etat: last trace left by the mail robot
   };
   // Providers who have their own access get a link to answer in the app instead of WhatsApp.
@@ -36,6 +39,21 @@
   const today = () => D.toIsoDate(new Date());
   const siteNames = () => state.sites.map((s) => s.nom);
   const defaultProvider = () => state.providers[0] || "";
+  // Older requests (before state.recentFrom) are read only when a page shows their period.
+  // Returns "loading" while they arrive, "" when the period is already in the list.
+  function needOlder(from, to) {
+    const part = D.olderPart(from, to, state.recentFrom);
+    if (!part || !state.store?.loadDemandesBetween) return "";
+    const known = state.olderRanges.find((r) => r.from <= part.from && part.to <= r.to);
+    if (known) return known.ready ? "" : "loading";
+    const range = { ...part, ready: false };
+    state.olderRanges.push(range);
+    state.store.loadDemandesBetween(range.from, range.to)
+      .then(() => { range.ready = true; renderAll(); })
+      .catch(() => { state.olderRanges = state.olderRanges.filter((r) => r !== range); toast("Impossible de charger les anciennes demandes, réessaie"); renderAll(); });
+    return "loading";
+  }
+  const allOlderLoaded = () => state.olderRanges.some((r) => r.ready && r.from === D.OLDEST_DAY);
   const demandeById = (id) => state.demandes.find((x) => x.id === id) || null;
 
   // ================= DOM helpers =================
@@ -344,6 +362,8 @@
     const { day, providerFilter } = state;
     $("#dayTitle").textContent = (day === today() ? "Aujourd'hui · " : "") + D.dayLabel(day);
     $("#dayPick").value = day;
+    const monday = D.mondayOf(day);
+    needOlder(D.monthStart(monday), D.nextMonthStart(D.addDays(monday, 6)));
     renderWeekStrip();
     const ofDay = state.demandes.filter((d) => D.isAvailableOn(d, day) && (!providerFilter || d.prestataire === providerFilter));
     $("#dayList").innerHTML = ofDay.length
@@ -408,10 +428,11 @@
   const chosenService = () => document.querySelector('input[name="svc"]:checked')?.value || "pare-brise";
   // Shows only the services the chosen provider does; "Intervention" also asks what to do.
   function renderServiceChoice() {
-    const allowed = D.servicesFor(state.providerDocs.get(D.providerId(field("prest").value)));
+    const name = field("prest").value;
+    const allowed = D.servicesFor(state.providerDocs.get(D.providerId(name)), name);
     if (state.editingId) allowed.push(demandeById(state.editingId)?.service);
     D.SERVICES.forEach((s) => ($("#svc-" + s.id).closest("label").hidden = !allowed.includes(s.id)));
-    if (!allowed.includes(chosenService())) $("#svc-pare-brise").checked = true;
+    if (!allowed.includes(chosenService())) $("#svc-" + allowed[0]).checked = true;
     $("#taskRow").hidden = chosenService() !== "intervention";
     $("#washRow").hidden = chosenService() !== "lavage";
   }
@@ -505,7 +526,7 @@
     const row = button.closest(".extra-veh");
     if (row.dataset.id) {
       if (!requireStore()) return;
-      try { await state.store.deleteDemande(row.dataset.id); toast("Véhicule retiré de la demande"); }
+      try { await state.store.deleteDemande(demandeById(row.dataset.id) || { id: row.dataset.id }); toast("Véhicule retiré de la demande"); }
       catch (err) { reportWriteError(err); return; }
     }
     row.remove(); renumberExtraRows(); renderFormSide();
@@ -540,7 +561,7 @@
     $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others) + appLink(d.prestataire), vehicles });
     renderFormPhotos(d);
     const vehicle = vehicleOf(d.plaque);
-    const hayonWarning = state.store ? hayonFormWarnings(d, readExtras())[0] : "";
+    const hayonWarning = (state.store ? hayonFormWarnings(d, readExtras())[0] : "") || problemHint(d.plaque);
     $("#vehHint").textContent = hayonWarning || (vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "");
     $("#vehHint").classList.toggle("warn", !!hayonWarning);
     const current = demandeById(state.editingId);
@@ -588,6 +609,7 @@
     field("prest").value = state.providerFilter || defaultProvider();
     renderServiceChoice();
     $("#notesBox").open = false;
+    $("#historyBox").hidden = true; $("#historyBox").open = false; $("#historyBox").dataset.id = "";
     $("#formTitle").textContent = "Nouvelle demande";
     $("#formStatusChip").hidden = true;
     $("#saveBtn").textContent = "Enregistrer la demande";
@@ -616,7 +638,40 @@
     chip.hidden = false; chip.className = "chip st-" + d.statut; chip.textContent = D.statusOf(d.statut).label;
     $("#saveBtn").textContent = "Enregistrer les modifications";
     $("#delZone").innerHTML = deleteZone(d);
+    showHistoryBox();
   }
+  // ----- change history of the open request: loaded only when opened (saves reads on the free plan) -----
+  function showHistoryBox() {
+    const box = $("#historyBox");
+    box.hidden = !state.editingId || state.providerMode;
+    if (box.dataset.id === (state.editingId || "")) return; // same request re-drawn: keep the list open
+    box.dataset.id = state.editingId || "";
+    box.open = false;
+    $("#historyBody").innerHTML = "";
+  }
+  async function renderChangeLog() {
+    const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id)].filter(Boolean);
+    if (!ids.length || !state.store) return;
+    const body = $("#historyBody");
+    body.innerHTML = `<p class="muted small">Chargement…</p>`;
+    try {
+      const several = ids.length > 1;
+      const lines = (await Promise.all(ids.map(async (id) => {
+        const d = demandeById(id);
+        return D.historyLines(await state.store.loadHistory(id), d).map((line) => ({ ...line, plaque: several ? d?.plaque : "" }));
+      }))).flat().sort((a, b) => b.time - a.time);
+      body.innerHTML = lines.length ? `<ol class="history-list">${lines.map(historyItem).join("")}</ol>` : "";
+      body.insertAdjacentHTML("beforeend", `<p class="hint">Chaque changement de statut, de prix ou de date est noté ici avec son auteur et l'heure du serveur. Personne ne peut modifier ni effacer cette liste, même après la suppression de la demande.</p>`);
+    } catch {
+      body.innerHTML = `<p class="hint">L'historique n'est pas encore lisible : les nouvelles règles Firebase doivent être publiées.</p>`;
+    }
+  }
+  function historyItem(line) {
+    const changes = line.changes.map((c) => `<li><span class="muted">${esc(c.label)} :</span> ${c.avant != null ? `<s>${esc(c.avant)}</s> → ` : ""}<b>${esc(c.apres)}</b></li>`).join("");
+    const who = line.who || "avant le suivi des modifications";
+    return `<li><div class="history-head"><b>${esc(line.action)}${line.plaque ? " · " + esc(line.plaque) : ""}</b><span class="muted small">${esc(line.when)} · ${esc(who)}</span></div>${changes ? `<ul>${changes}</ul>` : ""}</li>`;
+  }
+  $("#historyBox").addEventListener("toggle", () => { if ($("#historyBox").open) renderChangeLog(); });
   // « Annuler » keeps the request in the history (and stops the tailgate counter from using it); « Supprimer » erases it.
   const deleteZone = (d) => !state.canWrite ? "" : (d?.statut === "annulee"
     ? `<button type="button" class="ghost" data-restore>Rétablir la demande</button>`
@@ -669,6 +724,7 @@
       state.editingId = await saveRequest(state.editingId, main, options);
       for (const extra of extras) extra.row.dataset.id = await saveRequest(extra.id || null, groupMember(main, extra), options);
       showSavedHeader(main);
+      if ($("#historyBox").open) setTimeout(renderChangeLog, 800); // the new line arrives once the save is written
       return true;
     } catch (err) { reportWriteError(err); return false; }
   }
@@ -696,7 +752,7 @@
       } catch (err) { reportWriteError(err); }
     } else if (e.target.closest("[data-delete-yes]") && state.editingId && requireStore()) {
       const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id).filter(Boolean)];
-      try { await Promise.all(ids.map((id) => state.store.deleteDemande(id))); toast(ids.length > 1 ? "Demande groupée supprimée" : "Demande supprimée"); resetForm(); show("planning"); }
+      try { await Promise.all(ids.map((id) => state.store.deleteDemande(demandeById(id) || { id }))); toast(ids.length > 1 ? "Demande groupée supprimée" : "Demande supprimée"); resetForm(); show("planning"); }
       catch (err) { reportWriteError(err); }
     }
   });
@@ -768,6 +824,7 @@
       .sort(D.byDateThenTime);
   }
   function renderVerification() {
+    if ($("#v-from").value) needOlder($("#v-from").value, $("#v-to").value ? D.addDays($("#v-to").value, 1) : null);
     const rows = verificationRows();
     const checked = state.checkedForVerification;
     [...checked].forEach((id) => { if (!rows.some((r) => r.id === id)) checked.delete(id); });
@@ -822,7 +879,12 @@
   }
   function renderReport() {
     const month = $("#b-month").value, provider = $("#b-prest").value;
+    const loading = month && needOlder(D.monthStart(month + "-01"), D.nextMonthStart(month + "-01"));
     const report = currentReport();
+    if (loading && !report.rows.length) {
+      $("#b-body").innerHTML = `<div class="empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les ouvres.</span></div>`;
+      return;
+    }
     if (!report.rows.length) {
       $("#b-body").innerHTML = `<div class="empty"><b>Aucune demande en ${esc(D.monthLabel(month))}${provider ? " avec " + esc(provider) : ""}.</b><span>Le bilan compte les demandes selon leur premier jour de disponibilité : demandées, réalisées, annulées et encore en attente.</span></div>`;
       return;
@@ -865,6 +927,7 @@
   function renderHistory() {
     const query = $("#q").value, provider = $("#h-prest").value, status = $("#h-statut").value, service = $("#h-svc").value, site = $("#h-site").value;
     const statusFilter = HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
+    renderOlderNote();
     const rows = state.demandes.filter((d) =>
       (!provider || d.prestataire === provider) && (!service || d.service === service) && (!site || d.site === site) && statusFilter(d) &&
       D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire], query)
@@ -875,6 +938,16 @@
     }
     $("#histWrap").innerHTML = `<div class="tablewrap"><table class="wide hist"><thead><tr><th>Dispo</th><th>Créneau</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th><th>Envoyée le</th></tr></thead><tbody>${rows.map(historyLine).join("")}</tbody></table></div>`;
   }
+  // Below the history: older requests stay unread until asked for, to spare the free plan's daily reads.
+  function renderOlderNote() {
+    const note = $("#h-older");
+    const loading = state.olderRanges.some((r) => !r.ready && r.from === D.OLDEST_DAY);
+    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded();
+    if (note.hidden) return;
+    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours et les contrôles hayon.
+      <button type="button" class="ghost small-btn" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
+  }
+  $("#h-older").addEventListener("click", (e) => { if (e.target.closest("#h-older-btn")) { needOlder(D.OLDEST_DAY, null); renderHistory(); } });
   function historyLine(d) {
     const span = D.isMultiDay(d) ? `${D.shortDate(d.date)} → ${D.shortDate(D.lastDay(d))}` : D.shortDate(d.date);
     const slot = esc(D.timeSlotLabel(d));
@@ -897,9 +970,9 @@
     $("#s-sites").innerHTML = state.sites.map((s, i) => `<div class="item"><b>${esc(s.nom)}</b>
       <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}">${removeButton("data-remove-site", i, s.nom)}</div>`).join("");
     $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
+    const provFlag = (p, flag, label) => `<label class="check"><input type="checkbox" data-prov-flag="${flag}" data-prov="${esc(p)}" ${D.offers(state.providerDocs.get(D.providerId(p)), flag, p) ? "checked" : ""}>${label}</label>`;
     $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
-      <label class="check"><input type="checkbox" data-prov-flag="interventions" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.interventions ? "checked" : ""}>Interventions</label>
-      <label class="check"><input type="checkbox" data-prov-flag="hayon" data-prov="${esc(p)}" ${state.providerDocs.get(D.providerId(p))?.hayon ? "checked" : ""}>Contrôle hayon</label>${removeButton("data-remove-provider", i, p)}</div>`).join("");
+      <div class="prov-flags">${provFlag(p, "pareBrise", "Pare-brise")}${provFlag(p, "interventions", "Interventions")}${provFlag(p, "hayon", "Contrôle hayon")}</div>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
     renderPrices(); renderAccounts();
   }
@@ -913,7 +986,10 @@
     $("#t-list").innerHTML = lines.length
       ? lines.map((line, i) => `<div class="item price"><span>${esc(D.priceLineLabel(line))}</span>
           <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
-      : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;
+      : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;    const missing = D.missingKnownPrices(state.providers, pricesOf);
+    const count = missing.reduce((n, m) => n + m.add.length, 0);
+    $("#t-known-box").hidden = !count || !state.canWrite;
+    $("#t-known-text").textContent = count ? `${plural(count, "tarif")} à ajouter pour ${missing.map((m) => m.name).join(", ")}.` : "";
   }
   // One choice per price kind: windshield, complete wash, inside wash, intervention.
   const priceKinds = () => D.SERVICES.flatMap((x) => (x.id === "lavage" ? D.WASH_KINDS.map((k) => ({ service: x.id, formule: k.id })) : [{ service: x.id }]))
@@ -924,6 +1000,15 @@
     catch (err) { reportWriteError(err); }
   }
   $("#t-prov").addEventListener("change", renderPrices);
+  // One click fills the prices agreed with Allo and the washers (see D.KNOWN_PRICES); lines already there are kept.
+  $("#t-known").onclick = async () => {
+    if (!requireStore()) return;
+    const missing = D.missingKnownPrices(state.providers, pricesOf);
+    try {
+      for (const m of missing) await state.store.saveProvider(D.providerId(m.name), { nom: m.name, tarifs: [...pricesOf(D.providerId(m.name)), ...m.add] });
+      toast(`${plural(missing.reduce((n, m) => n + m.add.length, 0), "tarif")} ajouté(s)`);
+    } catch (err) { reportWriteError(err); }
+  };
   $("#t-add").onclick = () => {
     const prix = parseFloat($("#t-prix").value.replace(",", "."));
     if (!Number.isFinite(prix) || prix < 0) return toast("Indique le prix hors taxe, par exemple 266,67");
@@ -1000,7 +1085,7 @@
     const box = e.target.closest("[data-prov-flag]");
     if (!box || !requireStore()) return;
     const nom = box.dataset.prov, flag = box.dataset.provFlag;
-    const what = flag === "hayon" ? "des contrôles hayon" : "des interventions";
+    const what = { hayon: "des contrôles hayon", pareBrise: "des pare-brise" }[flag] || "des interventions";
     try { await state.store.saveProvider(D.providerId(nom), { nom, [flag]: box.checked }); toast(box.checked ? `${nom} peut recevoir ${what}` : `${nom} ne reçoit plus ${what.replace(/^des /, "de ")}`); }
     catch (err) { box.checked = !box.checked; reportWriteError(err); }
   });
@@ -1066,7 +1151,7 @@
       const patch = D.mailCompletion(d, ctx);
       if (!patch || completing.has(d.id)) return;
       completing.add(d.id);
-      state.store.completeDemande(d.id, patch).catch(() => {}).finally(() => completing.delete(d.id));
+      state.store.completeDemande(d, patch).catch(() => {}).finally(() => completing.delete(d.id));
     });
   }
   // ================= tailgate controls (hayon) =================
@@ -1076,7 +1161,7 @@
     if (!state.canWrite) return;
     rows.filter((d) => D.hayonAutoClose(d, today()) && !closingHayons.has(d.id)).forEach((d) => {
       closingHayons.add(d.id);
-      state.store.setStatus(d, "realisee").catch(() => {}).finally(() => closingHayons.delete(d.id));
+      state.store.setStatus(d, "realisee", { auto: true }).catch(() => {}).finally(() => closingHayons.delete(d.id));
     });
   }
   const HAYON_FILTERS = {
@@ -1169,16 +1254,54 @@
       ${!seen && state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
       <button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button></span></div>`;
   }
+  // ---------- problems seen on a vehicle by a provider (shock, tyre, warning light) ----------
+  const providerOfProblem = (p) => demandeById(p.demandeId)?.prestataire || state.providerDocs.get(p.prestataireId)?.nom || "Prestataire";
+  const atLabel = (iso) => `${D.numericDate(iso.slice(0, 10))} ${iso.slice(11, 16)}`;
+  function problemHint(plate) {
+    const open = D.openProblems(D.problemsOfPlate(state.problems, plate));
+    return open.length && D.plateKey(plate) ? `Problème signalé par ${providerOfProblem(open[0])} le ${D.shortDate(open[0].at.slice(0, 10))} : ${D.problemSummary(open[0])}` : "";
+  }
+  function problemRow(p, { handled = false } = {}) {
+    const d = demandeById(p.demandeId);
+    return `<div class="answer-row problem-row${handled ? " seen" : ""}">${plateTag(p.plaque)}
+      <span><span class="problem-type">${esc(D.problemOf(p.type)?.label || "Problème")}</span>${p.texte ? ` · ${esc(p.texte)}` : ""}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
+      <span class="row">${p.photo ? `<button type="button" data-proof="${esc(p.photo)}">${icon("image")}Photo</button>` : ""}
+      ${state.canWrite ? (handled ? `<button type="button" class="ghost" data-problem-undo="${esc(p.id)}">Rouvrir</button>` : `<button type="button" data-problem-done="${esc(p.id)}">${icon("check")}Traité</button>`) : ""}
+      ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : ""}</span></div>`;
+  }
+  function renderProblems() {
+    const open = D.openProblems(state.problems);
+    const handled = D.handledProblems(state.problems);
+    $("#problemsBlock").hidden = !open.length && !handled.length;
+    $("#problems").innerHTML = open.length ? open.map((p) => problemRow(p)).join("") : `<p class="hint">Aucun problème en attente.</p>`;
+    $("#problemsHandled").hidden = !handled.length;
+    $("#problemsHandled").innerHTML = handled.length ? `<summary>Problèmes déjà traités (${handled.length})</summary><div class="panel answers">${handled.map((p) => problemRow(p, { handled: true })).join("")}</div>` : "";
+    return open.length;
+  }
+  let knownProblems = null;
+  function followProblems(rows) {
+    const fresh = D.openProblems(rows).filter((p) => knownProblems && !knownProblems.has(p.id));
+    knownProblems = new Set(rows.map((p) => p.id));
+    if (!fresh.length) return;
+    const sentence = (p) => `${providerOfProblem(p)} signale un problème sur ${p.plaque} : ${D.problemSummary(p)}`;
+    toast(fresh.length > 1 ? `${fresh.length} problèmes signalés sur des véhicules` : sentence(fresh[0]));
+    if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") {
+      const n = new Notification("Problème signalé sur un véhicule", { body: fresh.slice(0, 3).map(sentence).join("\n"), icon: "assets/icon-180.png", tag: "problemes" });
+      n.onclick = () => { window.focus(); show("retours"); n.close(); };
+    }
+  }
+
   function renderAnswers() {
     const rows = D.unseenAnswers(state.demandes);
-    const n = rows.length;
+    const openProblems = renderProblems();
+    const n = rows.length + openProblems;
     $("#retoursBadge").hidden = !n; $("#retoursBadge").textContent = n;
     document.title = (n ? `(${n}) ` : "") + "City-Drop × Presta";
     try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
-    renderRetoursSide(rows);
-    $("#allSeenBtn").hidden = !n || !state.canWrite;
-    $("#notifBtn").hidden = !("Notification" in window) || Notification.permission !== "default";
-    $("#answers").innerHTML = n ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
+    renderRetoursSide(rows, openProblems);
+    $("#allSeenBtn").hidden = !rows.length || !state.canWrite;
+    renderAlertButton();
+    $("#answers").innerHTML = rows.length ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
     const seen = D.seenAnswers(state.demandes);
     $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
   }
@@ -1197,27 +1320,63 @@
         <span class="side-what">${esc(d.prestataire)} · ${esc(D.answerSummary(r))}</span></button>
       <span class="side-quick">${quick}</span></li>`;
   }
-  function renderRetoursSide(rows) {
+  function renderRetoursSide(rows, openProblems = 0) {
     const n = rows.length;
-    const head = `<div class="panel-head"><h2>Retours${n ? ` <span class="tab-badge">${n}</span>` : ""}</h2><a href="#retours" class="side-all">Tout voir</a></div>`;
-    $("#retoursSide").innerHTML = head + (n
+    const head = `<div class="panel-head"><h2>Retours${n + openProblems ? ` <span class="tab-badge">${n + openProblems}</span>` : ""}</h2><a href="#retours" class="side-all">Tout voir</a></div>`;
+    const problems = openProblems ? `<a href="#retours" class="side-problems">${icon("alert")}${openProblems > 1 ? `${openProblems} problèmes signalés sur des véhicules` : "1 problème signalé sur un véhicule"}</a>` : "";
+    $("#retoursSide").innerHTML = head + problems + (n
       ? `<ul class="side-list">${rows.slice(0, SIDE_MAX).map(sideRow).join("")}</ul>${n > SIDE_MAX ? `<a href="#retours" class="side-more">+ ${plural(n - SIDE_MAX, "autre retour")}</a>` : ""}`
       : `<p class="side-empty">Aucun nouveau retour des prestataires.</p>`);
   }
   // A system notification for answers that arrive while the app is open in another tab or window.
   function notifyAnswers(fresh) {
+    if (state.alerts?.state === "on") return; // the alert script already sends it to this device
     if (!("Notification" in window) || Notification.permission !== "granted" || document.visibilityState === "visible") return;
     const n = new Notification(fresh.length > 1 ? `${fresh.length} nouveaux retours des prestataires` : "Nouveau retour d'un prestataire", {
       body: fresh.slice(0, 3).map(answerSentence).join("\n"), icon: "assets/icon-180.png", tag: "retours",
     });
     n.onclick = () => { window.focus(); show("retours"); n.close(); };
   }
-  $("#notifBtn").onclick = () => Notification.requestPermission().then((p) => { renderAnswers(); toast(p === "granted" ? "Notifications activées sur cet ordinateur" : "Notifications refusées par le navigateur"); });
+  // ---------- alerts on a closed app (team side): button on the Retours page, settings panel ----------
+  const ALERT_TEAM_TEXTS = { on: "Alertes actives sur cet appareil.", ask: "Les alertes ne sont pas encore activées sur cet appareil.", loading: "" };
+  function renderAlertButton() {
+    const a = state.alerts;
+    const pushable = a && a.state !== "off" && a.state !== "loading" && state.canWrite;
+    $("#notifBtn").hidden = pushable ? !["ask", "error"].includes(a.state) : !("Notification" in window) || Notification.permission !== "default";
+    const hint = pushable && window.SuiviAlertes.TEXTS[a.state];
+    $("#alertHint").hidden = !hint; $("#alertHint").textContent = hint || "";
+    const status = !a || a.state === "off" ? (a?.settings?.url ? "" : "Pas encore branché : colle l'adresse du script.") : window.SuiviAlertes.TEXTS[a.state] || ALERT_TEAM_TEXTS[a.state] || "";
+    $("#al-status").textContent = status;
+    if (a?.settings?.url && document.activeElement !== $("#al-url")) $("#al-url").value = a.settings.url;
+  }
+  $("#notifBtn").onclick = () => {
+    if (state.alerts && state.alerts.state !== "off") return state.alerts.activate().then(() => { if (state.alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
+    Notification.requestPermission().then((p) => { renderAnswers(); toast(p === "granted" ? "Notifications activées sur cet ordinateur" : "Notifications refusées par le navigateur"); });
+  };
+  $("#al-save").onclick = async () => {
+    if (!requireStore()) return;
+    const url = $("#al-url").value.trim();
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) return toast("L'adresse doit commencer par https://script.google.com/macros/s/ et finir par /exec");
+    let cle = "";
+    try { cle = (await (await fetch(url + "?action=cle", { cache: "no-store" })).json()).cle || ""; } catch {}
+    if (!/^[\w-]{80,100}$/.test(cle)) return toast("Le script ne répond pas : vérifie qu'il est déployé en « Application Web », accès « Tout le monde »");
+    try { await state.store.saveAlertSettings({ url, cle }); await state.alerts?.reload(); toast("Script des alertes branché"); renderAnswers(); }
+    catch (err) { reportWriteError(err); }
+  };
   $("#allSeenBtn").onclick = async () => {
     if (!requireStore()) return;
     try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
     catch (err) { reportWriteError(err); }
   };
+  ["#problems", "#problemsHandled"].forEach((sel) => $(sel).addEventListener("click", (e) => {
+    const b = e.target.closest("[data-problem-done], [data-problem-undo], [data-open]");
+    if (!b) return;
+    if (b.dataset.open) return openDemande(b.dataset.open);
+    const p = state.problems.find((x) => x.id === (b.dataset.problemDone || b.dataset.problemUndo));
+    if (!p || !requireStore()) return;
+    state.store.markProblemHandled(p, state.userEmail, !!b.dataset.problemDone)
+      .then(() => toast(b.dataset.problemDone ? `Problème sur ${p.plaque} marqué comme traité` : `Problème sur ${p.plaque} rouvert`), reportWriteError);
+  }));
   ["#answers", "#answersSeen", "#retoursSide"].forEach((sel) => $(sel).addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
     const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
@@ -1269,11 +1428,13 @@
       banner("La base de données n'est pas encore branchée : rien ne peut être enregistré pour l'instant.");
       return;
     }
-    state.store = createStore(db);
+    state.store = createStore(db, { email: () => state.userEmail });
     window.claude.use("downloads").then((d) => { state.downloads = d; $("#b-csv").hidden = !d; }).catch(() => {});
     const user = await window.claude.use("user").catch(() => null);
     state.userEmail = user?.email || "";
     const account = await state.store.getAccount(state.userEmail);
+    state.alerts = window.SuiviAlertes.create({ store: state.store, account: account || { role: "admin" }, email: D.emailKey(state.userEmail) });
+    state.alerts.listen(() => (state.providerMode ? null : renderAnswers()));
     if (account?.role === "prestataire") return startProviderMode(account);
     if (account?.role === "lecture") setReadOnly("Accès en lecture : tu vois tout mais tu ne modifies rien.");
     if ((await user?.can("data.write")) === false) setReadOnly("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
@@ -1282,7 +1443,7 @@
   function startProviderMode(account) {
     state.providerMode = true;
     setSync("Connecté", true);
-    window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D,
+    window.SuiviPresta.start({ store: state.store, account, email: D.emailKey(state.userEmail), D, alerts: state.alerts,
       ui: { $, esc, toast, prepareImage, icon, plateTag, safeImageSrc } });
   }
   function setReadOnly(message) {
@@ -1292,6 +1453,7 @@
   }
   function subscribeTeam() {
     state.store.subscribe({
+      recentFrom: state.recentFrom,
       onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); closePastHayons(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); completeMailRequests(); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
@@ -1299,6 +1461,7 @@
       onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); completeMailRequests(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
+      onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderFormSide(); },
       onRobot: (etat) => { state.robot = etat; renderRobot(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);

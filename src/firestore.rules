@@ -3,9 +3,12 @@ rules_version = '2';
 // their access is the document comptes/<e-mail in lower case>: {role, prestataireId}.
 //   admin       : CityDrop team, sees and changes everything.
 //   lecture     : sees everything (report), changes nothing.
-//   prestataire : sees only the requests of its own provider, and can only answer them (field "retour").
-//   robot       : the mail-import script. Can only create a request read from a City-Drop mail, cancel it, or re-plan
-//                 it after a cancellation, and leave its trace in robot/etat; reads nothing, touches no other request.
+//   prestataire : sees only the requests of its own provider, and can only answer them (field "retour"); a "fait" or
+//                 an acceptance also moves the request's status, so it is closed even when nobody of the team is online.
+//   robot       : the Apps Script of the team (mail import + alerts). Can create a request read from a City-Drop mail,
+//                 cancel it, or re-plan it after a cancellation; reads the requests and the alert subscriptions to
+//                 send alerts, only writes the "notifie" mark (what was already announced) on other requests,
+//                 and leaves its trace in robot/etat.
 // A signed-in person without a comptes document sees nothing.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -31,14 +34,34 @@ service cloud.firestore {
     }
 
     match /demandes/{requestId} {
-      allow read: if canReadAll() || ownsRequest(resource.data);
+      allow read: if canReadAll() || isRobot() || ownsRequest(resource.data);
       allow create: if isAdmin() || (isRobot() && validMailRequest(request.resource.data));
       allow delete: if isAdmin();
       allow update: if isAdmin()
         || (isRobot() && resource.data.source == 'mail' && (robotCancels() || robotReplans()))
-        || (ownsRequest(resource.data)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['retour', 'updatedAt'])
-            && validAnswer(request.resource.data.retour));
+        || (isRobot() && robotMarks())
+        || (ownsRequest(resource.data) && providerAnswers());
+    }
+    // The provider's answer, and the status it implies: "fait" closes the request, an acceptance confirms it.
+    // Dates written with it are the answer's own time; nothing else of the request changes.
+    function providerAnswers() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      return changed.hasOnly(['retour', 'updatedAt', 'statut', 'sentAt', 'confirmedAt', 'doneAt'])
+        && validAnswer(after.retour)
+        && (after.statut == before.statut
+            || (before.statut != 'annulee' && after.retour.etat == 'fait' && after.statut == 'realisee')
+            || (before.statut in ['a_envoyer', 'envoyee'] && after.retour.etat == 'confirme' && after.statut == 'confirmee'))
+        && (!changed.hasAny(['sentAt']) || after.sentAt == after.retour.at)
+        && (!changed.hasAny(['confirmedAt']) || after.confirmedAt == after.retour.at)
+        && (!changed.hasAny(['doneAt']) || after.doneAt == after.retour.at);
+    }
+    // The alert script notes what it already announced, so an alert never goes out twice.
+    function robotMarks() {
+      let n = request.resource.data.notifie;
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notifie'])
+        && n is map && n.keys().hasOnly(['demande', 'annulee', 'retour']);
     }
     // A request read from a City-Drop mail: only these fields, already sent to the garage, not yet linked to a provider
     // (the team app links it, adds site, model and price). The id is fixed by the mail, so a mail is never imported twice.
@@ -70,6 +93,45 @@ service cloud.firestore {
         && r.par == email();
     }
 
+    // Change history: who changed what on a request, at the server's time. Written with the change itself; afterwards
+    // nobody (not even an admin) can change or delete an entry. Providers can only add the trace of their own answers.
+    match /historique/{entryId} {
+      allow read: if canReadAll();
+      allow create: if validHistory(request.resource.data)
+        && (isAdmin()
+            || (isProvider() && request.resource.data.action == 'reponse'
+                && ownsRequest(get(/databases/$(database)/documents/demandes/$(request.resource.data.demandeId)).data)));
+      allow update, delete: if false;
+    }
+    function validHistory(h) {
+      return h.keys().hasOnly(['demandeId', 'plaque', 'action', 'changes', 'par', 'at', 'auto'])
+        && h.demandeId is string && h.demandeId.size() > 0 && h.demandeId.size() <= 60
+        && h.plaque is string && h.plaque.size() <= 20
+        && h.action in ['creation', 'modification', 'statut', 'reponse', 'suppression']
+        && h.changes is list && h.changes.size() <= 30
+        && h.par == email() && h.at == request.time
+        && h.get('auto', false) is bool;
+    }
+    // Alerts on a phone or computer: each person registers their own devices, with their own role and provider.
+    // The token is the device's secret to fetch the text of its alerts from the Apps Script.
+    match /abonnements/{deviceId} {
+      allow read, delete: if isAdmin() || isRobot() || (hasAccount() && resource.data.email == email());
+      allow create: if hasAccount() && validSubscription(request.resource.data);
+      allow update: if hasAccount() && resource.data.email == email() && validSubscription(request.resource.data);
+    }
+    function validSubscription(s) {
+      return s.keys().hasOnly(['email', 'role', 'prestataireId', 'endpoint', 'jeton', 'appareil', 'createdAt', 'updatedAt'])
+        && s.email == email() && s.role == account().role && s.role in ['admin', 'lecture', 'prestataire']
+        && ((s.role == 'prestataire' && s.prestataireId == account().prestataireId) || (s.role != 'prestataire' && !('prestataireId' in s)))
+        && s.endpoint is string && s.endpoint.size() < 1000 && s.endpoint.matches('https://.+')
+        && s.jeton is string && s.jeton.matches('[a-f0-9]{32}');
+    }
+    // Address of the alert script and its public key: every signed-in account needs it to register a device.
+    match /public/{doc} {
+      allow read: if hasAccount();
+      allow write: if isAdmin();
+    }
+
     // Trace left by the mail robot at least every 30 minutes (last run, last City-Drop mail seen, current error,
     // last mail it could not read).
     // The team app shows a red alert when it gets old: a stopped robot cannot warn anyone itself.
@@ -91,6 +153,28 @@ service cloud.firestore {
       allow read: if canReadAll() || (isProvider() && resource.data.prestataireId == account().prestataireId);
       allow create: if isAdmin() || (isProvider() && request.resource.data.prestataireId == account().prestataireId);
       allow update, delete: if isAdmin();
+    }
+
+    // Problem seen on a vehicle (shock, tyre, warning light…): the provider reports it on one of its own requests,
+    // the team reads it and marks it handled. A provider sees only its own reports and can neither change nor delete them.
+    match /signalements/{reportId} {
+      allow read: if canReadAll() || (isProvider() && resource.data.prestataireId == account().prestataireId);
+      allow create: if isProvider() && validReport(request.resource.data);
+      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'traiteAt', 'traitePar'])
+                    && request.resource.data.statut in ['nouveau', 'traite'];
+      allow delete: if isAdmin();
+    }
+    function validReport(s) {
+      return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'statut', 'at', 'par'])
+        && s.keys().hasAll(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'statut', 'at', 'par'])
+        && s.prestataireId == account().prestataireId && s.par == email() && s.statut == 'nouveau'
+        && s.type in ['choc', 'pneu', 'voyant', 'autre']
+        && s.texte is string && s.texte.size() <= 500
+        && s.at is string && s.at.size() <= 40
+        && (!('photo' in s) || (s.photo is string && s.photo.size() <= 80))
+        && s.demandeId is string
+        && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.prestataireId == account().prestataireId
+        && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.plaque == s.plaque;
     }
 
     // Fleet models and their windshield photos: useful to every provider, changed only by the team.

@@ -58,3 +58,44 @@ dans les Propriétés du script, puis exécuter `installer`.
 Il est noté « Mail non compris » dans le journal (Apps Script › Exécutions), un mail part à `ALERTE_EMAIL`
 et un bandeau orange s'affiche dans l'appli : la demande doit être saisie à la main.
 Les tests `node --test apps-script/import-mails.test.js` vérifient la lecture d'un vrai mail.
+
+# Alertes appli fermée
+
+Le prestataire est prévenu sur son téléphone dès qu'une demande lui arrive (ou est annulée), et l'équipe dès
+qu'un prestataire répond (accepté, fait, autre date, absent, pas possible), **même appli fermée et téléphone verrouillé**.
+C'est gratuit : pas de forfait Firebase payant, tout passe par `notifications.js` (Google Apps Script), comme l'appli des runners.
+
+Indépendamment du script : depuis cette version, un « OK prestation réalisée » ou une acceptation du prestataire
+passe **tout de suite** la demande en « Réalisée » / « Confirmée », même si personne de l'équipe n'a l'appli ouverte.
+
+## Comment ça marche
+
+1. Chaque personne touche une fois « Activer les alertes » (encadré en haut de l'écran prestataire, page Retours pour l'équipe).
+   Son téléphone est inscrit dans `abonnements/` avec son rôle et un jeton secret (règles Firestore testées : on n'inscrit
+   que ses propres appareils, un prestataire ne reçoit que ce qui concerne son entreprise).
+2. Après chaque enregistrement, l'appli dit au script « regarde maintenant » ; le script passe aussi toutes les 5 minutes.
+3. Le script lit les demandes modifiées depuis 15 minutes, envoie une alerte **vide** (Apple / Google ne voient rien de lisible),
+   et note sur la demande ce qu'il a annoncé (`notifie`) pour ne jamais l'annoncer deux fois. Rien d'antérieur à l'installation n'est annoncé.
+4. Le téléphone reçoit l'alerte, demande son texte au script avec son jeton, et l'affiche. Toucher l'alerte ouvre l'appli.
+
+Sur **iPhone**, les alertes ne marchent que si l'appli est ajoutée à l'écran d'accueil (Safari › Partager › « Sur l'écran d'accueil »)
+et ouverte depuis son icône : l'encadré le dit au prestataire.
+
+## Mise en place (une seule fois, dans le même projet que l'import des mails)
+
+1. **Règles** : console Firebase › Firestore › Règles : coller `src/firestore.rules`, Publier.
+2. **Compte robot** : le même que pour les mails (`ROBOT_EMAIL` / `ROBOT_MOT_DE_PASSE` déjà dans les Propriétés du script).
+   S'il n'existe pas encore, suivre les étapes 1 et 4 de l'import des mails ci-dessus.
+3. **Script** : dans le projet Apps Script, ➕ Fichier › Script, nommé `notifications`, coller `notifications.js`, enregistrer.
+4. Choisir la fonction `installerNotifications` puis ▶ Exécuter, accepter les autorisations Google.
+   Le journal affiche « Prêt ».
+5. **Déployer › Nouveau déploiement** › type « Application Web » : exécuter en tant que **Moi**, accès **Tout le monde**. Copier l'adresse qui finit par `/exec`.
+6. Dans l'appli › Réglages › **Alertes sur les téléphones** : coller l'adresse, Enregistrer.
+7. Page Retours : « Activer les alertes ». Une alerte d'essai « Alertes activées » arrive.
+
+« Tout le monde » est nécessaire pour que les téléphones des prestataires joignent le script ; il ne fait que trois choses sans danger
+(donner la clé publique, regarder les demandes, rendre le texte d'une alerte à l'appareil qui a le bon jeton) et n'appelle que les vrais
+services d'alertes (Apple, Google, Mozilla, Microsoft). La clé privée qui signe les alertes reste dans les Propriétés du script.
+
+Tests : `node --test apps-script` (signature vérifiée par Node et par le vecteur officiel RFC 6979) ;
+`cd tests-regles && npm run alertes` rejoue tout le parcours dans les émulateurs Firebase.

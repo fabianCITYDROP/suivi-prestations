@@ -301,6 +301,7 @@ td.date { font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Settings */
 .list-edit { display: flex; flex-direction: column; gap: 8px; }
 .list-edit .item { display: grid; grid-template-columns: minmax(96px, 140px) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.prov-flags { display: flex; flex-wrap: wrap; gap: 4px 18px; }
 .list-edit .item.price { grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px 14px; }
 .list-edit .item.account { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; }
 .list-edit .item.account > :first-child { overflow-wrap: anywhere; }
@@ -372,6 +373,13 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 #answersSeen { border-color: var(--line); }
 .answer-row.seen { color: var(--ink-2); }
 .answers { margin-bottom: 16px; border-color: var(--accent, #0f6f8f); }
+.problem-type { font-weight: 700; color: var(--danger); }
+.answer-row.seen .problem-type { color: inherit; }
+.problems-handled { margin: 10px 0 4px; }
+.problems-handled summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--ink-2); padding: 6px 0; }
+.problems-handled[open] summary { margin-bottom: 8px; }
+.side-problems { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--danger); text-decoration: none; }
+.side-problems .icon { width: 17px; height: 17px; }
 .answer-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
 .answer-row:first-of-type { border-top: 0; padding-top: 0; }
 @media (max-width: 640px) { .answer-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } .answer-row > .plate { justify-self: start; } .answer-row > .row { margin-left: -12px; } }
@@ -388,6 +396,11 @@ body.presta-mode .top .sync { display: none; }
 .presta-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(18, 33, 43, .08), 0 2px 8px -4px rgba(18, 33, 43, .2); }
 .presta-tabs .count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--line); color: var(--ink); font: 700 12px/20px var(--f-body); font-variant-numeric: tabular-nums; }
 .presta-tabs .count.hot { background: var(--st-todo); color: #fff; }
+.alert-card { display: grid; grid-template-columns: 40px 1fr; gap: 4px 12px; align-items: center; margin: 0 0 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 1px 2px rgba(18, 33, 43, .05); }
+.alert-icon { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); color: var(--accent); }
+.alert-title { margin: 0; font-weight: 600; font-size: 15px; }
+.alert-text { margin: 2px 0 0; color: var(--ink-2); font-size: 14px; line-height: 1.4; }
+.alert-card button { grid-column: 1 / -1; margin-top: 10px; width: 100%; }
 .presta-body { display: flex; flex-direction: column; gap: 12px; }
 .tab-intro { margin: 0 2px 2px; color: var(--ink-2); font-size: 14px; }
 
@@ -418,6 +431,21 @@ body.presta-mode .top .sync { display: none; }
 .job-form input { min-height: 44px; font-size: 16px; }
 .job-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .job-form-actions .primary { flex: 1; min-height: 46px; }
+/* Problem seen on a vehicle: a quiet link under the actions, a radio row of chips, an optional photo. Red only for the reported line. */
+.job-report { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 2px; background: none; border: 0; color: var(--ink-2); font: 600 14px var(--f-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.job-report .icon { width: 16px; height: 16px; }
+.job-problem { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--danger); }
+.job-problem .icon { width: 17px; height: 17px; margin-top: 1px; flex: none; }
+.job-problem small { display: block; color: var(--ink-2); font-size: 12px; }
+.problem-pick { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px; }
+.problem-pick legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.problem-pick .chip-btn { min-height: 40px; background: var(--surface); }
+.problem-pick .chip-btn[aria-checked="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.job-form textarea { font: 16px var(--f-body); min-height: 64px; resize: vertical; }
+.problem-photo { display: flex; align-items: center; gap: 12px; }
+.problem-photo img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.problem-photo-add { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; align-self: flex-start; border: 1px dashed var(--line-strong); border-radius: 10px; font-size: 14px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+.problem-photo-add .icon { width: 18px; height: 18px; }
 .job-busy { margin: 0; display: flex; gap: 10px; align-items: center; color: var(--ink-2); font-weight: 600; min-height: 46px; }
 .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line-strong); border-top-color: var(--accent); animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -545,4 +573,17 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
   .hy-dates, .hy-actions { grid-column: 1 / -1; }
   .hy-actions { justify-content: flex-start; }
 }
+/* Change history of a request (who changed what, when) */
+details.history { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.history-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 0; }
+.history-list > li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.history-list > li:last-child { border-bottom: 0; }
+.history-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; }
+.history-head .small { overflow-wrap: anywhere; }
+.history-list ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 14px; }
+.history-list s { color: var(--ink-2); }
+.history-list ul b { font-weight: 600; overflow-wrap: anywhere; }
 </style>
+
+/* History: older requests are read only on demand */
+.older-note { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }

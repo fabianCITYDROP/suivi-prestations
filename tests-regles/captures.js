@@ -70,6 +70,9 @@ async function seed() {
   ];
   for (const { id, ...r } of rows) await put('demandes/' + id, { ...r, createdAt: at(-3, '08:00'), updatedAt: at(0, '06:00') });
   for (const v of rows) await put('vehicules/' + v.plaque.replace(/-/g, ''), { plaque: v.plaque, modele: v.modele, cubage: v.cubage });
+  // Problems seen on vehicles by providers: one waiting, one already handled.
+  await put('signalements/s1', { demandeId: 'r5', plaque: 'EZ-104-QS', prestataireId: 'khalid', type: 'pneu', texte: 'Pneu arrière gauche presque à plat', statut: 'nouveau', at: at(0, '10:42'), par: 'khalid@lavage.fr' });
+  await put('signalements/s2', { demandeId: 'r12', plaque: 'EV-390-HU', prestataireId: 'khalid', type: 'choc', texte: 'Rayure porte latérale', statut: 'traite', at: at(-1, '11:02'), par: 'khalid@lavage.fr', traiteAt: at(-1, '14:00'), traitePar: 'fabian@city-drop.com' });
   await signUp('fabian@city-drop.com'); await signUp('khalid@lavage.fr');
 }
 
@@ -121,6 +124,15 @@ async function seed() {
     const k = await open('khalid@lavage.fr', { width: 390, height: 844 });
     await k.screenshot({ path: `${OUT}/mobile-prestataire.png` });
     await k.screenshot({ path: `${OUT}/long-mobile-prestataire.png`, fullPage: true });
+    // Report a problem on today's vehicle: the form, then the card once sent (goes through the real rules).
+    await k.click('[data-tab=today]'); await k.waitForTimeout(300);
+    await k.click('.job-report'); await k.waitForTimeout(200);
+    await k.click('[data-ptype=voyant]'); await k.fill('.job-form [data-note]', 'Voyant moteur orange allumé au démarrage');
+    await k.screenshot({ path: `${OUT}/mobile-prestataire-signaler.png`, fullPage: true });
+    await k.click('[data-send^="problem:"]'); await k.waitForTimeout(1500);
+    await k.screenshot({ path: `${OUT}/mobile-prestataire-signale.png`, fullPage: true });
+    await k.click('[data-form^="done:"]'); await k.waitForTimeout(200);
+    await k.screenshot({ path: `${OUT}/mobile-prestataire-fait-avec-probleme.png`, fullPage: true });
   }
   console.log(errors.length ? 'PAGE ERRORS\n' + errors.join('\n') : 'no page errors');
   await b.close(); srv.close();

@@ -4,6 +4,7 @@
 // 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), closed with "OK prestation réalisée".
 // 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
 // 4. "Faits": history and counts.
+// On any accepted vehicle, the provider can report a problem seen on it (shock, tyre, warning light), with an optional photo.
 (function (root) {
   const TABS = [
     { id: "validate", label: "À valider", icon: "bell" },
@@ -12,9 +13,10 @@
     { id: "done", label: "Faits", icon: "check" },
   ];
 
-  function start({ store, account, email, D, ui }) {
-    const { $, esc, toast, icon, plateTag, safeImageSrc } = ui;
-    const state = { demandes: [], models: new Map(), providerName: "", tab: null, openForm: null, busy: new Set(), query: "" };
+  function start({ store, account, email, D, ui, alerts }) {
+    const { $, esc, toast, icon, plateTag, safeImageSrc, prepareImage } = ui;
+    // draft: what the provider is typing in the open form, kept across re-renders (a new request arriving redraws the screen).
+    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "" };
     const today = () => D.toIsoDate(new Date());
     const view = $("#view-presta");
 
@@ -49,6 +51,10 @@
     }
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
+    // Problems already reported on this request: the provider sees the team got them, and does not send them twice.
+    function problemLines(d) {
+      return D.problemsOfRequest(state.problems, d.id).map((p) => `<p class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}</small></span></p>`).join("");
+    }
     function answerLine(d) {
       const r = d.retour;
       if (!r || r.etat === "fait" || r.etat === "confirme") return "";
@@ -58,11 +64,18 @@
     // ---------- inline forms (done, another date, missing vehicle, not possible) ----------
     function formHtml(d) {
       const cancel = (kind) => `<button type="button" class="ghost" data-form="${kind}:${esc(d.id)}">Annuler</button>`;
-      const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note placeholder="${placeholder}"></label>`;
+      const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note value="${esc(state.draft.note || "")}" placeholder="${placeholder}" maxlength="${D.PROBLEM_TEXT_MAX}"></label>`;
       // "Done": one confirmation step so a slip of the finger does not close a job. No photo: providers are trusted.
+      // A problem seen while working (shock, tyre, warning light) can be ticked here: the note then goes with it.
       if (state.openForm === "done:" + d.id) return `<div class="job-form">
         ${note("Un mot pour l'équipe (facultatif)", "Ex. rayure côté passager")}
+        <fieldset class="problem-pick"><legend>Un problème vu sur le véhicule ? (facultatif)</legend>${problemChips()}</fieldset>
         <div class="job-form-actions">${cancel("done")}<button type="button" class="primary" data-send="done:${esc(d.id)}">${icon("check")}Confirmer : réalisée</button></div></div>`;
+      if (state.openForm === "problem:" + d.id) return `<div class="job-form">
+        <fieldset class="problem-pick"><legend>Quel problème ?</legend>${problemChips()}</fieldset>
+        <label class="field"><span>Ce que tu as vu${state.draft.type === "autre" ? "" : " (facultatif)"}</span><textarea data-note rows="2" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat">${esc(state.draft.note || "")}</textarea></label>
+        ${photoPicker()}
+        <div class="job-form-actions">${cancel("problem")}<button type="button" class="primary" data-send="problem:${esc(d.id)}">${icon("alert")}Envoyer à l'équipe</button></div></div>`;
       if (state.openForm === "date:" + d.id) return `<div class="job-form">
         <div class="job-form-row"><label class="field"><span>Date proposée</span><input type="date" data-date min="${today()}"></label>
         <label class="field"><span>Heure</span><input type="time" data-time step="900"></label></div>
@@ -75,6 +88,15 @@
         ${note("Pourquoi ? (facultatif)", "Ex. pièce indisponible")}
         <div class="job-form-actions">${cancel("refuse")}<button type="button" class="primary" data-send="refuse:${esc(d.id)}">Confirmer : pas possible</button></div></div>`;
       return "";
+    }
+    function problemChips() {
+      return `<div class="task-chips" role="radiogroup">${D.PROBLEMS.map((p) => `<button type="button" class="chip-btn" role="radio" data-ptype="${p.id}" aria-checked="${state.draft.type === p.id}">${esc(p.label)}</button>`).join("")}</div>`;
+    }
+    function photoPicker() {
+      const ph = state.draft.photo;
+      if (state.draft.photoBusy) return `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`;
+      if (ph) return `<div class="problem-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer la photo</button></div>`;
+      return `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
     }
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
     const formOpen = (d) => state.openForm?.endsWith(":" + d.id);
@@ -93,8 +115,9 @@
         ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
           <button type="button" class="primary big" data-form="done:${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
           <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Reporter</button>
-          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button></div>`}
-      </article>`;
+          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button></div>
+        <button type="button" class="job-report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème sur le véhicule</button>`}
+      ${problemLines(d)}</article>`;
     }
     function doneRow(d) {
       const day = (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
@@ -141,20 +164,33 @@
     }
     const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
+    // Until alerts work on this phone: one card above the tabs, with the one thing to do.
+    function alertCard() {
+      const st = alerts?.state;
+      if (!st || ["off", "loading", "on"].includes(st)) return "";
+      const text = st === "ask" ? "Sois prévenu dès qu'une demande arrive, même téléphone verrouillé." : root.SuiviAlertes.TEXTS[st];
+      return `<div class="alert-card" role="region" aria-label="Alertes">
+          <span class="alert-icon" aria-hidden="true">${icon("bell")}</span>
+          <div><p class="alert-title">${st === "ask" || st === "error" ? "Alertes des nouvelles demandes" : "Alertes pas encore actives"}</p><p class="alert-text">${esc(text)}</p></div>
+          ${st === "ask" || st === "error" ? `<button type="button" class="primary big" data-alerts>Activer les alertes</button>` : ""}
+        </div>`;
+    }
     // Re-renders the whole screen, keeping the cursor in the search box while the provider types.
     function render() {
       const lists = D.providerLists(state.demandes, today());
       if (!state.tab && state.loaded) state.tab = lists.validate.length ? "validate" : "today";
       const body = state.loaded ? TAB_BODY[state.tab](lists[state.tab]) : loadingHtml;
-      const focusSearch = document.activeElement?.matches?.("[data-search]");
+      const typing = document.activeElement?.matches?.("[data-search], [data-note]") ? (document.activeElement.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
       view.innerHTML = `<header class="presta-top">
           <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
           <h1>${esc(cap(D.dayLabel(today())))}</h1>
         </header>
+        ${alertCard()}
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
-      if (focusSearch) { const input = view.querySelector("[data-search]"); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+      const input = typing && view.querySelector(typing);
+      if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
     }
 
     // ---------- actions ----------
@@ -166,19 +202,61 @@
       finally { state.busy.delete(d.id); render(); }
     }
 
-    view.addEventListener("input", (e) => { if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); } });
+    // A problem report; the photo is optional. Nothing is lost if it fails: the form stays open with what was typed.
+    async function sendProblem(d, note) {
+      const check = D.problemReport(d, { type: state.draft.type, texte: note }, email, "");
+      if (check.error) return toast(check.error);
+      const draft = { ...state.draft, note };
+      state.busy.add(d.id); state.openForm = null; render();
+      try {
+        await store.reportProblem(d, { type: draft.type, texte: note, par: email }, draft.photo?.full);
+        state.draft = {}; toast("Problème envoyé à l'équipe, merci !");
+      } catch { state.openForm = "problem:" + d.id; state.draft = draft; toast("Envoi impossible : vérifie ta connexion et réessaie"); }
+      finally { state.busy.delete(d.id); render(); }
+    }
+    // "Done" with a problem ticked: the job is closed and the problem reported, the note going with the problem.
+    async function doneWithProblem(d, note) {
+      const type = state.draft.type;
+      state.busy.add(d.id); state.openForm = null; render();
+      try {
+        await store.answer(d, { etat: "fait", par: email });
+        await store.reportProblem(d, { type, texte: note, par: email });
+        state.draft = {}; toast(`${d.plaque} réalisé, problème envoyé à l'équipe`);
+      } catch { toast("Envoi impossible : vérifie ta connexion et réessaie"); }
+      finally { state.busy.delete(d.id); render(); }
+    }
+    async function addPhoto(file) {
+      state.draft.photoBusy = true; render();
+      try { state.draft.photo = await prepareImage(file); }
+      catch { toast("Photo illisible : essaie avec une autre"); }
+      finally { state.draft.photoBusy = false; render(); }
+    }
+
+    view.addEventListener("change", (e) => { if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]); });
+    view.addEventListener("input", (e) => {
+      if (e.target.matches("[data-note]")) state.draft.note = e.target.value;
+      else if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); }
+    });
     view.addEventListener("click", (e) => {
       const el = (sel) => e.target.closest(sel);
       let b;
-      if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
+      if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
+      else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
-      else if ((b = el("[data-form]"))) { state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; render(); }
+      else if ((b = el("[data-form]"))) { state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; state.draft = {}; render(); }
+      else if ((b = el("[data-ptype]"))) {
+        state.draft.type = state.draft.type === b.dataset.ptype ? "" : b.dataset.ptype;
+        render(); view.querySelector(`[data-ptype="${b.dataset.ptype}"]`)?.focus();
+      }
+      else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
       else if ((b = el("[data-send]"))) {
         const [kind, id] = b.dataset.send.split(":");
         const form = b.closest(".job-form");
         const note = form.querySelector("[data-note]").value.trim();
         const withNote = note ? { note } : {};
-        if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
+        if (kind === "problem") sendProblem(byId(id), note);
+        else if (kind === "done" && state.draft.type) doneWithProblem(byId(id), note);
+        else if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
         else if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
         else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");
         else {
@@ -190,11 +268,13 @@
       }
     });
 
+    alerts?.listen(() => render());
     render();
     store.getProvider(account.prestataireId).then((p) => { state.providerName = p?.nom || ""; render(); }).catch(() => {});
     store.subscribeProvider(account.prestataireId, {
       onDemandes: (rows) => { state.demandes = rows; state.loaded = true; render(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); render(); },
+      onProblems: (rows) => { state.problems = rows; render(); },
       onError: () => toast("Connexion interrompue : recharge la page"),
     });
   }
