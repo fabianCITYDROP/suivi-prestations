@@ -490,12 +490,11 @@ test("hayon: the provider's sheet is read line by line (plate + last control dat
   assert.equal(D.dateInText("le 3/4/26"), "2026-04-03");
 });
 
-test("recentWindowStart keeps the current month and the two before", () => {
-  assert.equal(D.recentWindowStart("2026-11-18"), "2026-09-01");
-  assert.equal(D.recentWindowStart("2026-01-05"), "2025-11-01");
-  assert.equal(D.recentWindowStart("2026-03-31"), "2026-01-01");
-  assert.equal(D.nextMonthStart("2026-12-15"), "2027-01-01");
-  assert.equal(D.monthStart("2026-02-28"), "2026-02-01");
+test("recentWindowStart keeps the last 40 days, hayonWindowStart the last year", () => {
+  assert.equal(D.recentWindowStart("2026-11-19"), "2026-10-10");
+  assert.equal(D.recentWindowStart("2026-01-05"), "2025-11-26");
+  assert.equal(D.hayonWindowStart("2026-11-19"), "2025-11-19");
+  assert.ok(D.recentWindowStart("2026-03-31") < D.monthStart("2026-03-31"), "the whole current month is always loaded");
 });
 
 test("olderPart only asks for what lies before the loaded window", () => {

@@ -1,0 +1,8 @@
+{
+  "indexes": [
+    { "collectionGroup": "demandes", "queryScope": "COLLECTION", "fields": [ { "fieldPath": "prestataireId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "ASCENDING" } ] },
+    { "collectionGroup": "demandes", "queryScope": "COLLECTION", "fields": [ { "fieldPath": "prestataireId", "order": "ASCENDING" }, { "fieldPath": "statut", "order": "ASCENDING" } ] },
+    { "collectionGroup": "demandes", "queryScope": "COLLECTION", "fields": [ { "fieldPath": "service", "order": "ASCENDING" }, { "fieldPath": "date", "order": "ASCENDING" } ] }
+  ],
+  "fieldOverrides": []
+}

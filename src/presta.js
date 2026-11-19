@@ -17,8 +17,9 @@
   function start({ store, account, email, D, ui, alerts }) {
     const { $, esc, toast, icon, plateTag, safeImageSrc, prepareImage } = ui;
     // draft: what the provider is typing in the open form, kept across re-renders (a new request arriving redraws the screen).
-    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "" };
+    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "", older: "" }; // older: "" | "loading" | "done" (requests before the 40 days)
     const today = () => D.toIsoDate(new Date());
+    const recentFrom = D.recentWindowStart(today()); // older requests are read only when asked for (free plan's daily reads)
     const view = $("#view-presta");
 
     document.body.classList.add("presta-mode");
@@ -160,8 +161,11 @@
     function doneTab(all) {
       const counts = D.providerCounts(state.demandes, today());
       const list = filtered(all);
-      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci<span aria-hidden="true">·</span><b>${counts.year}</b> cette année</p>${searchBox()}` +
-        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici."));
+      const year = state.older === "done" ? `<span aria-hidden="true">·</span><b>${counts.year}</b> cette année` : "";
+      const olderBtn = state.older === "done" ? "" : `<p class="tab-intro">Ici : les 40 derniers jours.
+          <button type="button" class="ghost small-btn" data-older ${state.older === "loading" ? "disabled aria-busy=\"true\"" : ""}>${state.older === "loading" ? "Chargement…" : "Voir aussi les plus anciens"}</button></p>`;
+      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci${year}</p>${searchBox()}` +
+        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici.")) + olderBtn;
     }
     const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
@@ -231,6 +235,11 @@
       const el = (sel) => e.target.closest(sel);
       let b;
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
+      else if ((b = el("[data-older]"))) {
+        state.older = "loading"; render();
+        store.loadProviderOlder().then(() => { state.older = "done"; render(); })
+          .catch(() => { state.older = ""; toast("Impossible de charger les anciens, réessaie"); render(); });
+      }
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
       else if ((b = el("[data-form]"))) {
@@ -264,6 +273,7 @@
     render();
     store.getProvider(account.prestataireId).then((p) => { state.providerName = p?.nom || ""; render(); }).catch(() => {});
     store.subscribeProvider(account.prestataireId, {
+      recentFrom,
       onDemandes: (rows) => { state.demandes = rows; state.loaded = true; render(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); render(); },
       onProblems: (rows) => { state.problems = rows; render(); },

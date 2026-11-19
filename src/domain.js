@@ -747,13 +747,15 @@
   }
 
   // ---------- what the team app keeps loaded (free Firestore plan: every request read counts) ----------
-  // Always loaded: requests whose day is in the current month or the two before, every open request,
-  // every tailgate control (they set the 180-day due dates). Older ones are loaded only when a page asks for them.
-  const RECENT_MONTHS = 2;
+  // Always loaded: requests of the last 40 days, every open request, and the tailgate controls of the last year
+  // (they set the 180-day due dates). Older ones are loaded only when a page asks for them. Nothing is ever deleted.
+  const RECENT_DAYS = 40;
+  const HAYON_WINDOW_DAYS = 365;
   const OLDEST_DAY = "0000-01-01";
   const monthStart = (iso) => iso.slice(0, 7) + "-01";
   const nextMonthStart = (iso) => { const d = parseIsoDate(monthStart(iso)); d.setMonth(d.getMonth() + 1); return toIsoDate(d); };
-  const recentWindowStart = (todayIso, months = RECENT_MONTHS) => { const d = parseIsoDate(monthStart(todayIso)); d.setMonth(d.getMonth() - months); return toIsoDate(d); };
+  const recentWindowStart = (todayIso, days = RECENT_DAYS) => addDays(todayIso, -days);
+  const hayonWindowStart = (todayIso) => addDays(todayIso, -HAYON_WINDOW_DAYS);
   // The part of [from, to) that lies before the loaded window, or null when the window already holds it all.
   function olderPart(from, to, recentFrom) {
     if (!from || from >= recentFrom) return null;
@@ -950,7 +952,7 @@
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
-    matchesSearch, RECENT_MONTHS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, olderPart, mergeSlices,
+    matchesSearch, RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
