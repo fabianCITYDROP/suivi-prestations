@@ -204,6 +204,8 @@ test("chacun inscrit ses propres appareils aux alertes, avec son vrai rôle", as
   await assertFails(setDoc(doc(as("allo"), "abonnements/a1"), { ...app, email: people.allo.email, role: "prestataire", prestataireId: ALLO }), "on ne reprend pas l'appareil d'un autre");
   await assertFails(setDoc(doc(as("inconnu"), "abonnements/i1"), { ...app, email: "inconnu@exemple.fr", role: "admin" }));
   await assertSucceeds(getDocs(collection(as("robot"), "abonnements")));
+  await assertSucceeds(getDocs(collection(as("fabian"), "abonnements")), "l'équipe voit qui a activé ses alertes");
+  await assertFails(getDocs(collection(as("jerome"), "abonnements")), "la lecture seule ne voit pas les appareils");
   await assertSucceeds(deleteDoc(doc(as("robot"), "abonnements/a1")), "le robot retire un appareil désinscrit");
   await assertSucceeds(deleteDoc(doc(as("fabian"), "abonnements/f1")));
 });

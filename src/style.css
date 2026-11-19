@@ -302,6 +302,11 @@ td.date { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .list-edit { display: flex; flex-direction: column; gap: 8px; }
 .list-edit .item { display: grid; grid-template-columns: minmax(96px, 140px) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .prov-flags { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.prov-name, .account-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.account-meta { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.alert-chip { font-weight: 500; white-space: normal; }
+.al-who { margin: 10px 0 0; font-size: 14px; color: var(--ink-2); }
+.al-who b { color: var(--ink); }
 .list-edit .item.price { grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px 14px; }
 .list-edit .item.account { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; }
 .list-edit .item.account > :first-child { overflow-wrap: anywhere; }
