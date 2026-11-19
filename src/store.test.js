@@ -46,12 +46,12 @@ test("team: without the (service, date) index, every tailgate control as before"
 });
 
 const provider = (store) => firstList((onDemandes) => store.subscribeProvider("allo", { onDemandes, onModels: noop, onError: assert.fail, recentFrom: "2026-10-10" }));
-test("provider opening: its last 40 days and its open requests; older ones on demand", async () => {
+test("provider opening: its last 40 days and its open requests; an older month on demand", async () => {
   const store = createStore(fakeDb());
   let latest = [];
   const first = await firstList((resolve) => store.subscribeProvider("allo", { onDemandes: (r) => { latest = r; resolve(r); }, onModels: noop, onError: assert.fail, recentFrom: "2026-10-10" }));
   assert.equal(ids(first), "oldOpen recent");
-  await store.loadProviderOlder();
+  await store.loadProviderMonth("2026-05-01");
   await new Promise((r) => setTimeout(r, 5));
   assert.equal(ids(latest), "oldDone oldOpen recent");
 });
