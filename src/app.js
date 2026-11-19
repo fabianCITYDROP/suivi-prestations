@@ -374,6 +374,7 @@
       ? `<p class="share-sum">${dayShareSummary(active, providerFilter)}</p>`
         + shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }) + appLink(providerFilter || defaultProvider()), vehicles: active.filter(D.isWindshield), folded: true })
       : `<p class="muted">Rien à envoyer pour ce jour.</p>`;
+    renderPlateFind();
   }
   function dayShareSummary(active, providerFilter) {
     const sites = new Set(active.map((d) => d.site)).size;
@@ -402,6 +403,71 @@
       <span class="right"><span class="time">${esc(D.timeSlotLabel(d))}</span>${statusChip(d.statut)}${thumb ? `<img class="thumb" src="${safeImageSrc(thumb)}" alt="">` : ""}</span>
     </button>`;
   }
+
+  // ---------- plate search: today, the next and the last request of a vehicle, without leaving the Planning ----------
+  const plateReads = new Map(); // full plate -> "loading" | "done": its older requests are read once
+  function readOlderOfPlate(text) {
+    const key = D.plateKey(text);
+    if (!D.isFullPlate(text) || !state.store?.loadDemandesOfPlate || !state.store.olderOnDemand?.() || allOlderLoaded()) return "";
+    if (plateReads.has(key)) return plateReads.get(key);
+    plateReads.set(key, "loading");
+    state.store.loadDemandesOfPlate(text)
+      .then(() => plateReads.set(key, "done"))
+      .catch(() => { plateReads.delete(key); toast("Impossible de chercher les anciennes demandes de cette plaque, réessaie"); })
+      .finally(renderPlateFind);
+    return "loading";
+  }
+  const pfStatus = (d) => {
+    const tone = d.statut === "realisee" ? "ok" : d.statut === "a_envoyer" ? "todo" : "";
+    return `<span class="pf-status ${tone}">${esc(D.statusOf(d.statut).label)}</span>`;
+  };
+  function pfLine(label, d, { when, empty, extra = "" }) {
+    if (!d) return `<div class="pf-line none"><span class="pf-when">${label}</span><span class="pf-what muted">${empty}</span></div>`;
+    const what = [when(d), D.jobLabel(d), D.siteOf(d), d.prestataire].filter(Boolean).map(esc).join(" · ");
+    return `<button type="button" class="pf-line" data-open="${esc(d.id)}"><span class="pf-when">${label}</span><span class="pf-what">${what}${extra}</span>${pfStatus(d)}</button>`;
+  }
+  function pfCard(p) {
+    const year = (iso) => (iso.slice(0, 4) !== today().slice(0, 4) ? " " + iso.slice(0, 4) : ""); // an older year says so
+    const day = (d) => D.isMultiDay(d) ? `${D.shortDate(d.date)} → ${D.shortDate(D.lastDay(d))}${year(D.lastDay(d))}` : `${D.shortDate(d.date)}${year(d.date)}, ${D.timeSlotLabel(d)}`;
+    const todayLines = p.today.length
+      ? p.today.map((d) => pfLine("Aujourd'hui", d, { when: (x) => D.timeSlotLabel(x) })).join("")
+      : pfLine("Aujourd'hui", null, { empty: "Rien aujourd'hui" });
+    const more = p.moreUpcoming ? ` <span class="muted">(+${p.moreUpcoming} après)</span>` : "";
+    return `<div class="pf-card">
+      <div class="pf-head">${plateTag(p.plaque)}<span class="pf-model">${esc(D.vehicleLabel(p.vehicle) || "")}</span>
+        <button type="button" class="ghost small-btn" data-pf-history="${esc(p.plaque)}">Tout l'historique</button></div>
+      ${todayLines}
+      ${pfLine("À venir", p.next, { when: day, empty: "Rien de prévu", extra: more })}
+      ${pfLine("Dernière", p.last, { when: day, empty: "Aucune trouvée" })}
+    </div>`;
+  }
+  function renderPlateFind() {
+    const box = $("#plateResults"), text = $("#plateFind").value;
+    const key = D.plateKey(text);
+    box.hidden = !key;
+    if (!key) { box.innerHTML = ""; return; }
+    if (key.length < D.PLATE_SEARCH_MIN) { box.innerHTML = `<p class="pf-note muted">Tape au moins ${D.PLATE_SEARCH_MIN} lettres ou chiffres de la plaque.</p>`; return; }
+    const reading = readOlderOfPlate(text) === "loading";
+    const { plates, more } = D.plateLookup(state.demandes, text, today());
+    const partial = state.store?.olderOnDemand?.() && !allOlderLoaded() && !plateReads.has(key);
+    const note = reading ? `<p class="pf-note muted">Recherche dans les demandes plus anciennes…</p>`
+      : partial ? `<p class="pf-note muted">Cherché depuis le ${esc(D.numericDate(state.recentFrom))}. Tape la plaque en entier pour chercher aussi avant.</p>` : "";
+    if (!plates.length) {
+      const known = state.vehicles.get(key);
+      box.innerHTML = `<p class="pf-note"><b>Aucune prestation trouvée pour « ${esc(text.trim())} ».</b>${known ? ` Véhicule connu : ${esc(D.vehicleLabel(known))}.` : ""}</p>${note}`;
+      return;
+    }
+    box.innerHTML = plates.map(pfCard).join("")
+      + (more ? `<p class="pf-note muted">Et ${plural(more, "autre plaque")} : tape plus de caractères.</p>` : "") + note;
+  }
+  $("#plateFind").addEventListener("input", renderPlateFind);
+  $("#plateFind").addEventListener("keydown", (e) => { if (e.key === "Escape") { e.target.value = ""; renderPlateFind(); } });
+  $("#plateResults").addEventListener("click", (e) => {
+    const all = e.target.closest("[data-pf-history]");
+    if (all) { $("#q").value = all.dataset.pfHistory; show("historique"); renderHistory(); return; }
+    const row = e.target.closest("[data-open]");
+    if (row) openDemande(row.dataset.open);
+  });
   const goToDay = (day) => { state.day = day; renderPlanning(); };
   $("#strip").addEventListener("click", (e) => { const b = e.target.closest("[data-day]"); if (b) goToDay(b.dataset.day); });
   $("#prevDay").onclick = () => goToDay(D.addDays(state.day, -1));
