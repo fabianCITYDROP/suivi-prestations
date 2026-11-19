@@ -4,7 +4,8 @@
 // 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), closed with "OK prestation réalisée".
 // 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
 // 4. "Faits": history and counts.
-// On any accepted vehicle, the provider can report a problem seen on it (shock, tyre, warning light), with an optional photo.
+// On any accepted vehicle (and for 7 days once done), the provider can report a problem seen on it: a few words, an optional photo.
+// To add something, it simply reports again.
 (function (root) {
   const TABS = [
     { id: "validate", label: "À valider", icon: "bell" },
@@ -52,15 +53,8 @@
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
     // Problems already reported on this request: the provider sees the team got them, and does not send them twice.
-    // Its own report can be corrected (« Modifier ») until the team has handled it.
     function problemLines(d) {
-      return D.problemsOfRequest(state.problems, d.id).map((p) => {
-        if (state.busy.has(p.id)) return busyLine;
-        if (state.openForm === "pedit:" + p.id) return problemForm({ send: "pedit:" + p.id, cancel: "pedit:" + p.id, title: "Corriger le problème", button: "Envoyer la correction" });
-        const status = p.statut === "traite" ? "Vu par l'équipe" : p.modifieAt ? "Corrigé, envoyé à l'équipe" : "Envoyé à l'équipe";
-        const edit = D.canEditProblem(p, email) ? `<button type="button" class="job-report" data-pedit="${esc(p.id)}">Modifier</button>` : "";
-        return `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${status}${p.photo ? " · avec photo" : ""}</small></span>${edit}</div>`;
-      }).join("");
+      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${p.photo ? " · avec photo" : ""}</small></span></div>`).join("");
     }
     function answerLine(d) {
       const r = d.retour;
@@ -73,12 +67,13 @@
       const cancel = (kind) => `<button type="button" class="ghost" data-form="${kind}:${esc(d.id)}">Annuler</button>`;
       const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note value="${esc(state.draft.note || "")}" placeholder="${placeholder}" maxlength="${D.PROBLEM_TEXT_MAX}"></label>`;
       // "Done": one confirmation step so a slip of the finger does not close a job. No photo: providers are trusted.
-      // A problem seen while working (shock, tyre, warning light) can be ticked here: the note then goes with it.
       if (state.openForm === "done:" + d.id) return `<div class="job-form">
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. rayure côté passager")}
-        <fieldset class="problem-pick"><legend>Un problème vu sur le véhicule ? (facultatif)</legend>${problemChips()}</fieldset>
+        ${note("Un mot pour l'équipe (facultatif)", "Ex. RAS, tout est propre")}
         <div class="job-form-actions">${cancel("done")}<button type="button" class="primary" data-send="done:${esc(d.id)}">${icon("check")}Confirmer : réalisée</button></div></div>`;
-      if (state.openForm === "problem:" + d.id) return problemForm({ send: "problem:" + d.id, cancel: "problem:" + d.id, title: "Quel problème ?", button: "Envoyer à l'équipe" });
+      if (state.openForm === "problem:" + d.id) return `<div class="job-form">
+        <label class="field"><span>Qu'est-ce qui ne va pas sur le véhicule ?</span><textarea data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(state.draft.note || "")}</textarea></label>
+        ${photoPicker()}
+        <div class="job-form-actions">${cancel("problem")}<button type="button" class="primary" data-send="problem:${esc(d.id)}">${icon("alert")}Envoyer à l'équipe</button></div></div>`;
       if (state.openForm === "date:" + d.id) return `<div class="job-form">
         <div class="job-form-row"><label class="field"><span>Date proposée</span><input type="date" data-date min="${today()}"></label>
         <label class="field"><span>Heure</span><input type="time" data-time step="900"></label></div>
@@ -92,21 +87,10 @@
         <div class="job-form-actions">${cancel("refuse")}<button type="button" class="primary" data-send="refuse:${esc(d.id)}">Confirmer : pas possible</button></div></div>`;
       return "";
     }
-    function problemForm({ send, cancel, title, button }) {
-      return `<div class="job-form">
-        <fieldset class="problem-pick"><legend>${title}</legend>${problemChips()}</fieldset>
-        <label class="field"><span>Ce que tu as vu${state.draft.type === "autre" ? "" : " (facultatif)"}</span><textarea data-note rows="2" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat">${esc(state.draft.note || "")}</textarea></label>
-        ${photoPicker()}
-        <div class="job-form-actions"><button type="button" class="ghost" data-form="${esc(cancel)}">Annuler</button><button type="button" class="primary" data-send="${esc(send)}">${icon("alert")}${button}</button></div></div>`;
-    }
-    function problemChips() {
-      return `<div class="task-chips" role="radiogroup">${D.PROBLEMS.map((p) => `<button type="button" class="chip-btn" role="radio" data-ptype="${p.id}" aria-checked="${state.draft.type === p.id}">${esc(p.label)}</button>`).join("")}</div>`;
-    }
     function photoPicker() {
       const ph = state.draft.photo;
       if (state.draft.photoBusy) return `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`;
       if (ph) return `<div class="problem-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer la photo</button></div>`;
-      if (state.draft.keptPhoto) return `<div class="problem-photo"><span class="problem-photo-kept">${icon("image")}Photo déjà envoyée</span><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer</button></div>`;
       return `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
     }
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
@@ -126,8 +110,8 @@
         ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
           <button type="button" class="primary big" data-form="done:${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
           <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Reporter</button>
-          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button></div>
-        <button type="button" class="job-report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème sur le véhicule</button>`}
+          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button>
+          <button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button></div>`}
       ${problemLines(d)}</article>`;
     }
     function doneRow(d) {
@@ -135,7 +119,7 @@
       // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
       const more = recent ? (state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d)
-        : `<button type="button" class="job-report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème sur le véhicule</button>`) : "";
+        : `<button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button>`) : "";
       const lines = problemLines(d);
       return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
         ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}
@@ -221,37 +205,15 @@
 
     // A problem report; the photo is optional. Nothing is lost if it fails: the form stays open with what was typed.
     async function sendProblem(d, note) {
-      const check = D.problemReport(d, { type: state.draft.type, texte: note }, email, "");
+      const check = D.problemReport(d, { texte: note }, email, "");
       if (check.error) return toast(check.error);
       const draft = { ...state.draft, note };
       state.busy.add(d.id); state.openForm = null; render();
       try {
-        await store.reportProblem(d, { type: draft.type, texte: note, par: email }, draft.photo?.full);
+        await store.reportProblem(d, { texte: note, par: email }, draft.photo?.full);
         state.draft = {}; toast("Problème envoyé à l'équipe, merci !");
       } catch { state.openForm = "problem:" + d.id; state.draft = draft; toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
-    }
-    // "Done" with a problem ticked: the job is closed and the problem reported, the note going with the problem.
-    async function doneWithProblem(d, note) {
-      const type = state.draft.type;
-      state.busy.add(d.id); state.openForm = null; render();
-      try {
-        await store.answer(d, { etat: "fait", par: email });
-        await store.reportProblem(d, { type, texte: note, par: email });
-        state.draft = {}; toast(`${d.plaque} réalisé, problème envoyé à l'équipe`);
-      } catch { toast("Envoi impossible : vérifie ta connexion et réessaie"); }
-      finally { state.busy.delete(d.id); render(); }
-    }
-    async function editProblem(p, note) {
-      const check = D.problemEdit(p, { type: state.draft.type, texte: note }, "");
-      if (check.error) return toast(check.error);
-      const draft = { ...state.draft, note };
-      state.busy.add(p.id); state.openForm = null; render();
-      try {
-        await store.editProblem(p, { type: draft.type, texte: note, photo: draft.keptPhoto || "" }, draft.photo?.full);
-        state.draft = {}; toast("Correction envoyée à l'équipe");
-      } catch { state.openForm = "pedit:" + p.id; state.draft = draft; toast("Envoi impossible : vérifie ta connexion et réessaie"); }
-      finally { state.busy.delete(p.id); render(); }
     }
     async function addPhoto(file) {
       state.draft.photoBusy = true; render();
@@ -271,27 +233,21 @@
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
-      else if ((b = el("[data-form]"))) { state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; state.draft = {}; render(); }
-      else if ((b = el("[data-ptype]"))) {
-        state.draft.type = state.draft.type === b.dataset.ptype ? "" : b.dataset.ptype;
-        render(); view.querySelector(`[data-ptype="${b.dataset.ptype}"]`)?.focus();
+      else if ((b = el("[data-form]"))) {
+        state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; state.draft = {}; render();
+        const form = state.openForm && view.querySelector(".job-form");
+        if (form) {
+          form.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+          if (state.openForm.startsWith("problem:")) form.querySelector("textarea")?.focus({ preventScroll: true });
+        }
       }
-      else if ((b = el("[data-photo-remove]"))) { if (state.draft.photo) state.draft.photo = null; else state.draft.keptPhoto = ""; render(); }
-      else if ((b = el("[data-pedit]"))) {
-        const p = state.problems.find((x) => x.id === b.dataset.pedit);
-        if (!p) return;
-        state.openForm = "pedit:" + p.id;
-        state.draft = { type: p.type, note: p.texte || "", keptPhoto: p.photo || "" };
-        render();
-      }
+      else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
       else if ((b = el("[data-send]"))) {
         const [kind, id] = b.dataset.send.split(":");
         const form = b.closest(".job-form");
         const note = form.querySelector("[data-note]").value.trim();
         const withNote = note ? { note } : {};
-        if (kind === "pedit") editProblem(state.problems.find((x) => x.id === id), note);
-        else if (kind === "problem") sendProblem(byId(id), note);
-        else if (kind === "done" && state.draft.type) doneWithProblem(byId(id), note);
+        if (kind === "problem") sendProblem(byId(id), note);
         else if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
         else if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
         else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");

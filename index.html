@@ -458,21 +458,18 @@ body.presta-mode .top .sync { display: none; }
 .job-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .job-form-actions .primary { flex: 1; min-height: 46px; }
 /* Problem seen on a vehicle: a quiet link under the actions, a radio row of chips, an optional photo. Red only for the reported line. */
-.job-report { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 2px; background: none; border: 0; color: var(--ink-2); font: 600 14px var(--f-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.job-report .icon { width: 16px; height: 16px; }
+/* « Signaler un problème »: a real full-width button, red outline (red = problem), always visible under the actions. */
+.job-actions .report, .done-more .report { grid-column: 1 / -1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; border-radius: 10px; background: var(--surface); border: 1.5px solid var(--danger); color: var(--danger); font: 600 15px var(--f-body); cursor: pointer; }
+.job-actions .report .icon, .done-more .report .icon { width: 18px; height: 18px; }
+.job-actions .report:active, .done-more .report:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) { .job-actions .report:active, .done-more .report:active { transform: none; } }
+/* The open form is never hidden behind the bottom tab bar. */
+.presta-mode .job-form { scroll-margin-bottom: calc(96px + env(safe-area-inset-bottom)); scroll-margin-top: 16px; }
 .job-problem { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--danger); }
 .job-problem > span { flex: 1; min-width: 0; }
-.job-problem .job-report { min-height: 32px; font-size: 13px; color: var(--ink-2); margin-top: -6px; }
 .done-more { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; }
-.done-more .job-report { min-height: 32px; font-size: 13px; }
-.problem-photo-kept { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
-.problem-photo-kept .icon { width: 17px; height: 17px; }
 .job-problem .icon { width: 17px; height: 17px; margin-top: 1px; flex: none; }
 .job-problem small { display: block; color: var(--ink-2); font-size: 12px; }
-.problem-pick { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px; }
-.problem-pick legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
-.problem-pick .chip-btn { min-height: 40px; background: var(--surface); }
-.problem-pick .chip-btn[aria-checked="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
 .job-form textarea { font: 16px var(--f-body); min-height: 64px; resize: vertical; }
 .problem-photo { display: flex; align-items: center; gap: 12px; }
 .problem-photo img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
@@ -1734,24 +1731,18 @@ window.SUIVI_FIREBASE_CONFIG = {
   ];
   const PROBLEM_TEXT_MAX = 500;
   const problemOf = (id) => PROBLEMS.find((p) => p.id === id) || null;
-  const problemSummary = (s) => [problemOf(s.type)?.label || "Problème", s.texte].filter(Boolean).join(" – ");
-  // The document a provider writes. Returns {error} when something is missing, so the form can say what.
-  function problemReport(demande, { type, texte, photo } = {}, email, nowIso) {
+  // Older reports carry a type (choc, pneu, voyant); new ones are only words.
+  const problemSummary = (s) => (!s.type || s.type === "autre") && s.texte ? s.texte : [problemOf(s.type)?.label || "Problème", s.texte].filter(Boolean).join(" – ");
+  // The document a provider writes: a few words (required) and an optional photo. Returns {error} when the words are missing.
+  // The provider no longer picks a type (Fabian, 2026-11-19: « juste écrire »): new reports are type "autre".
+  function problemReport(demande, { type = "autre", texte, photo } = {}, email, nowIso) {
     const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
-    if (!problemOf(type)) return { error: "Choisis le type de problème" };
-    if (type === "autre" && !text) return { error: "Dis en quelques mots ce que tu as vu" };
+    if (!problemOf(type)) return { error: "Type de problème inconnu" };
+    if (!text) return { error: "Dis en quelques mots ce que tu as vu" };
     return {
       demandeId: demande.id, plaque: demande.plaque, prestataireId: demande.prestataireId,
       type, texte: text, ...(photo ? { photo } : {}), statut: "nouveau", at: nowIso, par: email,
     };
-  }
-  // A provider corrects its own report while the team has not handled it yet: type, words, photo.
-  const canEditProblem = (s, email) => !!s && s.statut !== "traite" && !!email && s.par === email;
-  function problemEdit(s, { type, texte, photo } = {}, nowIso) {
-    const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
-    if (!problemOf(type)) return { error: "Choisis le type de problème" };
-    if (type === "autre" && !text) return { error: "Dis en quelques mots ce que tu as vu" };
-    return { type, texte: text, photo: photo || "", modifieAt: nowIso };
   }
   // Problems can still be reported on a vehicle done in the last days (the provider may notice it afterwards).
   const PROBLEM_AFTER_DONE_DAYS = 7;
@@ -2063,7 +2054,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
-    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, canEditProblem, problemEdit, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
   };
 });
 </script>
@@ -2279,19 +2270,6 @@ window.SUIVI_FIREBASE_CONFIG = {
       await db.collection("signalements").doc().set(report);
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
-    // The provider corrects its report (only while the team has not handled it). A new photo replaces the old one.
-    async function editProblem(report, fields, photoFull) {
-      let photo = fields.photo || "";
-      if (photoFull) {
-        photo = `sig_${D.plateKey(report.plaque)}_${Date.now().toString(36)}`;
-        await db.doc("preuves/" + photo).set({ prestataireId: report.prestataireId, plaque: report.plaque, data: photoFull, at: new Date().toISOString() });
-        photoCache.set("preuve:" + photo, photoFull);
-      }
-      const patch = D.problemEdit(report, { ...fields, photo }, new Date().toISOString());
-      if (patch.error) throw { code: "invalid", message: patch.error };
-      await db.doc("signalements/" + report.id).update(patch);
-      changed(); // the team is alerted of the correction
-    }
     const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
       handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
     async function loadProof(key) {
@@ -2412,7 +2390,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, editProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -2532,7 +2510,8 @@ window.SUIVI_FIREBASE_CONFIG = {
 // 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), closed with "OK prestation réalisée".
 // 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
 // 4. "Faits": history and counts.
-// On any accepted vehicle, the provider can report a problem seen on it (shock, tyre, warning light), with an optional photo.
+// On any accepted vehicle (and for 7 days once done), the provider can report a problem seen on it: a few words, an optional photo.
+// To add something, it simply reports again.
 (function (root) {
   const TABS = [
     { id: "validate", label: "À valider", icon: "bell" },
@@ -2580,15 +2559,8 @@ window.SUIVI_FIREBASE_CONFIG = {
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
     // Problems already reported on this request: the provider sees the team got them, and does not send them twice.
-    // Its own report can be corrected (« Modifier ») until the team has handled it.
     function problemLines(d) {
-      return D.problemsOfRequest(state.problems, d.id).map((p) => {
-        if (state.busy.has(p.id)) return busyLine;
-        if (state.openForm === "pedit:" + p.id) return problemForm({ send: "pedit:" + p.id, cancel: "pedit:" + p.id, title: "Corriger le problème", button: "Envoyer la correction" });
-        const status = p.statut === "traite" ? "Vu par l'équipe" : p.modifieAt ? "Corrigé, envoyé à l'équipe" : "Envoyé à l'équipe";
-        const edit = D.canEditProblem(p, email) ? `<button type="button" class="job-report" data-pedit="${esc(p.id)}">Modifier</button>` : "";
-        return `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${status}${p.photo ? " · avec photo" : ""}</small></span>${edit}</div>`;
-      }).join("");
+      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${p.photo ? " · avec photo" : ""}</small></span></div>`).join("");
     }
     function answerLine(d) {
       const r = d.retour;
@@ -2601,12 +2573,13 @@ window.SUIVI_FIREBASE_CONFIG = {
       const cancel = (kind) => `<button type="button" class="ghost" data-form="${kind}:${esc(d.id)}">Annuler</button>`;
       const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note value="${esc(state.draft.note || "")}" placeholder="${placeholder}" maxlength="${D.PROBLEM_TEXT_MAX}"></label>`;
       // "Done": one confirmation step so a slip of the finger does not close a job. No photo: providers are trusted.
-      // A problem seen while working (shock, tyre, warning light) can be ticked here: the note then goes with it.
       if (state.openForm === "done:" + d.id) return `<div class="job-form">
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. rayure côté passager")}
-        <fieldset class="problem-pick"><legend>Un problème vu sur le véhicule ? (facultatif)</legend>${problemChips()}</fieldset>
+        ${note("Un mot pour l'équipe (facultatif)", "Ex. RAS, tout est propre")}
         <div class="job-form-actions">${cancel("done")}<button type="button" class="primary" data-send="done:${esc(d.id)}">${icon("check")}Confirmer : réalisée</button></div></div>`;
-      if (state.openForm === "problem:" + d.id) return problemForm({ send: "problem:" + d.id, cancel: "problem:" + d.id, title: "Quel problème ?", button: "Envoyer à l'équipe" });
+      if (state.openForm === "problem:" + d.id) return `<div class="job-form">
+        <label class="field"><span>Qu'est-ce qui ne va pas sur le véhicule ?</span><textarea data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(state.draft.note || "")}</textarea></label>
+        ${photoPicker()}
+        <div class="job-form-actions">${cancel("problem")}<button type="button" class="primary" data-send="problem:${esc(d.id)}">${icon("alert")}Envoyer à l'équipe</button></div></div>`;
       if (state.openForm === "date:" + d.id) return `<div class="job-form">
         <div class="job-form-row"><label class="field"><span>Date proposée</span><input type="date" data-date min="${today()}"></label>
         <label class="field"><span>Heure</span><input type="time" data-time step="900"></label></div>
@@ -2620,21 +2593,10 @@ window.SUIVI_FIREBASE_CONFIG = {
         <div class="job-form-actions">${cancel("refuse")}<button type="button" class="primary" data-send="refuse:${esc(d.id)}">Confirmer : pas possible</button></div></div>`;
       return "";
     }
-    function problemForm({ send, cancel, title, button }) {
-      return `<div class="job-form">
-        <fieldset class="problem-pick"><legend>${title}</legend>${problemChips()}</fieldset>
-        <label class="field"><span>Ce que tu as vu${state.draft.type === "autre" ? "" : " (facultatif)"}</span><textarea data-note rows="2" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat">${esc(state.draft.note || "")}</textarea></label>
-        ${photoPicker()}
-        <div class="job-form-actions"><button type="button" class="ghost" data-form="${esc(cancel)}">Annuler</button><button type="button" class="primary" data-send="${esc(send)}">${icon("alert")}${button}</button></div></div>`;
-    }
-    function problemChips() {
-      return `<div class="task-chips" role="radiogroup">${D.PROBLEMS.map((p) => `<button type="button" class="chip-btn" role="radio" data-ptype="${p.id}" aria-checked="${state.draft.type === p.id}">${esc(p.label)}</button>`).join("")}</div>`;
-    }
     function photoPicker() {
       const ph = state.draft.photo;
       if (state.draft.photoBusy) return `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`;
       if (ph) return `<div class="problem-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer la photo</button></div>`;
-      if (state.draft.keptPhoto) return `<div class="problem-photo"><span class="problem-photo-kept">${icon("image")}Photo déjà envoyée</span><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer</button></div>`;
       return `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
     }
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
@@ -2654,8 +2616,8 @@ window.SUIVI_FIREBASE_CONFIG = {
         ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
           <button type="button" class="primary big" data-form="done:${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
           <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Reporter</button>
-          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button></div>
-        <button type="button" class="job-report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème sur le véhicule</button>`}
+          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button>
+          <button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button></div>`}
       ${problemLines(d)}</article>`;
     }
     function doneRow(d) {
@@ -2663,7 +2625,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
       const more = recent ? (state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d)
-        : `<button type="button" class="job-report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème sur le véhicule</button>`) : "";
+        : `<button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button>`) : "";
       const lines = problemLines(d);
       return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
         ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}
@@ -2749,37 +2711,15 @@ window.SUIVI_FIREBASE_CONFIG = {
 
     // A problem report; the photo is optional. Nothing is lost if it fails: the form stays open with what was typed.
     async function sendProblem(d, note) {
-      const check = D.problemReport(d, { type: state.draft.type, texte: note }, email, "");
+      const check = D.problemReport(d, { texte: note }, email, "");
       if (check.error) return toast(check.error);
       const draft = { ...state.draft, note };
       state.busy.add(d.id); state.openForm = null; render();
       try {
-        await store.reportProblem(d, { type: draft.type, texte: note, par: email }, draft.photo?.full);
+        await store.reportProblem(d, { texte: note, par: email }, draft.photo?.full);
         state.draft = {}; toast("Problème envoyé à l'équipe, merci !");
       } catch { state.openForm = "problem:" + d.id; state.draft = draft; toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
-    }
-    // "Done" with a problem ticked: the job is closed and the problem reported, the note going with the problem.
-    async function doneWithProblem(d, note) {
-      const type = state.draft.type;
-      state.busy.add(d.id); state.openForm = null; render();
-      try {
-        await store.answer(d, { etat: "fait", par: email });
-        await store.reportProblem(d, { type, texte: note, par: email });
-        state.draft = {}; toast(`${d.plaque} réalisé, problème envoyé à l'équipe`);
-      } catch { toast("Envoi impossible : vérifie ta connexion et réessaie"); }
-      finally { state.busy.delete(d.id); render(); }
-    }
-    async function editProblem(p, note) {
-      const check = D.problemEdit(p, { type: state.draft.type, texte: note }, "");
-      if (check.error) return toast(check.error);
-      const draft = { ...state.draft, note };
-      state.busy.add(p.id); state.openForm = null; render();
-      try {
-        await store.editProblem(p, { type: draft.type, texte: note, photo: draft.keptPhoto || "" }, draft.photo?.full);
-        state.draft = {}; toast("Correction envoyée à l'équipe");
-      } catch { state.openForm = "pedit:" + p.id; state.draft = draft; toast("Envoi impossible : vérifie ta connexion et réessaie"); }
-      finally { state.busy.delete(p.id); render(); }
     }
     async function addPhoto(file) {
       state.draft.photoBusy = true; render();
@@ -2799,27 +2739,21 @@ window.SUIVI_FIREBASE_CONFIG = {
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
-      else if ((b = el("[data-form]"))) { state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; state.draft = {}; render(); }
-      else if ((b = el("[data-ptype]"))) {
-        state.draft.type = state.draft.type === b.dataset.ptype ? "" : b.dataset.ptype;
-        render(); view.querySelector(`[data-ptype="${b.dataset.ptype}"]`)?.focus();
+      else if ((b = el("[data-form]"))) {
+        state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; state.draft = {}; render();
+        const form = state.openForm && view.querySelector(".job-form");
+        if (form) {
+          form.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+          if (state.openForm.startsWith("problem:")) form.querySelector("textarea")?.focus({ preventScroll: true });
+        }
       }
-      else if ((b = el("[data-photo-remove]"))) { if (state.draft.photo) state.draft.photo = null; else state.draft.keptPhoto = ""; render(); }
-      else if ((b = el("[data-pedit]"))) {
-        const p = state.problems.find((x) => x.id === b.dataset.pedit);
-        if (!p) return;
-        state.openForm = "pedit:" + p.id;
-        state.draft = { type: p.type, note: p.texte || "", keptPhoto: p.photo || "" };
-        render();
-      }
+      else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
       else if ((b = el("[data-send]"))) {
         const [kind, id] = b.dataset.send.split(":");
         const form = b.closest(".job-form");
         const note = form.querySelector("[data-note]").value.trim();
         const withNote = note ? { note } : {};
-        if (kind === "pedit") editProblem(state.problems.find((x) => x.id === id), note);
-        else if (kind === "problem") sendProblem(byId(id), note);
-        else if (kind === "done" && state.draft.type) doneWithProblem(byId(id), note);
+        if (kind === "problem") sendProblem(byId(id), note);
         else if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
         else if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
         else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");
@@ -4214,7 +4148,7 @@ function page(texte) {
   function problemRow(p, { handled = false } = {}) {
     const d = demandeById(p.demandeId);
     return `<div class="answer-row problem-row${handled ? " seen" : ""}">${plateTag(p.plaque)}
-      <span><span class="problem-type">${esc(D.problemOf(p.type)?.label || "Problème")}</span>${p.texte ? ` · ${esc(p.texte)}` : ""}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${p.modifieAt ? ` · corrigé à ${esc(p.modifieAt.slice(11, 16))}` : ""}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
+      <span><span class="problem-type">Problème</span> · ${esc(D.problemSummary(p))}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
       <span class="row">${p.photo ? `<button type="button" data-proof="${esc(p.photo)}">${icon("image")}Photo</button>` : ""}
       ${state.canWrite ? (handled ? `<button type="button" class="ghost" data-problem-undo="${esc(p.id)}">Rouvrir</button>` : `<button type="button" data-problem-done="${esc(p.id)}">${icon("check")}Traité</button>`) : ""}
       ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : ""}</span></div>`;
@@ -4230,9 +4164,8 @@ function page(texte) {
   }
   let knownProblems = null;
   function followProblems(rows) {
-    const stamp = (p) => p.id + "|" + (p.modifieAt || p.at); // a corrected report is announced again
-    const fresh = D.openProblems(rows).filter((p) => knownProblems && !knownProblems.has(stamp(p)));
-    knownProblems = new Set(rows.map(stamp));
+    const fresh = D.openProblems(rows).filter((p) => knownProblems && !knownProblems.has(p.id));
+    knownProblems = new Set(rows.map((p) => p.id));
     if (!fresh.length) return;
     const sentence = (p) => `${providerOfProblem(p)} signale un problème sur ${p.plaque} : ${D.problemSummary(p)}`;
     toast(fresh.length > 1 ? `${fresh.length} problèmes signalés sur des véhicules` : sentence(fresh[0]));

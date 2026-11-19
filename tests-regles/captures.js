@@ -124,27 +124,17 @@ async function seed() {
     const k = await open('khalid@lavage.fr', { width: 390, height: 844 });
     await k.screenshot({ path: `${OUT}/mobile-prestataire.png` });
     await k.screenshot({ path: `${OUT}/long-mobile-prestataire.png`, fullPage: true });
-    // Report a problem on today's vehicle: the form, then the card once sent (goes through the real rules).
+    // Report a problem on today's vehicle: the form (just words + optional photo), then the card once sent.
     await k.click('[data-tab=today]'); await k.waitForTimeout(300);
-    await k.click('.job-report'); await k.waitForTimeout(200);
-    await k.click('[data-ptype=voyant]'); await k.fill('.job-form [data-note]', 'Voyant moteur orange allumé au démarrage');
-    await k.screenshot({ path: `${OUT}/mobile-prestataire-signaler.png`, fullPage: true });
+    await k.screenshot({ path: `${OUT}/mobile-prestataire-bouton.png` });
+    await k.click('.job-actions .report'); await k.waitForTimeout(600);
+    await k.keyboard.type('Voyant moteur orange allumé au démarrage');
+    await k.screenshot({ path: `${OUT}/mobile-prestataire-signaler.png` });
     await k.click('[data-send^="problem:"]'); await k.waitForTimeout(1500);
     await k.screenshot({ path: `${OUT}/mobile-prestataire-signale.png`, fullPage: true });
-    await k.click('[data-form^="done:"]'); await k.waitForTimeout(200);
-    await k.screenshot({ path: `${OUT}/mobile-prestataire-fait-avec-probleme.png`, fullPage: true });
-    // Correct the report just sent, then report a problem on a vehicle already done (Faits tab).
-    await k.click('[data-form^="done:"]'); await k.waitForTimeout(200);
-    await k.click('[data-pedit]'); await k.waitForTimeout(200);
-    await k.screenshot({ path: `${OUT}/mobile-prestataire-modifier.png`, fullPage: true });
-    await k.click('[data-ptype=autre]'); await k.fill('.job-form [data-note]', 'Voyant moteur orange + rétro droit fissuré');
-    await k.click('[data-send^="pedit:"]'); await k.waitForTimeout(1500);
-    await k.screenshot({ path: `${OUT}/mobile-prestataire-corrige.png`, fullPage: true });
+    // A vehicle already done (Faits): the button stays for 7 days.
     await k.click('[data-tab=done]'); await k.waitForTimeout(300);
-    await k.screenshot({ path: `${OUT}/mobile-prestataire-faits.png`, fullPage: true });
-    await k.click('.done-row .job-report'); await k.waitForTimeout(200);
-    await k.click('[data-ptype=choc]');
-    await k.screenshot({ path: `${OUT}/mobile-prestataire-faits-signaler.png`, fullPage: true });
+    await k.screenshot({ path: `${OUT}/mobile-prestataire-faits.png` });
   }
   console.log(errors.length ? 'PAGE ERRORS\n' + errors.join('\n') : 'no page errors');
   await b.close(); srv.close();

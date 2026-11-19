@@ -573,24 +573,18 @@
   ];
   const PROBLEM_TEXT_MAX = 500;
   const problemOf = (id) => PROBLEMS.find((p) => p.id === id) || null;
-  const problemSummary = (s) => [problemOf(s.type)?.label || "Problème", s.texte].filter(Boolean).join(" – ");
-  // The document a provider writes. Returns {error} when something is missing, so the form can say what.
-  function problemReport(demande, { type, texte, photo } = {}, email, nowIso) {
+  // Older reports carry a type (choc, pneu, voyant); new ones are only words.
+  const problemSummary = (s) => (!s.type || s.type === "autre") && s.texte ? s.texte : [problemOf(s.type)?.label || "Problème", s.texte].filter(Boolean).join(" – ");
+  // The document a provider writes: a few words (required) and an optional photo. Returns {error} when the words are missing.
+  // The provider no longer picks a type (Fabian, 2026-11-19: « juste écrire »): new reports are type "autre".
+  function problemReport(demande, { type = "autre", texte, photo } = {}, email, nowIso) {
     const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
-    if (!problemOf(type)) return { error: "Choisis le type de problème" };
-    if (type === "autre" && !text) return { error: "Dis en quelques mots ce que tu as vu" };
+    if (!problemOf(type)) return { error: "Type de problème inconnu" };
+    if (!text) return { error: "Dis en quelques mots ce que tu as vu" };
     return {
       demandeId: demande.id, plaque: demande.plaque, prestataireId: demande.prestataireId,
       type, texte: text, ...(photo ? { photo } : {}), statut: "nouveau", at: nowIso, par: email,
     };
-  }
-  // A provider corrects its own report while the team has not handled it yet: type, words, photo.
-  const canEditProblem = (s, email) => !!s && s.statut !== "traite" && !!email && s.par === email;
-  function problemEdit(s, { type, texte, photo } = {}, nowIso) {
-    const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
-    if (!problemOf(type)) return { error: "Choisis le type de problème" };
-    if (type === "autre" && !text) return { error: "Dis en quelques mots ce que tu as vu" };
-    return { type, texte: text, photo: photo || "", modifieAt: nowIso };
   }
   // Problems can still be reported on a vehicle done in the last days (the provider may notice it afterwards).
   const PROBLEM_AFTER_DONE_DAYS = 7;
@@ -902,6 +896,6 @@
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
-    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, canEditProblem, problemEdit, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
   };
 });

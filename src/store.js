@@ -209,19 +209,6 @@
       await db.collection("signalements").doc().set(report);
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
-    // The provider corrects its report (only while the team has not handled it). A new photo replaces the old one.
-    async function editProblem(report, fields, photoFull) {
-      let photo = fields.photo || "";
-      if (photoFull) {
-        photo = `sig_${D.plateKey(report.plaque)}_${Date.now().toString(36)}`;
-        await db.doc("preuves/" + photo).set({ prestataireId: report.prestataireId, plaque: report.plaque, data: photoFull, at: new Date().toISOString() });
-        photoCache.set("preuve:" + photo, photoFull);
-      }
-      const patch = D.problemEdit(report, { ...fields, photo }, new Date().toISOString());
-      if (patch.error) throw { code: "invalid", message: patch.error };
-      await db.doc("signalements/" + report.id).update(patch);
-      changed(); // the team is alerted of the correction
-    }
     const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
       handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
     async function loadProof(key) {
@@ -342,7 +329,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, editProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

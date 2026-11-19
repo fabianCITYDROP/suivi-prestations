@@ -121,11 +121,8 @@ test("un problème signalé sur un véhicule est annoncé à l'équipe, une seul
   assert.equal(N.problemesAAnnoncer([{ ...s, type: "voyant", texte: "" }], {}, "2026-11-19T08:00:00.000Z", maintenant, () => "").lignes[0], "Un prestataire signale un problème sur GS-487-PR : Voyant allumé");
   // La liste des déjà-annoncés ne grossit pas : les anciens sont oubliés au bout d'une heure.
   assert.deepEqual(N.problemesAAnnoncer([], { vieux: "2026-11-19T08:00:00.000Z", recent: "2026-11-19T09:30:00.000Z" }, "2026-11-19T08:00:00.000Z", maintenant, () => "").vus, { recent: "2026-11-19T09:30:00.000Z" });
-  // Corrigé par le prestataire : annoncé de nouveau, une fois.
-  const corrige = { ...s, texte: "arrière droit, pas gauche", modifieAt: "2026-11-19T10:05:00.000Z" };
-  const b = N.problemesAAnnoncer([corrige], a.vus, "2026-11-19T08:00:00.000Z", "2026-11-19T10:06:00.000Z", () => "Khalid");
-  assert.deepEqual(b.lignes, ["Khalid a corrigé son signalement sur GS-487-PR : Pneu – arrière droit, pas gauche"]);
-  assert.deepEqual(N.problemesAAnnoncer([corrige], b.vus, "2026-11-19T08:00:00.000Z", "2026-11-19T10:07:00.000Z", () => "Khalid").lignes, []);
+  // Nouveaux signalements : juste le texte du prestataire.
+  assert.equal(N.problemesAAnnoncer([{ ...s, type: "autre", texte: "rétro droit cassé" }], {}, "2026-11-19T08:00:00.000Z", maintenant, () => "Khalid").lignes[0], "Khalid signale un problème sur GS-487-PR : rétro droit cassé");
   assert.equal(N.messageEquipe([], ["p"]).titre, "Problème signalé sur un véhicule");
   assert.equal(N.messageEquipe(["r"], ["p", "q"]).titre, "2 problèmes signalés sur des véhicules · Retour d'un prestataire");
   assert.equal(N.messageEquipe(["r"], ["p"]).texte, "p\nr");

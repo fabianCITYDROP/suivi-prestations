@@ -156,28 +156,15 @@ service cloud.firestore {
     }
 
     // Problem seen on a vehicle (shock, tyre, warning light…): the provider reports it on one of its own requests,
-    // the team reads it and marks it handled. A provider sees only its own reports, can correct its own until the team
-    // has handled it, and can never delete them.
+    // the team reads it and marks it handled. A provider sees only its own reports and can neither change nor delete them
+    // (to add something, it reports again).
     match /signalements/{reportId} {
       // The robot reads them only to alert the team's phones; it can never write here.
       allow read: if canReadAll() || isRobot() || (isProvider() && resource.data.prestataireId == account().prestataireId);
       allow create: if isProvider() && validReport(request.resource.data);
-      allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'traiteAt', 'traitePar'])
-                        && request.resource.data.statut in ['nouveau', 'traite'])
-                    || (isProvider() && providerEditsReport());
+      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'traiteAt', 'traitePar'])
+                    && request.resource.data.statut in ['nouveau', 'traite'];
       allow delete: if isAdmin();
-    }
-    // The provider who wrote a report corrects it (type, words, photo) as long as the team has not handled it.
-    function providerEditsReport() {
-      let before = resource.data;
-      let s = request.resource.data;
-      return before.prestataireId == account().prestataireId && before.par == email() && before.statut == 'nouveau'
-        && s.diff(before).affectedKeys().hasOnly(['type', 'texte', 'photo', 'modifieAt'])
-        && s.diff(before).affectedKeys().hasAny(['modifieAt'])
-        && s.type in ['choc', 'pneu', 'voyant', 'autre']
-        && s.texte is string && s.texte.size() <= 500
-        && (!('photo' in s) || (s.photo is string && s.photo.size() <= 80))
-        && s.modifieAt is string && s.modifieAt.size() <= 40;
     }
     function validReport(s) {
       return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'statut', 'at', 'par'])
