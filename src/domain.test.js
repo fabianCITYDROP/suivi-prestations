@@ -644,3 +644,27 @@ test("isFullPlate: SIV and old FNI plates only", () => {
   assert.equal(D.isFullPlate("123 ABC 75"), true);
   assert.equal(D.isFullPlate("AB-123"), false);
 });
+
+test("alertes : qui les reçoit, par compte et par prestataire", () => {
+  const now = new Date("2026-11-19T12:00:00Z");
+  const devices = [
+    { email: "Khalid@x.fr", appareil: "iPhone", updatedAt: "2026-11-19T08:00:00Z" },
+    { email: "khalid@x.fr", appareil: "PC Windows", updatedAt: "2026-10-02T08:00:00Z" },
+    { email: "roag@x.fr", appareil: "Android", updatedAt: "2026-08-01T08:00:00Z" },
+  ];
+  assert.equal(D.alertStatus(null, "khalid@x.fr"), null, "liste illisible : rien affiché");
+  const k = D.alertStatus(devices, "KHALID@x.fr", now);
+  assert.equal(k.level, "on");
+  assert.equal(k.text, "Alertes actives · iPhone, PC Windows");
+  assert.equal(D.alertStatus(devices, "roag@x.fr", now).level, "stale", "appli pas ouverte depuis plus de 2 mois");
+  assert.equal(D.alertStatus(devices, "allo@x.fr", now).level, "none");
+  const accounts = [
+    { id: "roag@x.fr", role: "prestataire", prestataireId: "roag" },
+    { id: "roag2@x.fr", role: "prestataire", prestataireId: "roag" },
+    { id: "allo@x.fr", role: "prestataire", prestataireId: "allo" },
+  ];
+  assert.equal(D.providerAlertStatus(devices, accounts, "roag", now).level, "stale", "le meilleur compte du prestataire compte");
+  assert.equal(D.providerAlertStatus(devices, accounts, "allo", now).level, "none");
+  assert.equal(D.providerAlertStatus(devices, accounts, "dhollianda", now).level, "nobody");
+  assert.equal(D.providerAlertStatus(null, accounts, "allo", now), null);
+});
