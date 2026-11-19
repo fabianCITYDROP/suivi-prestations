@@ -69,7 +69,7 @@ const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); retur
   // Provider screen: its last 40 days and its open requests at opening (the rules accept these filtered lists).
   await put('comptes/allo@test.fr', { role: 'prestataire', prestataireId: 'allo-pare-brise-78', email: 'allo@test.fr' });
   await signUp('allo@test.fr');
-  const q = await b.newContext().then((c) => c.newPage()); const qErrs = []; q.on('pageerror', e => qErrs.push(e.message));
+  const q = await b.newContext({ viewport: { width: 390, height: 760 }, deviceScaleFactor: 2 }).then((c) => c.newPage()); const qErrs = []; q.on('pageerror', e => qErrs.push(e.message));
   await q.route('https://www.gstatic.com/firebasejs/**', (r) => r.fulfill({ contentType: 'text/javascript',
     body: fs.readFileSync(path.join(process.env.FB_DIR || path.join(__dirname, 'node_modules/firebase'), r.request().url().split('/').pop())) }));
   await q.addInitScript(() => {
@@ -85,9 +85,13 @@ const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); retur
   const doneText = () => q.textContent('#view-presta');
   ok('provider « Faits » shows the recent one', (await doneText()).includes('PR-006-FF'));
   ok('…not the old ones yet', !(await doneText()).includes('OD-004-DD'));
-  ok('provider is offered the older ones', await q.isVisible('[data-older]'));
-  await q.click('[data-older]'); await q.waitForTimeout(1000);
-  ok('older ones arrive after the click', (await doneText()).includes('OD-004-DD') && !(await q.isVisible('[data-older]')));
+  ok('provider is offered an older month', await q.isVisible('[data-month]'));
+  await q.fill('[data-month]', '2025-05'); await q.dispatchEvent('[data-month]', 'change'); await q.waitForTimeout(1000);
+  ok('May 2025 report shows its vehicle', (await doneText()).includes('OD-004-DD') && (await doneText()).includes('1 véhicule en mai 2025'));
+  ok('…not the recent one', !(await doneText()).includes('PR-006-FF'));
+  if (process.env.SHOTS) await q.screenshot({ path: path.join(process.env.SHOTS, 'prestataire-ancien-mois.png') });
+  await q.click('[data-month-reset]'); await q.waitForTimeout(300);
+  ok('back to the last 40 days', (await doneText()).includes('PR-006-FF') && !(await doneText()).includes('OD-004-DD'));
   ok('provider: no page error', qErrs.length === 0); if (qErrs.length) console.log(qErrs);
   await b.close(); srv.close();
 })().catch((e) => { console.error(e); process.exit(1); });

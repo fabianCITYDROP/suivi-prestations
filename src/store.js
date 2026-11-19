@@ -225,10 +225,13 @@
       if (onProblems) unsubs.push(db.collection("signalements").where("prestataireId", "==", prestataireId).onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
       return () => unsubs.forEach((u) => u());
     }
-    // The provider's requests before the 40 days, asked for from its « Faits » tab. Resolves when they are in the list.
-    function loadProviderOlder() {
+    // One month of the provider's requests, asked for from its « Faits » tab (« Voir un ancien mois »).
+    // Read from the month before: a job planned at the end of a month is sometimes done early the next one.
+    function loadProviderMonth(firstDay) {
       if (!providerFeed?.recentFrom) return Promise.resolve();
-      return providerFeed.add("older", providerFeed.mine.where("date", "<", providerFeed.recentFrom), { fallback: { key: "all", query: providerFeed.mine } });
+      const from = D.monthStart(D.addDays(firstDay, -1)), to = D.nextMonthStart(firstDay);
+      if (from >= providerFeed.recentFrom) return Promise.resolve(); // already loaded at opening
+      return providerFeed.add(`month:${firstDay}`, providerFeed.mine.where("date", ">=", from).where("date", "<", to), { fallback: { key: "all", query: providerFeed.mine } });
     }
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
     async function answer(demande, retour) {
@@ -370,7 +373,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderOlder, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
