@@ -6,7 +6,7 @@ rules_version = '2';
 //   prestataire : sees only the requests of its own provider, and can only answer them (field "retour"); a "fait" or
 //                 an acceptance also moves the request's status, so it is closed even when nobody of the team is online.
 //   robot       : the Apps Script of the team (mail import + alerts). Can create a request read from a City-Drop mail,
-//                 cancel it, or re-plan it after a cancellation; reads the requests and the alert subscriptions to
+//                 cancel it, or re-plan it after a cancellation; reads the requests, the reported problems and the alert subscriptions to
 //                 send alerts, only writes the "notifie" mark (what was already announced) on other requests,
 //                 and leaves its trace in robot/etat.
 // A signed-in person without a comptes document sees nothing.
@@ -158,7 +158,8 @@ service cloud.firestore {
     // Problem seen on a vehicle (shock, tyre, warning light…): the provider reports it on one of its own requests,
     // the team reads it and marks it handled. A provider sees only its own reports and can neither change nor delete them.
     match /signalements/{reportId} {
-      allow read: if canReadAll() || (isProvider() && resource.data.prestataireId == account().prestataireId);
+      // The robot reads them only to alert the team's phones; it can never write here.
+      allow read: if canReadAll() || isRobot() || (isProvider() && resource.data.prestataireId == account().prestataireId);
       allow create: if isProvider() && validReport(request.resource.data);
       allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'traiteAt', 'traitePar'])
                     && request.resource.data.statut in ['nouveau', 'traite'];

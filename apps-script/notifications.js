@@ -5,7 +5,8 @@
 // demande après un enregistrement, le script regarde les demandes modifiées depuis peu :
 //   - une nouvelle demande pour un prestataire  -> alerte sur les téléphones de ce prestataire ;
 //   - une demande annulée qu'il avait reçue      -> alerte « Demande annulée » chez lui ;
-//   - une réponse d'un prestataire (fait, accepté, autre date…) -> alerte chez l'équipe (comptes admin).
+//   - une réponse d'un prestataire (fait, accepté, autre date…) -> alerte chez l'équipe (comptes admin) ;
+//   - un problème signalé sur un véhicule (choc, pneu, voyant…)  -> alerte chez l'équipe aussi.
 // Il note sur la demande ce qui a été annoncé (champ « notifie ») : une alerte ne part jamais deux fois.
 //
 // L'alerte envoyée au téléphone est vide (rien de lisible ne passe par Apple ou Google) : le téléphone
@@ -145,6 +146,22 @@ function aAnnoncer(demandes, depuis) {
   });
   return { prestataires, equipe, marques };
 }
+// Problèmes signalés sur un véhicule (collection « signalements », jamais modifiée par ce script).
+// dejaVus : { id du signalement: date } déjà annoncés ; nomDe(signalement) : nom du prestataire.
+// Renvoie { lignes: [textes pour l'équipe], vus: { id: date } à retenir (les anciens sont oubliés au bout d'une heure) }.
+const PROBLEMES_NOTIF = { choc: 'Choc / carrosserie', pneu: 'Pneu', voyant: 'Voyant allumé', autre: 'Autre' };
+function problemesAAnnoncer(signalements, dejaVus, depuis, maintenantIso, nomDe) {
+  const lignes = [];
+  const limite = new Date(new Date(maintenantIso).getTime() - 3600 * 1000).toISOString();
+  const vus = Object.fromEntries(Object.entries(dejaVus || {}).filter(([, at]) => at > limite));
+  signalements.forEach((s) => {
+    if (!s.at || s.at < depuis || s.statut === 'traite' || vus[s.id] || (dejaVus || {})[s.id]) return;
+    const quoi = [PROBLEMES_NOTIF[s.type] || 'Problème', s.texte].filter(Boolean).join(' – ');
+    lignes.push((nomDe(s) || 'Un prestataire') + ' signale un problème sur ' + s.plaque + ' : ' + quoi);
+    vus[s.id] = s.at;
+  });
+  return { lignes, vus };
+}
 const pluriel = (n, un, plusieurs) => (n > 1 ? n + ' ' + plusieurs : un);
 function messagePrestataire({ nouvelles, annulees }) {
   const titres = [];
@@ -153,8 +170,14 @@ function messagePrestataire({ nouvelles, annulees }) {
   const lignes = [...nouvelles, ...annulees.map((l) => 'Annulée : ' + l)];
   return { titre: titres.join(' · '), texte: lignes.slice(0, 5).join('\n') + (lignes.length > 5 ? '\n…' : ''), url: './' };
 }
-function messageEquipe(lignes) {
-  return { titre: pluriel(lignes.length, 'Retour d\'un prestataire', 'retours des prestataires'), texte: lignes.slice(0, 5).join('\n') + (lignes.length > 5 ? '\n…' : ''), url: './#retours' };
+// Les problèmes passent en premier : c'est ce qu'il faut voir d'abord.
+function messageEquipe(retours, problemes) {
+  const pb = problemes || [];
+  const titres = [];
+  if (pb.length) titres.push(pluriel(pb.length, 'Problème signalé sur un véhicule', 'problèmes signalés sur des véhicules'));
+  if (retours.length) titres.push(pluriel(retours.length, 'Retour d\'un prestataire', 'retours des prestataires'));
+  const lignes = [...pb, ...retours];
+  return { titre: titres.join(' · '), texte: lignes.slice(0, 5).join('\n') + (lignes.length > 5 ? '\n…' : ''), url: './#retours' };
 }
 
 // ---------- Firestore (format REST) ----------
@@ -222,6 +245,24 @@ function demandesRecentes() {
   if (r.getResponseCode() !== 200) throw new Error('Lecture des demandes refusée (' + r.getResponseCode() + ') : ' + r.getContentText().slice(0, 300));
   return JSON.parse(r.getContentText()).filter((x) => x.document).map((x) => docVersObjet(x.document));
 }
+// Problèmes signalés dans les 15 dernières minutes. Avant la publication des règles qui l'autorisent,
+// la lecture est refusée : on continue sans, les autres alertes ne sont pas gênées.
+function signalementsRecents() {
+  const seuil = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const r = notifFirestore('post', ':runQuery', { structuredQuery: {
+    from: [{ collectionId: 'signalements' }],
+    where: { fieldFilter: { field: { fieldPath: 'at' }, op: 'GREATER_THAN', value: { stringValue: seuil } } },
+    limit: 100,
+  } });
+  if (r.getResponseCode() !== 200) { console.warn('Lecture des problèmes signalés refusée (' + r.getResponseCode() + ') : les règles Firestore sont-elles à jour ?'); return []; }
+  return JSON.parse(r.getContentText()).filter((x) => x.document).map((x) => docVersObjet(x.document));
+}
+function nomPrestataire(signalement, demandes) {
+  const d = demandes.find((x) => x.id === signalement.demandeId);
+  if (d) return d.prestataire || '';
+  const r = notifFirestore('get', '/demandes/' + encodeURIComponent(signalement.demandeId));
+  return r.getResponseCode() === 200 ? (docVersObjet(JSON.parse(r.getContentText())).prestataire || '') : '';
+}
 function abonnements() {
   const r = notifFirestore('get', '/abonnements?pageSize=300');
   if (r.getResponseCode() !== 200) throw new Error('Lecture des abonnements refusée (' + r.getResponseCode() + ')');
@@ -268,19 +309,24 @@ function verifierNotifications() {
   } finally { verrou.releaseLock(); }
 }
 function verifierUneFois(depuis) {
-  const { prestataires, equipe, marques } = aAnnoncer(demandesRecentes(), depuis);
-  if (!marques.length) return;
+  const demandes = demandesRecentes();
+  const { prestataires, equipe, marques } = aAnnoncer(demandes, depuis);
+  const props = PropertiesService.getScriptProperties();
+  const dejaVus = JSON.parse(props.getProperty('NOTIF_PROBLEMES_VUS') || '{}');
+  const problemes = problemesAAnnoncer(signalementsRecents(), dejaVus, depuis, new Date().toISOString(), (s) => nomPrestataire(s, demandes));
+  if (!marques.length && !problemes.lignes.length) return;
   const appareils = abonnements();
   Object.entries(prestataires).forEach(([id, quoi]) => {
     const msg = messagePrestataire(quoi);
     appareils.filter((a) => a.role === 'prestataire' && a.prestataireId === id).forEach((a) => envoyer(a, msg));
     console.log(msg.titre + ' -> ' + id);
   });
-  if (equipe.length) {
-    const msg = messageEquipe(equipe);
+  if (equipe.length || problemes.lignes.length) {
+    const msg = messageEquipe(equipe, problemes.lignes);
     appareils.filter((a) => a.role === 'admin').forEach((a) => envoyer(a, msg));
     console.log(msg.titre + ' -> équipe');
   }
+  if (problemes.lignes.length) props.setProperty('NOTIF_PROBLEMES_VUS', JSON.stringify(problemes.vus));
   marques.forEach((m) => {
     const r = notifFirestore('patch', '/demandes/' + encodeURIComponent(m.id) + '?currentDocument.exists=true&updateMask.fieldPaths=notifie', marqueVersFirestore(m.notifie));
     if (r.getResponseCode() !== 200) console.warn('Marque non posée (' + r.getResponseCode() + ') sur ' + m.id);
@@ -337,5 +383,5 @@ function installerNotifications() {
 }
 
 if (typeof module === 'object' && module.exports) {
-  module.exports = { EC, ecMul, creerCles, signerES256, jetonVapid, base64url, depuisBase64url, texteVersOctets, serviceAutorise, aAnnoncer, messagePrestataire, messageEquipe, depuisFirestore, docVersObjet, marqueVersFirestore };
+  module.exports = { EC, ecMul, creerCles, signerES256, jetonVapid, base64url, depuisBase64url, texteVersOctets, serviceAutorise, aAnnoncer, problemesAAnnoncer, messagePrestataire, messageEquipe, depuisFirestore, docVersObjet, marqueVersFirestore };
 }

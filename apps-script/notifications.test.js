@@ -109,6 +109,23 @@ test("textes des alertes", () => {
   assert.equal(N.messagePrestataire({ nouvelles: ["1", "2", "3", "4", "5", "6"], annulees: [] }).texte.split("\n").length, 6);
 });
 
+test("un problème signalé sur un véhicule est annoncé à l'équipe, une seule fois", () => {
+  const s = { id: "s1", demandeId: "d1", plaque: "GS-487-PR", type: "pneu", texte: "arrière gauche à plat", statut: "nouveau", at: "2026-11-19T10:00:00.000Z" };
+  const maintenant = "2026-11-19T10:01:00.000Z";
+  const a = N.problemesAAnnoncer([s], {}, "2026-11-19T08:00:00.000Z", maintenant, () => "Khalid");
+  assert.deepEqual(a.lignes, ["Khalid signale un problème sur GS-487-PR : Pneu – arrière gauche à plat"]);
+  assert.deepEqual(a.vus, { s1: s.at });
+  assert.deepEqual(N.problemesAAnnoncer([s], a.vus, "2026-11-19T08:00:00.000Z", maintenant, () => "Khalid").lignes, [], "pas deux fois");
+  assert.deepEqual(N.problemesAAnnoncer([s], {}, "2026-11-19T10:30:00.000Z", maintenant, () => "Khalid").lignes, [], "rien d'avant l'installation");
+  assert.deepEqual(N.problemesAAnnoncer([{ ...s, statut: "traite" }], {}, "2026-11-19T08:00:00.000Z", maintenant, () => "Khalid").lignes, [], "déjà traité");
+  assert.equal(N.problemesAAnnoncer([{ ...s, type: "voyant", texte: "" }], {}, "2026-11-19T08:00:00.000Z", maintenant, () => "").lignes[0], "Un prestataire signale un problème sur GS-487-PR : Voyant allumé");
+  // La liste des déjà-annoncés ne grossit pas : les anciens sont oubliés au bout d'une heure.
+  assert.deepEqual(N.problemesAAnnoncer([], { vieux: "2026-11-19T08:00:00.000Z", recent: "2026-11-19T09:30:00.000Z" }, "2026-11-19T08:00:00.000Z", maintenant, () => "").vus, { recent: "2026-11-19T09:30:00.000Z" });
+  assert.equal(N.messageEquipe([], ["p"]).titre, "Problème signalé sur un véhicule");
+  assert.equal(N.messageEquipe(["r"], ["p", "q"]).titre, "2 problèmes signalés sur des véhicules · Retour d'un prestataire");
+  assert.equal(N.messageEquipe(["r"], ["p"]).texte, "p\nr");
+});
+
 test("lecture et écriture au format Firestore", () => {
   const doc = { name: "projects/p/databases/(default)/documents/demandes/d1", fields: {
     plaque: { stringValue: "AB" }, km: { integerValue: "12" }, retour: { mapValue: { fields: { etat: { stringValue: "fait" }, vu: { booleanValue: true } } } }, x: { nullValue: null },

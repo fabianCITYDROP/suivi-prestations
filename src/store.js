@@ -198,6 +198,7 @@
       const report = D.problemReport(demande, { ...fields, photo }, fields.par, new Date().toISOString());
       if (report.error) throw { code: "invalid", message: report.error };
       await db.collection("signalements").doc().set(report);
+      changed(); // the alert script looks at once: the team is told even with the app closed
     }
     const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
       handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
