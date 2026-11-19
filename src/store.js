@@ -43,47 +43,60 @@
     const modelRef = (key) => db.doc("modeles/" + key);
 
     // ----- requests: several live "slices" merged into one list -----
-    // Reading the whole collection at every opening would eat the free plan's daily reads as the history grows,
-    // so the team app listens only to recent, open and tailgate requests; older ones are added on demand.
+    // Reading the whole collection at every opening would eat the free plan's daily reads (50,000) as the history grows,
+    // so the apps listen only to the last 40 days, the open requests and the tailgate controls of the year; older ones
+    // are added on demand. Nothing is deleted. A slice that needs a composite index the database does not have yet
+    // falls back to its wider query (as before) until the index is created, so the app never breaks.
     let demandesFeed = null;
-    function createDemandesFeed(onDemandes, onError) {
+    const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    function createFeed(onRows, onError) {
       const slices = new Map(); // key -> {rows, loaded, ready, unsub}
-      const base = [];
+      const base = new Set();
       let pending = null;
       const emit = () => {
         pending = null;
-        if (!base.every((k) => slices.get(k)?.loaded)) return; // first list only once every base slice is in
-        onDemandes(D.mergeSlices([...slices.values()].map((s) => s.rows)));
+        if (![...base].every((k) => slices.get(k)?.loaded)) return; // first list only once every base slice is in
+        onRows(D.mergeSlices([...slices.values()].map((s) => s.rows)));
       };
       const scheduleEmit = () => { if (!pending) pending = setTimeout(emit, 0); };
-      function add(key, query, { isBase = false } = {}) {
+      function add(key, query, { isBase = false, fallback = null } = {}) {
+        if (isBase) base.add(key);
         if (slices.has(key)) return slices.get(key).ready;
         const slice = { rows: [], loaded: false };
         slices.set(key, slice);
-        if (isBase) base.push(key);
         slice.ready = new Promise((resolve, reject) => {
           slice.unsub = query.onSnapshot((snap) => {
-            slice.rows = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+            slice.rows = toRows(snap);
             slice.loaded = true; resolve(); scheduleEmit();
           }, (err) => {
+            if (fallback && err?.code === "failed-precondition") { // index missing: the message holds the link that creates it
+              console.warn("Index Firestore manquant, lecture plus large en attendant :", err.message);
+              slices.delete(key); base.delete(key);
+              add(fallback.key, fallback.query, { isBase }).then(resolve, reject);
+              return;
+            }
             if (isBase) { onError(err); return; }
             slices.delete(key); reject(err); // an older period that failed can be asked again
           });
         });
         return slice.ready;
       }
-      const stop = () => { slices.forEach((s) => s.unsub && s.unsub()); slices.clear(); };
+      const stop = () => { slices.forEach((s) => s.unsub && s.unsub()); slices.clear(); base.clear(); };
       return { add, stop };
     }
+    const OPEN_STATUSES = ["a_envoyer", "envoyee", "confirmee"];
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onError, recentFrom }) {
-      const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onError, recentFrom, hayonFrom }) {
       const requests = db.collection("demandes");
-      demandesFeed = createDemandesFeed(onDemandes, onError);
-      if (typeof requests.where === "function" && recentFrom) {
+      demandesFeed = createFeed(onDemandes, onError);
+      const canQuery = typeof requests.where === "function" && recentFrom;
+      if (canQuery) {
         demandesFeed.add("recent", requests.where("date", ">=", recentFrom), { isBase: true });
-        demandesFeed.add("open", requests.where("statut", "in", ["a_envoyer", "envoyee", "confirmee"]), { isBase: true });
-        demandesFeed.add("hayon", requests.where("service", "==", "hayon"), { isBase: true });
+        demandesFeed.add("open", requests.where("statut", "in", OPEN_STATUSES), { isBase: true });
+        const hayons = requests.where("service", "==", "hayon");
+        // Index demandes (service, date). Without it: every tailgate control, as before.
+        demandesFeed.add("hayon", hayonFrom ? hayons.where("date", ">=", hayonFrom) : hayons,
+          { isBase: true, fallback: hayonFrom ? { key: "hayon:all", query: hayons } : null });
       } else {
         demandesFeed.add("all", requests, { isBase: true }); // a database without queries: everything, as before
         demandesFeed = { ...demandesFeed, everything: true };
@@ -97,7 +110,16 @@
       ];
       // Before the rules allowing it are published, this list simply stays empty.
       if (onHayons) unsubs.push(db.collection("hayons").onSnapshot((s) => onHayons(toRows(s)), () => onHayons([])));
-      if (onProblems) unsubs.push(db.collection("signalements").onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
+      // Problem reports: the ones still to handle, plus those of the last 40 days (handled ones older than that stay saved).
+      if (onProblems) {
+        const reports = db.collection("signalements");
+        if (canQuery) {
+          const problemsFeed = createFeed(onProblems, () => onProblems([]));
+          problemsFeed.add("nouveau", reports.where("statut", "==", "nouveau"), { isBase: true });
+          problemsFeed.add("recent", reports.where("at", ">=", recentFrom), { isBase: true });
+          unsubs.push(problemsFeed.stop);
+        } else unsubs.push(reports.onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
+      }
       // Only the team may list accounts: for anyone else this one simply stays empty.
       if (onAccounts) unsubs.push(db.collection("comptes").onSnapshot((s) => onAccounts(toRows(s)), () => onAccounts([])));
       // Devices registered for alerts (team only): kept without their address and secret token, which the page never needs.
@@ -183,15 +205,30 @@
       catch { return null; }
     }
     // ----- provider side: only its own requests (the rules refuse an unfiltered list) -----
-    function subscribeProvider(prestataireId, { onDemandes, onModels, onProblems, onError }) {
-      const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    // At opening: its requests of the last 40 days and its open ones; older ones only when it asks (« Faits » tab).
+    // Indexes demandes (prestataireId, date) and (prestataireId, statut). Without them: all its requests, as before.
+    let providerFeed = null;
+    function subscribeProvider(prestataireId, { onDemandes, onModels, onProblems, onError, recentFrom }) {
+      const mine = db.collection("demandes").where("prestataireId", "==", prestataireId);
+      const all = { key: "all", query: mine };
+      providerFeed = createFeed(onDemandes, onError);
+      if (recentFrom) {
+        providerFeed.add("recent", mine.where("date", ">=", recentFrom), { isBase: true, fallback: all });
+        providerFeed.add("open", mine.where("statut", "in", OPEN_STATUSES), { isBase: true, fallback: all });
+      } else providerFeed.add("all", mine, { isBase: true });
+      providerFeed.mine = mine; providerFeed.recentFrom = recentFrom;
       const unsubs = [
-        db.collection("demandes").where("prestataireId", "==", prestataireId).onSnapshot((s) => onDemandes(toRows(s)), onError),
+        () => providerFeed && providerFeed.stop(),
         db.collection("modeles").onSnapshot((s) => onModels(toRows(s)), onError),
       ];
       // Its own problem reports, so it does not report the same thing twice. Empty until the rules are published.
       if (onProblems) unsubs.push(db.collection("signalements").where("prestataireId", "==", prestataireId).onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
       return () => unsubs.forEach((u) => u());
+    }
+    // The provider's requests before the 40 days, asked for from its « Faits » tab. Resolves when they are in the list.
+    function loadProviderOlder() {
+      if (!providerFeed?.recentFrom) return Promise.resolve();
+      return providerFeed.add("older", providerFeed.mine.where("date", "<", providerFeed.recentFrom), { fallback: { key: "all", query: providerFeed.mine } });
     }
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
     async function answer(demande, retour) {
@@ -333,7 +370,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderOlder, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

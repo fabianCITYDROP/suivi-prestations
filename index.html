@@ -1912,13 +1912,15 @@ window.SUIVI_FIREBASE_CONFIG = {
   }
 
   // ---------- what the team app keeps loaded (free Firestore plan: every request read counts) ----------
-  // Always loaded: requests whose day is in the current month or the two before, every open request,
-  // every tailgate control (they set the 180-day due dates). Older ones are loaded only when a page asks for them.
-  const RECENT_MONTHS = 2;
+  // Always loaded: requests of the last 40 days, every open request, and the tailgate controls of the last year
+  // (they set the 180-day due dates). Older ones are loaded only when a page asks for them. Nothing is ever deleted.
+  const RECENT_DAYS = 40;
+  const HAYON_WINDOW_DAYS = 365;
   const OLDEST_DAY = "0000-01-01";
   const monthStart = (iso) => iso.slice(0, 7) + "-01";
   const nextMonthStart = (iso) => { const d = parseIsoDate(monthStart(iso)); d.setMonth(d.getMonth() + 1); return toIsoDate(d); };
-  const recentWindowStart = (todayIso, months = RECENT_MONTHS) => { const d = parseIsoDate(monthStart(todayIso)); d.setMonth(d.getMonth() - months); return toIsoDate(d); };
+  const recentWindowStart = (todayIso, days = RECENT_DAYS) => addDays(todayIso, -days);
+  const hayonWindowStart = (todayIso) => addDays(todayIso, -HAYON_WINDOW_DAYS);
   // The part of [from, to) that lies before the loaded window, or null when the window already holds it all.
   function olderPart(from, to, recentFrom) {
     if (!from || from >= recentFrom) return null;
@@ -2091,7 +2093,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
     monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
-    matchesSearch, RECENT_MONTHS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, olderPart, mergeSlices,
+    matchesSearch, RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
@@ -2147,47 +2149,60 @@ window.SUIVI_FIREBASE_CONFIG = {
     const modelRef = (key) => db.doc("modeles/" + key);
 
     // ----- requests: several live "slices" merged into one list -----
-    // Reading the whole collection at every opening would eat the free plan's daily reads as the history grows,
-    // so the team app listens only to recent, open and tailgate requests; older ones are added on demand.
+    // Reading the whole collection at every opening would eat the free plan's daily reads (50,000) as the history grows,
+    // so the apps listen only to the last 40 days, the open requests and the tailgate controls of the year; older ones
+    // are added on demand. Nothing is deleted. A slice that needs a composite index the database does not have yet
+    // falls back to its wider query (as before) until the index is created, so the app never breaks.
     let demandesFeed = null;
-    function createDemandesFeed(onDemandes, onError) {
+    const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    function createFeed(onRows, onError) {
       const slices = new Map(); // key -> {rows, loaded, ready, unsub}
-      const base = [];
+      const base = new Set();
       let pending = null;
       const emit = () => {
         pending = null;
-        if (!base.every((k) => slices.get(k)?.loaded)) return; // first list only once every base slice is in
-        onDemandes(D.mergeSlices([...slices.values()].map((s) => s.rows)));
+        if (![...base].every((k) => slices.get(k)?.loaded)) return; // first list only once every base slice is in
+        onRows(D.mergeSlices([...slices.values()].map((s) => s.rows)));
       };
       const scheduleEmit = () => { if (!pending) pending = setTimeout(emit, 0); };
-      function add(key, query, { isBase = false } = {}) {
+      function add(key, query, { isBase = false, fallback = null } = {}) {
+        if (isBase) base.add(key);
         if (slices.has(key)) return slices.get(key).ready;
         const slice = { rows: [], loaded: false };
         slices.set(key, slice);
-        if (isBase) base.push(key);
         slice.ready = new Promise((resolve, reject) => {
           slice.unsub = query.onSnapshot((snap) => {
-            slice.rows = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+            slice.rows = toRows(snap);
             slice.loaded = true; resolve(); scheduleEmit();
           }, (err) => {
+            if (fallback && err?.code === "failed-precondition") { // index missing: the message holds the link that creates it
+              console.warn("Index Firestore manquant, lecture plus large en attendant :", err.message);
+              slices.delete(key); base.delete(key);
+              add(fallback.key, fallback.query, { isBase }).then(resolve, reject);
+              return;
+            }
             if (isBase) { onError(err); return; }
             slices.delete(key); reject(err); // an older period that failed can be asked again
           });
         });
         return slice.ready;
       }
-      const stop = () => { slices.forEach((s) => s.unsub && s.unsub()); slices.clear(); };
+      const stop = () => { slices.forEach((s) => s.unsub && s.unsub()); slices.clear(); base.clear(); };
       return { add, stop };
     }
+    const OPEN_STATUSES = ["a_envoyer", "envoyee", "confirmee"];
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onError, recentFrom }) {
-      const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onError, recentFrom, hayonFrom }) {
       const requests = db.collection("demandes");
-      demandesFeed = createDemandesFeed(onDemandes, onError);
-      if (typeof requests.where === "function" && recentFrom) {
+      demandesFeed = createFeed(onDemandes, onError);
+      const canQuery = typeof requests.where === "function" && recentFrom;
+      if (canQuery) {
         demandesFeed.add("recent", requests.where("date", ">=", recentFrom), { isBase: true });
-        demandesFeed.add("open", requests.where("statut", "in", ["a_envoyer", "envoyee", "confirmee"]), { isBase: true });
-        demandesFeed.add("hayon", requests.where("service", "==", "hayon"), { isBase: true });
+        demandesFeed.add("open", requests.where("statut", "in", OPEN_STATUSES), { isBase: true });
+        const hayons = requests.where("service", "==", "hayon");
+        // Index demandes (service, date). Without it: every tailgate control, as before.
+        demandesFeed.add("hayon", hayonFrom ? hayons.where("date", ">=", hayonFrom) : hayons,
+          { isBase: true, fallback: hayonFrom ? { key: "hayon:all", query: hayons } : null });
       } else {
         demandesFeed.add("all", requests, { isBase: true }); // a database without queries: everything, as before
         demandesFeed = { ...demandesFeed, everything: true };
@@ -2201,7 +2216,16 @@ window.SUIVI_FIREBASE_CONFIG = {
       ];
       // Before the rules allowing it are published, this list simply stays empty.
       if (onHayons) unsubs.push(db.collection("hayons").onSnapshot((s) => onHayons(toRows(s)), () => onHayons([])));
-      if (onProblems) unsubs.push(db.collection("signalements").onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
+      // Problem reports: the ones still to handle, plus those of the last 40 days (handled ones older than that stay saved).
+      if (onProblems) {
+        const reports = db.collection("signalements");
+        if (canQuery) {
+          const problemsFeed = createFeed(onProblems, () => onProblems([]));
+          problemsFeed.add("nouveau", reports.where("statut", "==", "nouveau"), { isBase: true });
+          problemsFeed.add("recent", reports.where("at", ">=", recentFrom), { isBase: true });
+          unsubs.push(problemsFeed.stop);
+        } else unsubs.push(reports.onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
+      }
       // Only the team may list accounts: for anyone else this one simply stays empty.
       if (onAccounts) unsubs.push(db.collection("comptes").onSnapshot((s) => onAccounts(toRows(s)), () => onAccounts([])));
       // Devices registered for alerts (team only): kept without their address and secret token, which the page never needs.
@@ -2287,15 +2311,30 @@ window.SUIVI_FIREBASE_CONFIG = {
       catch { return null; }
     }
     // ----- provider side: only its own requests (the rules refuse an unfiltered list) -----
-    function subscribeProvider(prestataireId, { onDemandes, onModels, onProblems, onError }) {
-      const toRows = (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    // At opening: its requests of the last 40 days and its open ones; older ones only when it asks (« Faits » tab).
+    // Indexes demandes (prestataireId, date) and (prestataireId, statut). Without them: all its requests, as before.
+    let providerFeed = null;
+    function subscribeProvider(prestataireId, { onDemandes, onModels, onProblems, onError, recentFrom }) {
+      const mine = db.collection("demandes").where("prestataireId", "==", prestataireId);
+      const all = { key: "all", query: mine };
+      providerFeed = createFeed(onDemandes, onError);
+      if (recentFrom) {
+        providerFeed.add("recent", mine.where("date", ">=", recentFrom), { isBase: true, fallback: all });
+        providerFeed.add("open", mine.where("statut", "in", OPEN_STATUSES), { isBase: true, fallback: all });
+      } else providerFeed.add("all", mine, { isBase: true });
+      providerFeed.mine = mine; providerFeed.recentFrom = recentFrom;
       const unsubs = [
-        db.collection("demandes").where("prestataireId", "==", prestataireId).onSnapshot((s) => onDemandes(toRows(s)), onError),
+        () => providerFeed && providerFeed.stop(),
         db.collection("modeles").onSnapshot((s) => onModels(toRows(s)), onError),
       ];
       // Its own problem reports, so it does not report the same thing twice. Empty until the rules are published.
       if (onProblems) unsubs.push(db.collection("signalements").where("prestataireId", "==", prestataireId).onSnapshot((s) => onProblems(toRows(s)), () => onProblems([])));
       return () => unsubs.forEach((u) => u());
+    }
+    // The provider's requests before the 40 days, asked for from its « Faits » tab. Resolves when they are in the list.
+    function loadProviderOlder() {
+      if (!providerFeed?.recentFrom) return Promise.resolve();
+      return providerFeed.add("older", providerFeed.mine.where("date", "<", providerFeed.recentFrom), { fallback: { key: "all", query: providerFeed.mine } });
     }
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
     async function answer(demande, retour) {
@@ -2437,7 +2476,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderOlder, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -2570,8 +2609,9 @@ window.SUIVI_FIREBASE_CONFIG = {
   function start({ store, account, email, D, ui, alerts }) {
     const { $, esc, toast, icon, plateTag, safeImageSrc, prepareImage } = ui;
     // draft: what the provider is typing in the open form, kept across re-renders (a new request arriving redraws the screen).
-    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "" };
+    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "", older: "" }; // older: "" | "loading" | "done" (requests before the 40 days)
     const today = () => D.toIsoDate(new Date());
+    const recentFrom = D.recentWindowStart(today()); // older requests are read only when asked for (free plan's daily reads)
     const view = $("#view-presta");
 
     document.body.classList.add("presta-mode");
@@ -2713,8 +2753,11 @@ window.SUIVI_FIREBASE_CONFIG = {
     function doneTab(all) {
       const counts = D.providerCounts(state.demandes, today());
       const list = filtered(all);
-      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci<span aria-hidden="true">·</span><b>${counts.year}</b> cette année</p>${searchBox()}` +
-        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici."));
+      const year = state.older === "done" ? `<span aria-hidden="true">·</span><b>${counts.year}</b> cette année` : "";
+      const olderBtn = state.older === "done" ? "" : `<p class="tab-intro">Ici : les 40 derniers jours.
+          <button type="button" class="ghost small-btn" data-older ${state.older === "loading" ? "disabled aria-busy=\"true\"" : ""}>${state.older === "loading" ? "Chargement…" : "Voir aussi les plus anciens"}</button></p>`;
+      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci${year}</p>${searchBox()}` +
+        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici.")) + olderBtn;
     }
     const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
@@ -2784,6 +2827,11 @@ window.SUIVI_FIREBASE_CONFIG = {
       const el = (sel) => e.target.closest(sel);
       let b;
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
+      else if ((b = el("[data-older]"))) {
+        state.older = "loading"; render();
+        store.loadProviderOlder().then(() => { state.older = "done"; render(); })
+          .catch(() => { state.older = ""; toast("Impossible de charger les anciens, réessaie"); render(); });
+      }
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
       else if ((b = el("[data-form]"))) {
@@ -2817,6 +2865,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     render();
     store.getProvider(account.prestataireId).then((p) => { state.providerName = p?.nom || ""; render(); }).catch(() => {});
     store.subscribeProvider(account.prestataireId, {
+      recentFrom,
       onDemandes: (rows) => { state.demandes = rows; state.loaded = true; render(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); render(); },
       onProblems: (rows) => { state.problems = rows; render(); },
@@ -3885,7 +3934,7 @@ function page(texte) {
     const loading = state.olderRanges.some((r) => !r.ready && r.from === D.OLDEST_DAY);
     note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded();
     if (note.hidden) return;
-    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours et les contrôles hayon.
+    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours et les contrôles hayon de l'année.
       <button type="button" class="ghost small-btn" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
   }
   $("#h-older").addEventListener("click", (e) => { if (e.target.closest("#h-older-btn")) { needOlder(D.OLDEST_DAY, null); renderHistory(); } });
@@ -4418,6 +4467,7 @@ function page(texte) {
   function subscribeTeam() {
     state.store.subscribe({
       recentFrom: state.recentFrom,
+      hayonFrom: D.hayonWindowStart(today()),
       onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); closePastHayons(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); completeMailRequests(); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },

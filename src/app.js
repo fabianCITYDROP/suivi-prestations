@@ -1020,7 +1020,7 @@
     const loading = state.olderRanges.some((r) => !r.ready && r.from === D.OLDEST_DAY);
     note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded();
     if (note.hidden) return;
-    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours et les contrôles hayon.
+    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours et les contrôles hayon de l'année.
       <button type="button" class="ghost small-btn" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
   }
   $("#h-older").addEventListener("click", (e) => { if (e.target.closest("#h-older-btn")) { needOlder(D.OLDEST_DAY, null); renderHistory(); } });
@@ -1553,6 +1553,7 @@
   function subscribeTeam() {
     state.store.subscribe({
       recentFrom: state.recentFrom,
+      hayonFrom: D.hayonWindowStart(today()),
       onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); closePastHayons(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); completeMailRequests(); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },
