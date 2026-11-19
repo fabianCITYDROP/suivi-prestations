@@ -287,18 +287,31 @@ test("windshields go only to the providers ticked Pare-brise, ALLO by default", 
   assert.deepEqual(D.servicesFor({ nom: "ALLO pare-brise 78", interventions: false }), ["pare-brise", "lavage"]);
   assert.equal(D.offers({ nom: "ALLO pare-brise 78" }, "pareBrise"), true);
   // Every other provider gets no windshield unless ticked.
-  assert.deepEqual(D.servicesFor({ nom: "DHOLLIANDA", hayon: true }), ["lavage", "hayon"]);
+  assert.deepEqual(D.servicesFor({ nom: "DHOLLIANDA", hayon: true }), ["hayon"]);
   assert.deepEqual(D.servicesFor(null, "Khalid"), ["lavage"]);
   assert.deepEqual(D.servicesFor({ nom: "Khalid", pareBrise: true }), ["pare-brise", "lavage"]);
   // Unticking ALLO is respected.
   assert.deepEqual(D.servicesFor({ nom: "ALLO pare-brise 78", pareBrise: false }), ["lavage"]);
 });
 
+test("washes go only to the providers ticked Lavage, never to a tailgate-only provider by default", () => {
+  // Never ticked nor unticked: every washer keeps washes, a tailgate provider (DHOLLIANDA) does not.
+  assert.deepEqual(D.servicesFor(null, "Khalid"), ["lavage"]);
+  assert.equal(D.offers({ nom: "Du sol au toit" }, "lavage"), true);
+  assert.equal(D.offers({ nom: "DHOLLIANDA", hayon: true }, "lavage"), false);
+  // The box always wins once used.
+  assert.deepEqual(D.servicesFor({ nom: "Khalid", lavage: false, interventions: true }), ["intervention"]);
+  assert.deepEqual(D.servicesFor({ nom: "DHOLLIANDA", hayon: true, lavage: true }), ["lavage", "hayon"]);
+  assert.deepEqual(D.servicesFor({ nom: "ALLO pare-brise 78", lavage: false }), ["pare-brise"]);
+  // Nothing ticked at all: nothing offered.
+  assert.deepEqual(D.servicesFor({ nom: "X", lavage: false }), []);
+});
+
 test("interventions are offered only by the providers who do them, and say what to do", () => {
   assert.deepEqual(D.servicesFor(null), ["lavage"]);
   assert.deepEqual(D.servicesFor({ interventions: false }), ["lavage"]);
   assert.deepEqual(D.servicesFor({ interventions: true }), ["lavage", "intervention"]);
-  assert.deepEqual(D.servicesFor({ hayon: true }), ["lavage", "hayon"]);
+  assert.deepEqual(D.servicesFor({ hayon: true, lavage: true }), ["lavage", "hayon"]);
   const job = demande({ service: "intervention", tache: "" });
   assert.ok(D.missingFields(job).includes("ce qu'il faut faire"));
   const ready = { ...job, tache: "AdBlue" };

@@ -756,7 +756,8 @@ button.pf-line:hover { background: var(--accent-soft); }
             <legend>Prestation</legend>
             <div class="svc-line">
               <label class="field" id="provRow"><span>Prestataire</span><select id="f-prest"></select></label>
-              <div class="field"><span id="svcLabel">Type</span><div class="seg" id="svcSeg" role="radiogroup" aria-labelledby="svcLabel"></div></div>
+              <div class="field"><span id="svcLabel">Type</span><div class="seg" id="svcSeg" role="radiogroup" aria-labelledby="svcLabel"></div>
+                <span class="hint warn" id="svcNone" hidden>Rien n'est coché pour ce prestataire dans Réglages › Prestataires.</span></div>
             </div>
             <div class="field" id="washRow" hidden><span id="washLabel">Lavage</span><div class="seg" id="washSeg" role="radiogroup" aria-labelledby="washLabel"></div></div>
             <div class="task-row" id="taskRow" hidden>
@@ -1162,7 +1163,8 @@ window.SUIVI_FIREBASE_CONFIG = {
   const SERVICES = [
     // Windshields only go to the providers ticked "Pare-brise" in Réglages (ALLO pare-brise 78 by default).
     { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise", onRequest: "pareBrise" },
-    { id: "lavage", label: "Lavage", title: "lavage véhicule" },
+    // Washes only go to the providers ticked "Lavage" in Réglages (every washer by default, never a tailgate-only provider).
+    { id: "lavage", label: "Lavage", title: "lavage véhicule", onRequest: "lavage" },
     // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
     { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: "interventions" },
     // Tailgate inspection (every 180 days), only for the providers who do them (Dhollianda).
@@ -1172,11 +1174,14 @@ window.SUIVI_FIREBASE_CONFIG = {
   const TASK_SUGGESTIONS = ["Monter la roue de secours", "Vérifier les pneus", "AdBlue + éteindre le voyant", "Déplacer le véhicule",
     "Vérifier les ampoules", "Niveau d'huile", "Vérification du véhicule"];
   const isIntervention = (d) => d.service === "intervention";
-  // Services offered by a provider: washing for all; windshield, interventions and tailgate controls when ticked in Réglages.
+  // Services offered by a provider: each one ticked in Réglages.
   // Before the "Pare-brise" box existed only ALLO did windshields: a provider never ticked/unticked keeps that rule.
+  // Before the "Lavage" box existed every provider washed: one never ticked/unticked still does, unless it does
+  // tailgate controls (DHOLLIANDA), because a tailgate provider is never asked to wash (Fabian, 2026-11-19).
   const offers = (providerDoc, flag, name) => {
     const value = providerDoc?.[flag];
     if (value === undefined && flag === "pareBrise") return providerId(name || providerDoc?.nom) === providerId(DEFAULT_PROVIDERS[0]);
+    if (value === undefined && flag === "lavage") return !providerDoc?.hayon;
     return !!value;
   };
   const servicesFor = (providerDoc, name) => SERVICES.filter((s) => !s.onRequest || offers(providerDoc, s.onRequest, name)).map((s) => s.id);
@@ -3309,14 +3314,17 @@ function page(texte) {
 
   // ================= request form =================
   const field = (name) => $("#f-" + name);
-  const chosenService = () => document.querySelector('input[name="svc"]:checked')?.value || "pare-brise";
+  const chosenService = () => document.querySelector('input[name="svc"]:checked')?.value || "";
   // Shows only the services the chosen provider does; "Intervention" also asks what to do.
   function renderServiceChoice() {
     const name = field("prest").value;
     const allowed = D.servicesFor(state.providerDocs.get(D.providerId(name)), name);
     if (state.editingId) allowed.push(demandeById(state.editingId)?.service);
     D.SERVICES.forEach((s) => ($("#svc-" + s.id).closest("label").hidden = !allowed.includes(s.id)));
-    if (!allowed.includes(chosenService())) $("#svc-" + allowed[0]).checked = true;
+    const nothing = !allowed.filter(Boolean).length;
+    $("#svcNone").hidden = !nothing; $("#svcSeg").hidden = nothing;
+    if (nothing) document.querySelectorAll('input[name="svc"]').forEach((r) => (r.checked = false));
+    else if (!allowed.includes(chosenService())) $("#svc-" + allowed[0]).checked = true;
     $("#taskRow").hidden = chosenService() !== "intervention";
     $("#washRow").hidden = chosenService() !== "lavage";
   }
@@ -3568,6 +3576,12 @@ function page(texte) {
     return [main, ...extras.map((x) => groupMember(main, x))].flatMap((v) => D.hayonWarnings(v, state.demandes, state.hayons, today(), ownIds));
   }
   function formProblem(main, extras) {
+    // Only the jobs ticked for this provider in Réglages (an existing request keeps its own type).
+    const provider = main.prestataire;
+    const allowed = D.servicesFor(state.providerDocs.get(D.providerId(provider)), provider);
+    if (!main.service) return `${provider} n'a aucune prestation cochée dans Réglages › Prestataires`;
+    if (!allowed.includes(main.service) && demandeById(state.editingId)?.service !== main.service)
+      return `${provider} ne fait pas ce type de prestation (Réglages › Prestataires)`;
     const missing = D.missingFields(main);
     if (missing.length) return "Il manque " + missing.join(", ");
     const twice = D.duplicatePlates([main.plaque, ...extras.map((x) => x.plaque)]);
@@ -3856,7 +3870,7 @@ function page(texte) {
     $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
     const provFlag = (p, flag, label) => `<label class="check"><input type="checkbox" data-prov-flag="${flag}" data-prov="${esc(p)}" ${D.offers(state.providerDocs.get(D.providerId(p)), flag, p) ? "checked" : ""}>${label}</label>`;
     $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><b>${esc(p)}</b>
-      <div class="prov-flags">${provFlag(p, "pareBrise", "Pare-brise")}${provFlag(p, "interventions", "Interventions")}${provFlag(p, "hayon", "Contrôle hayon")}</div>${removeButton("data-remove-provider", i, p)}</div>`).join("");
+      <div class="prov-flags">${provFlag(p, "lavage", "Lavage")}${provFlag(p, "pareBrise", "Pare-brise")}${provFlag(p, "interventions", "Interventions")}${provFlag(p, "hayon", "Contrôle hayon")}</div>${removeButton("data-remove-provider", i, p)}</div>`).join("");
     $("#s-sheeturl").value = state.sheetUrl;
     renderPrices(); renderAccounts();
   }
@@ -3969,7 +3983,7 @@ function page(texte) {
     const box = e.target.closest("[data-prov-flag]");
     if (!box || !requireStore()) return;
     const nom = box.dataset.prov, flag = box.dataset.provFlag;
-    const what = { hayon: "des contrôles hayon", pareBrise: "des pare-brise" }[flag] || "des interventions";
+    const what = { hayon: "des contrôles hayon", pareBrise: "des pare-brise", lavage: "des lavages" }[flag] || "des interventions";
     try { await state.store.saveProvider(D.providerId(nom), { nom, [flag]: box.checked }); toast(box.checked ? `${nom} peut recevoir ${what}` : `${nom} ne reçoit plus ${what.replace(/^des /, "de ")}`); }
     catch (err) { box.checked = !box.checked; reportWriteError(err); }
   });

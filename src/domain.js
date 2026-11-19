@@ -7,7 +7,8 @@
   const SERVICES = [
     // Windshields only go to the providers ticked "Pare-brise" in Réglages (ALLO pare-brise 78 by default).
     { id: "pare-brise", label: "Pare-brise", title: "remplacement pare-brise", onRequest: "pareBrise" },
-    { id: "lavage", label: "Lavage", title: "lavage véhicule" },
+    // Washes only go to the providers ticked "Lavage" in Réglages (every washer by default, never a tailgate-only provider).
+    { id: "lavage", label: "Lavage", title: "lavage véhicule", onRequest: "lavage" },
     // Any other job on a vehicle (check, bulb, oil, AdBlue…), only for the providers who do them.
     { id: "intervention", label: "Intervention", title: "intervention véhicule", onRequest: "interventions" },
     // Tailgate inspection (every 180 days), only for the providers who do them (Dhollianda).
@@ -17,11 +18,14 @@
   const TASK_SUGGESTIONS = ["Monter la roue de secours", "Vérifier les pneus", "AdBlue + éteindre le voyant", "Déplacer le véhicule",
     "Vérifier les ampoules", "Niveau d'huile", "Vérification du véhicule"];
   const isIntervention = (d) => d.service === "intervention";
-  // Services offered by a provider: washing for all; windshield, interventions and tailgate controls when ticked in Réglages.
+  // Services offered by a provider: each one ticked in Réglages.
   // Before the "Pare-brise" box existed only ALLO did windshields: a provider never ticked/unticked keeps that rule.
+  // Before the "Lavage" box existed every provider washed: one never ticked/unticked still does, unless it does
+  // tailgate controls (DHOLLIANDA), because a tailgate provider is never asked to wash (Fabian, 2026-11-19).
   const offers = (providerDoc, flag, name) => {
     const value = providerDoc?.[flag];
     if (value === undefined && flag === "pareBrise") return providerId(name || providerDoc?.nom) === providerId(DEFAULT_PROVIDERS[0]);
+    if (value === undefined && flag === "lavage") return !providerDoc?.hayon;
     return !!value;
   };
   const servicesFor = (providerDoc, name) => SERVICES.filter((s) => !s.onRequest || offers(providerDoc, s.onRequest, name)).map((s) => s.id);
