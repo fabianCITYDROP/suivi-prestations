@@ -17,7 +17,7 @@
   function start({ store, account, email, D, ui, alerts }) {
     const { $, esc, toast, icon, plateTag, safeImageSrc, prepareImage } = ui;
     // draft: what the provider is typing in the open form, kept across re-renders (a new request arriving redraws the screen).
-    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "", older: "" }; // older: "" | "loading" | "done" (requests before the 40 days)
+    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "", month: "", monthLoading: false }; // month: "AAAA-MM" of an older report asked for in « Faits », "" = last 40 days
     const today = () => D.toIsoDate(new Date());
     const recentFrom = D.recentWindowStart(today()); // older requests are read only when asked for (free plan's daily reads)
     const view = $("#view-presta");
@@ -115,8 +115,9 @@
           <button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button></div>`}
       ${problemLines(d)}</article>`;
     }
+    const doneDayOf = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
     function doneRow(d) {
-      const day = (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
+      const day = doneDayOf(d);
       // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
       const more = recent ? (state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d)
@@ -160,12 +161,21 @@
     }
     function doneTab(all) {
       const counts = D.providerCounts(state.demandes, today());
-      const list = filtered(all);
-      const year = state.older === "done" ? `<span aria-hidden="true">·</span><b>${counts.year}</b> cette année` : "";
-      const olderBtn = state.older === "done" ? "" : `<p class="tab-intro">Ici : les 40 derniers jours.
-          <button type="button" class="ghost small-btn" data-older ${state.older === "loading" ? "disabled aria-busy=\"true\"" : ""}>${state.older === "loading" ? "Chargement…" : "Voir aussi les plus anciens"}</button></p>`;
-      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci${year}</p>${searchBox()}` +
-        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici.")) + olderBtn;
+      const picker = `<label class="field month-pick"><span>Voir un ancien mois</span>
+          <input type="month" data-month value="${esc(state.month)}" max="${today().slice(0, 7)}" ${state.monthLoading ? "disabled aria-busy=\"true\"" : ""}></label>`;
+      if (state.month) { // report of one month, loaded on demand
+        const inMonth = all.filter((d) => doneDayOf(d).slice(0, 7) === state.month);
+        const list = filtered(inMonth);
+        const head = state.monthLoading ? `<p class="tally">Chargement de ${esc(D.monthLabel(state.month))}…</p>`
+          : `<p class="tally"><b>${inMonth.length}</b> véhicule${inMonth.length > 1 ? "s" : ""} en ${esc(D.monthLabel(state.month))}</p>`;
+        const back = `<button type="button" class="month-back" data-month-reset>${icon("chev-l")}Revenir aux 40 derniers jours</button>`;
+        return back + head + picker + searchBox() +
+          (state.monthLoading ? "" : list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait ce mois-là", "Choisis un autre mois."));
+      }
+      const list = filtered(all.filter((d) => doneDayOf(d) >= recentFrom)); // an older month looked at stays loaded, not listed here
+      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci</p>${searchBox()}` +
+        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici.")) +
+        `<p class="tab-intro">Ici : les 40 derniers jours.</p>` + picker;
     }
     const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
@@ -226,7 +236,17 @@
       finally { state.draft.photoBusy = false; render(); }
     }
 
-    view.addEventListener("change", (e) => { if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]); });
+    view.addEventListener("change", (e) => {
+      if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]);
+      if (e.target.matches("[data-month]")) showMonth(e.target.value);
+    });
+    // An older month's report: only that month is read (free plan's daily reads), then it stays loaded.
+    function showMonth(month) {
+      if (!/^\d{4}-\d{2}$/.test(month || "")) return;
+      state.month = month; state.monthLoading = true; state.query = ""; render();
+      store.loadProviderMonth(month + "-01").then(() => { state.monthLoading = false; render(); })
+        .catch(() => { state.month = ""; state.monthLoading = false; toast("Impossible de charger ce mois, réessaie"); render(); });
+    }
     view.addEventListener("input", (e) => {
       if (e.target.matches("[data-note]")) state.draft.note = e.target.value;
       else if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); }
@@ -235,11 +255,7 @@
       const el = (sel) => e.target.closest(sel);
       let b;
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
-      else if ((b = el("[data-older]"))) {
-        state.older = "loading"; render();
-        store.loadProviderOlder().then(() => { state.older = "done"; render(); })
-          .catch(() => { state.older = ""; toast("Impossible de charger les anciens, réessaie"); render(); });
-      }
+      else if ((b = el("[data-month-reset]"))) { state.month = ""; render(); }
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
       else if ((b = el("[data-form]"))) {

@@ -620,4 +620,7 @@ button.pf-line:hover { background: var(--accent-soft); }
 }
 /* History: older requests are read only on demand */
 .older-note { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+/* Provider « Faits »: older month report on demand */
+.presta-body .month-pick { margin: 12px 0; max-width: 260px; }
+.presta-body .month-back { width: 100%; min-height: 48px; justify-content: center; gap: 8px; margin: 4px 0 14px; font-weight: 600; color: var(--accent); border: 1px solid var(--line-strong); background: var(--surface); }
 </style>
