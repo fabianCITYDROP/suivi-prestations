@@ -256,6 +256,7 @@ test("un prestataire signale un problème sur ses véhicules, et seulement les s
   await assertSucceeds(updateDoc(doc(as("fabian"), "signalements/s1"), { statut: "traite", traiteAt: "2026-11-18T11:00:00Z", traitePar: people.fabian.email }));
   await assertFails(updateDoc(doc(as("fabian"), "signalements/s1"), { texte: "réécrit" }));
   await assertFails(setDoc(doc(as("robot"), "signalements/s9"), report));
+  await assertFails(updateDoc(doc(khalid, "signalements/s2"), { texte: "Rayure, pas le pneu", modifieAt: "2026-11-18T10:10:00Z" }), "pas de correction : il en renvoie un");
   // The robot reads the reports (to alert the team's phones) but never changes them.
   await assertSucceeds(getDocs(collection(as("robot"), "signalements")));
   await assertFails(updateDoc(doc(as("robot"), "signalements/s1"), { statut: "traite" }));

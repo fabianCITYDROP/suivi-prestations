@@ -1339,7 +1339,7 @@
   function problemRow(p, { handled = false } = {}) {
     const d = demandeById(p.demandeId);
     return `<div class="answer-row problem-row${handled ? " seen" : ""}">${plateTag(p.plaque)}
-      <span><span class="problem-type">${esc(D.problemOf(p.type)?.label || "Problème")}</span>${p.texte ? ` · ${esc(p.texte)}` : ""}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
+      <span><span class="problem-type">Problème</span> · ${esc(D.problemSummary(p))}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
       <span class="row">${p.photo ? `<button type="button" data-proof="${esc(p.photo)}">${icon("image")}Photo</button>` : ""}
       ${state.canWrite ? (handled ? `<button type="button" class="ghost" data-problem-undo="${esc(p.id)}">Rouvrir</button>` : `<button type="button" data-problem-done="${esc(p.id)}">${icon("check")}Traité</button>`) : ""}
       ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : ""}</span></div>`;

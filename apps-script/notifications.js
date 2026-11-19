@@ -156,7 +156,8 @@ function problemesAAnnoncer(signalements, dejaVus, depuis, maintenantIso, nomDe)
   const vus = Object.fromEntries(Object.entries(dejaVus || {}).filter(([, at]) => at > limite));
   signalements.forEach((s) => {
     if (!s.at || s.at < depuis || s.statut === 'traite' || vus[s.id] || (dejaVus || {})[s.id]) return;
-    const quoi = [PROBLEMES_NOTIF[s.type] || 'Problème', s.texte].filter(Boolean).join(' – ');
+    // Les nouveaux signalements n'ont que du texte (type « autre ») ; les anciens gardent leur type devant.
+    const quoi = (!s.type || s.type === 'autre') && s.texte ? s.texte : [PROBLEMES_NOTIF[s.type] || 'Problème', s.texte].filter(Boolean).join(' – ');
     lignes.push((nomDe(s) || 'Un prestataire') + ' signale un problème sur ' + s.plaque + ' : ' + quoi);
     vus[s.id] = s.at;
   });

@@ -520,12 +520,21 @@ test("problème sur un véhicule: the report carries the request, the plate and 
   const d = { id: "d1", plaque: "AB-123-CD", prestataireId: "allo" };
   const r = D.problemReport(d, { type: "pneu", texte: "  pneu avant gauche lisse " }, "allo@x.fr", "2026-11-18T10:00:00.000Z");
   assert.deepEqual(r, { demandeId: "d1", plaque: "AB-123-CD", prestataireId: "allo", type: "pneu", texte: "pneu avant gauche lisse", statut: "nouveau", at: "2026-11-18T10:00:00.000Z", par: "allo@x.fr" });
-  assert.equal(D.problemReport(d, { type: "pneu", photo: "k1" }, "a", "t").photo, "k1");
-  assert.match(D.problemReport(d, { texte: "rayure" }, "a", "t").error, /type/);
-  assert.match(D.problemReport(d, { type: "autre", texte: " " }, "a", "t").error, /quelques mots/);
+  assert.equal(D.problemReport(d, { texte: "x", photo: "k1" }, "a", "t").photo, "k1");
+  // Just words now (type "autre" by default), and the words are required.
+  assert.equal(D.problemReport(d, { texte: "rayure" }, "a", "t").type, "autre");
+  assert.match(D.problemReport(d, { texte: " " }, "a", "t").error, /quelques mots/);
+  assert.match(D.problemReport(d, { type: "inconnu", texte: "x" }, "a", "t").error, /inconnu/);
+  assert.equal(D.problemSummary({ type: "autre", texte: "rétro cassé" }), "rétro cassé");
   assert.equal(D.problemReport(d, { type: "choc", texte: "x".repeat(900) }, "a", "t").texte.length, D.PROBLEM_TEXT_MAX);
   assert.equal(D.problemSummary({ type: "voyant", texte: "moteur orange" }), "Voyant allumé – moteur orange");
   assert.equal(D.problemSummary({ type: "choc", texte: "" }), "Choc / carrosserie");
+});
+
+test("problème sur un véhicule: still reportable 7 days after the job is done", () => {
+  assert.equal(D.canReportAfterDone("2026-11-12T10:00:00Z", "2026-11-19"), true);
+  assert.equal(D.canReportAfterDone("2026-11-11", "2026-11-19"), false);
+  assert.equal(D.canReportAfterDone("", "2026-11-19"), false);
 });
 
 test("problème sur un véhicule: open ones first, newest first; handled ones apart", () => {

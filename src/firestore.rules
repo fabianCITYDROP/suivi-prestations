@@ -156,7 +156,8 @@ service cloud.firestore {
     }
 
     // Problem seen on a vehicle (shock, tyre, warning light…): the provider reports it on one of its own requests,
-    // the team reads it and marks it handled. A provider sees only its own reports and can neither change nor delete them.
+    // the team reads it and marks it handled. A provider sees only its own reports and can neither change nor delete them
+    // (to add something, it reports again).
     match /signalements/{reportId} {
       // The robot reads them only to alert the team's phones; it can never write here.
       allow read: if canReadAll() || isRobot() || (isProvider() && resource.data.prestataireId == account().prestataireId);
