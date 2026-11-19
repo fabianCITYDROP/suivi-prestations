@@ -583,7 +583,33 @@ details.history { margin-top: 18px; padding-top: 14px; border-top: 1px solid var
 .history-list ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 14px; }
 .history-list s { color: var(--ink-2); }
 .history-list ul b { font-weight: 600; overflow-wrap: anywhere; }
-</style>
-
+/* Planning: plate search (today / next / last request of one vehicle) */
+.plate-find { position: relative; flex: 0 1 230px; display: block; }
+.plate-find .icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ink-2); pointer-events: none; }
+.plate-find input { padding-left: 36px; font-family: var(--f-mono); letter-spacing: .04em; }
+.plate-find input::placeholder { font-family: var(--f-body); letter-spacing: 0; }
+.plate-results { display: flex; flex-direction: column; gap: 10px; margin: -4px 0 16px; }
+.pf-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.pf-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.pf-model { font-weight: 600; margin-right: auto; }
+.pf-head .small-btn { margin-left: auto; }
+.pf-line { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; width: 100%; padding: 9px 14px; background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; text-align: left; font-weight: 400; min-height: 0; }
+.pf-line:last-child { border-bottom: 0; }
+button.pf-line:hover { background: var(--accent-soft); }
+.pf-when { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.pf-what { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.pf-status { font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.pf-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pf-status.ok { color: var(--st-done); }
+.pf-status.todo { color: var(--st-todo); }
+.pf-note { margin: 0; font-size: 14px; }
+@media (max-width: 640px) {
+  .plate-find { flex: 1 1 100%; order: 5; }
+  .pf-line { grid-template-columns: minmax(0, 1fr) auto; }
+  .pf-when { grid-column: 1; }
+  .pf-status { grid-column: 2; grid-row: 1; justify-self: end; }
+  .pf-what { grid-column: 1 / -1; }
+}
 /* History: older requests are read only on demand */
 .older-note { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+</style>

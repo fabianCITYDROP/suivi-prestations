@@ -63,12 +63,14 @@
   <section id="view-planning">
     <div class="daybar">
       <h1 id="dayTitle">Aujourd'hui</h1>
+      <label class="plate-find"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="plateFind" placeholder="Chercher une plaque" aria-label="Chercher une plaque" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search"></label>
       <button class="ghost" id="prevDay" aria-label="Jour précédent"><svg class="icon"><use href="#i-chev-l"/></svg></button>
       <button id="todayBtn">Aujourd'hui</button>
       <button class="ghost" id="nextDay" aria-label="Jour suivant"><svg class="icon"><use href="#i-chev-r"/></svg></button>
       <input type="date" id="dayPick" aria-label="Choisir une date">
       <select id="provFilter" aria-label="Prestataire"></select>
     </div>
+    <div class="plate-results" id="plateResults" aria-live="polite" hidden></div>
     <div class="strip" id="strip"></div>
     <div class="work">
       <div id="dayList"></div>
