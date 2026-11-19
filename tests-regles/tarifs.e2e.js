@@ -46,6 +46,10 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   ok('button hidden once done', !(await p.isVisible('#t-known')));
   await p.selectOption('#t-prov', 'ALLO pare-brise 78'); await p.waitForTimeout(300);
   console.log(await p.textContent('#t-list'));
+  // The mail robot's account can be added from Réglages (role « Robot des mails »).
+  await p.fill('#a-email', 'robot-mails@citydrop-suivi.app'); await p.selectOption('#a-role', 'robot'); await p.click('#a-add'); await p.waitForTimeout(800);
+  const robot = (await list('comptes')).find((c) => c.id === 'robot-mails@citydrop-suivi.app');
+  ok('robot account added with role robot', robot && robot.role === 'robot' && robot.prestataireId === undefined);
   ok('no page error', !p.errs.length); if (p.errs.length) console.log(p.errs);
   await b.close(); srv.close();
 })().catch((e) => { console.error(e); process.exit(1); });
