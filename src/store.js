@@ -147,6 +147,15 @@
       return demandesFeed.add(`range:${from || ""}|${to || ""}`, query);
     }
 
+    // One plate's requests of every period (plate search on the Planning): a few reads instead of the whole history.
+    function loadDemandesOfPlate(plate) {
+      if (!demandesFeed || demandesFeed.everything || !D.plateKey(plate)) return Promise.resolve();
+      // Plates are saved as AB-123-CD by the app; a mail may carry AB123CD or AB 123 CD.
+      const dashed = D.normalizePlate(plate);
+      const forms = [...new Set([dashed, D.plateKey(plate), dashed.replace(/-/g, " ")])];
+      return demandesFeed.add("plate:" + D.plateKey(plate), db.collection("demandes").where("plaque", "in", forms));
+    }
+
     // ----- providers, prices and accounts -----
     const saveProvider = (id, fields) => db.doc("prestataires/" + id).set({ ...fields, updatedAt: new Date().toISOString() }, { merge: true });
     const saveAccount = (email, fields) => db.doc("comptes/" + D.emailKey(email)).set({ ...fields, email: D.emailKey(email), updatedAt: new Date().toISOString() });
@@ -333,7 +342,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, editProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, editProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

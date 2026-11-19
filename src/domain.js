@@ -855,12 +855,42 @@
   const searchKey = (s) => String(s || "").toLowerCase().replace(/[-\s]/g, "");
   const matchesSearch = (fields, query) => !query || searchKey(fields.join(" ")).includes(searchKey(query));
 
+  // ---------- plate search (Planning) ----------
+  // For each plate containing the typed letters: what is on today, the next one to come, the last one before today.
+  // Cancelled requests are left out. At least 3 letters or digits, so one keystroke does not list the whole fleet.
+  const PLATE_SEARCH_MIN = 3;
+  function plateLookup(demandes, query, todayIso, limit = 5) {
+    const q = plateKey(query);
+    if (q.length < PLATE_SEARCH_MIN) return { query: q, plates: [], more: 0 };
+    const byPlate = new Map();
+    for (const d of demandes) {
+      const key = plateKey(d.plaque);
+      if (!key || !key.includes(q) || d.statut === "annulee") continue;
+      if (!byPlate.has(key)) byPlate.set(key, []);
+      byPlate.get(key).push(d);
+    }
+    const plates = [...byPlate].map(([key, list]) => {
+      const upcoming = list.filter((d) => d.date > todayIso).sort(byDateThenTime);
+      const past = list.filter((d) => d.date && lastDay(d) < todayIso)
+        .sort((a, b) => lastDay(b).localeCompare(lastDay(a)) || byStartTime(b, a));
+      return {
+        key, plaque: normalizePlate(list[0].plaque), vehicle: list.find((d) => d.modele) || list[0],
+        today: list.filter((d) => isAvailableOn(d, todayIso)).sort(byStartTime),
+        next: upcoming[0] || null, moreUpcoming: Math.max(0, upcoming.length - 1),
+        last: past[0] || null, exact: key === q,
+      };
+    }).sort((a, b) => (b.exact - a.exact) || a.key.localeCompare(b.key));
+    return { query: q, plates: plates.slice(0, limit), more: Math.max(0, plates.length - limit) };
+  }
+  // A full plate (SIV AB-123-CD or old 123 ABC 45): worth one targeted read of its older requests.
+  const isFullPlate = (text) => /^[A-Z]{2}\d{3}[A-Z]{2}$|^\d{1,4}[A-Z]{2,3}\d{2}$/.test(plateKey(text));
+
   return {
     DEFAULT_SLOT, TASK_SUGGESTIONS, existingDuplicate, isIntervention, servicesFor, offers,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
-    plateKey, normalizePlate, platesInText,
+    plateKey, normalizePlate, platesInText, PLATE_SEARCH_MIN, plateLookup, isFullPlate,
     fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress, parseSiteList, mergeSites,
     serviceOf, WASH_KINDS, washKindOf, jobLabel, jobTitle, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,

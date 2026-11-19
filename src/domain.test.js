@@ -593,3 +593,44 @@ test("agreed prices: filled once per provider, matched on its name, never twice"
   stored.set("allo-pare-brise-78", allo);
   assert.equal(D.missingKnownPrices(["ALLO pare-brise 78"], pricesOf).length, 0, "nothing left once filled");
 });
+
+test("plateLookup: today, next and last request of a plate", () => {
+  const T = "2026-11-19";
+  const list = [
+    { id: "a", plaque: "AB-123-CD", modele: "Movano", cubage: "20", service: "lavage", date: "2026-11-10", statut: "realisee" },
+    { id: "b", plaque: "AB-123-CD", service: "lavage", date: "2026-11-15", statut: "realisee" },
+    { id: "c", plaque: "AB-123-CD", service: "lavage", date: "2026-11-17", statut: "annulee" },
+    { id: "d", plaque: "AB123CD", service: "lavage", date: "2026-11-19", debut: "09:00", statut: "envoyee" },
+    { id: "e", plaque: "AB-123-CD", service: "lavage", date: "2026-11-25", statut: "a_envoyer" },
+    { id: "f", plaque: "AB-123-CD", service: "lavage", date: "2026-11-21", statut: "envoyee" },
+    { id: "g", plaque: "XY-999-ZZ", service: "lavage", date: "2026-11-21", statut: "envoyee" },
+  ];
+  const r = D.plateLookup(list, "ab 123", T);
+  assert.equal(r.plates.length, 1);
+  const p = r.plates[0];
+  assert.equal(p.plaque, "AB-123-CD");
+  assert.deepEqual(p.today.map((d) => d.id), ["d"]);
+  assert.equal(p.next.id, "f");
+  assert.equal(p.moreUpcoming, 1);
+  assert.equal(p.last.id, "b"); // the cancelled one of the 17th is left out
+  assert.equal(p.vehicle.modele, "Movano");
+});
+
+test("plateLookup: needs 3 characters, exact plate first, multi-day request counts as today", () => {
+  const T = "2026-11-19";
+  assert.equal(D.plateLookup([{ plaque: "AB-123-CD", date: T }], "ab", T).plates.length, 0);
+  const list = [
+    { id: "1", plaque: "AB-123-CE", date: "2026-11-01" },
+    { id: "2", plaque: "AB-123-CD", date: "2026-11-18", dateFin: "2026-11-20" },
+  ];
+  const r = D.plateLookup(list, "AB123C", T);
+  assert.deepEqual(r.plates.map((p) => p.key), ["AB123CD", "AB123CE"]);
+  assert.equal(D.plateLookup(list, "AB-123-CD", T).plates[0].today[0].id, "2");
+  assert.equal(D.plateLookup(list, "AB-123-CD", T).plates[0].last, null);
+});
+
+test("isFullPlate: SIV and old FNI plates only", () => {
+  assert.equal(D.isFullPlate("ab 123 cd"), true);
+  assert.equal(D.isFullPlate("123 ABC 75"), true);
+  assert.equal(D.isFullPlate("AB-123"), false);
+});
