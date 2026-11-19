@@ -648,6 +648,7 @@ button.pf-line:hover { background: var(--accent-soft); }
 .older-note { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 /* Provider « Faits »: older month report on demand */
 .presta-body .month-pick { margin: 12px 0; max-width: 260px; }
+.presta-body .month-back { width: 100%; min-height: 48px; justify-content: center; gap: 8px; margin: 4px 0 14px; font-weight: 600; color: var(--accent); border: 1px solid var(--line-strong); background: var(--surface); }
 </style>
 </head>
 <body>
@@ -2765,7 +2766,8 @@ window.SUIVI_FIREBASE_CONFIG = {
         const list = filtered(inMonth);
         const head = state.monthLoading ? `<p class="tally">Chargement de ${esc(D.monthLabel(state.month))}…</p>`
           : `<p class="tally"><b>${inMonth.length}</b> véhicule${inMonth.length > 1 ? "s" : ""} en ${esc(D.monthLabel(state.month))}</p>`;
-        return head + picker + `<p class="tab-intro"><button type="button" class="ghost small-btn" data-month-reset>Revenir aux 40 derniers jours</button></p>` + searchBox() +
+        const back = `<button type="button" class="month-back" data-month-reset>${icon("chev-l")}Revenir aux 40 derniers jours</button>`;
+        return back + head + picker + searchBox() +
           (state.monthLoading ? "" : list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait ce mois-là", "Choisis un autre mois."));
       }
       const list = filtered(all.filter((d) => doneDayOf(d) >= recentFrom)); // an older month looked at stays loaded, not listed here
