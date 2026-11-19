@@ -802,7 +802,7 @@
     if (champ === "reponse") return answerOf(v)?.label || String(v);
     return String(v);
   }
-  const ACTION_LABELS = { creation: "Création", modification: "Modification", statut: "Changement de statut", reponse: "Réponse du prestataire", suppression: "Suppression" };
+  const ACTION_LABELS = { creation: "Création", modification: "Modification", statut: "Changement de statut", reponse: "Réponse du prestataire", suppression: "Suppression", restauration: "Restauration" };
   // Firestore time (Timestamp) or ISO text -> Date.
   const historyTime = (at) => (at?.toDate ? at.toDate() : at?.seconds != null ? new Date(at.seconds * 1000) : at ? new Date(at) : null);
   function historyWhen(at) {
@@ -883,6 +883,30 @@
   // A full plate (SIV AB-123-CD or old 123 ABC 45): worth one targeted read of its older requests.
   const isFullPlate = (text) => /^[A-Z]{2}\d{3}[A-Z]{2}$|^\d{1,4}[A-Z]{2,3}\d{2}$/.test(plateKey(text));
 
+
+  // ---------- trash (« Corbeille »): a deleted request stays 20 days, then it is erased for good ----------
+  const TRASH_DAYS = 20;
+  const DAY_MS = 24 * 3600 * 1000;
+  const trashPurgeDate = (supprimeLeIso) => new Date(new Date(supprimeLeIso).getTime() + TRASH_DAYS * DAY_MS).toISOString();
+  const trashDaysLeft = (supprimeLeIso, nowIso) => Math.max(0, Math.ceil((new Date(trashPurgeDate(supprimeLeIso)).getTime() - new Date(nowIso).getTime()) / DAY_MS));
+  // Rows deleted together as one grouped request (same non-empty « groupe ») make one group; the most recently deleted comes first.
+  function groupTrash(rows) {
+    const groups = [];
+    const byGroup = new Map();
+    for (const row of rows || []) {
+      const key = row.demande?.groupe || "";
+      let group = key ? byGroup.get(key) : null;
+      if (!group) {
+        group = { ids: [], rows: [], supprimeLe: row.supprimeLe, supprimePar: row.supprimePar };
+        groups.push(group);
+        if (key) byGroup.set(key, group);
+      }
+      group.ids.push(row.id); group.rows.push(row);
+      if (row.supprimeLe > group.supprimeLe) { group.supprimeLe = row.supprimeLe; group.supprimePar = row.supprimePar; }
+    }
+    return groups.sort((a, b) => (a.supprimeLe < b.supprimeLe ? 1 : a.supprimeLe > b.supprimeLe ? -1 : 0));
+  }
+
   return {
     DEFAULT_SLOT, TASK_SUGGESTIONS, existingDuplicate, isIntervention, servicesFor, offers,
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
@@ -901,5 +925,6 @@
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
+    TRASH_DAYS, trashPurgeDate, trashDaysLeft, groupTrash,
   };
 });

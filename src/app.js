@@ -86,6 +86,7 @@
     else if (err?.code === "too_many_photos") toast(`Ce véhicule a déjà ${MAX_PHOTOS_PER_VEHICLE} photos : supprimes-en une dans l'onglet Photos`);
     else toast("Enregistrement impossible pour le moment, réessaie dans un instant");
   }
+  const TRASH_NOT_READY = "Suppression impossible : les nouvelles règles de la base ne sont pas encore publiées";
   const requireStore = () => { if (!state.store) toast("La base n'est pas disponible depuis cette vue"); return !!state.store; };
 
   // ================= clipboard & files =================
@@ -295,6 +296,55 @@
   }
   $("#lightbox").onclick = () => ($("#lightbox").hidden = true);
 
+  // ================= Corbeille: deleted requests, kept 20 days, restorable =================
+  const trash = { groups: [], error: false, loading: false };
+  async function openTrash() {
+    trash.loading = true; trash.error = false; renderTrash();
+    if (!state.store) return; // page opened from its link before sign-in: listed once connected
+    try {
+      if (state.store && state.canWrite) await state.store.purgeTrash().catch(() => {});
+      trash.groups = D.groupTrash(await state.store.loadTrash());
+    } catch { trash.groups = []; trash.error = true; }
+    trash.loading = false; renderTrash();
+  }
+  function trashCard(group) {
+    const first = group.rows[0].demande;
+    const many = group.rows.length > 1;
+    const left = D.trashDaysLeft(group.supprimeLe, new Date().toISOString());
+    const plates = group.rows.map((r) => plateTag(r.demande.plaque)).join(" ");
+    const title = many ? `Lavage groupé · ${group.rows.length} véhicules` : esc(D.jobLabel(first));
+    const job = many ? D.jobLabel(first) : "";
+    const when = first.date ? D.numericDate(first.date) + (first.dateFin && first.dateFin !== first.date ? " au " + D.numericDate(first.dateFin) : "") : "";
+    const deleted = `Supprimée le ${D.numericDate(group.supprimeLe.slice(0, 10)).slice(0, 5)}${group.supprimePar ? " par " + group.supprimePar : ""}`;
+    return `<div class="trash-card">
+      <div class="trash-head"><div class="trash-plates">${plates}</div><span class="trash-days${left <= 3 ? " soon" : ""}">Effacée dans ${left} j</span></div>
+      <div class="trash-body"><b>${title}</b><span class="muted">${esc([job, when, first.prestataire].filter(Boolean).join(" · "))}</span><span class="muted small">${esc(deleted)}</span></div>
+      ${state.canWrite ? `<button type="button" data-trash-restore="${esc(group.ids.join(","))}">${icon("check")}Restaurer</button>` : ""}
+    </div>`;
+  }
+  function renderTrash() {
+    const box = $("#trashList");
+    box.innerHTML = trash.loading && !trash.groups.length ? `<p class="hint">Chargement…</p>`
+      : trash.error ? `<div class="empty"><b>La corbeille n'est pas encore active.</b></div>`
+      : !trash.groups.length ? `<div class="empty"><b>La corbeille est vide.</b></div>`
+      : trash.groups.map(trashCard).join("");
+  }
+  $("#trashList").addEventListener("click", async (e) => {
+    const button = e.target.closest("[data-trash-restore]");
+    if (!button || !requireStore()) return;
+    const ids = button.dataset.trashRestore.split(",");
+    button.disabled = true;
+    try {
+      await state.store.restoreDemandes(ids);
+      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : "Demande restaurée");
+      trash.groups = trash.groups.filter((g) => g.ids.join(",") !== button.dataset.trashRestore);
+      renderTrash();
+    } catch (err) {
+      button.disabled = false;
+      if (err?.code === "already_exists") toast("Cette demande existe déjà dans le planning"); else reportWriteError(err);
+    }
+  });
+
   // ================= Google Sheet link =================
   function sheetLink(plates) {
     if (!/^https:\/\/script\.google\.com\//.test(state.sheetUrl) || !plates.length) return "";
@@ -303,13 +353,14 @@
   }
 
   // ================= navigation =================
-  const VIEWS = ["planning", "retours", "demande", "hayon", "photos", "verif", "bilan", "historique", "reglages"];
+  const VIEWS = ["planning", "retours", "demande", "hayon", "photos", "verif", "bilan", "historique", "corbeille", "reglages"];
   const navButtons = () => document.querySelectorAll("nav.tabs [data-view]");
   function show(view) {
     if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
     VIEWS.forEach((v) => ($("#view-" + v).hidden = v !== view));
     markCurrentNav(view);
+    if (view === "corbeille") openTrash();
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
   }
   // Rare pages live under « Plus »: its label names the open page so the menu never hides where you are.
@@ -596,7 +647,7 @@
     if (row.dataset.id) {
       if (!requireStore()) return;
       try { await state.store.deleteDemande(demandeById(row.dataset.id) || { id: row.dataset.id }); toast("Véhicule retiré de la demande"); }
-      catch (err) { reportWriteError(err); return; }
+      catch (err) { if (err?.code === "trash_not_ready") toast(TRASH_NOT_READY); else reportWriteError(err); return; }
     }
     row.remove(); renumberExtraRows(); renderFormSide();
   });
@@ -741,7 +792,7 @@
     return `<li><div class="history-head"><b>${esc(line.action)}${line.plaque ? " · " + esc(line.plaque) : ""}</b><span class="muted small">${esc(line.when)} · ${esc(who)}</span></div>${changes ? `<ul>${changes}</ul>` : ""}</li>`;
   }
   $("#historyBox").addEventListener("toggle", () => { if ($("#historyBox").open) renderChangeLog(); });
-  // « Annuler » keeps the request in the history (and stops the tailgate counter from using it); « Supprimer » erases it.
+  // « Annuler » keeps the request in the history (and stops the tailgate counter from using it); « Supprimer » moves it to the Corbeille (kept 20 days, restorable).
   const deleteZone = (d) => !state.canWrite ? "" : (d?.statut === "annulee"
     ? `<button type="button" class="ghost" data-restore>Rétablir la demande</button>`
     : `<button type="button" class="ghost" data-cancel>Annuler la demande</button>`) + `<button type="button" class="ghost danger" data-delete>Supprimer</button>`;
@@ -814,7 +865,7 @@
   });
   $("#delZone").addEventListener("click", async (e) => {
     if (e.target.closest("[data-delete]")) {
-      $("#delZone").innerHTML = `<span class="row">Supprimer définitivement ? <button type="button" class="danger" data-delete-yes>Oui, supprimer</button><button type="button" class="ghost" data-delete-no>Non</button></span>`;
+      $("#delZone").innerHTML = `<span class="row">Mettre à la corbeille ? Tu pourras la restaurer pendant 20 jours. <button type="button" class="danger" data-delete-yes>Oui, à la corbeille</button><button type="button" class="ghost" data-delete-no>Non</button></span>`;
     } else if (e.target.closest("[data-delete-no]")) {
       $("#delZone").innerHTML = deleteZone(demandeById(state.editingId));
     } else if (e.target.closest("[data-cancel], [data-restore]") && state.editingId && requireStore()) {
@@ -827,8 +878,8 @@
       } catch (err) { reportWriteError(err); }
     } else if (e.target.closest("[data-delete-yes]") && state.editingId && requireStore()) {
       const ids = [state.editingId, ...extraRows().map((row) => row.dataset.id).filter(Boolean)];
-      try { await Promise.all(ids.map((id) => state.store.deleteDemande(demandeById(id) || { id }))); toast(ids.length > 1 ? "Demande groupée supprimée" : "Demande supprimée"); resetForm(); show("planning"); }
-      catch (err) { reportWriteError(err); }
+      try { await Promise.all(ids.map((id) => state.store.deleteDemande(demandeById(id) || { id }))); toast(ids.length > 1 ? "Demande groupée mise à la corbeille" : "Demande mise à la corbeille"); resetForm(); show("planning"); }
+      catch (err) { if (err?.code === "trash_not_ready") toast(TRASH_NOT_READY); else reportWriteError(err); }
     }
   });
 
@@ -1514,6 +1565,9 @@
     if (account?.role === "lecture") setReadOnly("Accès en lecture : tu vois tout mais tu ne modifies rien.");
     if ((await user?.can("data.write")) === false) setReadOnly("Tu as accès en lecture seule : tu vois le planning mais tu ne peux pas saisir de demandes.");
     subscribeTeam();
+    if (!$("#view-corbeille").hidden) openTrash();
+    // Erase for good what has spent 20 days in the trash: done by the team app itself, no paid server needed.
+    else if (state.canWrite) setTimeout(() => state.store.purgeTrash().catch(() => {}), 5000);
   }
   function startProviderMode(account) {
     state.providerMode = true;

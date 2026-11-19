@@ -644,3 +644,30 @@ test("isFullPlate: SIV and old FNI plates only", () => {
   assert.equal(D.isFullPlate("123 ABC 75"), true);
   assert.equal(D.isFullPlate("AB-123"), false);
 });
+
+test("trash keeps a request 20 days and counts the days left", () => {
+  assert.equal(D.TRASH_DAYS, 20);
+  assert.equal(D.trashPurgeDate("2026-11-19T10:00:00.000Z"), "2026-12-09T10:00:00.000Z");
+  assert.equal(D.trashDaysLeft("2026-11-19T10:00:00.000Z", "2026-11-19T10:00:00.000Z"), 20);
+  assert.equal(D.trashDaysLeft("2026-11-19T10:00:00.000Z", "2026-11-19T18:00:00.000Z"), 20);
+  assert.equal(D.trashDaysLeft("2026-11-19T10:00:00.000Z", "2026-12-06T12:00:00.000Z"), 3);
+  assert.equal(D.trashDaysLeft("2026-11-19T10:00:00.000Z", "2026-12-08T11:00:00.000Z"), 1);
+  assert.equal(D.trashDaysLeft("2026-11-19T10:00:00.000Z", "2026-12-09T10:00:00.000Z"), 0);
+  assert.equal(D.trashDaysLeft("2026-11-19T10:00:00.000Z", "2027-01-01T00:00:00.000Z"), 0);
+});
+
+test("groupTrash joins the vehicles of a grouped request and puts the latest deletion first", () => {
+  const row = (id, groupe, supprimeLe, supprimePar = "a@x.fr") => ({ id, demande: { plaque: id, groupe }, supprimeLe, supprimePar });
+  const groups = D.groupTrash([
+    row("A", "", "2026-11-10T08:00:00.000Z"),
+    row("B", "g1", "2026-11-12T08:00:00.000Z", "b@x.fr"),
+    row("C", "g1", "2026-11-12T08:00:05.000Z", "b@x.fr"),
+    row("D", undefined, "2026-11-15T08:00:00.000Z"),
+    row("E", "", "2026-11-11T08:00:00.000Z"),
+  ]);
+  assert.deepEqual(groups.map((g) => g.ids), [["D"], ["B", "C"], ["E"], ["A"]]);
+  assert.equal(groups[1].supprimeLe, "2026-11-12T08:00:05.000Z");
+  assert.equal(groups[1].supprimePar, "b@x.fr");
+  assert.equal(groups[1].rows.length, 2);
+  assert.deepEqual(D.groupTrash([]), []);
+});

@@ -2,7 +2,7 @@
 import { test, before, beforeEach, after } from "node:test";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, serverTimestamp, writeBatch } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, serverTimestamp, writeBatch, Timestamp } from "firebase/firestore";
 
 let env;
 const ALLO = "allo-pare-brise-78";
@@ -42,7 +42,6 @@ test("l'équipe CityDrop voit et modifie tout", async () => {
   await assertSucceeds(getDocs(collection(db, "demandes")));
   await assertSucceeds(setDoc(doc(db, "demandes/d3"), allo));
   await assertSucceeds(updateDoc(doc(db, "demandes/d2"), { statut: "realisee" }));
-  await assertSucceeds(deleteDoc(doc(db, "demandes/d3")));
   await assertSucceeds(setDoc(doc(db, "comptes/nouveau@exemple.fr"), { role: "prestataire", prestataireId: KHALID }));
   await assertSucceeds(updateDoc(doc(db, "prestataires", ALLO), { tarifs: [] }));
   await assertSucceeds(setDoc(doc(db, "config/reglages"), { prestataires: [] }));
@@ -311,4 +310,51 @@ test("le robot laisse sa trace dans robot/etat, l'équipe la lit, personne d'aut
   await assertFails(getDoc(doc(as("khalid"), "robot/etat")));
   await assertFails(setDoc(doc(as("khalid"), "robot/etat"), trace));
   await assertFails(setDoc(doc(as("jerome"), "robot/etat"), trace));
+});
+
+// Corbeille : « Supprimer » range la demande 20 jours, l'équipe peut la remettre, puis elle part pour de bon.
+const toTrash = (db, id, data, extra = {}) => {
+  const batch = writeBatch(db);
+  batch.set(doc(db, "corbeille", id), { demande: data, supprimeLe: serverTimestamp(), supprimePar: people.fabian.email, ...extra });
+  batch.delete(doc(db, "demandes", id));
+  return batch.commit();
+};
+
+test("corbeille : une demande ne s'efface plus directement, elle part à la corbeille avec sa copie exacte", async () => {
+  const fabian = as("fabian");
+  await assertFails(deleteDoc(doc(fabian, "demandes/d1")), "pas d'effacement direct");
+  await assertFails(toTrash(fabian, "d1", { ...allo, prixHT: 1 }), "la copie doit être celle de la demande");
+  await assertFails(toTrash(fabian, "d1", allo, { supprimePar: people.jerome.email }), "pas de fausse signature");
+  await assertFails(toTrash(fabian, "d1", allo, { supprimeLe: Timestamp.fromDate(new Date("2026-01-01")) }), "pas d'heure inventée");
+  await assertSucceeds(toTrash(fabian, "d1", allo));
+  await assertSucceeds(getDocs(collection(as("jerome"), "corbeille")));
+  for (const who of ["allo", "khalid", "robot", "inconnu"]) await assertFails(getDoc(doc(as(who), "corbeille/d1")));
+  await assertFails(toTrash(as("jerome"), "d2", lavage), "la lecture seule ne supprime pas");
+  await assertFails(deleteDoc(doc(as("robot"), "demandes/d2")));
+  await assertFails(deleteDoc(doc(as("khalid"), "demandes/d2")));
+  // Rien ne change dans la corbeille, et rien ne s'en efface avant 20 jours.
+  await assertFails(updateDoc(doc(fabian, "corbeille/d1"), { "demande.prixHT": 1 }));
+  await assertFails(deleteDoc(doc(fabian, "corbeille/d1")));
+});
+
+test("corbeille : l'équipe restaure une demande, la corbeille se vide seule après 20 jours", async () => {
+  const fabian = as("fabian");
+  await assertSucceeds(toTrash(fabian, "d1", allo));
+  // Restaurer : la demande revient dans la même opération que sa sortie de la corbeille.
+  const restore = (db) => { const b = writeBatch(db); b.set(doc(db, "demandes/d1"), allo); b.delete(doc(db, "corbeille/d1")); return b.commit(); };
+  await assertFails(restore(as("jerome")));
+  await assertSucceeds(restore(fabian));
+  await assertSucceeds(getDoc(doc(fabian, "demandes/d1")));
+  // Après 20 jours, l'équipe peut l'effacer pour de bon (l'appli le fait à l'ouverture) ; avant, non.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    const ago = (days) => Timestamp.fromMillis(Date.now() - days * 86400000);
+    await setDoc(doc(db, "corbeille/vieille"), { demande: lavage, supprimeLe: ago(21), supprimePar: people.fabian.email });
+    await setDoc(doc(db, "corbeille/recente"), { demande: lavage, supprimeLe: ago(19), supprimePar: people.fabian.email });
+  });
+  await assertFails(deleteDoc(doc(as("jerome"), "corbeille/vieille")));
+  await assertSucceeds(deleteDoc(doc(fabian, "corbeille/vieille")));
+  await assertFails(deleteDoc(doc(fabian, "corbeille/recente")));
+  // La trace « restauration » est acceptée dans l'historique.
+  await assertSucceeds(setDoc(doc(fabian, "historique/r1"), { demandeId: "d1", plaque: "AB-123-CD", action: "restauration", changes: [], par: people.fabian.email, at: serverTimestamp() }));
 });
