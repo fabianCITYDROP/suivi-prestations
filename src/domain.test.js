@@ -714,3 +714,18 @@ test("« Corriger » : 10 minutes, seulement pour celui qui a fait le « OK »",
   const lists = D.providerLists([{ ...d, id: "x", date: "2026-11-20", ...D.undoDonePatch(d, "k", now) }], "2026-11-20");
   assert.equal(lists.today.length, 1); assert.equal(lists.done.length, 0);
 });
+
+test("« Signaler » : remontée terrain sur n'importe quel véhicule", () => {
+  const r = D.fieldReport({ plaque: "ab123cd", quoi: ["Pneu avant", "Véhicule sale", "inconnu"], texte: " côté gauche " }, "khalid", "k@x.fr", "2026-11-20T10:00:00.000Z");
+  assert.equal(r.plaque, "AB-123-CD");
+  assert.equal(r.demandeId, "");
+  assert.equal(r.source, "terrain");
+  assert.deepEqual(r.quoi, ["Véhicule sale", "Pneu avant"]);
+  assert.equal(r.texte, "Véhicule sale, Pneu avant – côté gauche");
+  assert.equal(D.problemSummary(r), r.texte);
+  assert.ok(D.isFieldReport(r));
+  assert.equal(D.fieldReport({ plaque: "AB-123-CD", texte: "rétro cassé" }, "k", "e", "t").texte, "rétro cassé");
+  assert.match(D.fieldReport({ plaque: "", quoi: ["Pare-brise"] }, "k", "e", "t").error, /plaque/);
+  assert.match(D.fieldReport({ plaque: "AB1", quoi: ["Pare-brise"] }, "k", "e", "t").error, /incomplète/);
+  assert.match(D.fieldReport({ plaque: "AB-123-CD" }, "k", "e", "t").error, /Coche/);
+});

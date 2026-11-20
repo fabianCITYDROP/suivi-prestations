@@ -7,18 +7,21 @@
 // On any accepted vehicle (and for 7 days once done), the provider can report a problem seen on it: a few words, an optional photo.
 // For 10 minutes after « OK prestation réalisée », the provider can take it back (wrong vehicle): it goes back to its list.
 // To add something, it simply reports again.
+// 5. "Signaler" (+): what the provider saw on ANY vehicle, even one it was not sent to (dirty, windscreen, tyres…),
+//    several vehicles at once. The team gets it in « Retours »; the provider only sees its own reports.
 (function (root) {
   const TABS = [
     { id: "validate", label: "À valider", icon: "bell" },
     { id: "today", label: "Aujourd'hui", icon: "clock" },
     { id: "upcoming", label: "À venir", icon: "cal" },
     { id: "done", label: "Faits", icon: "check" },
+    { id: "report", label: "Signaler", icon: "plus" },
   ];
 
   function start({ store, account, email, D, ui, alerts }) {
     const { $, esc, toast, icon, plateTag, safeImageSrc, prepareImage } = ui;
     // draft: what the provider is typing in the open form, kept across re-renders (a new request arriving redraws the screen).
-    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "", month: "", monthLoading: false }; // month: "AAAA-MM" of an older report asked for in « Faits », "" = last 40 days
+    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "", month: "", monthLoading: false, field: [] }; // month: "AAAA-MM" of an older report asked for in « Faits », "" = last 40 days
     const today = () => D.toIsoDate(new Date());
     const recentFrom = D.recentWindowStart(today()); // older requests are read only when asked for (free plan's daily reads)
     const view = $("#view-presta");
@@ -147,7 +150,7 @@
     const loadingHtml = `<div class="job-empty" aria-busy="true"><span class="spinner"></span><span>Chargement de tes demandes…</span></div>`;
     function tabsHtml(lists) {
       return TABS.map((t) => {
-        const n = t.id === "done" ? 0 : lists[t.id].length;
+        const n = lists[t.id]?.length || 0; // « Faits » and « Signaler » show no count
         const badge = n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : "";
         return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
@@ -184,7 +187,67 @@
         (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici.")) +
         `<p class="tab-intro">Ici : les 40 derniers jours.</p>` + picker;
     }
-    const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
+    // ---------- « Signaler »: field reports on any vehicle, several at once ----------
+    let fieldSeq = 0;
+    const newFieldRow = () => ({ id: ++fieldSeq, plaque: "", quoi: [], texte: "", photo: null, photoBusy: false });
+    const fieldRow = (id) => state.field.find((r) => r.id === +id);
+    function fieldCard(r, i, many) {
+      const photo = r.photoBusy ? `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`
+        : r.photo ? `<div class="problem-photo"><img src="${safeImageSrc(r.photo.thumb)}" alt="Photo"><button type="button" class="ghost" data-fphoto-remove="${r.id}">${icon("x")}Retirer la photo</button></div>`
+        : `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-fphoto="${r.id}" hidden></label>`;
+      return `<article class="job field-card">
+        <div class="field-card-head"><b>Véhicule ${i + 1}</b>${many ? `<button type="button" class="ghost field-remove" data-fremove="${r.id}" aria-label="Retirer le véhicule ${i + 1}">${icon("x")}Retirer</button>` : ""}</div>
+        <label class="field"><span>Plaque</span><input data-fplate="${r.id}" data-keep="plate-${r.id}" value="${esc(r.plaque)}" placeholder="AB-123-CD" autocapitalize="characters" autocomplete="off" spellcheck="false" list="fieldPlates" maxlength="12"></label>
+        <div class="field"><span>Ce que tu as vu</span><div class="issue-chips" role="group" aria-label="Ce que tu as vu">
+          ${D.FIELD_ISSUES.map((q) => `<button type="button" class="issue-chip" data-fissue="${r.id}" data-q="${esc(q)}" aria-pressed="${r.quoi.includes(q)}">${r.quoi.includes(q) ? icon("check") : ""}${esc(q)}</button>`).join("")}
+        </div></div>
+        <label class="field"><span>Précisions (facultatif)</span><input data-ftext="${r.id}" data-keep="text-${r.id}" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche lisse"></label>
+        ${photo}
+      </article>`;
+    }
+    function reportTab() {
+      if (!state.field.length) state.field.push(newFieldRow());
+      const ready = state.field.filter((r) => D.plateKey(r.plaque)).length;
+      const plates = [...new Set(state.demandes.map((d) => d.plaque).filter(Boolean))];
+      const mine = state.problems.filter(D.isFieldReport).sort((a, b) => (b.at || "").localeCompare(a.at || "")).slice(0, 15);
+      const sent = mine.length ? `<h2 class="field-sent-title">Tes derniers signalements</h2><ul class="done-list field-sent">${mine.map((p) => `<li class="done-row">${plateTag(p.plaque)}<span><b>${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}</small></span><span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé"}</span></li>`).join("")}</ul>` : "";
+      return `<p class="tab-intro">Tu as vu un souci sur un véhicule, même s'il n'est pas dans tes demandes ? Dis-le à l'équipe. Tu peux en mettre plusieurs.</p>
+        <datalist id="fieldPlates">${plates.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
+        ${state.field.map((r, i) => fieldCard(r, i, state.field.length > 1)).join("")}
+        <button type="button" class="add-veh field-add" data-fadd>${icon("plus")}Ajouter un autre véhicule</button>
+        ${state.fieldBusy ? busyLine : `<button type="button" class="primary big field-send" data-fsend>${icon("check")}Envoyer à l'équipe${ready > 1 ? ` (${ready} véhicules)` : ""}</button>`}
+        ${sent}`;
+    }
+    // Every vehicle is checked first; then each is sent. One that fails stays on screen with what was typed.
+    async function sendField() {
+      const rows = state.field.filter((r) => D.plateKey(r.plaque) || r.quoi.length || r.texte.trim() || r.photo);
+      if (!rows.length) return toast("Écris la plaque du véhicule");
+      for (const r of rows) {
+        const check = D.fieldReport(r, account.prestataireId, email, "");
+        if (check.error) return toast(check.error);
+      }
+      state.fieldBusy = true; render();
+      const failed = [];
+      for (const r of rows) {
+        try { await store.reportField(account.prestataireId, { plaque: r.plaque, quoi: r.quoi, texte: r.texte, par: email }, r.photo?.full); }
+        catch { failed.push(r); }
+      }
+      state.fieldBusy = false;
+      state.field = failed.length ? failed : [newFieldRow()];
+      const ok = rows.length - failed.length;
+      toast(failed.length ? `${failed.length} véhicule${failed.length > 1 ? "s" : ""} pas envoyé${failed.length > 1 ? "s" : ""} : vérifie ta connexion et réessaie`
+        : ok > 1 ? `${ok} véhicules envoyés à l'équipe, merci !` : "Envoyé à l'équipe, merci !");
+      render();
+      if (!failed.length) window.scrollTo({ top: 0 });
+    }
+    async function addFieldPhoto(r, file) {
+      r.photoBusy = true; render();
+      try { r.photo = await prepareImage(file); }
+      catch { toast("Photo illisible : essaie avec une autre"); }
+      finally { r.photoBusy = false; render(); }
+    }
+
+    const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab, report: reportTab };
 
     // Until alerts work on this phone: one card above the tabs, with the one thing to do.
     function alertCard() {
@@ -202,7 +265,8 @@
       const lists = D.providerLists(state.demandes, today());
       if (!state.tab && state.loaded) state.tab = lists.validate.length ? "validate" : "today";
       const body = state.loaded ? TAB_BODY[state.tab](lists[state.tab]) : loadingHtml;
-      const typing = document.activeElement?.matches?.("[data-search], [data-note]") ? (document.activeElement.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
+      const a = document.activeElement;
+      const typing = a?.matches?.("[data-keep]") ? `[data-keep="${a.dataset.keep}"]` : a?.matches?.("[data-search], [data-note]") ? (a.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
       view.innerHTML = `<header class="presta-top">
           <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
           <h1>${esc(cap(D.dayLabel(today())))}</h1>
@@ -262,6 +326,9 @@
     view.addEventListener("change", (e) => {
       if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]);
       if (e.target.matches("[data-month]")) showMonth(e.target.value);
+      if (e.target.matches("[data-fphoto]") && e.target.files[0] && fieldRow(e.target.dataset.fphoto)) addFieldPhoto(fieldRow(e.target.dataset.fphoto), e.target.files[0]);
+      if (e.target.matches("[data-fplate]") && fieldRow(e.target.dataset.fplate)) { // tidy the plate when the field is left: AB123CD -> AB-123-CD
+        const r = fieldRow(e.target.dataset.fplate); r.plaque = D.normalizePlate(r.plaque); e.target.value = r.plaque; }
     });
     // An older month's report: only that month is read (free plan's daily reads), then it stays loaded.
     function showMonth(month) {
@@ -272,6 +339,8 @@
     }
     view.addEventListener("input", (e) => {
       if (e.target.matches("[data-note]")) state.draft.note = e.target.value;
+      else if (e.target.matches("[data-fplate]")) { const r = fieldRow(e.target.dataset.fplate); if (r) r.plaque = e.target.value; }
+      else if (e.target.matches("[data-ftext]")) { const r = fieldRow(e.target.dataset.ftext); if (r) r.texte = e.target.value; }
       else if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); }
     });
     view.addEventListener("click", (e) => {
@@ -279,6 +348,17 @@
       let b;
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
       else if ((b = el("[data-month-reset]"))) { state.month = ""; render(); }
+      else if ((b = el("[data-fissue]"))) {
+        const r = fieldRow(b.dataset.fissue), q = b.dataset.q;
+        if (r) { r.quoi = r.quoi.includes(q) ? r.quoi.filter((x) => x !== q) : [...r.quoi, q]; render(); }
+      }
+      else if ((b = el("[data-fadd]"))) {
+        const r = newFieldRow(); state.field.push(r); render();
+        view.querySelector(`[data-fplate="${r.id}"]`)?.focus();
+      }
+      else if ((b = el("[data-fremove]"))) { state.field = state.field.filter((r) => r.id !== +b.dataset.fremove); render(); }
+      else if ((b = el("[data-fphoto-remove]"))) { const r = fieldRow(b.dataset.fphotoRemove); if (r) { r.photo = null; render(); } }
+      else if ((b = el("[data-fsend]"))) sendField();
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
       else if ((b = el("[data-form]"))) {

@@ -298,6 +298,8 @@ function signalementsRecents() {
   return JSON.parse(r.getContentText()).filter((x) => x.document).map((x) => docVersObjet(x.document));
 }
 function nomPrestataire(signalement, demandes) {
+  // « Signaler » (vu en passant) : rattaché à aucune demande ; le nom vient d'une autre demande du même prestataire.
+  if (!signalement.demandeId) return (demandes.find((x) => x.prestataireId === signalement.prestataireId && x.prestataire) || {}).prestataire || '';
   const d = demandes.find((x) => x.id === signalement.demandeId);
   if (d) return d.prestataire || '';
   const r = notifFirestore('get', '/demandes/' + encodeURIComponent(signalement.demandeId));

@@ -230,6 +230,26 @@ test("contrôles hayon : l'équipe gère la liste, Jérôme la lit, personne d'a
   await assertSucceeds(setDoc(doc(as("robot"), "demandes/mail-h"), { ...mail, service: "hayon" }), "le robot importe aussi les mails de contrôle hayon");
 });
 
+test("« Signaler » : un prestataire remonte ce qu'il voit sur n'importe quel véhicule, sans rien lire des autres", async () => {
+  const khalid = as("khalid");
+  const field = { demandeId: "", source: "terrain", plaque: "ZZ-999-ZZ", prestataireId: KHALID, type: "autre", quoi: ["Véhicule sale", "Pneu avant"],
+    texte: "Véhicule sale, Pneu avant", statut: "nouveau", at: "2026-11-20T10:00:00Z", par: people.khalid.email };
+  await assertSucceeds(setDoc(doc(khalid, "signalements/t1"), field), "un véhicule qui n'est dans aucune de ses demandes");
+  await assertSucceeds(setDoc(doc(khalid, "signalements/t2"), { ...field, quoi: [], texte: "Rétro gauche pendant", photo: "sig_ZZ999ZZ_x" }));
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, prestataireId: ALLO }), "jamais au nom d'un autre");
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, par: people.allo.email }));
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, statut: "traite" }));
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, plaque: "AB" }), "plaque trop courte");
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, quoi: "sale" }));
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, demandeId: "d1" }), "pas de rattachement à la demande d'un autre");
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, source: "autre" }));
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, champ: "x" }));
+  await assertFails(setDoc(doc(as("jerome"), "signalements/t3"), { ...field, prestataireId: "" }), "l'équipe en lecture n'écrit pas");
+  await assertFails(getDoc(doc(as("allo"), "signalements/t1")), "un autre prestataire ne le voit pas");
+  await assertFails(updateDoc(doc(khalid, "signalements/t1"), { texte: "autre chose" }));
+  await assertSucceeds(getDocs(collection(as("jerome"), "signalements")));
+});
+
 test("un prestataire signale un problème sur ses véhicules, et seulement les siens", async () => {
   const khalid = as("khalid");
   const report = { demandeId: "d2", plaque: "EF-456-GH", prestataireId: KHALID, type: "pneu", texte: "Pneu avant lisse", statut: "nouveau", at: "2026-11-18T10:00:00Z", par: people.khalid.email };
