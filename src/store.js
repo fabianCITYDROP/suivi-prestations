@@ -319,6 +319,20 @@
       await db.collection("signalements").doc().set(report);
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
+    // Field report on any vehicle (« Signaler » tab), not tied to a request: same collection, same photo place.
+    async function reportField(prestataireId, fields, photoFull) {
+      let photo = "";
+      const plaque = D.normalizePlate(fields.plaque);
+      if (photoFull) {
+        photo = `sig_${D.plateKey(plaque)}_${Date.now().toString(36)}`;
+        await db.doc("preuves/" + photo).set({ prestataireId, plaque, data: photoFull, at: new Date().toISOString() });
+        photoCache.set("preuve:" + photo, photoFull);
+      }
+      const report = D.fieldReport({ ...fields, photo }, prestataireId, fields.par, new Date().toISOString());
+      if (report.error) throw { code: "invalid", message: report.error };
+      await db.collection("signalements").doc().set(report);
+      changed(); // the alert script looks at once: the team is told even with the app closed
+    }
     const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
       handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
     async function loadProof(key) {
@@ -439,7 +453,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

@@ -600,6 +600,24 @@
   const problemsOfRequest = (list, demandeId) => list.filter((s) => s.demandeId === demandeId).sort(byNewest);
   const problemsOfPlate = (list, plate) => list.filter((s) => plateKey(s.plaque) === plateKey(plate)).sort(byNewest);
 
+  // ---------- field reports (« Signaler » tab): a provider walking by tells the team what it saw on ANY vehicle ----------
+  // Same collection as above, with no request: {demandeId: "", source: "terrain", plaque, quoi: [...], texte, photo?, …}.
+  // Several vehicles are sent at once, one report each. Ticks are quicker than typing on a parking lot.
+  const FIELD_ISSUES = ["Pare-brise", "Véhicule sale", "Pneu avant", "Pneu arrière", "Rétro cassé", "Choc / carrosserie", "Voyant allumé"];
+  const isFieldReport = (s) => s.source === "terrain";
+  const fieldPlateOk = (plate) => { const k = plateKey(plate); return k.length >= 5 && k.length <= 10; };
+  function fieldReport({ plaque, quoi = [], texte = "", photo } = {}, prestataireId, email, nowIso) {
+    const plate = normalizePlate(plaque);
+    const ticks = FIELD_ISSUES.filter((q) => quoi.includes(q));
+    const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
+    if (!plateKey(plate)) return { error: "Écris la plaque du véhicule" };
+    if (!fieldPlateOk(plate)) return { error: `Plaque ${plate} incomplète : vérifie-la` };
+    if (!ticks.length && !text) return { error: `Coche ce que tu as vu sur ${plate}, ou écris-le` };
+    return { demandeId: "", source: "terrain", plaque: plate, prestataireId, type: "autre", quoi: ticks,
+      texte: [ticks.join(", "), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...(photo ? { photo } : {}),
+      statut: "nouveau", at: nowIso, par: email };
+  }
+
   // What a provider's answer writes. A "fait" or an acceptance also moves the request's status right away, so the
   // request is closed even when nobody of the team has the app open (the access rules allow exactly this).
   function answerPatch(d, retour, nowIso) {
@@ -984,7 +1002,7 @@
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
-    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport,
     TRASH_DAYS, trashPurgeDate, trashDaysLeft, groupTrash,
   };
 });

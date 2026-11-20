@@ -195,7 +195,8 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Problem seen on a vehicle (shock, tyre, warning light…): the provider reports it on one of its own requests,
+    // Problem seen on a vehicle (shock, tyre, warning light…): the provider reports it on one of its own requests
+    // (or on any vehicle from the « Signaler » tab, see validFieldReport),
     // the team reads it and marks it handled. A provider sees only its own reports and can neither change nor delete them
     // (to add something, it reports again).
     match /signalements/{reportId} {
@@ -207,16 +208,24 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     function validReport(s) {
-      return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'statut', 'at', 'par'])
+      return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'statut', 'at', 'par', 'source', 'quoi'])
         && s.keys().hasAll(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'statut', 'at', 'par'])
         && s.prestataireId == account().prestataireId && s.par == email() && s.statut == 'nouveau'
         && s.type in ['choc', 'pneu', 'voyant', 'autre']
         && s.texte is string && s.texte.size() <= 500
         && s.at is string && s.at.size() <= 40
         && (!('photo' in s) || (s.photo is string && s.photo.size() <= 80))
-        && s.demandeId is string
-        && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.prestataireId == account().prestataireId
-        && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.plaque == s.plaque;
+        && s.demandeId is string && s.plaque is string
+        && (validFieldReport(s) || (!('source' in s) && !('quoi' in s) && s.demandeId != ''
+          && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.prestataireId == account().prestataireId
+          && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.plaque == s.plaque));
+    }
+    // « Signaler » tab: something seen on ANY vehicle, tied to no request. The provider still writes only under its own
+    // name, can read back only its own reports, and never sees anything about the vehicle.
+    function validFieldReport(s) {
+      return s.demandeId == '' && s.source == 'terrain' && s.type == 'autre'
+        && s.plaque.size() >= 5 && s.plaque.size() <= 12
+        && s.quoi is list && s.quoi.size() <= 10;
     }
 
     // Fleet models and their windshield photos: useful to every provider, changed only by the team.
