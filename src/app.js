@@ -1431,7 +1431,7 @@
       <span><span class="problem-type">${D.isFieldReport(p) ? "Vu en passant" : "Problème"}</span> · ${esc(D.problemSummary(p))}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
       <span class="row">${p.photo ? `<button type="button" data-proof="${esc(p.photo)}">${icon("image")}Photo</button>` : ""}
       ${state.canWrite ? (handled ? `<button type="button" class="ghost" data-problem-undo="${esc(p.id)}">Rouvrir</button>` : `<button type="button" data-problem-done="${esc(p.id)}">${icon("check")}Traité</button>`) : ""}
-      ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : ""}</span></div>`;
+      ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : state.canWrite ? `<button type="button" class="ghost" data-problem-new="${esc(p.plaque)}">${icon("plus")}Créer une demande</button>` : ""}</span></div>`;
   }
   function renderProblems() {
     const open = D.openProblems(state.problems);
@@ -1533,9 +1533,10 @@
     catch (err) { reportWriteError(err); }
   };
   ["#problems", "#problemsHandled"].forEach((sel) => $(sel).addEventListener("click", (e) => {
-    const b = e.target.closest("[data-problem-done], [data-problem-undo], [data-open]");
+    const b = e.target.closest("[data-problem-done], [data-problem-undo], [data-open], [data-problem-new]");
     if (!b) return;
     if (b.dataset.open) return openDemande(b.dataset.open);
+    if (b.dataset.problemNew) return newDemandeFor({ plaque: b.dataset.problemNew }); // seen in passing: book the job (windscreen → Allo, wash…)
     const p = state.problems.find((x) => x.id === (b.dataset.problemDone || b.dataset.problemUndo));
     if (!p || !requireStore()) return;
     state.store.markProblemHandled(p, state.userEmail, !!b.dataset.problemDone)

@@ -413,7 +413,7 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 .side-problems .icon { width: 17px; height: 17px; }
 .answer-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
 .answer-row:first-of-type { border-top: 0; padding-top: 0; }
-@media (max-width: 640px) { .answer-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } .answer-row > .plate { justify-self: start; } .answer-row > .row { margin-left: -12px; } }
+@media (max-width: 640px) { .answer-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } .answer-row > .plate { justify-self: start; } .answer-row > .row { margin-left: 0; } .problem-row > .row > button { flex: 1 1 0; justify-content: center; } }
 
 /* ---------- provider screen (phone first, used outdoors on car parks) ---------- */
 :root { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); }
@@ -697,6 +697,16 @@ button.pf-line:hover { background: var(--accent-soft); }
   .presta-tabs button[data-tab="upcoming"] { order: 4; }
   .presta-tabs button[data-tab="done"] { order: 5; }
 }
+/* Delete a report sent by mistake: a quiet bin, red « Supprimer ? » once armed. */
+.field-sent .done-row { grid-template-columns: auto 1fr; align-items: start; }
+.field-sent .done-row > span:not(.plate) { display: flex; align-self: stretch; flex-direction: column; gap: 2px; min-width: 0; }
+.field-sent .done-row .sent-end { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; }
+.problem-row > .row > button.ghost { border: 1px solid var(--line-strong); white-space: nowrap; }
+.field-sent .seen-pill { align-self: center; }
+.del-report { min-height: 36px; min-width: 36px; padding: 0 8px; gap: 6px; border: 1px solid transparent; background: none; color: var(--ink-2); font-size: 13px; font-weight: 600; border-radius: 9px; flex: none; }
+.del-report .icon { width: 17px; height: 17px; }
+.del-report:hover { color: var(--danger); }
+.del-report.armed { color: #fff; background: var(--danger); border-color: var(--danger); }
 </style>
 </head>
 <body>
@@ -2569,6 +2579,8 @@ window.SUIVI_FIREBASE_CONFIG = {
       await db.collection("signalements").doc().set(report);
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
+    // Its author takes back a report sent by mistake (the access rules allow it until the team has handled it).
+    const deleteProblem = (id) => db.doc("signalements/" + id).delete();
     const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
       handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
     async function loadProof(key) {
@@ -2689,7 +2701,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, deleteProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -2862,9 +2874,17 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
+    // A report sent by mistake: its author removes it until the team has handled it (two taps: the first one asks).
+    function deleteReportBtn(p) {
+      if (p.statut === "traite" || p.par !== email) return "";
+      if (state.busy.has("pdel:" + p.id)) return `<span class="spinner" aria-hidden="true"></span>`;
+      return state.pdelArmed === p.id
+        ? `<button type="button" class="del-report armed" data-pdel="${esc(p.id)}">${icon("trash")}Supprimer ?</button>`
+        : `<button type="button" class="del-report" data-pdel="${esc(p.id)}" aria-label="Supprimer ce signalement">${icon("trash")}</button>`;
+    }
     // Problems already reported on this request: the provider sees the team got them, and does not send them twice.
     function problemLines(d) {
-      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${p.photo ? " · avec photo" : ""}</small></span></div>`).join("");
+      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${p.photo ? " · avec photo" : ""}</small></span>${deleteReportBtn(p)}</div>`).join("");
     }
     function answerLine(d) {
       const r = d.retour;
@@ -3016,7 +3036,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       const ready = state.field.filter((r) => D.plateKey(r.plaque)).length;
       const plates = [...new Set(state.demandes.map((d) => d.plaque).filter(Boolean))];
       const mine = state.problems.filter(D.isFieldReport).sort((a, b) => (b.at || "").localeCompare(a.at || "")).slice(0, 15);
-      const sent = mine.length ? `<h2 class="field-sent-title">Tes derniers signalements</h2><ul class="done-list field-sent">${mine.map((p) => `<li class="done-row">${plateTag(p.plaque)}<span><b>${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}</small></span><span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé"}</span></li>`).join("")}</ul>` : "";
+      const sent = mine.length ? `<h2 class="field-sent-title">Tes derniers signalements</h2><ul class="done-list field-sent">${mine.map((p) => `<li class="done-row">${plateTag(p.plaque)}<span><b>${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}</small><span class="sent-end"><span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé"}</span>${deleteReportBtn(p)}</span></span></li>`).join("")}</ul>` : "";
       return `<p class="tab-intro">Tu as vu un souci sur un véhicule, même s'il n'est pas dans tes demandes ? Dis-le à l'équipe. Tu peux en mettre plusieurs.</p>
         <datalist id="fieldPlates">${plates.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
         ${state.field.map((r, i) => fieldCard(r, i, state.field.length > 1)).join("")}
@@ -3045,6 +3065,13 @@ window.SUIVI_FIREBASE_CONFIG = {
         : ok > 1 ? `${ok} véhicules envoyés à l'équipe, merci !` : "Envoyé à l'équipe, merci !");
       render();
       if (!failed.length) window.scrollTo({ top: 0 });
+    }
+    async function deleteReport(id) {
+      if (state.pdelArmed !== id) { state.pdelArmed = id; render(); return; }
+      state.pdelArmed = null; state.busy.add("pdel:" + id); render();
+      try { await store.deleteProblem(id); toast("Signalement supprimé"); }
+      catch (err) { toast(err?.code === "permission-denied" ? "Déjà traité par l'équipe : appelle-la pour corriger" : "Suppression impossible : vérifie ta connexion et réessaie"); }
+      finally { state.busy.delete("pdel:" + id); render(); }
     }
     async function addFieldPhoto(r, file) {
       r.photoBusy = true; render();
@@ -3165,6 +3192,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       else if ((b = el("[data-fremove]"))) { state.field = state.field.filter((r) => r.id !== +b.dataset.fremove); render(); }
       else if ((b = el("[data-fphoto-remove]"))) { const r = fieldRow(b.dataset.fphotoRemove); if (r) { r.photo = null; render(); } }
       else if ((b = el("[data-fsend]"))) sendField();
+      else if ((b = el("[data-pdel]"))) deleteReport(b.dataset.pdel);
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
       else if ((b = el("[data-form]"))) {
@@ -4679,7 +4707,7 @@ function page(texte) {
       <span><span class="problem-type">${D.isFieldReport(p) ? "Vu en passant" : "Problème"}</span> · ${esc(D.problemSummary(p))}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
       <span class="row">${p.photo ? `<button type="button" data-proof="${esc(p.photo)}">${icon("image")}Photo</button>` : ""}
       ${state.canWrite ? (handled ? `<button type="button" class="ghost" data-problem-undo="${esc(p.id)}">Rouvrir</button>` : `<button type="button" data-problem-done="${esc(p.id)}">${icon("check")}Traité</button>`) : ""}
-      ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : ""}</span></div>`;
+      ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : state.canWrite ? `<button type="button" class="ghost" data-problem-new="${esc(p.plaque)}">${icon("plus")}Créer une demande</button>` : ""}</span></div>`;
   }
   function renderProblems() {
     const open = D.openProblems(state.problems);
@@ -4781,9 +4809,10 @@ function page(texte) {
     catch (err) { reportWriteError(err); }
   };
   ["#problems", "#problemsHandled"].forEach((sel) => $(sel).addEventListener("click", (e) => {
-    const b = e.target.closest("[data-problem-done], [data-problem-undo], [data-open]");
+    const b = e.target.closest("[data-problem-done], [data-problem-undo], [data-open], [data-problem-new]");
     if (!b) return;
     if (b.dataset.open) return openDemande(b.dataset.open);
+    if (b.dataset.problemNew) return newDemandeFor({ plaque: b.dataset.problemNew }); // seen in passing: book the job (windscreen → Allo, wash…)
     const p = state.problems.find((x) => x.id === (b.dataset.problemDone || b.dataset.problemUndo));
     if (!p || !requireStore()) return;
     state.store.markProblemHandled(p, state.userEmail, !!b.dataset.problemDone)

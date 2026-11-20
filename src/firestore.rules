@@ -198,14 +198,16 @@ service cloud.firestore {
     // Problem seen on a vehicle (shock, tyre, warning light…): the provider reports it on one of its own requests
     // (or on any vehicle from the « Signaler » tab, see validFieldReport),
     // the team reads it and marks it handled. A provider sees only its own reports and can neither change nor delete them
-    // (to add something, it reports again).
+    // (to add something, it reports again; sent by mistake, it deletes it until the team handles it).
     match /signalements/{reportId} {
       // The robot reads them only to alert the team's phones; it can never write here.
       allow read: if canReadAll() || isRobot() || (isProvider() && resource.data.prestataireId == account().prestataireId);
       allow create: if isProvider() && validReport(request.resource.data);
       allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'traiteAt', 'traitePar'])
                     && request.resource.data.statut in ['nouveau', 'traite'];
-      allow delete: if isAdmin();
+      // Sent by mistake: its author deletes it, as long as the team has not handled it yet.
+      allow delete: if isAdmin() || (isProvider() && resource.data.prestataireId == account().prestataireId
+                    && resource.data.par == email() && resource.data.statut == 'nouveau');
     }
     function validReport(s) {
       return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'statut', 'at', 'par', 'source', 'quoi'])
