@@ -5,6 +5,7 @@
 // 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
 // 4. "Faits": history and counts.
 // On any accepted vehicle (and for 7 days once done), the provider can report a problem seen on it: a few words, an optional photo.
+// For 10 minutes after « OK prestation réalisée », the provider can take it back (wrong vehicle): it goes back to its list.
 // To add something, it simply reports again.
 (function (root) {
   const TABS = [
@@ -59,7 +60,7 @@
     }
     function answerLine(d) {
       const r = d.retour;
-      if (!r || r.etat === "fait" || r.etat === "confirme") return "";
+      if (!r || ["fait", "confirme", "erreur"].includes(r.etat)) return "";
       return `<p class="job-answer">${icon("alert")}<span>${esc(D.answerSummary(r))}${r.vu ? "" : " · en attente de l'équipe"}</span></p>`;
     }
 
@@ -71,6 +72,10 @@
       if (state.openForm === "done:" + d.id) return `<div class="job-form">
         ${note("Un mot pour l'équipe (facultatif)", "Ex. RAS, tout est propre")}
         <div class="job-form-actions">${cancel("done")}<button type="button" class="primary" data-send="done:${esc(d.id)}">${icon("check")}Confirmer : réalisée</button></div></div>`;
+      if (state.openForm === "undo:" + d.id) return `<div class="job-form">
+        <p class="job-form-text">Ce véhicule revient dans ta liste à faire. L'équipe est prévenue.</p>
+        ${note("Un mot pour l'équipe (facultatif)", "Ex. c'était le véhicule d'à côté")}
+        <div class="job-form-actions">${cancel("undo")}<button type="button" class="primary" data-send="undo:${esc(d.id)}">Oui, remettre à faire</button></div></div>`;
       if (state.openForm === "problem:" + d.id) return `<div class="job-form">
         <label class="field"><span>Qu'est-ce qui ne va pas sur le véhicule ?</span><textarea data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(state.draft.note || "")}</textarea></label>
         ${photoPicker()}
@@ -120,8 +125,10 @@
       const day = doneDayOf(d);
       // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
-      const more = recent ? (state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d)
-        : `<button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button>`) : "";
+      const undo = D.canUndoDone(d, email, Date.now());
+      const more = recent || undo ? (state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d)
+        : (undo ? `<button type="button" class="undo-done" data-form="undo:${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : "") +
+          (recent ? `<button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button>` : "")) : "";
       const lines = problemLines(d);
       return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
         ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}
@@ -204,12 +211,28 @@
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
+      scheduleUndoEnd();
       const input = typing && view.querySelector(typing);
       if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
     }
 
+    // The « Corriger » button disappears by itself when its 10 minutes are over.
+    let undoTimer = null;
+    function scheduleUndoEnd() {
+      clearTimeout(undoTimer);
+      const left = state.demandes.map((d) => D.undoDoneLeftMs(d, email, Date.now())).filter((ms) => ms > 0);
+      if (left.length) undoTimer = setTimeout(() => { if (state.openForm?.startsWith("undo:")) state.openForm = null; render(); }, Math.min(...left) + 500);
+    }
+
     // ---------- actions ----------
     const byId = (id) => state.demandes.find((d) => d.id === id);
+    async function undoDone(d, note) {
+      if (!d || !D.canUndoDone(d, email, Date.now())) { state.openForm = null; render(); return toast("Plus de 10 minutes : appelle l'équipe pour corriger"); }
+      state.busy.add(d.id); state.openForm = null; render();
+      try { await store.undoDone(d, email, note); toast(`C'est corrigé : ${d.plaque} est de nouveau à faire`); }
+      catch (err) { toast(err?.code === "permission-denied" ? "Plus de 10 minutes : appelle l'équipe pour corriger" : "Envoi impossible : vérifie ta connexion et réessaie"); }
+      finally { state.busy.delete(d.id); render(); }
+    }
     async function send(d, retour, message) {
       state.busy.add(d.id); state.openForm = null; render();
       try { await store.answer(d, { ...retour, par: email }); toast(message); }
@@ -273,6 +296,7 @@
         const note = form.querySelector("[data-note]").value.trim();
         const withNote = note ? { note } : {};
         if (kind === "problem") sendProblem(byId(id), note);
+        else if (kind === "undo") undoDone(byId(id), note);
         else if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
         else if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
         else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");

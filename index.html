@@ -473,6 +473,12 @@ body.presta-mode .top .sync { display: none; }
 .job-problem { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--danger); }
 .job-problem > span { flex: 1; min-width: 0; }
 .done-more { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; }
+/* « Corriger »: orange, the 10 minutes after « OK prestation réalisée ». */
+.done-more .undo-done { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; border-radius: 10px; background: var(--st-todo-bg); border: 1.5px solid var(--st-todo); color: var(--st-todo); font: 600 15px var(--f-body); cursor: pointer; }
+.done-more .undo-done .icon { width: 18px; height: 18px; }
+.done-more .undo-done:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) { .done-more .undo-done:active { transform: none; } }
+.job-form-text { margin: 0; font-weight: 600; }
 .job-problem .icon { width: 17px; height: 17px; margin-top: 1px; flex: none; }
 .job-problem small { display: block; color: var(--ink-2); font-size: 12px; }
 .job-form textarea { font: 16px var(--f-body); min-height: 64px; resize: vertical; }
@@ -1713,6 +1719,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     { id: "absent", label: "Véhicule absent", team: "n'a pas trouvé le véhicule" },
     { id: "autre-date", label: "Autre date proposée", team: "propose une autre date pour" },
     { id: "refuse", label: "Pas possible", team: "ne peut pas faire" },
+    { id: "erreur", label: "« Fait » annulé : erreur de véhicule", team: "a annulé son « fait » sur" },
   ];
   const answerOf = (id) => ANSWERS.find((a) => a.id === id) || null;
   // A request shows on the provider's screen as soon as it is saved: the app is the channel,
@@ -1800,6 +1807,27 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (status === "realisee") patch.doneAt = nowIso;
     return patch;
   }
+  // ---------- a « fait » tapped by mistake ----------
+  // For a few minutes the provider who tapped « OK prestation réalisée » can take it back: the vehicle goes back to its
+  // list, the team is told. The access rules check the same window with the server's own time (retour.le).
+  const UNDO_DONE_MINUTES = 10;
+  const UNDO_DONE_LABEL = "Corriger";
+  function undoDoneLeftMs(d, email, nowMs) {
+    const r = d.retour;
+    if (!r || r.etat !== "fait" || !r.le || d.statut !== "realisee" || emailKey(r.par) !== emailKey(email)) return 0;
+    const at = Date.parse(r.at);
+    return Number.isFinite(at) ? Math.max(0, at + UNDO_DONE_MINUTES * 60000 - nowMs) : 0;
+  }
+  const canUndoDone = (d, email, nowMs) => undoDoneLeftMs(d, email, nowMs) > 0;
+  // The request goes back to "confirmed" (the provider had it in hand) and no longer counts as done.
+  function undoDonePatch(d, email, nowIso, note = "") {
+    return { retour: { etat: "erreur", at: nowIso, par: email, ...(note ? { note } : {}) }, statut: "confirmee", updatedAt: nowIso };
+  }
+  const undoDoneChanges = (note = "") => [
+    { champ: "reponse", avant: "fait", apres: "erreur" },
+    { champ: "statut", avant: "realisee", apres: "confirmee" },
+    ...(note ? [{ champ: "note", avant: "", apres: plainValue(note) }] : []),
+  ];
   // Answers the team has not looked at yet, newest first.
   // Every answer already seen, newest first: the "Déjà vus" list of the Retours page.
   const seenAnswers = (demandes, limit = 40) => demandes.filter((d) => d.retour?.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || "")).slice(0, limit);
@@ -2149,6 +2177,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
+    UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
     PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
     TRASH_DAYS, trashPurgeDate, trashDaysLeft, groupTrash,
   };
@@ -2443,9 +2472,25 @@ window.SUIVI_FIREBASE_CONFIG = {
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
     async function answer(demande, retour) {
       const now = new Date().toISOString();
-      await writeWithHistory(demandeRef(demande.id), "update", D.answerPatch(demande, retour, now),
-        historyEntry(demande, "reponse", D.answerChanges(retour)));
+      const patch = D.answerPatch(demande, retour, now);
+      const entry = historyEntry(demande, "reponse", D.answerChanges(retour));
+      // A « fait » that closes the request carries the server's time: the provider can take it back for a few minutes.
+      if (patch.statut === "realisee" && retour.etat === "fait") {
+        try { await writeWithHistory(demandeRef(demande.id), "update", { ...patch, retour: { ...patch.retour, le: serverTime() } }, entry); }
+        catch (err) {
+          if (err?.code !== "permission-denied") throw err;
+          await writeWithHistory(demandeRef(demande.id), "update", patch, entry); // access rules not republished yet: as before
+        }
+      } else await writeWithHistory(demandeRef(demande.id), "update", patch, entry);
       changed();
+    }
+    // « Corriger »: the provider takes back its « fait » (the access rules allow it 10 minutes).
+    async function undoDone(demande, email, note = "") {
+      const now = new Date().toISOString();
+      const remove = typeof firebase !== "undefined" && firebase.firestore?.FieldValue ? firebase.firestore.FieldValue.delete() : null;
+      const patch = { ...D.undoDonePatch(demande, email, now, note), ...(remove ? { doneAt: remove } : {}) };
+      await writeWithHistory(demandeRef(demande.id), "update", patch, historyEntry(demande, "reponse", D.undoDoneChanges(note)));
+      changed(); // the alert script looks at once: the team is told even with the app closed
     }
     // A problem seen on a vehicle: the photo (optional) goes in preuves/<key> like a proof, then the report itself.
     async function reportProblem(demande, fields, photoFull) {
@@ -2580,7 +2625,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -2701,6 +2746,7 @@ window.SUIVI_FIREBASE_CONFIG = {
 // 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
 // 4. "Faits": history and counts.
 // On any accepted vehicle (and for 7 days once done), the provider can report a problem seen on it: a few words, an optional photo.
+// For 10 minutes after « OK prestation réalisée », the provider can take it back (wrong vehicle): it goes back to its list.
 // To add something, it simply reports again.
 (function (root) {
   const TABS = [
@@ -2755,7 +2801,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     function answerLine(d) {
       const r = d.retour;
-      if (!r || r.etat === "fait" || r.etat === "confirme") return "";
+      if (!r || ["fait", "confirme", "erreur"].includes(r.etat)) return "";
       return `<p class="job-answer">${icon("alert")}<span>${esc(D.answerSummary(r))}${r.vu ? "" : " · en attente de l'équipe"}</span></p>`;
     }
 
@@ -2767,6 +2813,10 @@ window.SUIVI_FIREBASE_CONFIG = {
       if (state.openForm === "done:" + d.id) return `<div class="job-form">
         ${note("Un mot pour l'équipe (facultatif)", "Ex. RAS, tout est propre")}
         <div class="job-form-actions">${cancel("done")}<button type="button" class="primary" data-send="done:${esc(d.id)}">${icon("check")}Confirmer : réalisée</button></div></div>`;
+      if (state.openForm === "undo:" + d.id) return `<div class="job-form">
+        <p class="job-form-text">Ce véhicule revient dans ta liste à faire. L'équipe est prévenue.</p>
+        ${note("Un mot pour l'équipe (facultatif)", "Ex. c'était le véhicule d'à côté")}
+        <div class="job-form-actions">${cancel("undo")}<button type="button" class="primary" data-send="undo:${esc(d.id)}">Oui, remettre à faire</button></div></div>`;
       if (state.openForm === "problem:" + d.id) return `<div class="job-form">
         <label class="field"><span>Qu'est-ce qui ne va pas sur le véhicule ?</span><textarea data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(state.draft.note || "")}</textarea></label>
         ${photoPicker()}
@@ -2816,8 +2866,10 @@ window.SUIVI_FIREBASE_CONFIG = {
       const day = doneDayOf(d);
       // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
-      const more = recent ? (state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d)
-        : `<button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button>`) : "";
+      const undo = D.canUndoDone(d, email, Date.now());
+      const more = recent || undo ? (state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d)
+        : (undo ? `<button type="button" class="undo-done" data-form="undo:${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : "") +
+          (recent ? `<button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button>` : "")) : "";
       const lines = problemLines(d);
       return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
         ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}
@@ -2900,12 +2952,28 @@ window.SUIVI_FIREBASE_CONFIG = {
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
+      scheduleUndoEnd();
       const input = typing && view.querySelector(typing);
       if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
     }
 
+    // The « Corriger » button disappears by itself when its 10 minutes are over.
+    let undoTimer = null;
+    function scheduleUndoEnd() {
+      clearTimeout(undoTimer);
+      const left = state.demandes.map((d) => D.undoDoneLeftMs(d, email, Date.now())).filter((ms) => ms > 0);
+      if (left.length) undoTimer = setTimeout(() => { if (state.openForm?.startsWith("undo:")) state.openForm = null; render(); }, Math.min(...left) + 500);
+    }
+
     // ---------- actions ----------
     const byId = (id) => state.demandes.find((d) => d.id === id);
+    async function undoDone(d, note) {
+      if (!d || !D.canUndoDone(d, email, Date.now())) { state.openForm = null; render(); return toast("Plus de 10 minutes : appelle l'équipe pour corriger"); }
+      state.busy.add(d.id); state.openForm = null; render();
+      try { await store.undoDone(d, email, note); toast(`C'est corrigé : ${d.plaque} est de nouveau à faire`); }
+      catch (err) { toast(err?.code === "permission-denied" ? "Plus de 10 minutes : appelle l'équipe pour corriger" : "Envoi impossible : vérifie ta connexion et réessaie"); }
+      finally { state.busy.delete(d.id); render(); }
+    }
     async function send(d, retour, message) {
       state.busy.add(d.id); state.openForm = null; render();
       try { await store.answer(d, { ...retour, par: email }); toast(message); }
@@ -2969,6 +3037,7 @@ window.SUIVI_FIREBASE_CONFIG = {
         const note = form.querySelector("[data-note]").value.trim();
         const withNote = note ? { note } : {};
         if (kind === "problem") sendProblem(byId(id), note);
+        else if (kind === "undo") undoDone(byId(id), note);
         else if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
         else if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
         else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");
