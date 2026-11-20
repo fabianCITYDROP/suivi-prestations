@@ -2,7 +2,7 @@
 import { test, before, beforeEach, after } from "node:test";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, serverTimestamp, writeBatch, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, serverTimestamp, writeBatch, Timestamp, deleteField } from "firebase/firestore";
 
 let env;
 const ALLO = "allo-pare-brise-78";
@@ -359,4 +359,31 @@ test("corbeille : l'équipe restaure une demande, la corbeille se vide seule apr
   await assertFails(deleteDoc(doc(fabian, "corbeille/recente")));
   // La trace « restauration » est acceptée dans l'historique.
   await assertSucceeds(setDoc(doc(fabian, "historique/r1"), { demandeId: "d1", plaque: "AB-123-CD", action: "restauration", changes: [], par: people.fabian.email, at: serverTimestamp() }));
+});
+
+test("« Corriger » : le prestataire reprend son « fait » pendant 10 minutes, et rien d'autre", async () => {
+  const db = as("khalid");
+  const at = "2026-11-20T10:00:00.000Z";
+  const fait = { etat: "fait", at, par: people.khalid.email };
+  const erreur = { etat: "erreur", at, par: people.khalid.email };
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: { ...fait, le: Timestamp.fromMillis(0) }, statut: "realisee", doneAt: at }), "heure du serveur obligatoire");
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: { ...erreur, le: serverTimestamp() }, statut: "realisee", doneAt: at }));
+  await assertSucceeds(updateDoc(doc(db, "demandes/d2"), { retour: { ...fait, le: serverTimestamp() }, statut: "realisee", doneAt: at, updatedAt: at }));
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: { ...fait, le: serverTimestamp() }, updatedAt: at }), "pas de nouveau départ des 10 minutes");
+  await assertFails(updateDoc(doc(as("allo"), "demandes/d2"), { retour: { ...erreur, par: people.allo.email }, statut: "confirmee", doneAt: deleteField() }), "pas chez un autre prestataire");
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: erreur, statut: "confirmee", doneAt: deleteField(), prixHT: 1 }), "rien d'autre");
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: erreur, statut: "annulee", doneAt: deleteField() }));
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: erreur, statut: "confirmee" }), "la date de passage s'efface");
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: erreur, updatedAt: at }), "une erreur sans remettre à faire n'a pas de sens");
+  await assertSucceeds(updateDoc(doc(db, "demandes/d2"), { retour: erreur, statut: "confirmee", doneAt: deleteField(), updatedAt: at }));
+  // a « fait » of a colleague on the same provider account, or one older than 10 minutes, stays
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const admin = ctx.firestore();
+    await setDoc(doc(admin, "demandes/d6"), { ...lavage, statut: "realisee", retour: { ...fait, par: "collegue@lavage.fr", le: Timestamp.now() } });
+    await setDoc(doc(admin, "demandes/d7"), { ...lavage, statut: "realisee", retour: { ...fait, le: Timestamp.fromMillis(Date.now() - 11 * 60000) } });
+    await setDoc(doc(admin, "demandes/d8"), { ...lavage, statut: "realisee", retour: fait });
+  });
+  await assertFails(updateDoc(doc(db, "demandes/d6"), { retour: erreur, statut: "confirmee" }), "celui qui a fait le « OK » seulement");
+  await assertFails(updateDoc(doc(db, "demandes/d7"), { retour: erreur, statut: "confirmee" }), "plus de 10 minutes");
+  await assertFails(updateDoc(doc(db, "demandes/d8"), { retour: erreur, statut: "confirmee" }), "ancien « fait » sans heure du serveur");
 });

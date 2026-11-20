@@ -286,9 +286,25 @@
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
     async function answer(demande, retour) {
       const now = new Date().toISOString();
-      await writeWithHistory(demandeRef(demande.id), "update", D.answerPatch(demande, retour, now),
-        historyEntry(demande, "reponse", D.answerChanges(retour)));
+      const patch = D.answerPatch(demande, retour, now);
+      const entry = historyEntry(demande, "reponse", D.answerChanges(retour));
+      // A « fait » that closes the request carries the server's time: the provider can take it back for a few minutes.
+      if (patch.statut === "realisee" && retour.etat === "fait") {
+        try { await writeWithHistory(demandeRef(demande.id), "update", { ...patch, retour: { ...patch.retour, le: serverTime() } }, entry); }
+        catch (err) {
+          if (err?.code !== "permission-denied") throw err;
+          await writeWithHistory(demandeRef(demande.id), "update", patch, entry); // access rules not republished yet: as before
+        }
+      } else await writeWithHistory(demandeRef(demande.id), "update", patch, entry);
       changed();
+    }
+    // « Corriger »: the provider takes back its « fait » (the access rules allow it 10 minutes).
+    async function undoDone(demande, email, note = "") {
+      const now = new Date().toISOString();
+      const remove = typeof firebase !== "undefined" && firebase.firestore?.FieldValue ? firebase.firestore.FieldValue.delete() : null;
+      const patch = { ...D.undoDonePatch(demande, email, now, note), ...(remove ? { doneAt: remove } : {}) };
+      await writeWithHistory(demandeRef(demande.id), "update", patch, historyEntry(demande, "reponse", D.undoDoneChanges(note)));
+      changed(); // the alert script looks at once: the team is told even with the app closed
     }
     // A problem seen on a vehicle: the photo (optional) goes in preuves/<key> like a proof, then the report itself.
     async function reportProblem(demande, fields, photoFull) {
@@ -423,7 +439,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

@@ -696,3 +696,21 @@ test("alertes : qui les reçoit, par compte et par prestataire", () => {
   assert.equal(D.providerAlertStatus(devices, accounts, "dhollianda", now).level, "nobody");
   assert.equal(D.providerAlertStatus(null, accounts, "allo", now), null);
 });
+
+test("« Corriger » : 10 minutes, seulement pour celui qui a fait le « OK »", () => {
+  const at = "2026-11-20T10:00:00.000Z", t0 = Date.parse(at);
+  const d = { statut: "realisee", retour: { etat: "fait", at, par: "Khalid@lavage.fr", le: { seconds: 1 } } };
+  assert.equal(D.canUndoDone(d, "khalid@lavage.fr", t0 + 9 * 60000), true);
+  assert.equal(D.undoDoneLeftMs(d, "khalid@lavage.fr", t0 + 9 * 60000), 60000);
+  assert.equal(D.canUndoDone(d, "khalid@lavage.fr", t0 + 10 * 60000), false, "après 10 minutes");
+  assert.equal(D.canUndoDone(d, "autre@lavage.fr", t0), false, "pas pour un collègue");
+  assert.equal(D.canUndoDone({ ...d, retour: { ...d.retour, le: undefined } }, "khalid@lavage.fr", t0), false, "ancien « fait » sans heure du serveur");
+  assert.equal(D.canUndoDone({ ...d, statut: "confirmee" }, "khalid@lavage.fr", t0), false);
+  const now = "2026-11-20T10:05:00.000Z";
+  assert.deepEqual(D.undoDonePatch(d, "khalid@lavage.fr", now, "c'était l'autre"), { retour: { etat: "erreur", at: now, par: "khalid@lavage.fr", note: "c'était l'autre" }, statut: "confirmee", updatedAt: now });
+  assert.deepEqual(D.undoDoneChanges().map((c) => c.champ), ["reponse", "statut"]);
+  assert.equal(D.answerOf("erreur").team, "a annulé son « fait » sur");
+  // back in the provider's list, no longer done
+  const lists = D.providerLists([{ ...d, id: "x", date: "2026-11-20", ...D.undoDonePatch(d, "k", now) }], "2026-11-20");
+  assert.equal(lists.today.length, 1); assert.equal(lists.done.length, 0);
+});

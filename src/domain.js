@@ -525,6 +525,7 @@
     { id: "absent", label: "Véhicule absent", team: "n'a pas trouvé le véhicule" },
     { id: "autre-date", label: "Autre date proposée", team: "propose une autre date pour" },
     { id: "refuse", label: "Pas possible", team: "ne peut pas faire" },
+    { id: "erreur", label: "« Fait » annulé : erreur de véhicule", team: "a annulé son « fait » sur" },
   ];
   const answerOf = (id) => ANSWERS.find((a) => a.id === id) || null;
   // A request shows on the provider's screen as soon as it is saved: the app is the channel,
@@ -612,6 +613,27 @@
     if (status === "realisee") patch.doneAt = nowIso;
     return patch;
   }
+  // ---------- a « fait » tapped by mistake ----------
+  // For a few minutes the provider who tapped « OK prestation réalisée » can take it back: the vehicle goes back to its
+  // list, the team is told. The access rules check the same window with the server's own time (retour.le).
+  const UNDO_DONE_MINUTES = 10;
+  const UNDO_DONE_LABEL = "Corriger";
+  function undoDoneLeftMs(d, email, nowMs) {
+    const r = d.retour;
+    if (!r || r.etat !== "fait" || !r.le || d.statut !== "realisee" || emailKey(r.par) !== emailKey(email)) return 0;
+    const at = Date.parse(r.at);
+    return Number.isFinite(at) ? Math.max(0, at + UNDO_DONE_MINUTES * 60000 - nowMs) : 0;
+  }
+  const canUndoDone = (d, email, nowMs) => undoDoneLeftMs(d, email, nowMs) > 0;
+  // The request goes back to "confirmed" (the provider had it in hand) and no longer counts as done.
+  function undoDonePatch(d, email, nowIso, note = "") {
+    return { retour: { etat: "erreur", at: nowIso, par: email, ...(note ? { note } : {}) }, statut: "confirmee", updatedAt: nowIso };
+  }
+  const undoDoneChanges = (note = "") => [
+    { champ: "reponse", avant: "fait", apres: "erreur" },
+    { champ: "statut", avant: "realisee", apres: "confirmee" },
+    ...(note ? [{ champ: "note", avant: "", apres: plainValue(note) }] : []),
+  ];
   // Answers the team has not looked at yet, newest first.
   // Every answer already seen, newest first: the "Déjà vus" list of the Retours page.
   const seenAnswers = (demandes, limit = 40) => demandes.filter((d) => d.retour?.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || "")).slice(0, limit);
@@ -961,6 +983,7 @@
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
+    UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
     PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
     TRASH_DAYS, trashPurgeDate, trashDaysLeft, groupTrash,
   };

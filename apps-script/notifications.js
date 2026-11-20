@@ -118,7 +118,7 @@ function serviceAutorise(adresse) {
 
 // ---------- ce qu'il faut annoncer (fonctions pures, testées) ----------
 const SERVICES_NOTIF = { 'pare-brise': 'Pare-brise', lavage: 'Lavage', intervention: 'Intervention' };
-const REPONSES_NOTIF = { confirme: 'a accepté', fait: 'a fait', absent: "n'a pas trouvé", 'autre-date': 'propose une autre date pour', refuse: 'ne peut pas faire' };
+const REPONSES_NOTIF = { confirme: 'a accepté', fait: 'a fait', absent: "n'a pas trouvé", 'autre-date': 'propose une autre date pour', refuse: 'ne peut pas faire', erreur: 'a annulé son « fait » (erreur de véhicule) sur' };
 const jourCourt = (iso) => (iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '');
 const ligneDemande = (d) => [d.plaque, SERVICES_NOTIF[d.service] || d.service, d.site, jourCourt(d.date)].filter(Boolean).join(' · ');
 
