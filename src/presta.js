@@ -152,7 +152,8 @@
       return TABS.map((t) => {
         const n = lists[t.id]?.length || 0; // « Faits » and « Signaler » show no count
         const badge = n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : "";
-        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
+        // « Signaler »: the round blue + in the middle of the bar, like the team's « Nouvelle demande ».
+        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}"${t.id === "report" ? ` class="tab-plus" aria-label="Signaler un souci sur un véhicule"` : ""}>${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
     }
     function validateTab(list) {
