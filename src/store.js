@@ -1,5 +1,5 @@
 // Shared database access. The page talks to the data only through this object.
-// Layout: demandes/<id>, vehicules/<PLATEKEY>, photos/<key>, config/reglages,
+// Layout: demandes/<id>, corbeille/<id> (deleted requests, 20 days), vehicules/<PLATEKEY>, photos/<key>, config/reglages,
 //         hayons/<PLATEKEY> {plaque, dernierControle}, prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId},
 //         robot/etat {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} written by the mail robot.
 (function (root, factory) {
@@ -18,7 +18,7 @@
     // published the history is refused: the change itself is then saved alone, as before.
     const serverTime = () => (typeof firebase !== "undefined" && firebase.firestore?.FieldValue ? firebase.firestore.FieldValue.serverTimestamp() : new Date().toISOString());
     function historyEntry(demande, action, changes, { auto = false } = {}) {
-      if (!changes.length && action !== "suppression") return null;
+      if (!changes.length && action !== "suppression" && action !== "restauration") return null;
       return { demandeId: demande.id, plaque: String(demande.plaque || "").slice(0, 20), action, changes: changes.slice(0, 30),
         par: signedInEmail(), at: serverTime(), ...(auto ? { auto: true } : {}) };
     }
@@ -160,9 +160,59 @@
     const completeDemande = (demande, fields) => writeWithHistory(demandeRef(demande.id), "update", { ...fields, updatedAt: new Date().toISOString() },
       historyEntry(demande, "modification", D.changesBetween(demande, fields), { auto: true })).then(changed);
 
-    // The history keeps what the request was (plate, date, provider, price, status) after it is erased.
-    const deleteDemande = (demande) => writeWithHistory(demandeRef(demande.id), "delete", null,
-      historyEntry(demande, "suppression", D.changesBetween(demande, Object.fromEntries(D.HISTORY_FIELDS.map(([f]) => [f, ""]))).map((c) => ({ ...c, apres: "" }))));
+    // ----- trash: corbeille/<request id> {demande, supprimeLe, supprimePar} -----
+    // « Supprimer » moves the request to the trash for 20 days instead of erasing it (the weekly backup alone could lose
+    // one deleted by mistake). Copy, removal and history go in one transaction, from the request as saved on the server.
+    // The access rules refuse to delete a request that is not in the trash: before they are published nothing is deleted.
+    const TRASH_DAYS = 20;
+    const trashRef = (id) => db.doc("corbeille/" + id);
+    const isoOf = (t) => (t && typeof t.toDate === "function" ? t.toDate().toISOString() : t || "");
+    const notReady = (err) => (err?.code === "permission-denied" ? Object.assign(new Error("trash_not_ready"), { code: "trash_not_ready" }) : err);
+    async function deleteDemande(demande) {
+      const ref = demandeRef(demande.id);
+      try {
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(ref);
+          if (!snap.exists) return; // already gone (deleted on another device)
+          const saved = snap.data();
+          tx.set(trashRef(demande.id), { demande: saved, supprimeLe: serverTime(), supprimePar: signedInEmail() });
+          tx.delete(ref);
+          // The history keeps what the request was (plate, date, provider, price, status).
+          tx.set(db.collection("historique").doc(), historyEntry({ ...saved, id: demande.id }, "suppression",
+            D.changesBetween(saved, Object.fromEntries(D.HISTORY_FIELDS.map(([f]) => [f, ""]))).map((c) => ({ ...c, apres: "" }))));
+        });
+      } catch (err) { throw notReady(err); }
+      changed();
+    }
+    // Everything in the trash (a few small documents: no photos), read when the Corbeille page opens.
+    async function loadTrash() {
+      const snap = await db.collection("corbeille").get();
+      return snap.docs.map((doc) => { const t = doc.data(); return { id: doc.id, demande: t.demande || {}, supprimeLe: isoOf(t.supprimeLe), supprimePar: t.supprimePar || "" }; });
+    }
+    // Put requests back exactly as they were (a grouped wash comes back whole). Refused if the id is in use again.
+    async function restoreDemandes(ids) {
+      await db.runTransaction(async (tx) => {
+        const items = await Promise.all(ids.map(async (id) => ({ id, trash: await tx.get(trashRef(id)), live: await tx.get(demandeRef(id)) })));
+        if (items.some((it) => it.live.exists)) throw Object.assign(new Error("already_exists"), { code: "already_exists" });
+        for (const { id, trash } of items) {
+          if (!trash.exists) continue; // restored meanwhile on another device
+          const saved = trash.data().demande || {};
+          tx.set(demandeRef(id), saved);
+          tx.delete(trashRef(id));
+          tx.set(db.collection("historique").doc(), historyEntry({ ...saved, id }, "restauration", []));
+        }
+      });
+      changed();
+    }
+    // Erase for good what has been in the trash 20 days. Run by the team app at opening (no paid server needed); the
+    // rules refuse it earlier, so a wrong clock can never empty the trash too soon. Refusals are simply ignored.
+    async function purgeTrash() {
+      const limit = new Date(Date.now() - TRASH_DAYS * 86400000 - 3600000); // one hour of margin for the device's clock
+      const expired = await db.collection("corbeille").where("supprimeLe", "<", limit).get().catch(() => null);
+      if (!expired) return 0;
+      const done = await Promise.all(expired.docs.map((doc) => doc.ref.delete().then(() => 1, () => 0)));
+      return done.reduce((a, b) => a + b, 0);
+    }
 
     // Requests whose day falls in [from, to) (to excluded), kept live once asked for. Resolves when they are in the list.
     function loadDemandesBetween(from, to) {
@@ -373,7 +423,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

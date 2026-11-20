@@ -36,7 +36,9 @@ service cloud.firestore {
     match /demandes/{requestId} {
       allow read: if canReadAll() || isRobot() || ownsRequest(resource.data);
       allow create: if isAdmin() || (isRobot() && validMailRequest(request.resource.data));
-      allow delete: if isAdmin();
+      // Deleting means moving to the trash: its copy must be written in corbeille in the same transaction.
+      // (Same fields, same plate and date; not a strict == on the whole map, which tells 20 from 20.0.)
+      allow delete: if isAdmin() && trashCopyOf(requestId, resource.data);
       allow update: if isAdmin()
         || (isRobot() && resource.data.source == 'mail' && (robotCancels() || robotReplans()))
         || (isRobot() && robotMarks())
@@ -107,10 +109,32 @@ service cloud.firestore {
       return h.keys().hasOnly(['demandeId', 'plaque', 'action', 'changes', 'par', 'at', 'auto'])
         && h.demandeId is string && h.demandeId.size() > 0 && h.demandeId.size() <= 60
         && h.plaque is string && h.plaque.size() <= 20
-        && h.action in ['creation', 'modification', 'statut', 'reponse', 'suppression']
+        && h.action in ['creation', 'modification', 'statut', 'reponse', 'suppression', 'restauration']
         && h.changes is list && h.changes.size() <= 30
         && h.par == email() && h.at == request.time
         && h.get('auto', false) is bool;
+    }
+    // Trash: a deleted request is kept 20 days, readable by the team, restorable by an admin (the request comes back in the
+    // same transaction), then erased for good. Nobody can change a trashed copy, nor erase it before the 20 days.
+    match /corbeille/{requestId} {
+      allow read: if canReadAll();
+      allow create: if isAdmin() && validTrash(request.resource.data)
+        && !existsAfter(/databases/$(database)/documents/demandes/$(requestId));
+      allow delete: if isAdmin()
+        && (existsAfter(/databases/$(database)/documents/demandes/$(requestId))
+            || resource.data.supprimeLe < request.time - duration.value(20, 'd'));
+      allow update: if false;
+    }
+    function trashCopyOf(requestId, d) {
+      let copy = getAfter(/databases/$(database)/documents/corbeille/$(requestId)).data.demande;
+      return copy.keys().hasAll(d.keys()) && d.keys().hasAll(copy.keys())
+        && copy.get('plaque', null) == d.get('plaque', null) && copy.get('date', null) == d.get('date', null)
+        && copy.get('prestataireId', null) == d.get('prestataireId', null) && copy.get('prixHT', null) == d.get('prixHT', null)
+        && copy.get('statut', null) == d.get('statut', null);
+    }
+    function validTrash(t) {
+      return t.keys().hasOnly(['demande', 'supprimeLe', 'supprimePar'])
+        && t.demande is map && t.supprimeLe == request.time && t.supprimePar == email();
     }
     // Alerts on a phone or computer: each person registers their own devices, with their own role and provider.
     // The token is the device's secret to fetch the text of its alerts from the Apps Script.
