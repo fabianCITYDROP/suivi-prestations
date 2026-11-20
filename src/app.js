@@ -29,7 +29,7 @@
     hayonWarned: "",
     problems: [],            // [{demandeId, plaque, prestataireId, type, texte, photo?, statut, at, par}] problems seen by providers         // warning already shown once for the form being saved
     userEmail: "",
-    recentFrom: D.recentWindowStart(D.toIsoDate(new Date())), // requests before this day are loaded only on demand
+    recentFrom: D.recentWindowStart(D.toIsoDate(new Date()), D.TEAM_RECENT_DAYS), // requests before this day are loaded only on demand
     olderRanges: [],         // [{from, to, ready}] older periods already asked for
     robot: null,             // robot/etat: last trace left by the mail robot
   };
@@ -312,6 +312,7 @@
     VIEWS.forEach((v) => ($("#view-" + v).hidden = v !== view));
     markCurrentNav(view);
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
+    if (view === "bilan") renderReport(); // its month is read only once the page is opened
   }
   // Rare pages live under « Plus »: its label names the open page so the menu never hides where you are.
   function markCurrentNav(view) {
@@ -345,6 +346,12 @@
   }
   $("#h-statut").innerHTML = `<option value="">Tous les statuts</option><option value="ouvert">En cours (hors réalisées / annulées)</option>` + D.STATUSES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
   $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
+  // An old month is read only when it is picked here (free plan's daily reads); the weeks are on the Planning.
+  $("#h-mois").innerHTML = `<option value="">15 derniers jours et en cours</option>` + Array.from({ length: 24 }, (_, i) => {
+    const d = D.parseIsoDate(D.monthStart(today())); d.setMonth(d.getMonth() - i);
+    const month = D.toIsoDate(d).slice(0, 7);
+    return `<option value="${month}">${esc(D.monthLabel(month).replace(/^./, (c) => c.toUpperCase()))}</option>`;
+  }).join("");
   $("#taskChips").innerHTML = D.TASK_SUGGESTIONS.map((t) => `<button type="button" class="chip-btn" data-task="${esc(t)}">${esc(t)}</button>`).join("");
   // A tapped task is added to the text, which stays editable so the request can be made more precise.
   $("#taskChips").addEventListener("click", (e) => {
@@ -364,7 +371,7 @@
     $("#dayTitle").textContent = (day === today() ? "Aujourd'hui · " : "") + D.dayLabel(day);
     $("#dayPick").value = day;
     const monday = D.mondayOf(day);
-    needOlder(D.monthStart(monday), D.nextMonthStart(D.addDays(monday, 6)));
+    needOlder(D.addDays(monday, -7), D.addDays(monday, 7)); // the week shown, and the one before for jobs spread over several days
     renderWeekStrip();
     const ofDay = state.demandes.filter((d) => D.isAvailableOn(d, day) && (!providerFilter || d.prestataire === providerFilter));
     $("#dayList").innerHTML = ofDay.length
@@ -955,7 +962,8 @@
   }
   function renderReport() {
     const month = $("#b-month").value, provider = $("#b-prest").value;
-    const loading = month && needOlder(D.monthStart(month + "-01"), D.nextMonthStart(month + "-01"));
+    // The start of the month is read only when the Bilan page is open (it would cost reads at every opening otherwise).
+    const loading = month && !$("#view-bilan").hidden && needOlder(D.monthStart(month + "-01"), D.nextMonthStart(month + "-01"));
     const report = currentReport();
     if (loading && !report.rows.length) {
       $("#b-body").innerHTML = `<div class="empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les ouvres.</span></div>`;
@@ -1003,11 +1011,17 @@
   function renderHistory() {
     const query = $("#q").value, provider = $("#h-prest").value, status = $("#h-statut").value, service = $("#h-svc").value, site = $("#h-site").value;
     const statusFilter = HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
+    const month = $("#h-mois").value, from = month && month + "-01", to = month && D.nextMonthStart(from);
+    const loading = month && needOlder(from, to);
     renderOlderNote();
-    const rows = state.demandes.filter((d) =>
+    const rows = state.demandes.filter((d) => (!month || (d.date && d.date < to && D.lastDay(d) >= from)) &&
       (!provider || d.prestataire === provider) && (!service || d.service === service) && (!site || d.site === site) && statusFilter(d) &&
       D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire], query)
     ).sort((a, b) => (b.date || "").localeCompare(a.date || "") || D.byStartTime(a, b));
+    if (loading && !rows.length) {
+      $("#histWrap").innerHTML = `<div class="empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les choisis.</span></div>`;
+      return;
+    }
     if (!rows.length) {
       $("#histWrap").innerHTML = `<div class="empty"><b>${state.demandes.length ? "Aucune demande ne correspond à ces filtres." : "Aucune demande enregistrée pour l'instant."}</b><span>Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée.</span></div>`;
       return;
@@ -1018,9 +1032,9 @@
   function renderOlderNote() {
     const note = $("#h-older");
     const loading = state.olderRanges.some((r) => !r.ready && r.from === D.OLDEST_DAY);
-    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded();
+    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded() || !!$("#h-mois").value;
     if (note.hidden) return;
-    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours et les contrôles hayon de l'année.
+    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours ou en retard, quel que soit leur âge, et les contrôles hayon des 8 derniers mois. Pour un mois plus ancien, choisis-le dans la liste des périodes en haut (une semaine : dans le Planning).
       <button type="button" class="ghost small-btn" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
   }
   $("#h-older").addEventListener("click", (e) => { if (e.target.closest("#h-older-btn")) { needOlder(D.OLDEST_DAY, null); renderHistory(); } });
@@ -1032,7 +1046,7 @@
       <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
       <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
   }
-  ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site"].forEach((s) => $(s).addEventListener("input", renderHistory));
+  ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site", "#h-mois"].forEach((s) => $(s).addEventListener("input", renderHistory));
   $("#histWrap").addEventListener("click", (e) => { const r = e.target.closest("[data-open]"); if (r) openDemande(r.dataset.open); });
 
   // ================= settings =================
@@ -1554,6 +1568,7 @@
     state.store.subscribe({
       recentFrom: state.recentFrom,
       hayonFrom: D.hayonWindowStart(today()),
+      problemsFrom: D.recentWindowStart(today()),
       onDemandes: (rows) => { state.demandes = rows; followAnswers(rows); completeMailRequests(); closePastHayons(rows); renderAll(); setSync(`${plural(rows.length, "demande")} · synchronisé`, true); },
       onVehicles: (rows) => { state.vehicles = new Map(rows.map((v) => [D.plateKey(v.plaque || v.id), v])); completeMailRequests(); renderAll(); },
       onModels: (rows) => { state.models = new Map(rows.map((m) => [D.modelKey(m), m])); renderAll(); },

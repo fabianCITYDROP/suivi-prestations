@@ -60,3 +60,10 @@ test("provider: without its indexes, all its requests as before (one wide read, 
   assert.equal(ids(await provider(createStore(db))), "oldDone oldOpen recent");
   assert.equal(db.listened.filter((q) => q === "prestataireId == allo").length, 1);
 });
+test("team: problem reports keep their own 40-day window when the requests window is shorter", async () => {
+  const db = fakeDb();
+  await firstList((onDemandes) => createStore(db).subscribe({ onDemandes, onVehicles: noop, onModels: noop, onSettings: noop, onProviders: noop, onProblems: noop, onError: assert.fail,
+    recentFrom: "2026-11-04", hayonFrom: "2026-03-24", problemsFrom: "2026-10-10" }));
+  assert.ok(db.listened.includes("date >= 2026-11-04"));
+  assert.ok(db.listened.includes("at >= 2026-10-10"));
+});
