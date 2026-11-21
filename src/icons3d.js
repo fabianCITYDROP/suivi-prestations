@@ -257,6 +257,16 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     `<circle cx="29" cy="29" r="9" fill="url(#i3-mglass)" stroke="url(#i3-steel)" stroke-width="2.8"/>` +
     `<circle cx="29" cy="29" r="10.4" fill="none" stroke="${O}" stroke-opacity=".55" stroke-width=".8"/>` +
     `<path d="M24.6 26.4a5 5 0 0 1 4.2-3" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.8" stroke-linecap="round"/>`;
+  // Vérification (équipe) : bulle de message avec un « ? » bleu City-Drop (la relance), bulle de réponse avec une coche verte.
+  const bubble = (d) => solid(d) + `<path d="M11.4 9.4h21" stroke="#fff" stroke-opacity=".55" stroke-width=".9" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="2.2" stroke-linecap="round"><path d="M11.6 16.6h18"/><path d="M11.6 22.2h12"/></g>`;
+  const corner = (grad, inner) => `<circle cx="34.8" cy="31.6" r="8.6" fill="url(#i3-${grad})" ${S}/><ellipse cx="32.8" cy="27.8" rx="4.8" ry="2.4" fill="url(#i3-shine)" opacity=".6"/>` + inner;
+  ICONS["vf-message"] = ground(23, 43, 17, 2.1) +
+    bubble("M10 7h26a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H19l-7.4 6.4V29H10a4 4 0 0 1-4-4V11a4 4 0 0 1 4-4Z") +
+    corner("grip", `<path d="M32.2 29.6a2.7 2.7 0 1 1 3.8 2.4c-.7.4-1.2.9-1.2 1.7v.4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="34.8" cy="36.6" r="1.25" fill="#fff"/>`);
+  ICONS["vf-reponse"] = ground(25, 43, 17, 2.1) +
+    bubble("M38 7H12a4 4 0 0 0-4 4v14a4 4 0 0 0 4 4h17l7.4 6.4V29H38a4 4 0 0 0 4-4V11a4 4 0 0 0-4-4Z") +
+    corner("spg", `<path d="M30.8 31.8l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`);
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
