@@ -157,10 +157,6 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .sub-h { margin: 18px 0 8px; font-size: 14px; font-weight: 700; }
 .extra-list { display: grid; gap: 8px; }
 .extra-list:empty { display: none; }
-.extra-veh { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(130px, 1.1fr) minmax(100px, .9fr) minmax(112px, .8fr) minmax(112px, .8fr) auto; gap: 8px; align-items: end; padding: 10px 12px; background: var(--surface-2); border-radius: 10px; }
-.extra-veh .num { grid-column: 1 / -1; font-size: 12px; font-weight: 700; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
-.extra-veh .field > span { font-size: 12px; }
-@media (max-width: 720px) { .extra-veh { grid-template-columns: 1fr 1fr; } .extra-veh [data-remove-veh] { justify-self: start; } }
 button.add-veh { justify-self: start; width: fit-content; border-style: dashed; }
 .g3 { grid-template-columns: minmax(160px, 1fr) minmax(170px, 1.2fr) minmax(130px, .9fr); }
 @media (max-width: 720px) { .g3 { grid-template-columns: 1fr 1fr; } .g3 > :first-child { grid-column: 1 / -1; } }
@@ -1399,6 +1395,187 @@ body:not(.presta-mode) .power-btn.armed { background: var(--danger); color: #fff
 .plan-share .share { display: flex; flex-direction: column; gap: 10px; }
 .plan-share .actions { display: flex; flex-direction: column; gap: 8px; }
 .plan-share .actions > * { flex: none; width: 100%; min-height: 52px; border-radius: 14px; font-size: 16px; }
+
+/* ===== Équipe « Nouvelle demande » façon iPhone (2026-11-21) : feuille par-dessus la page, tuiles à icônes en volume.
+   Tout est préfixé .nd- ou rangé sous #view-demande. Bleu City-Drop = choix et action ; vert / orange / rouge = statuts seulement. ===== */
+#view-demande.nd { position: fixed; inset: 0; z-index: 45; margin: 0; padding: 0; max-width: none; overflow: clip; }
+body.nd-open { overflow: hidden; }
+body.nd-open .toast { z-index: 70; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
+body.nd-open .lightbox { z-index: 75; }
+body:not(.presta-mode) .toast.with-action { width: max-content; border-radius: 16px; }
+.nd-scrim { position: absolute; inset: 0; background: rgba(10, 20, 28, .34); opacity: 0; transition: opacity 300ms ease; }
+.nd.on .nd-scrim { opacity: 1; }
+.nd-sheet { position: absolute; left: 0; right: 0; bottom: 0; top: calc(10px + env(safe-area-inset-top, 0px)); display: flex; flex-direction: column;
+  background: var(--bg); border-radius: 22px 22px 0 0; overflow: clip;
+  box-shadow: 0 0 0 .5px rgba(0, 0, 0, .06), 0 -12px 48px -12px rgba(10, 20, 28, .35);
+  transform: translateY(104%); transition: transform 380ms cubic-bezier(.32, .72, 0, 1); }
+.nd.on .nd-sheet { transform: none; transition-duration: 460ms; }
+.nd-sheet.dragging { transition: none; }
+.nd-head { flex: none; display: flex; align-items: flex-end; gap: 10px; padding: 2px 16px 12px 20px; touch-action: none; }
+.nd-titles { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nd-titles small { font: 600 12.5px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nd-head h2 { margin: 0; font: 700 28px/1.1 var(--f-body); letter-spacing: -.025em; color: var(--ink); text-transform: none; }
+.nd-head .chip { margin-bottom: 5px; }
+.nd-head .sheet-x { margin-bottom: 2px; flex: none; }
+.nd-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+.nd-cols { display: flex; flex-direction: column; gap: 26px; padding: 4px 16px 28px; }
+.nd-form { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.nd-sec { display: flex; flex-direction: column; min-width: 0; }
+.nd-sec[hidden] { display: none; }
+.nd-label { margin: 0 4px 10px; font: 600 12.5px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.nd-src { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; opacity: 0; pointer-events: none; }
+.nd-hint { margin: 8px 4px 0; font-size: 13.5px; color: var(--ink-2); line-height: 1.4; }
+.nd-hint:empty { display: none; }
+#view-demande #vehHint.warn { color: var(--st-todo); font-weight: 600; }
+.nd-warn { margin: 10px 4px 0; font-size: 14px; font-weight: 600; color: var(--st-todo); }
+/* Type de prestation : les tuiles en relief de « Signaler », une par type proposé. */
+.nd-svc { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 10px 8px; max-width: 420px; }
+.nd-sub { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08), 0 6px 16px -12px rgba(10, 20, 28, .35); }
+.nd-sub[hidden] { display: none; }
+.nd-sub-lbl { font: 600 13px var(--f-body); color: var(--ink-2); }
+#washRow { flex-direction: row; align-items: center; justify-content: space-between; }
+.nd-seg { min-height: 40px; align-items: center; }
+.nd-seg span { padding: 7px 16px; font-size: 14px; }
+.nd-input, #view-demande .nd-model select, #view-demande .nd-model input, #view-demande .nd-when input { width: 100%; min-height: 46px; border: 0; border-radius: 12px; background: var(--surface-2); padding: 0 12px; font-size: 16px; color: var(--ink); box-shadow: none; }
+.nd-input:focus, #view-demande .nd-model select:focus, #view-demande .nd-model input:focus, #view-demande .nd-when input:focus { outline: none; box-shadow: 0 0 0 2px var(--accent) inset, 0 0 0 4px var(--accent-soft); }
+textarea.nd-input { min-height: 88px; padding: 12px; line-height: 1.4; resize: vertical; font: 16px var(--f-body); }
+/* Prestataires : cartes en relief, une coche bleue sur celui qui est choisi, son prix HT pour ce type. */
+.nd-prov { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 8px; }
+.nd-pv { display: flex; align-items: center; gap: 11px; min-height: 60px; padding: 9px 12px 9px 10px; border: 0; border-radius: 16px; text-align: left; justify-content: flex-start;
+  background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--surface) 96%, #0a141c));
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -6px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .08);
+  transition: transform 140ms var(--ease-out), box-shadow 180ms ease; -webkit-tap-highlight-color: transparent; }
+.nd-pv:hover { border: 0; }
+.nd-pv:active { transform: scale(.98); }
+.nd-pv-av { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--surface-2); color: var(--ink-2); font: 700 14px var(--f-body); letter-spacing: .02em;
+  box-shadow: inset 0 -2px 0 rgba(10, 20, 28, .06); }
+.nd-pv-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.nd-pv-txt b { font: 600 15px/1.25 var(--f-body); color: var(--ink); overflow-wrap: anywhere; }
+.nd-pv-txt small { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.nd-pv-tick { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-strong); color: transparent; }
+.nd-pv-tick .icon { width: 14px; height: 14px; stroke-width: 3; }
+.nd-pv[aria-checked="true"] { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); box-shadow: inset 0 0 0 2px var(--accent), 0 6px 14px -7px color-mix(in srgb, var(--accent) 60%, transparent); }
+.nd-pv[aria-checked="true"] .nd-pv-av { background: var(--accent); color: #fff; }
+.nd-pv[aria-checked="true"] .nd-pv-tick { background: var(--accent); color: #fff; box-shadow: none; }
+/* Véhicule : la plaque en grand, comme une vraie plaque (bande bleue, lettres noires). */
+.nd-card { padding: 12px; border-radius: 18px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08), 0 8px 20px -14px rgba(10, 20, 28, .4); }
+.nd-plate { display: flex; align-items: stretch; height: 64px; border-radius: 10px; overflow: hidden; background: var(--plate-bg); box-shadow: 0 0 0 1.5px #1b2329, 0 2px 0 rgba(10, 20, 28, .12), 0 8px 16px -10px rgba(10, 20, 28, .45); }
+.nd-plate-eu { flex: none; width: 34px; display: grid; place-items: end center; padding-bottom: 8px; background: var(--eu); color: #fff; font: 700 15px var(--f-body); }
+.nd-plate input { flex: 1; min-width: 0; height: 100%; min-height: 0; border: 0; border-radius: 0; padding: 0 12px 0 0; background: transparent; color: var(--plate-ink); box-shadow: none;
+  font: 700 29px var(--f-mono) !important; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
+.nd-plate input::placeholder { color: var(--plate-ink); opacity: .22; }
+.nd-plate input::-webkit-calendar-picker-indicator { display: none !important; }
+.nd-plate input:focus { outline: none; }
+.nd-plate:focus-within { box-shadow: 0 0 0 1.5px #1b2329, 0 0 0 4px var(--accent-soft), 0 0 0 5.5px var(--accent); }
+.nd-plate.sm { height: 52px; }
+.nd-plate.sm .nd-plate-eu { width: 28px; padding-bottom: 6px; font-size: 13px; }
+.nd-plate.sm input { font-size: 23px !important; }
+.nd-model { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.nd-model label, .nd-when label { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.nd-model label > span, .nd-when label > span { margin-left: 4px; font: 600 12.5px var(--f-body); color: var(--ink-2); }
+#view-demande .nd-model select:disabled { opacity: .55; }
+/* Véhicules de la même demande groupée : une carte chacun. */
+#view-demande .extra-list { margin-top: 10px; gap: 10px; }
+#view-demande .extra-veh { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 18px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08), 0 8px 20px -14px rgba(10, 20, 28, .4); animation: nd-in 260ms var(--ease-out); }
+#view-demande .extra-veh .nd-model { margin-top: 0; }
+.xv-head { display: flex; align-items: center; justify-content: space-between; }
+.xv-head .num { margin-left: 4px; font: 600 12.5px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.xv-remove { width: 32px; height: 32px; min-height: 0; padding: 0; border: 0; border-radius: 50%; background: var(--surface-2); color: var(--ink-2); display: grid; place-items: center; }
+.xv-remove:hover { color: var(--danger); border: 0; }
+.xv-remove .icon { width: 16px; height: 16px; }
+@keyframes nd-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+.nd-add { margin-top: 10px; display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 10px 14px 10px 10px; border: 0; border-radius: 16px; text-align: left;
+  background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08), 0 6px 16px -12px rgba(10, 20, 28, .35); transition: transform 140ms var(--ease-out); }
+.nd-add:hover { border: 0; }
+.nd-add:active { transform: scale(.985); }
+.nd-add-ico { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: #fff;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 84%, #fff), var(--accent) 55%, color-mix(in srgb, var(--accent) 88%, #000));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 4px 10px -4px color-mix(in srgb, var(--accent) 80%, transparent); }
+.nd-add-ico .icon { width: 18px; height: 18px; stroke-width: 2.6; }
+.nd-add > span:last-child { display: flex; flex-direction: column; gap: 1px; }
+.nd-add b { font: 600 15px var(--f-body); color: var(--accent); }
+.nd-add small { font: 400 13px/1.35 var(--f-body); color: var(--ink-2); }
+/* Site, jour, créneau : puces façon iPhone. */
+.nd-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.nd-chip { min-height: 40px; padding: 0 15px; border: 0; border-radius: 999px; gap: 6px; background: var(--surface); color: var(--ink); font: 600 14px var(--f-body);
+  box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1), 0 3px 8px -5px rgba(10, 20, 28, .3); transition: transform 120ms var(--ease-out), background-color 150ms ease; -webkit-tap-highlight-color: transparent; }
+.nd-chip:hover { border: 0; }
+.nd-chip:active { transform: scale(.96); }
+.nd-chip small { font: 500 12.5px var(--f-body); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.nd-chip[aria-pressed="true"], .nd-chip[aria-checked="true"] { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.nd-chip[aria-pressed="true"] small { color: var(--accent); }
+.nd-days { flex-wrap: nowrap; overflow-x: auto; margin: -4px -16px 0; padding: 4px 16px 6px; scrollbar-width: none; }
+.nd-days::-webkit-scrollbar { display: none; }
+.nd-days .nd-chip { flex: none; }
+.nd-when { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.nd-slots { margin-top: 10px; }
+.nd-addr { display: flex; align-items: center; gap: 0; margin-top: 10px; position: relative; }
+.nd-addr .icon { position: absolute; left: 12px; width: 18px; height: 18px; color: var(--accent); pointer-events: none; }
+.nd-addr .nd-input { padding-left: 38px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1); }
+.nd-note > summary { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; margin-left: 4px; font: 600 15px var(--f-body); color: var(--accent); cursor: pointer; list-style: none; }
+.nd-note > summary::-webkit-details-marker { display: none; }
+.nd-note > summary .icon { width: 18px; height: 18px; transition: transform .2s var(--ease-out); }
+.nd-note[open] > summary .icon { transform: rotate(45deg); }
+.nd-note textarea { margin-top: 6px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1); }
+#view-demande .photos img { border-radius: 12px; border: 0; box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1); }
+#view-demande .drop { border-radius: 12px; }
+.nd-manage { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: .5px solid var(--line); }
+.nd-manage:not(:has(#delZone :first-child)):has(#historyBox[hidden]) { display: none; }
+#delZone { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Colonne « Envoyer » : le récapitulatif, puis le message prêt à coller. */
+.nd-side { display: flex; flex-direction: column; min-width: 0; }
+.nd-sum { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; padding: 14px; border-radius: 18px; background: var(--surface); box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 12px 26px -18px rgba(10, 20, 28, .45); }
+.nd-sum-top { display: flex; align-items: center; gap: 12px; }
+.nd-sum-top .svc-tile:empty { background: var(--surface-2); box-shadow: none; }
+.nd-sum-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nd-sum-txt b { font: 650 16px/1.25 var(--f-body); letter-spacing: -.01em; }
+.nd-sum-txt small { font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.nd-sum-price { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.nd-sum-price b { font: 700 20px var(--f-body); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.nd-sum-price small { font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.nd-sum p { margin: 0; display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.35; }
+.nd-sum p .icon { flex: none; width: 17px; height: 17px; margin-top: 1px; }
+.nd-sum-when { color: var(--ink-2); }
+.nd-sum-miss { color: var(--ink-2); }
+.nd-sum-miss .icon { color: var(--st-todo); }
+.nd-sum-ok { color: var(--st-done); font-weight: 600; }
+#view-demande .share .msg { max-height: none; padding: 14px 16px; border-radius: 18px 18px 18px 6px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08), 0 8px 18px -14px rgba(10, 20, 28, .4); font-size: 14.5px; }
+#view-demande .share .actions { gap: 8px; }
+#view-demande .share .actions > button { min-height: 50px; border-radius: 14px; }
+#view-demande #formSheet:empty { display: none; }
+#view-demande #formSheet { margin-top: 10px; }
+/* Bas de la feuille : « Enregistrer » en capsule, toujours à portée du pouce. */
+.nd-foot { flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--bg) 82%, transparent); -webkit-backdrop-filter: saturate(1.6) blur(16px); backdrop-filter: saturate(1.6) blur(16px); border-top: .5px solid var(--line); }
+.nd-reset { flex: none; min-height: 48px; padding: 0 14px; border: 0; background: none; color: var(--ink-2); font-weight: 600; }
+.nd-reset:hover { color: var(--ink); border: 0; }
+.nd.saved .nd-reset { display: none; }
+.nd-save.ok-btn { flex: 1; color: var(--accent-ink); padding-left: 56px; justify-content: flex-start; }
+.nd-save.ok-btn:active { transform: scale(.98); }
+.nd-save[data-ready="false"] { background: color-mix(in srgb, var(--ink-2) 26%, var(--surface)); color: var(--ink-2); box-shadow: none; filter: none; }
+.nd-save[data-ready="false"] .ok-badge { color: var(--ink-2); box-shadow: none; opacity: .75; }
+@media (min-width: 721px) {
+  .nd-sheet { top: 50%; left: 50%; right: auto; bottom: auto; width: min(1120px, calc(100% - 48px)); height: min(92dvh, 940px); border-radius: 24px;
+    transform: translate(-50%, calc(-50% + 36px)) scale(.97); opacity: 0; transition: transform 300ms cubic-bezier(.32, .72, 0, 1), opacity 200ms ease; }
+  .nd.on .nd-sheet { transform: translate(-50%, -50%); opacity: 1; transition-duration: 380ms, 220ms; }
+  .nd-sheet .sheet-grab { display: none; }
+  .nd-head { padding: 22px 22px 14px 28px; }
+  .nd-head h2 { font-size: 32px; }
+  .nd-cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; align-items: start; padding: 4px 28px 32px; }
+  .nd-side { position: sticky; top: 0; }
+  .nd-days { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }
+  .nd-when { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #view-demande .extra-veh .nd-model { grid-template-columns: 1.3fr 1fr .8fr .8fr; }
+  .nd-foot { justify-content: flex-end; padding: 14px 28px; }
+  .nd-save.ok-btn { flex: 0 0 auto; min-width: 300px; }
+}
+@media (min-width: 721px) and (max-width: 960px) { .nd-cols { grid-template-columns: minmax(0, 1fr); } .nd-side { position: static; } }
+@media (prefers-reduced-motion: reduce) {
+  .nd-sheet, .nd.on .nd-sheet { transition: opacity 200ms ease; transform: none !important; }
+  .nd-sheet { opacity: 0; } .nd.on .nd-sheet { opacity: 1; }
+  @media (min-width: 721px) { .nd-sheet, .nd.on .nd-sheet { transform: translate(-50%, -50%) !important; } }
+  #view-demande .extra-veh { animation: none; }
+}
 /* ===== Équipe « Retours » (2026-11-21, façon iPhone). Tout est préfixé .ret- (et .team-sheet pour la feuille partagée).
    Groupes par ce qu'il faut faire, cartes blanches à icône en volume, feuille de détail, bleu City-Drop pour les actions,
    vert / orange / rouge seulement pour les statuts. ===== */
@@ -2263,6 +2440,158 @@ input[type=checkbox].rg-switch, .rg-switch { flex: none; position: relative; wid
 /* La bulle (« Annuler ») passe au-dessus de la feuille ouverte */
 body.team-sheet-open .toast { z-index: 60; }
 @media (prefers-reduced-motion: reduce) { .rg-switch, .rg-switch::after, .rg-btn, .rg-pill, .rg-row { transition: none; } .rg-btn:active, .rg-pill:active { transform: none; } }
+
+/* ===== Équipe « Bilan » (2026-11-21, façon iPhone). Tout est préfixé .bil- (réutilise .ret-ico, .ret-tile, .ret-seg, .ret-gh, .plan-prov).
+   Montants HT pour vérifier les factures. Une seule couleur pour les barres (encre), vert pour « réalisé », orange pour « à confirmer ». ===== */
+#view-bilan { max-width: 1120px; }
+.bil-head { display: flex; align-items: flex-end; gap: 12px; margin: 4px 0 14px; }
+.bil-titles { flex: 1; min-width: 0; }
+.bil-kicker { margin: 0 0 2px; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.bil-title { margin: 0; font: 700 34px/1.1 -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--f-body); letter-spacing: -.025em; color: var(--ink); }
+.bil-export { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 15px; border: 0; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font: 600 14px var(--f-body); white-space: nowrap; transition: transform 140ms var(--ease-out); }
+.bil-export .icon { width: 17px; height: 17px; }
+.bil-export:active { transform: scale(.96); }
+/* Mois : contrôle segmenté (même famille que Retours) */
+.bil-months { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; max-width: 520px; padding: 2px; margin-bottom: 12px; border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); }
+.bil-months button { min-height: 34px; padding: 0 6px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: 600 14px var(--f-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background-color .2s ease, box-shadow .2s ease; }
+.bil-months button[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 2px rgba(10, 20, 28, .1), 0 3px 8px -3px rgba(10, 20, 28, .18), 0 0 0 .5px rgba(10, 20, 28, .06); }
+.bil-months [data-bil-pick-month][aria-selected="false"] { color: var(--accent); }
+.bil-provs { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 16px; padding: 2px 16px 4px; scrollbar-width: none; }
+.bil-provs::-webkit-scrollbar { display: none; }
+.bil-provs[hidden] { display: none; }
+.bil-provs .plan-prov { padding: 0 14px; }
+@media (min-width: 721px) { .bil-provs { margin: 0 0 16px; padding: 2px 0 4px; flex-wrap: wrap; } }
+/* Carte blanche en relief (commune) */
+.bil-card, .bil-hero { border-radius: 18px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+/* Encadré du total */
+.bil-hero { padding: 16px 16px 14px; margin-bottom: 12px; }
+.bil-hero-top { display: flex; align-items: center; gap: 14px; }
+.bil-hero-txt { display: flex; flex-direction: column; min-width: 0; }
+.bil-hero-k { font: 600 12.5px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.bil-total { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 1px; }
+.bil-total b { font: 700 36px/1.05 -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--f-body); letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.bil-total small { font: 600 15px var(--f-body); color: var(--ink-2); }
+.bil-hero-sub { font-size: 13.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.bil-progress { height: 8px; margin: 16px 0 6px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.bil-progress i { display: block; height: 100%; border-radius: 4px; background: var(--st-done); transition: width .5s var(--ease-out); }
+.bil-progress-l { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.bil-progress-l span:first-child { color: var(--st-done); }
+/* Petit graphique : réalisés par jour, une seule couleur */
+.bil-chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: end; gap: 3px; height: 58px; margin-top: 16px; }
+.bil-chart span { position: relative; height: 100%; display: flex; align-items: flex-end; }
+.bil-chart span::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 1px; background: var(--surface-2); }
+.bil-chart i { position: relative; display: block; width: 100%; border-radius: 3px 3px 1px 1px; background: color-mix(in srgb, var(--ink) 40%, var(--surface)); }
+.bil-chart span.now::before { background: var(--accent); }
+.bil-chart span.later::before { opacity: .5; }
+.bil-chart-axis { display: flex; justify-content: space-between; margin-top: 5px; font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.bil-notes { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.bil-note { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-2); }
+.bil-note::before { content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--st-off); }
+.bil-note.wait { color: var(--st-todo); font-weight: 600; }
+.bil-note.wait::before { background: var(--st-todo); }
+/* Tuiles compteurs */
+.bil-tiles { margin-bottom: 4px; }
+.bil-tile.wait b { color: var(--st-todo); }
+/* Colonnes sur ordinateur */
+.bil-cols { display: grid; gap: 0 18px; }
+@media (min-width: 980px) { .bil-cols { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: start; } }
+.bil-sec { margin-top: 22px; scroll-margin-top: 90px; }
+.bil-sec .ret-gh { margin-top: 0; }
+/* Par prestataire */
+.bil-prov-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; align-items: center; gap: 12px; width: 100%; min-height: 0; padding: 13px 14px 13px 16px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.bil-prov-row + .bil-prov-row::before, .bil-row + .bil-row::before, .bil-split-row + .bil-split-row::before, .bil-exp-row + .bil-exp-row::before, .bil-inv-line + .bil-inv-line::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--line-strong); }
+.bil-prov-row:first-child { border-radius: 18px 18px 0 0; } .bil-prov-row:last-child { border-radius: 0 0 18px 18px; } .bil-prov-row:only-child { border-radius: 18px; }
+.bil-prov-row:active, .bil-row:active, .bil-exp-row:active { background: color-mix(in srgb, var(--surface) 92%, var(--ink)); }
+.bil-prov-row > .icon, .bil-exp-row > .icon:last-child { width: 15px; height: 15px; color: var(--ink-2); opacity: .7; }
+.bil-prov-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bil-prov-main > b { font: 650 16px var(--f-body); letter-spacing: -.01em; }
+.bil-prov-main > span:not(.bil-bar) { font-size: 13px; color: var(--ink-2); }
+.bil-prov-main b.wait, .bil-row-sub b.wait { color: var(--st-todo); font-weight: 600; }
+.bil-prov-amount { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
+.bil-prov-amount b { font: 700 17px var(--f-body); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.bil-prov-amount b.soft { color: var(--ink-2); font-weight: 650; }
+.bil-prov-amount small { font-size: 12px; color: var(--ink-2); }
+.bil-bar { display: block; height: 5px; margin-top: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.bil-bar > i { display: block; height: 100%; border-radius: 3px; background: color-mix(in srgb, var(--ink) 62%, var(--surface)); transition: width .5s var(--ease-out); }
+/* Répartition : barre « demandés » (gris) avec « réalisés » (vert) dedans */
+.bil-seg { grid-template-columns: repeat(3, 1fr); max-width: 420px; margin-bottom: 10px; }
+.bil-split-row { position: relative; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 14px 11px 16px; }
+.bil-split-name { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bil-bar.two { margin: 0; height: 8px; border-radius: 4px; background: none; }
+.bil-bar.two > i { background: color-mix(in srgb, var(--ink) 16%, var(--surface)); border-radius: 4px; }
+.bil-bar.two > i > i { display: block; height: 100%; border-radius: 4px; background: var(--st-done); }
+.bil-split-n { display: flex; flex-direction: column; align-items: flex-end; min-width: 64px; white-space: nowrap; font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.bil-split-n b { color: var(--ink); }
+.bil-split-n small { font-size: 12px; }
+.bil-legend { display: flex; align-items: center; gap: 6px; margin: 8px 6px 0; font-size: 12.5px; color: var(--ink-2); }
+.bil-legend i { width: 10px; height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 16%, var(--surface)); margin-left: 6px; }
+.bil-legend i.done { background: var(--st-done); margin-left: 0; }
+/* Lignes véhicule */
+.bil-rows { overflow: hidden; }
+.bil-row { position: relative; display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 0; padding: 10px 14px 10px 16px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; -webkit-tap-highlight-color: transparent; }
+.bil-row-date { display: flex; flex-direction: column; align-items: center; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.bil-row-date b { font: 650 18px -apple-system, BlinkMacSystemFont, var(--f-body); color: var(--ink); letter-spacing: -.02em; }
+.bil-row-date small { font-size: 12px; color: var(--ink-2); }
+.bil-row-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bil-row-line { display: flex; align-items: center; gap: 8px; }
+.bil-row-line .plate { font-size: 13px; }
+.bil-row-line .plate span { padding: 3px 6px; }
+.bil-row-sub { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bil-row-price { font: 650 15px var(--f-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bil-row-price.soft { font-weight: 500; font-size: 13.5px; color: var(--ink-2); }
+.bil-row-price.off { text-decoration: line-through; }
+.bil-st { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.bil-st i { width: 7px; height: 7px; border-radius: 50%; background: var(--st-off); }
+.bil-st.wait { color: var(--st-todo); } .bil-st.wait i { background: var(--st-todo); }
+.bil-more { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 46px; border: 0; border-top: .5px solid var(--line-strong); border-radius: 0; background: none; color: var(--accent); font: 600 14.5px var(--f-body); }
+.bil-more .icon { width: 15px; height: 15px; }
+/* Détail pour la facture */
+.bil-inv { padding: 4px 0; }
+.bil-inv-line { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 16px; }
+.bil-inv-line > span { display: flex; flex-direction: column; min-width: 0; }
+.bil-inv-line b { font: 600 15px var(--f-body); }
+.bil-inv-line small { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.bil-inv-line em { font-style: normal; font-size: 13px; color: var(--ink-2); display: none; }
+.bil-inv-line strong { font: 650 15px var(--f-body); font-variant-numeric: tabular-nums; }
+.bil-inv-line strong.soft { color: var(--ink-2); font-weight: 500; }
+.bil-inv-total { display: flex; justify-content: space-between; align-items: baseline; margin: 4px 16px 0; padding: 12px 0 6px; border-top: 1px solid var(--line-strong); font: 700 17px var(--f-body); font-variant-numeric: tabular-nums; }
+.bil-inv-ttc { display: flex; justify-content: space-between; padding: 2px 16px 4px; font-size: 13.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.bil-inv-ttc.strong { padding-bottom: 10px; color: var(--ink); font-weight: 600; }
+.bil-inv-flat { margin: 4px 16px 0; padding: 12px 0; border-top: 1px solid var(--line-strong); font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.bil-inv-empty { margin: 0; padding: 14px 16px; color: var(--ink-2); }
+.bil-check { display: flex; align-items: flex-start; gap: 12px; margin: 10px 0 0; padding: 12px 14px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); font-size: 13.5px; color: var(--ink-2); }
+.bil-check > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.bil-check b { font-size: 14.5px; color: var(--st-todo); }
+.ret-ico.xs { width: 32px; height: 32px; border-radius: 9px; }
+.ret-ico.xs .ret-art { width: 24px; height: 24px; }
+/* Feuilles du Bilan (facture, exporter, autre mois) */
+.bil-sheet { display: flex; flex-direction: column; gap: 6px; }
+.bil-sheet .bil-sec { margin-top: 8px; }
+.bil-sheet .bil-card { box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.bil-sh-hero { display: flex; align-items: center; gap: 14px; padding: 2px 4px 6px; }
+.bil-sh-hero > span:last-child { display: flex; flex-direction: column; }
+.bil-sh-h { margin-top: 18px !important; }
+.bil-sh-acts { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.bil-sh-acts .ret-btn { min-height: 48px; font-size: 15.5px; }
+.bil-sh-foot { margin-top: 14px; }
+.bil-exp-row { position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr) 16px; align-items: center; gap: 14px; width: 100%; min-height: 0; padding: 14px 14px 14px 16px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; }
+.bil-exp-row > .icon:first-child { width: 22px; height: 22px; color: var(--accent); }
+.bil-exp-row b { display: block; font: 600 16px var(--f-body); }
+.bil-exp-row small { font-size: 13px; color: var(--ink-2); }
+.bil-exp-row:first-child { border-radius: 18px 18px 0 0; } .bil-exp-row:last-child { border-radius: 0 0 18px 18px; }
+.bil-month-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.bil-month { min-height: 46px; border: 0; border-radius: 12px; background: var(--surface); color: var(--ink); font: 600 15px var(--f-body); box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05); transition: transform 140ms var(--ease-out); }
+.bil-month:active { transform: scale(.96); }
+.bil-month[aria-pressed="true"] { background: var(--ink); color: var(--bg); box-shadow: none; }
+@media (max-width: 640px) {
+  .bil-title { font-size: 32px; }
+  .bil-export { min-height: 34px; padding: 0 12px; font-size: 13px; }
+  .bil-months { max-width: none; }
+  .bil-total b { font-size: 32px; }
+  .bil-row { padding-left: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .bil-progress i, .bil-bar > i, .bil-export, .bil-month { transition: none; } .bil-export:active, .bil-month:active { transform: none; } }
 </style>
 </head>
 <body>
@@ -2367,86 +2696,104 @@ body.team-sheet-open .toast { z-index: 60; }
     <div class="ret-body" id="retList"></div>
   </section>
 
-  <section id="view-demande" hidden>
-    <div class="work">
-      <form class="panel" id="form" autocomplete="off" novalidate>
-        <div class="panel-head">
-          <h2 id="formTitle">Nouvelle demande</h2>
-          <span class="chip" id="formStatusChip" hidden></span>
+  <section id="view-demande" class="nd" hidden>
+    <div class="nd-scrim" data-nd-close></div>
+    <div class="nd-sheet" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+      <div class="sheet-grab" aria-hidden="true"><span></span></div>
+      <header class="nd-head">
+        <div class="nd-titles"><small id="ndKicker">Demande à un prestataire</small><h2 id="formTitle">Nouvelle demande</h2></div>
+        <span class="chip" id="formStatusChip" hidden></span>
+        <button type="button" class="sheet-x" data-nd-close aria-label="Fermer"><svg class="icon"><use href="#i-x"/></svg></button>
+      </header>
+      <div class="nd-scroll">
+        <div class="nd-cols">
+          <form id="form" class="nd-form" autocomplete="off" novalidate>
+            <section class="nd-sec" aria-labelledby="svcLabel">
+              <h3 class="nd-label" id="svcLabel">Prestation</h3>
+              <div class="nd-svc" id="ndSvc" role="group" aria-labelledby="svcLabel"></div>
+              <div class="nd-src" aria-hidden="true"><div class="seg" id="svcSeg"></div></div>
+              <p class="nd-warn" id="svcNone" hidden>Aucun prestataire ne fait ce type de prestation : coche-le dans Réglages › Prestataires.</p>
+              <div class="nd-sub" id="washRow" hidden><span class="nd-sub-lbl" id="washLabel">Formule</span><div class="seg nd-seg" id="washSeg" role="radiogroup" aria-labelledby="washLabel"></div></div>
+              <div class="nd-sub task-row" id="taskRow" hidden>
+                <label class="nd-sub-lbl" for="f-tache">Que faut-il faire ? *</label>
+                <div class="task-chips" id="taskChips" role="group" aria-label="Tâches fréquentes"></div>
+                <input id="f-tache" class="nd-input" placeholder="Touche une tâche ou écris-la, puis précise si besoin">
+              </div>
+            </section>
+
+            <section class="nd-sec" id="provRow" aria-labelledby="provLabel">
+              <h3 class="nd-label" id="provLabel">Prestataire</h3>
+              <div class="nd-prov" id="ndProv" role="radiogroup" aria-labelledby="provLabel"></div>
+              <select id="f-prest" class="nd-src" tabindex="-1" aria-hidden="true"></select>
+            </section>
+
+            <section class="nd-sec" aria-labelledby="vehLabel">
+              <h3 class="nd-label" id="vehLabel">Véhicule</h3>
+              <div class="nd-card nd-veh">
+                <label class="nd-plate"><span class="nd-plate-eu" aria-hidden="true">F</span><input id="f-plaque" class="plate-input" placeholder="AB-123-CD" list="dl-plaques" required aria-label="Immatriculation"></label>
+                <p class="nd-hint" id="vehHint" aria-live="polite"></p>
+                <div class="nd-model">
+                  <label><span>Modèle</span><select id="f-base" class="m-base"></select></label>
+                  <label><span>Cubage</span><select id="f-modele" class="m-var"></select></label>
+                </div>
+              </div>
+              <div id="extraVeh" class="extra-list"></div>
+              <button type="button" class="nd-add" id="addVeh"><span class="nd-add-ico"><svg class="icon"><use href="#i-plus"/></svg></span><span><b>Ajouter un véhicule au même endroit</b><small id="groupHint">Même site, mêmes dates, même prestataire. Seul l'horaire peut changer.</small></span></button>
+              <datalist id="dl-plaques"></datalist>
+            </section>
+
+            <section class="nd-sec" aria-labelledby="siteLabel">
+              <h3 class="nd-label" id="siteLabel">Site</h3>
+              <div class="nd-chips" id="ndSites" role="radiogroup" aria-labelledby="siteLabel"></div>
+              <select id="f-site" class="nd-src" tabindex="-1" aria-hidden="true"></select>
+              <label class="nd-addr"><svg class="icon"><use href="#i-pin"/></svg><input id="f-adresse" class="nd-input" placeholder="Adresse (remplie avec celle du site)" aria-label="Adresse"></label>
+            </section>
+
+            <section class="nd-sec" aria-labelledby="whenLabel">
+              <h3 class="nd-label" id="whenLabel">Disponibilité</h3>
+              <div class="nd-chips nd-days" id="ndDays" role="group" aria-label="Jour"></div>
+              <div class="nd-card nd-when">
+                <label><span>Du *</span><input type="date" id="f-date"></label>
+                <label><span>Au</span><input type="date" id="f-dateFin"></label>
+                <label><span>De</span><input type="time" id="f-debut" step="900"></label>
+                <label><span>À</span><input type="time" id="f-fin" step="900"></label>
+              </div>
+              <div class="nd-chips nd-slots" id="ndSlots" role="group" aria-label="Créneau"></div>
+            </section>
+
+            <section class="nd-sec">
+              <details class="nd-note" id="notesBox"><summary><svg class="icon"><use href="#i-plus"/></svg>Ajouter une remarque</summary>
+                <textarea id="f-notes" class="nd-input" aria-label="Remarque (ajoutée au message)" placeholder="Clés à l'accueil…"></textarea>
+              </details>
+            </section>
+
+            <section class="nd-sec" id="photosSet">
+              <h3 class="nd-label">Photos du pare-brise</h3>
+              <div class="photos" id="formPhotos"></div>
+              <p class="nd-hint" id="formPhotosHint"></p>
+            </section>
+
+            <div class="nd-manage" id="ndManage">
+              <span id="delZone"></span>
+              <details class="more history" id="historyBox" hidden>
+                <summary><svg class="icon"><use href="#i-plus"/></svg>Historique des modifications</summary>
+                <div id="historyBody"></div>
+              </details>
+            </div>
+          </form>
+
+          <aside class="nd-side" aria-labelledby="msgTitle">
+            <div class="nd-sum" id="ndSum"></div>
+            <h3 class="nd-label" id="msgTitle">Envoyer la demande</h3>
+            <div id="formShare"></div>
+            <div id="formSheet"></div>
+          </aside>
         </div>
-        <div class="form-sections">
-          <fieldset>
-            <legend>Prestation</legend>
-            <div class="svc-line">
-              <label class="field" id="provRow"><span>Prestataire</span><select id="f-prest"></select></label>
-              <div class="field"><span id="svcLabel">Type</span><div class="seg" id="svcSeg" role="radiogroup" aria-labelledby="svcLabel"></div>
-                <span class="hint warn" id="svcNone" hidden>Rien n'est coché pour ce prestataire dans Réglages › Prestataires.</span></div>
-            </div>
-            <div class="field" id="washRow" hidden><span id="washLabel">Lavage</span><div class="seg" id="washSeg" role="radiogroup" aria-labelledby="washLabel"></div></div>
-            <div class="task-row" id="taskRow" hidden>
-              <div class="task-chips" id="taskChips" role="group" aria-label="Tâches fréquentes"></div>
-              <label class="field"><span>Que faut-il faire ? *</span><input id="f-tache" placeholder="Touche une tâche ou écris-la, puis précise si besoin"></label>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>Véhicule</legend>
-            <div class="grid g3">
-              <label class="field"><span>Immatriculation *</span><input id="f-plaque" class="plate-input" placeholder="AB-123-CD" list="dl-plaques" required></label>
-              <label class="field"><span>Modèle</span><select id="f-base" class="m-base"></select></label>
-              <label class="field"><span>Cubage</span><select id="f-modele" class="m-var"></select></label>
-            </div>
-            <span class="hint" id="vehHint"></span>
-            <div id="extraVeh" class="extra-list"></div>
-            <button type="button" class="add-veh" id="addVeh"><svg class="icon"><use href="#i-plus"/></svg>Ajouter un véhicule au même endroit</button>
-            <span class="hint" id="groupHint">Les véhicules ajoutés reprennent le même site, les mêmes dates et le même prestataire. Leurs horaires peuvent changer.</span>
-            <datalist id="dl-plaques"></datalist>
-          </fieldset>
-
-          <fieldset>
-            <legend>Où</legend>
-            <div class="grid g2">
-              <label class="field"><span>Site *</span><select id="f-site"></select></label>
-              <label class="field"><span>Adresse</span><input id="f-adresse" placeholder="Remplie avec l'adresse du site"></label>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>Disponibilité</legend>
-            <div class="grid g4">
-              <label class="field"><span>Dispo du *</span><input type="date" id="f-date"></label>
-              <label class="field"><span>Au</span><input type="date" id="f-dateFin"></label>
-              <label class="field"><span>De</span><input type="time" id="f-debut" step="900"></label>
-              <label class="field"><span>À</span><input type="time" id="f-fin" step="900"></label>
-            </div>
-            <details class="more" id="notesBox"><summary><svg class="icon"><use href="#i-plus"/></svg>Ajouter une remarque</summary>
-              <label class="field"><span>Remarque (ajoutée au message)</span><textarea id="f-notes" placeholder="Clés à l'accueil…"></textarea></label>
-            </details>
-          </fieldset>
-
-          <fieldset id="photosSet">
-            <legend>Photos du pare-brise</legend>
-            <div class="photos" id="formPhotos"></div>
-            <span class="hint" id="formPhotosHint"></span>
-          </fieldset>
-        </div>
-        <div class="actions">
-          <button type="submit" class="primary" id="saveBtn">Enregistrer la demande</button>
-          <button type="button" class="ghost" id="resetBtn">Vider le formulaire</button>
-          <span class="spacer"></span>
-          <span id="delZone"></span>
-        </div>
-        <details class="more history" id="historyBox" hidden>
-          <summary><svg class="icon"><use href="#i-plus"/></svg>Historique des modifications</summary>
-          <div id="historyBody"></div>
-        </details>
-      </form>
-
-      <aside class="panel sticky" aria-labelledby="msgTitle">
-        <div class="panel-head"><h2 id="msgTitle">Envoyer la demande</h2></div>
-        <div id="formShare"></div>
-        <div id="formSheet"></div>
-      </aside>
+      </div>
+      <footer class="nd-foot">
+        <button type="button" class="nd-reset" id="resetBtn">Vider</button>
+        <button type="submit" form="form" class="ok-btn nd-save" id="saveBtn">Enregistrer la demande</button>
+      </footer>
     </div>
   </section>
 
@@ -2560,14 +2907,15 @@ body.team-sheet-open .toast { z-index: 60; }
 
   <!-- BILAN -->
   <section id="view-bilan" hidden>
-    <div class="tools">
-      <label class="field"><span>Mois</span><input type="month" id="b-month"></label>
-      <label class="field"><span>Prestataire</span><select id="b-prest"></select></label>
-      <span style="flex:1"></span>
-      <button type="button" id="b-copy"><svg class="icon"><use href="#i-copy"/></svg>Copier le résumé</button>
-      <button type="button" id="b-tsv"><svg class="icon"><use href="#i-list"/></svg>Copier pour Google Sheets</button>
-      <button type="button" class="primary" id="b-csv" hidden><svg class="icon"><use href="#i-download"/></svg>Télécharger le CSV</button>
-    </div>
+    <header class="bil-head">
+      <div class="bil-titles"><p class="bil-kicker" id="bilKicker"></p><h1 class="bil-title">Bilan</h1></div>
+      <button type="button" class="bil-export" data-bil-export><svg class="icon"><use href="#i-download"/></svg>Exporter</button>
+    </header>
+    <div class="bil-months" id="bilMonths" role="tablist" aria-label="Mois"></div>
+    <div class="bil-provs" id="bilProvs"></div>
+    <!-- Les vrais champs restent (cachés) : le mois et le prestataire choisis y sont gardés. -->
+    <div hidden><input type="month" id="b-month" aria-label="Mois"><select id="b-prest" aria-label="Prestataire"></select>
+      <button type="button" id="b-copy">Copier le résumé</button><button type="button" id="b-tsv">Copier pour Google Sheets</button><button type="button" id="b-csv" hidden>Télécharger le CSV</button></div>
     <div id="b-body"></div>
   </section>
 
@@ -3124,15 +3472,40 @@ window.SUIVI_FIREBASE_CONFIG = {
       cancelled: demandes.filter((d) => d.statut === "annulee").length,
       overdue: pending.filter((d) => lastDay(d) < todayIso).length,
       upcoming: pending.filter((d) => lastDay(d) >= todayIso).length,
-      amount: done.reduce((sum, d) => sum + (+d.montant || 0), 0),
+      ...amountsOf(done),
     };
+  }
+  // HT amounts of the done jobs, to check a provider's invoice (payment stays by bank transfer).
+  // A tailgate job without a price is the monthly flat fee (DHOLLIANDA, Fabian 2026-11-18): counted apart, never as "missing".
+  const hasPrice = (d) => d.prixHT != null && d.prixHT !== "" && Number.isFinite(+d.prixHT);
+  const isFlatFee = (d) => d.service === "hayon" && !hasPrice(d);
+  function amountsOf(done) {
+    const priced = done.filter(hasPrice);
+    return {
+      amountHT: Math.round(priced.reduce((sum, d) => sum + +d.prixHT, 0) * 100) / 100,
+      flat: done.filter(isFlatFee).length,
+      unpriced: done.filter((d) => !hasPrice(d) && !isFlatFee(d)).length,
+    };
+  }
+  // Invoice lines of done jobs: one line per job kind and unit price (« Lavage complet · 12 × 37 € »), biggest first.
+  function invoiceLines(done) {
+    const lines = new Map();
+    done.forEach((d) => {
+      const unit = hasPrice(d) ? +d.prixHT : null;
+      const label = jobLabel(d) || "Prestation";
+      const key = `${label}|${unit ?? (isFlatFee(d) ? "flat" : "none")}`;
+      const line = lines.get(key) || { label, unit, flat: isFlatFee(d), count: 0, total: 0 };
+      line.count++; if (unit != null) line.total = Math.round((line.total + unit) * 100) / 100;
+      lines.set(key, line);
+    });
+    return [...lines.values()].sort((a, b) => b.total - a.total || b.count - a.count);
   }
   function monthlyReport(demandes, { month, provider, todayIso }) {
     const rows = demandes.filter((d) => d.date && d.date.slice(0, 7) === month && (!provider || d.prestataire === provider));
     const tallyBy = (keyOf) => [...groupBy(rows, keyOf).entries()]
       .map(([key, items]) => [key, tally(items, todayIso)])
       .sort((a, b) => b[1].requested - a[1].requested);
-    return { rows, total: tally(rows, todayIso), byProvider: tallyBy((d) => d.prestataire || "—"), bySite: tallyBy(siteOf), byModel: tallyBy((d) => vehicleLabel(d) || "Modèle non précisé") };
+    return { rows, total: tally(rows, todayIso), byProvider: tallyBy((d) => d.prestataire || "—"), bySite: tallyBy(siteOf), byModel: tallyBy((d) => vehicleLabel(d) || "Modèle non précisé"), byService: tallyBy(jobLabel) };
   }
   function monthlySummaryMessage(report, { month, provider }) {
     const t = report.total;
@@ -3146,11 +3519,12 @@ window.SUIVI_FIREBASE_CONFIG = {
       ...report.bySite.map(([k, a]) => `• ${k} : ${a.done} / ${a.requested}`),
     ].join("\n");
   }
-  const EXPORT_HEADER = ["Dispo du", "Dispo au", "Immatriculation", "Modèle", "Cubage (m³)", "Prestation", "Site", "Adresse", "Prestataire", "Statut", "Envoyée le", "Réalisée le"];
+  const EXPORT_HEADER = ["Dispo du", "Dispo au", "Immatriculation", "Modèle", "Cubage (m³)", "Prestation", "Site", "Adresse", "Prestataire", "Statut", "Envoyée le", "Réalisée le", "Prix HT"];
   function exportRow(d) {
     return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", jobLabel(d),
       d.site, d.adresse, d.prestataire, statusOf(d.statut).label,
-      d.sentAt ? numericDate(d.sentAt.slice(0, 10)) : "", d.doneAt ? numericDate(d.doneAt.slice(0, 10)) : ""];
+      d.sentAt ? numericDate(d.sentAt.slice(0, 10)) : "", d.doneAt ? numericDate(d.doneAt.slice(0, 10)) : "",
+      hasPrice(d) ? String(+d.prixHT).replace(".", ",") : ""];
   }
   function toTsv(rows) {
     const clean = (v) => String(v ?? "").replace(/[\t\r\n]/g, " ");
@@ -3787,7 +4161,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     serviceOf, WASH_KINDS, washKindOf, jobLabel, jobTitle, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
-    monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
+    monthlyReport, invoiceLines, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_DAYS, TEAM_RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
@@ -4689,6 +5063,17 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     `<circle cx="24" cy="23" r="16" fill="url(#i3-body)" ${S}/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeR)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeB)"/>` +
     `<ellipse cx="20" cy="13.4" rx="8" ry="3.6" fill="url(#i3-shine)" opacity=".7"/>` +
     `<path d="M18.4 17.4a8 8 0 1 0 11.2 0" fill="none" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/><path d="M24 13.4v9" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/>`;
+  // Bilan de l'équipe : facture HT (feuille + pièce verte), en attente (pastille orange, horloge), annulé (pastille acier, croix).
+  ICONS["bil-facture"] = ground(24, 43, 17, 2.2) +
+    `<path d="M10.6 4.6h21.2a1.8 1.8 0 0 1 1.8 1.8v31.4l-3.1-2-3.1 2-3.1-2-3.1 2-3.1-2-3.1 2-3.1-2-2 1.3V6.4a1.8 1.8 0 0 1 1.7-1.8Z" fill="#fff" ${S}/>` +
+    `<path d="M13 9.6h10.4" stroke="#0f6f8f" stroke-width="2.2" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="1.6" stroke-linecap="round"><path d="M13 14.6h16"/><path d="M13 18.6h16"/><path d="M13 22.6h9"/></g>` +
+    `<circle cx="33.6" cy="31.6" r="9.2" fill="url(#i3-spg)" ${S}/><ellipse cx="31.4" cy="27.6" rx="5" ry="2.4" fill="url(#i3-shine)" opacity=".7"/>` +
+    `<path d="M36.6 27.9a4.6 4.6 0 1 0 0 7.4M29 30.5h5.6M29 32.9h5.6" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/>`;
+  ICONS["bil-attente"] = badge("ora",
+    `<circle cx="24" cy="23" r="9.6" fill="none" stroke="#fff" stroke-width="2.8"/><path d="M24 17.4V23l3.8 2.6" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>`);
+  ICONS["bil-annule"] = badge("steel",
+    `<path d="M18.4 17.4l11.2 11.2M29.6 17.4L18.4 28.6" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/>`);
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
@@ -6045,11 +6430,22 @@ function page(texte) {
   // ================= navigation =================
   const VIEWS = ["planning", "retours", "demande", "hayon", "photos", "verif", "bilan", "historique", "corbeille", "reglages"];
   const navButtons = () => document.querySelectorAll("nav.tabs [data-view]");
+  // « Nouvelle demande » (and an opened request) is a sheet over the page underneath, never a page of its own.
+  let baseView = "planning";
   function show(view) {
     if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
-    VIEWS.forEach((v) => ($("#view-" + v).hidden = v !== view));
     if (view !== "reglages" && document.querySelector(".team-sheet.rg-sheet-b.on")) teamSheet.close(); // a Réglages sheet never stays over another page
+    if (view === "demande") {
+      VIEWS.forEach((v) => v !== "demande" && ($("#view-" + v).hidden = v !== baseView));
+      markCurrentNav(baseView);
+      openFormSheet();
+      if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
+      return;
+    }
+    closeFormSheet();
+    baseView = view;
+    VIEWS.forEach((v) => v !== "demande" && ($("#view-" + v).hidden = v !== view));
     markCurrentNav(view);
     if (view === "corbeille") openTrash();
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
@@ -6085,6 +6481,7 @@ function page(texte) {
     });
     setSelectOptions($("#f-site"), `<option value="">Choisir un site…</option>` + options(siteNames()));
     setSelectOptions($("#h-site"), `<option value="">Tous les sites</option>` + options(siteNames()));
+    renderChoiceTiles();
   }
   $("#h-statut").innerHTML = `<option value="">Tous les statuts</option><option value="ouvert">En cours (hors réalisées / annulées)</option>` + D.STATUSES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
   $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
@@ -6500,7 +6897,136 @@ function page(texte) {
     else if (!allowed.includes(chosenService())) $("#svc-" + allowed[0]).checked = true;
     $("#taskRow").hidden = chosenService() !== "intervention";
     $("#washRow").hidden = chosenService() !== "lavage";
+    renderChoiceTiles();
   }
+
+  // ----- the sheet itself: slides up over the page on a phone, centred window on a computer -----
+  const ndView = $("#view-demande");
+  const ndSheet = ndView.querySelector(".nd-sheet");
+  let ndHideTimer, ndLastFocus = null;
+  const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  function openFormSheet() {
+    clearTimeout(ndHideTimer);
+    if (!ndView.hidden && ndView.classList.contains("on")) return;
+    if (teamSheet.isOpen) teamSheet.close();
+    ndLastFocus = document.activeElement;
+    ndView.hidden = false; ndSheet.style.transform = "";
+    document.body.classList.add("nd-open");
+    requestAnimationFrame(() => requestAnimationFrame(() => ndView.classList.add("on")));
+    setTimeout(() => ndSheet.querySelector(".sheet-x")?.focus({ preventScroll: true }), 60);
+  }
+  function closeFormSheet() {
+    if (ndView.hidden) return;
+    ndView.classList.remove("on"); ndSheet.style.transform = "";
+    document.body.classList.remove("nd-open");
+    clearTimeout(ndHideTimer);
+    ndHideTimer = setTimeout(() => { ndView.hidden = true; }, reducedMotion() ? 200 : 380);
+    if (ndLastFocus?.isConnected) ndLastFocus.focus({ preventScroll: true });
+  }
+  // Closing a new request that was started keeps it: the bubble offers to pick it up again.
+  function leaveFormSheet() {
+    const started = !state.editingId && (field("plaque").value.trim() || readExtras().length);
+    show(baseView);
+    if (started) toast("Demande non enregistrée", { label: "Reprendre", run: () => show("demande") });
+  }
+  ndView.addEventListener("click", (e) => { if (e.target.closest("[data-nd-close]")) leaveFormSheet(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !ndView.hidden && ndView.classList.contains("on") && !document.querySelector(".lightbox:not([hidden])")) leaveFormSheet();
+  }, true); // capture: runs before the photo viewer closes itself on the same key
+  // Drag the grabber or the title down to close: follows the finger, closes past 120 px or on a quick flick.
+  (function dragToClose() {
+    let startY = 0, lastY = 0, lastT = 0, v = 0, dragging = false;
+    ndSheet.addEventListener("pointerdown", (e) => {
+      if (!e.target.closest(".sheet-grab, .nd-head") || e.target.closest("button") || window.innerWidth > 720) return;
+      dragging = true; startY = lastY = e.clientY; lastT = e.timeStamp; v = 0;
+      ndSheet.setPointerCapture(e.pointerId); ndSheet.classList.add("dragging");
+    });
+    ndSheet.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const dy = e.clientY - startY;
+      v = (e.clientY - lastY) / Math.max(1, e.timeStamp - lastT); lastY = e.clientY; lastT = e.timeStamp;
+      ndSheet.style.transform = `translateY(${dy > 0 ? dy : dy / 6}px)`;
+    });
+    const end = (e) => {
+      if (!dragging) return;
+      dragging = false; ndSheet.classList.remove("dragging");
+      if (e.clientY - startY > 120 || v > 0.6) leaveFormSheet(); else ndSheet.style.transform = "";
+    };
+    ndSheet.addEventListener("pointerup", end); ndSheet.addEventListener("pointercancel", end);
+  })();
+
+  // ----- tiles: type first, then only the providers who do it (same rules as Réglages › Prestataires) -----
+  const offers = (name, service) => D.servicesFor(state.providerDocs.get(D.providerId(name)), name).includes(service);
+  const providersFor = (service) => state.providers.filter((name) => offers(name, service));
+  const initials = (name) => name.replace(/\(.*?\)/g, "").split(/[\s-]+/).filter((w) => /^[a-zà-ÿ]/i.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
+  const nextDays = () => Array.from({ length: 7 }, (_, i) => D.addDays(today(), i));
+  const dayChipLabel = (iso, i) => i === 0 ? "Aujourd'hui" : i === 1 ? "Demain"
+    : D.parseIsoDate(iso).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" }).replace(".", "").replace(/^./, (c) => c.toUpperCase());
+  const SLOTS = [{ label: "Journée", debut: D.DEFAULT_SLOT.debut, fin: D.DEFAULT_SLOT.fin }, { label: "Matin", debut: "08:30", fin: "12:30" }, { label: "Après-midi", debut: "13:30", fin: "19:30" }];
+  const tile = (attrs, pressed, art, label) => `<button type="button" class="issue-tile nd-tile" ${attrs} aria-pressed="${pressed}">
+      <span class="issue-ico">${self.IssueArt?.art(art) || ""}<span class="issue-check">${icon("check")}</span></span><span class="issue-lbl">${esc(label)}</span></button>`;
+  function renderChoiceTiles() {
+    const editing = state.editingId ? demandeById(state.editingId)?.service : "";
+    const services = D.SERVICES.filter((s) => s.id === editing || providersFor(s.id).length);
+    const svc = chosenService();
+    $("#ndSvc").innerHTML = services.map((s) => tile(`data-nd-svc="${s.id}"`, s.id === svc, SERVICE_ART[s.id], s.label)).join("");
+    $("#ndSvc").style.setProperty("--n", Math.max(services.length, 1));
+    const current = field("prest").value;
+    const names = svc ? state.providers.filter((n) => n === current || offers(n, svc)) : state.providers;
+    $("#ndProv").innerHTML = names.map((n) => `<button type="button" class="nd-pv" role="radio" data-nd-prov="${esc(n)}" aria-checked="${n === current}">
+        <span class="nd-pv-av" aria-hidden="true">${esc(initials(n))}</span><span class="nd-pv-txt"><b>${esc(n)}</b><small class="nd-pv-price"></small></span>
+        <span class="nd-pv-tick" aria-hidden="true">${icon("check")}</span></button>`).join("");
+    $("#provRow").hidden = state.providers.length === 0;
+    const site = field("site").value;
+    $("#ndSites").innerHTML = siteNames().map((n) => `<button type="button" class="nd-chip" role="radio" data-nd-site="${esc(n)}" aria-checked="${n === site}">${esc(n)}</button>`).join("")
+      || `<p class="nd-hint">Aucun site : ajoute-les dans Réglages › Sites.</p>`;
+    $("#ndDays").innerHTML = nextDays().map((iso, i) => `<button type="button" class="nd-chip" data-nd-day="${iso}" aria-pressed="false">${esc(dayChipLabel(iso, i))}</button>`).join("");
+    $("#ndSlots").innerHTML = SLOTS.map((t) => `<button type="button" class="nd-chip" data-nd-slot="${t.debut}-${t.fin}" aria-pressed="false">${t.label}<small>${t.debut.replace(":", "h")}–${t.fin.replace(":", "h")}</small></button>`).join("");
+    syncChoiceTiles();
+  }
+  // Only the pressed states and prices change while typing: the tiles are not redrawn (no flicker, focus kept).
+  function syncChoiceTiles() {
+    const d = readForm();
+    const press = (sel, on) => document.querySelectorAll(sel).forEach((b) => b.setAttribute(b.getAttribute("role") === "radio" ? "aria-checked" : "aria-pressed", on(b)));
+    press("#ndSites [data-nd-site]", (b) => b.dataset.ndSite === field("site").value);
+    press("#ndDays [data-nd-day]", (b) => b.dataset.ndDay === field("date").value && (field("dateFin").value || field("date").value) === field("date").value);
+    press("#ndSlots [data-nd-slot]", (b) => b.dataset.ndSlot === `${field("debut").value}-${field("fin").value}`);
+    const before = demandeById(state.editingId);
+    document.querySelectorAll("#ndProv [data-nd-prov]").forEach((b) => {
+      const name = b.dataset.ndProv;
+      const prices = pricesOf(D.providerId(name)).filter((l) => (l.service || "pare-brise") === d.service);
+      const price = before && before.prestataire === name ? D.providerFields({ ...d, prestataire: name }, before, pricesOf).prixHT : D.priceFor(prices, { ...d, prestataire: name });
+      b.querySelector(".nd-pv-price").textContent = price != null ? D.euros(price) + " HT" : prices.length ? "Prix selon le cubage" : d.service === "hayon" ? "Forfait mensuel" : "Pas de tarif";
+    });
+  }
+  function pop(button) { button.classList.remove("pop"); void button.offsetWidth; button.classList.add("pop"); }
+  $("#form").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-nd-svc], [data-nd-prov], [data-nd-site], [data-nd-day], [data-nd-slot]");
+    if (!b) return;
+    if (b.dataset.ndSvc) {
+      const svc = b.dataset.ndSvc;
+      if (!offers(field("prest").value, svc)) {
+        const first = providersFor(svc).find((n) => n === state.providerFilter) || providersFor(svc)[0];
+        if (first) field("prest").value = first;
+      }
+      const radio = $("#svc-" + svc);
+      renderServiceChoice();
+      if (radio && !radio.closest("label").hidden) radio.checked = true;
+      renderServiceChoice();
+      pop($(`#ndSvc [data-nd-svc="${svc}"]`));
+    } else if (b.dataset.ndProv) {
+      field("prest").value = b.dataset.ndProv;
+      renderServiceChoice();
+    } else if (b.dataset.ndSite) {
+      field("site").value = b.dataset.ndSite;
+      field("site").dispatchEvent(new Event("change", { bubbles: true }));
+    } else if (b.dataset.ndDay) {
+      setAvailability(b.dataset.ndDay);
+    } else if (b.dataset.ndSlot) {
+      [field("debut").value, field("fin").value] = b.dataset.ndSlot.split("-");
+    }
+    renderFormSide();
+  });
   const chosenWashKind = () => document.querySelector('input[name="wash"]:checked')?.value || "complet";
   function selectedFleetModel() {
     const index = field("modele").value;
@@ -6527,7 +7053,7 @@ function page(texte) {
   }
   // ----- model picker: brand + model first, then cubage (year shown only when the cubage is ambiguous) -----
   const baseOptions = () => `<option value="">Choisir le modèle…</option>` + options(D.fleetBases(state.fleet));
-  const variantSelectOf = (base) => base.closest(".grid, .extra-veh").querySelector(".m-var");
+  const variantSelectOf = (base) => base.closest(".nd-veh, .extra-veh").querySelector(".m-var");
   function fillVariants(base, variant) {
     const variants = D.fleetVariants(state.fleet, base.value);
     setSelectOptions(variant, base.value
@@ -6553,13 +7079,14 @@ function page(texte) {
     const row = document.createElement("div");
     row.className = "extra-veh";
     row.dataset.id = v.id || "";
-    row.innerHTML = `<span class="num"></span>
-      <label class="field"><span>Immatriculation</span><input class="x-plaque plate-input" placeholder="AB-123-CD" list="dl-plaques" value="${esc(v.plaque || "")}"></label>
-      <label class="field"><span>Modèle</span><select class="x-base m-base">${baseOptions()}</select></label>
-      <label class="field"><span>Cubage</span><select class="x-modele m-var"></select></label>
-      <label class="field"><span>De</span><input type="time" class="x-debut" step="900" value="${esc(v.debut ?? field("debut").value)}"></label>
-      <label class="field"><span>À</span><input type="time" class="x-fin" step="900" value="${esc(v.fin ?? field("fin").value)}"></label>
-      <button type="button" class="ghost danger" data-remove-veh aria-label="Retirer ce véhicule">${icon("x")}</button>`;
+    row.innerHTML = `<div class="xv-head"><span class="num"></span><button type="button" class="xv-remove" data-remove-veh aria-label="Retirer ce véhicule">${icon("x")}</button></div>
+      <label class="nd-plate sm"><span class="nd-plate-eu" aria-hidden="true">F</span><input class="x-plaque plate-input" placeholder="AB-123-CD" list="dl-plaques" aria-label="Immatriculation" value="${esc(v.plaque || "")}"></label>
+      <div class="nd-model">
+        <label><span>Modèle</span><select class="x-base m-base">${baseOptions()}</select></label>
+        <label><span>Cubage</span><select class="x-modele m-var"></select></label>
+        <label><span>De</span><input type="time" class="x-debut" step="900" value="${esc(v.debut ?? field("debut").value)}"></label>
+        <label><span>À</span><input type="time" class="x-fin" step="900" value="${esc(v.fin ?? field("fin").value)}"></label>
+      </div>`;
     $("#extraVeh").append(row);
     fillVariants(row.querySelector(".x-base"), row.querySelector(".x-modele"));
     if (v.modele) setModelPicker(row.querySelector(".x-base"), row.querySelector(".x-modele"), v);
@@ -6631,6 +7158,24 @@ function page(texte) {
     $("#vehHint").classList.toggle("warn", !!hayonWarning);
     const current = demandeById(state.editingId);
     $("#formSheet").innerHTML = current && ["confirmee", "realisee"].includes(current.statut) ? sheetLink([d.plaque]) : "";
+    syncChoiceTiles();
+    renderSummary(d, others, current);
+  }
+  // What will be saved, in one card: vehicles, price HT frozen at the first save, and what is still missing.
+  function renderSummary(d, others, current) {
+    const problem = formProblem(d, readExtras());
+    $("#saveBtn").dataset.ready = String(!problem); // greyed until complete, still clickable to say what is missing
+    const count = others.length + 1;
+    const price = d.prestataire ? D.providerFields(d, current, pricesOf).prixHT : null;
+    const total = price != null ? D.euros(price * count) : "";
+    const when = d.date ? D.dayLabel(d.date) + (d.dateFin && d.dateFin !== d.date ? " → " + D.dayLabel(d.dateFin) : "") : "";
+    $("#ndSum").innerHTML = `<div class="nd-sum-top">
+        <span class="svc-tile sm" aria-hidden="true">${d.service ? self.IssueArt?.art(SERVICE_ART[d.service], "svc-art") || "" : ""}</span>
+        <span class="nd-sum-txt"><b>${esc(d.service ? D.jobLabel(d) : "Prestation à choisir")}${count > 1 ? ` · ${count} véhicules` : ""}</b>
+        <small>${esc([d.prestataire, d.site].filter(Boolean).join(" · ") || "Prestataire et site à choisir")}</small></span>
+        ${total ? `<span class="nd-sum-price"><b>${esc(total)}</b><small>HT${count > 1 ? ` · ${esc(D.euros(price))} / véh.` : ""}</small></span>` : ""}</div>
+      ${when ? `<p class="nd-sum-when">${icon("cal")}${esc(when)} · ${esc(d.debut.replace(":", "h"))}–${esc(d.fin.replace(":", "h"))}</p>` : ""}
+      ${problem ? `<p class="nd-sum-miss">${icon("alert")}${esc(problem)}</p>` : `<p class="nd-sum-ok">${icon("check")}${current ? "Prête à enregistrer les modifications" : "Prête à enregistrer"}</p>`}`;
   }
   // The windshield photos shown here are those of the chosen model: added once, sent with every request.
   function renderFormPhotos(d) {
@@ -6672,16 +7217,24 @@ function page(texte) {
     field("debut").value = D.DEFAULT_SLOT.debut;
     field("fin").value = D.DEFAULT_SLOT.fin;
     field("prest").value = state.providerFilter || defaultProvider();
+    if (!D.SERVICES.some((x) => offers(field("prest").value, x.id))) {
+      const any = state.providers.find((n) => D.SERVICES.some((x) => offers(n, x.id)));
+      if (any) field("prest").value = any;
+    }
     renderServiceChoice();
+    $(".nd-scroll").scrollTop = 0;
     $("#notesBox").open = false;
     $("#historyBox").hidden = true; $("#historyBox").open = false; $("#historyBox").dataset.id = "";
     $("#formTitle").textContent = "Nouvelle demande";
+    $("#ndKicker").textContent = "Demande à un prestataire";
     $("#formStatusChip").hidden = true;
-    $("#saveBtn").textContent = "Enregistrer la demande";
+    setSaveLabel("Enregistrer la demande");
+    ndView.classList.remove("saved");
     $("#delZone").innerHTML = "";
     renderFormSide();
   }
   $("#resetBtn").onclick = resetForm;
+  function setSaveLabel(text) { $("#saveBtn").innerHTML = `<span class="ok-badge" aria-hidden="true">${icon("check")}</span><span>${esc(text)}</span>`; }
 
   function openDemande(id) {
     const d = demandeById(id);
@@ -6689,7 +7242,7 @@ function page(texte) {
     state.editingId = id;
     fillForm(d);
     showSavedHeader(d);
-    renderFormSide(); show("demande"); window.scrollTo({ top: 0 });
+    renderFormSide(); show("demande"); $(".nd-scroll").scrollTop = 0;
   }
   function newDemandeFor(vehicle) {
     resetForm();
@@ -6701,7 +7254,9 @@ function page(texte) {
     $("#formTitle").textContent = count > 1 ? `Demande groupée · ${count} véhicules` : "Demande " + (d.plaque || "");
     const chip = $("#formStatusChip");
     chip.hidden = false; chip.className = "chip st-" + d.statut; chip.textContent = D.statusOf(d.statut).label;
-    $("#saveBtn").textContent = "Enregistrer les modifications";
+    $("#ndKicker").textContent = [D.jobLabel(d), d.date ? D.shortDate(d.date) : ""].filter(Boolean).join(" · ");
+    setSaveLabel("Enregistrer les modifications");
+    ndView.classList.add("saved");
     $("#delZone").innerHTML = deleteZone(d);
     showHistoryBox();
   }
@@ -6801,7 +7356,16 @@ function page(texte) {
   }
   $("#form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (await saveForm()) { toast(extraRows().length ? "Demande groupée enregistrée" : "Demande enregistrée"); state.day = field("date").value || state.day; }
+    const wasNew = !state.editingId;
+    if (await saveForm()) {
+      toast(extraRows().length ? "Demande groupée enregistrée" : "Demande enregistrée");
+      state.day = field("date").value || state.day;
+      // Next step after a new request: send it. On a phone the message is below the form.
+      if (wasNew) {
+        const box = $(".nd-scroll"), top = $("#ndSum").getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 8;
+        box.scrollTo({ top, behavior: reducedMotion() ? "auto" : "smooth" });
+      }
+    }
   });
   $("#formShare").addEventListener("click", async (e) => {
     if (!e.target.closest("[data-copy]")) return;
@@ -7108,53 +7672,205 @@ function page(texte) {
     finally { buttons.forEach((b) => (b.disabled = false)); }
   }));
 
-  // ================= monthly report =================
+  // ================= monthly report (« Bilan », façon iPhone 2026-11-21) =================
+  // HT amounts of the done jobs per provider, to check their invoices (payment stays by bank transfer).
+  // The month and the provider stay in the hidden #b-month / #b-prest fields; the segmented control and the pills drive them.
   $("#b-month").value = today().slice(0, 7);
+  const bil = { split: "service", all: new Set() };
   const currentReport = () => D.monthlyReport(state.demandes, { month: $("#b-month").value, provider: $("#b-prest").value, todayIso: today() });
-  function tallyTable(title, list) {
-    return `<div class="section"><h3>${title}</h3><div class="tablewrap"><table><thead><tr><th></th><th class="num">Demandés</th><th class="num">Réalisés</th><th class="num">Annulés</th><th class="num">En attente</th></tr></thead><tbody>
-      ${list.map(([k, t]) => `<tr><td>${esc(k)}</td><td class="num">${t.requested}</td><td class="num">${t.done}</td><td class="num">${t.cancelled}</td><td class="num">${t.overdue + t.upcoming}</td></tr>`).join("")}
-      </tbody></table></div></div>`;
+  const bilArt = (key, size = "sm") => `<span class="ret-ico ${size}" aria-hidden="true">${self.IssueArt?.art(key, "ret-art") || ""}</span>`;
+  const ht = (n) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const monthShift = (month, k) => { const d = new Date(+month.slice(0, 4), +month.slice(5, 7) - 1 + k, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+  const monthShort = (month) => { const s = new Date(+month.slice(0, 4), +month.slice(5, 7) - 1, 1).toLocaleDateString("fr-FR", { month: "short" }); return s.charAt(0).toUpperCase() + s.slice(1); };
+  const isFlat = (d) => d.service === "hayon" && !(d.prixHT != null && d.prixHT !== "" && Number.isFinite(+d.prixHT));
+  const priceOf = (d) => (isFlat(d) ? "Forfait" : d.prixHT != null && d.prixHT !== "" && Number.isFinite(+d.prixHT) ? ht(+d.prixHT) : "Sans prix");
+  function setReportMonth(month) { $("#b-month").value = month; bil.all.clear(); renderReport(); }
+  function setReportProvider(provider) { $("#b-prest").value = provider; bil.all.clear(); renderReport(); }
+  function renderReportControls(month, provider) {
+    const thisMonth = today().slice(0, 7);
+    const recent = [-2, -1, 0].map((k) => monthShift(thisMonth, k));
+    const other = !recent.includes(month);
+    $("#bilMonths").innerHTML = recent.map((m) => `<button type="button" role="tab" data-bil-month="${m}" aria-selected="${m === month}">${esc(monthShort(m))}${m.slice(0, 4) !== thisMonth.slice(0, 4) ? " " + m.slice(0, 4) : ""}</button>`).join("")
+      + `<button type="button" role="tab" data-bil-pick-month aria-selected="${other}">${other ? esc(monthShort(month) + " " + month.slice(0, 4)) : "Autre mois…"}</button>`;
+    const names = [...new Set([...state.providers, ...(provider ? [provider] : [])])];
+    $("#bilProvs").hidden = names.length < 2;
+    $("#bilProvs").innerHTML = [["", "Tous"], ...names.map((p) => [p, p])].map(([v, l]) => `<button type="button" class="plan-prov" data-bil-filter="${esc(v)}" aria-pressed="${provider === v}">${esc(l)}</button>`).join("");
+    $("#bilKicker").textContent = D.monthLabel(month) + (provider ? " · " + provider : "");
   }
-  function reportLine(d) {
-    return `<tr class="click" data-open="${esc(d.id)}"><td class="date">${esc(D.numericDate(d.date))}</td><td>${plateTag(d.plaque)}</td><td>${esc(D.vehicleLabel(d))}</td><td>${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td><td>${statusChip(d.statut)}</td></tr>`;
+  function bilRow(d, who = !$("#b-prest").value) {
+    const late = D.isOpen(d) && D.lastDay(d) < today();
+    const status = d.statut === "realisee" ? "" : `<span class="bil-st ${late ? "wait" : d.statut === "annulee" ? "off" : ""}"><i></i>${esc(late ? "À confirmer" : D.statusOf(d.statut).label)}</span>`;
+    return `<button type="button" class="bil-row" data-open="${esc(d.id)}">
+      <span class="bil-row-date"><b>${+d.date.slice(8, 10)}</b><small>${esc(new Date(d.date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short" }))}</small></span>
+      <span class="bil-row-main"><span class="bil-row-line">${plateTag(d.plaque)}${status}</span>
+        <span class="bil-row-sub">${esc([D.jobLabel(d), D.vehicleLabel(d), who && d.prestataire].filter(Boolean).join(" · "))}</span></span>
+      <span class="bil-row-price${d.statut !== "realisee" || isFlat(d) || priceOf(d) === "Sans prix" ? " soft" : ""}${d.statut === "annulee" ? " off" : ""}">${esc(priceOf(d))}</span></button>`;
+  }
+  function bilList(id, title, rows, note = "") {
+    if (!rows.length) return "";
+    const open = bil.all.has(id) || rows.length <= 8;
+    return `<section class="bil-sec" id="bil-${id}"><h2 class="ret-gh"><span>${title}</span><em>${rows.length}</em></h2>${note ? `<p class="ret-gsub">${note}</p>` : ""}
+      <div class="bil-card bil-rows">${(open ? rows : rows.slice(0, 6)).map((d) => bilRow(d)).join("")}
+      ${open ? "" : `<button type="button" class="bil-more" data-bil-all="${id}">Tout voir (${rows.length})${icon("chev-d")}</button>`}</div></section>`;
+  }
+  function providerCard(report) {
+    const max = Math.max(1, ...report.byProvider.map(([, t]) => t.amountHT));
+    const rows = report.byProvider.map(([name, t]) => {
+      const flatOnly = !t.amountHT && t.flat;
+      const sub = [`${t.done} réalisé${t.done > 1 ? "s" : ""} sur ${t.requested}`, t.overdue ? `<b class="wait">${t.overdue} à confirmer</b>` : "", t.unpriced ? `<b class="wait">${t.unpriced} sans prix</b>` : ""].filter(Boolean).join(" · ");
+      return `<button type="button" class="bil-prov-row" data-bil-prov="${esc(name)}">
+        <span class="bil-prov-main"><b>${esc(name)}</b><span>${sub}</span>
+          <span class="bil-bar" aria-hidden="true"><i style="width:${flatOnly ? 0 : Math.max(t.amountHT ? 3 : 0, Math.round((t.amountHT / max) * 100))}%"></i></span></span>
+        <span class="bil-prov-amount">${flatOnly ? `<b class="soft">Forfait</b><small>mensuel</small>` : `<b>${esc(ht(t.amountHT))}</b><small>HT${t.flat ? " + forfait" : ""}</small>`}</span>
+        ${icon("chev-r")}</button>`;
+    }).join("");
+    return `<section class="bil-sec"><h2 class="ret-gh"><span>Par prestataire</span><em>${report.byProvider.length}</em></h2>
+      <p class="ret-gsub">Touche un prestataire pour le détail à comparer avec sa facture.</p><div class="bil-card">${rows}</div></section>`;
+  }
+  const SPLITS = [["service", "Prestation", "byService"], ["site", "Site", "bySite"], ["model", "Modèle", "byModel"]];
+  function splitCard(report) {
+    const [, , key] = SPLITS.find(([id]) => id === bil.split) || SPLITS[0];
+    const list = report[key];
+    const max = Math.max(1, ...list.map(([, t]) => t.requested));
+    return `<section class="bil-sec"><h2 class="ret-gh"><span>Répartition</span></h2>
+      <div class="ret-seg bil-seg" role="tablist" aria-label="Répartition">${SPLITS.map(([id, label]) => `<button type="button" role="tab" data-bil-split="${id}" aria-selected="${id === bil.split}">${label}</button>`).join("")}</div>
+      <div class="bil-card">${list.map(([name, t]) => `<div class="bil-split-row"><span class="bil-split-name">${esc(name)}</span>
+        <span class="bil-bar two" aria-hidden="true"><i style="width:${Math.round((t.requested / max) * 100)}%"><i style="width:${t.requested ? Math.round((t.done / t.requested) * 100) : 0}%"></i></i></span>
+        <span class="bil-split-n"><span><b>${t.done}</b> / ${t.requested}</span>${t.amountHT ? `<small>${esc(ht(t.amountHT))} HT</small>` : ""}</span></div>`).join("")}</div>
+      <p class="bil-legend"><i class="done"></i>réalisés <i></i>demandés</p></section>`;
+  }
+  function dayChart(report, month) {
+    const days = new Date(+month.slice(0, 4), +month.slice(5, 7), 0).getDate();
+    const counts = Array(days).fill(0);
+    report.rows.filter((d) => d.statut === "realisee").forEach((d) => { counts[+d.date.slice(8, 10) - 1]++; });
+    const max = Math.max(1, ...counts);
+    const now = today().slice(0, 7) === month ? +today().slice(8, 10) : 0;
+    return `<div class="bil-chart" role="img" aria-label="Prestations réalisées par jour">${counts.map((c, i) => `<span class="${i + 1 === now ? "now" : i + 1 > now && now ? "later" : ""}" title="${i + 1} : ${c}"><i style="height:${c ? Math.max(8, Math.round((c / max) * 100)) : 0}%"></i></span>`).join("")}</div>
+      <div class="bil-chart-axis"><span>1</span><span>${Math.ceil(days / 2)}</span><span>${days}</span></div>`;
   }
   function renderReport() {
     const month = $("#b-month").value, provider = $("#b-prest").value;
+    renderReportControls(month, provider);
     // The start of the month is read only when the Bilan page is open (it would cost reads at every opening otherwise).
     const loading = month && !$("#view-bilan").hidden && needOlder(D.monthStart(month + "-01"), D.nextMonthStart(month + "-01"));
     const report = currentReport();
     if (loading && !report.rows.length) {
-      $("#b-body").innerHTML = `<div class="empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les ouvres.</span></div>`;
+      $("#b-body").innerHTML = `<div class="ret-empty" aria-busy="true">${bilArt("bil-facture", "xl")}<b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les ouvres.</span></div>`;
       return;
     }
     if (!report.rows.length) {
-      $("#b-body").innerHTML = `<div class="empty"><b>Aucune demande en ${esc(D.monthLabel(month))}${provider ? " avec " + esc(provider) : ""}.</b><span>Le bilan compte les demandes selon leur premier jour de disponibilité : demandées, réalisées, annulées et encore en attente.</span></div>`;
+      $("#b-body").innerHTML = `<div class="ret-empty">${bilArt("bil-facture", "xl")}<b>Aucune demande en ${esc(D.monthLabel(month))}${provider ? " avec " + esc(provider) : ""}</b><span>Le bilan compte les demandes selon leur premier jour de disponibilité : demandées, réalisées, annulées et encore en attente.</span></div>`;
       return;
     }
     const t = report.total;
+    const pct = t.requested ? Math.round((t.done / (t.requested - t.cancelled || 1)) * 100) : 0;
     const done = report.rows.filter((d) => d.statut === "realisee").sort(D.byDateThenTime);
-    const open = report.rows.filter(D.isOpen).sort(D.byDateThenTime);
-    const head = `<thead><tr><th>Dispo</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th></tr></thead>`;
+    const overdue = report.rows.filter((d) => D.isOpen(d) && D.lastDay(d) < today()).sort(D.byDateThenTime);
+    const upcoming = report.rows.filter((d) => D.isOpen(d) && D.lastDay(d) >= today()).sort(D.byDateThenTime);
+    const cancelled = report.rows.filter((d) => d.statut === "annulee").sort(D.byDateThenTime);
+    const notes = [
+      t.flat ? `<span class="bil-note">${t.flat} contrôle${t.flat > 1 ? "s" : ""} hayon au forfait mensuel, hors total</span>` : "",
+      t.unpriced ? `<span class="bil-note wait">${plural(t.unpriced, "prestation réalisée")} sans prix : à vérifier sur la facture</span>` : "",
+    ].join("");
+    const tile = (art, n, label, jump, tone = "") => `<button type="button" class="ret-tile bil-tile ${tone}" data-bil-jump="${jump}"${n ? "" : " disabled"}>${bilArt(art)}<b>${n}</b><span>${label}</span></button>`;
     $("#b-body").innerHTML = `
-      <div class="kpis">
-        <div class="kpi"><span class="label">Demandés</span><b>${t.requested}</b><span class="muted small">${esc(D.monthLabel(month))}</span></div>
-        <div class="kpi done"><span class="label">Réalisés</span><b>${t.done}</b><span class="muted small">${t.requested ? Math.round((t.done / t.requested) * 100) : 0} % des demandes</span></div>
-        <div class="kpi wait"><span class="label">À confirmer</span><b>${t.overdue}</b><span class="muted small">dispo passée, pas encore réalisé</span></div>
-        <div class="kpi"><span class="label">À venir</span><b>${t.upcoming}</b><span class="muted small">pas encore passé</span></div>
-        <div class="kpi off"><span class="label">Annulés</span><b>${t.cancelled}</b><span class="muted small">&nbsp;</span></div>
-      </div>
-      <div class="tallies">${tallyTable("Par prestataire", report.byProvider)}${tallyTable("Par site", report.bySite)}${tallyTable("Par modèle", report.byModel)}</div>
-      <div class="section"><h3>Véhicules réalisés · ${done.length}</h3>${done.length ? `<div class="tablewrap"><table class="wide">${head}<tbody>${done.map(reportLine).join("")}</tbody></table></div>` : `<p class="muted">Aucun véhicule marqué « Réalisée » ce mois-ci. Utilise l'onglet Vérification pour les cocher.</p>`}</div>
-      ${open.length ? `<div class="section"><h3>Pas encore réalisés · ${open.length}</h3><div class="tablewrap"><table class="wide">${head}<tbody>${open.map(reportLine).join("")}</tbody></table></div></div>` : ""}`;
+      <section class="bil-hero">
+        <div class="bil-hero-top">${bilArt("bil-facture", "lg")}
+          <div class="bil-hero-txt"><span class="bil-hero-k">Total réalisé${provider ? " · " + esc(provider) : ""}</span>
+            <span class="bil-total"><b class="bil-total-n">${esc(ht(t.amountHT))}</b><small>HT</small></span>
+            <span class="bil-hero-sub">soit ${esc(ht(D.withVat(t.amountHT)))} TTC · ${t.done} réalisée${t.done > 1 ? "s" : ""} sur ${t.requested - t.cancelled} à faire</span></div></div>
+        <div class="bil-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Part réalisée"><i style="width:${pct}%"></i></div>
+        <div class="bil-progress-l"><span>${pct} % réalisé</span><span>${esc(D.monthLabel(month))}</span></div>
+        ${dayChart(report, month)}
+        ${notes ? `<div class="bil-notes">${notes}</div>` : ""}
+      </section>
+      <div class="ret-tiles bil-tiles">${tile("ret-fait", t.done, "Réalisés", "done")}${tile("bil-attente", t.overdue, "À confirmer", "overdue", "wait")}${tile("act-date", t.upcoming, "À venir", "upcoming")}${tile("bil-annule", t.cancelled, "Annulés", "cancelled")}</div>
+      <div class="bil-cols"><div class="bil-col">
+      ${provider ? invoiceSection(provider, report) : providerCard(report)}
+      ${splitCard(report)}
+      </div><div class="bil-col">
+      ${bilList("overdue", "À confirmer", overdue, "Dispo passée, pas encore « Réalisée ». À vérifier avant de valider la facture.")}
+      ${bilList("done", "Réalisés", done)}
+      ${bilList("upcoming", "À venir", upcoming)}
+      ${bilList("cancelled", "Annulés", cancelled)}
+      </div></div>`;
   }
-  $("#b-body").addEventListener("click", (e) => { const r = e.target.closest("[data-open]"); if (r) openDemande(r.dataset.open); });
+  // Invoice detail of one provider: lines « job × unit price », totals HT / TTC, what to check.
+  function invoiceSection(name, report, inSheet = false) {
+    const rows = report.rows.filter((d) => (d.prestataire || "—") === name);
+    const t = (report.byProvider.find(([k]) => k === name) || [, null])[1];
+    if (!t) return "";
+    const done = rows.filter((d) => d.statut === "realisee").sort(D.byDateThenTime);
+    const lines = D.invoiceLines(done);
+    const checks = [
+      t.overdue ? `<p class="bil-check wait">${bilArt("bil-attente", "xs")}<span><b>${plural(t.overdue, "véhicule")} encore à confirmer</b>Dispo passée sans « Réalisée » : vérifie avant de payer.</span></p>` : "",
+      t.unpriced ? `<p class="bil-check wait">${bilArt("bil-attente", "xs")}<span><b>${plural(t.unpriced, "prestation")} sans prix</b>Le tarif manquait à l'enregistrement : prends le prix de la facture.</span></p>` : "",
+    ].join("");
+    return `<section class="bil-sec bil-invoice">${inSheet ? "" : `<h2 class="ret-gh"><span>Détail pour la facture</span></h2>`}
+      <div class="bil-card bil-inv">
+        ${lines.map((l) => `<div class="bil-inv-line"><span><b>${esc(l.label)}</b><small>${l.flat ? "Forfait mensuel" : l.unit == null ? "Sans prix" : `${l.count} × ${esc(ht(l.unit))}`}</small></span><em>${l.count}</em><strong class="${l.unit == null ? "soft" : ""}">${l.flat ? "Forfait" : l.unit == null ? "—" : esc(ht(l.total))}</strong></div>`).join("")
+          || `<p class="bil-inv-empty">Rien de réalisé ce mois-ci.</p>`}
+        ${!t.amountHT && t.flat ? `<p class="bil-inv-flat">Payé au forfait mensuel : la facture doit reprendre le forfait convenu. Les ${t.flat} contrôle${t.flat > 1 ? "s" : ""} du mois servent à vérifier que le travail a bien été fait.</p>`
+          : `<div class="bil-inv-total"><span>Total HT${t.flat ? " (hors forfait)" : ""}</span><strong>${esc(ht(t.amountHT))}</strong></div>
+        <div class="bil-inv-ttc"><span>TVA ${Math.round(D.VAT_RATE * 100)} %</span><span>${esc(ht(D.withVat(t.amountHT) - t.amountHT))}</span></div>
+        <div class="bil-inv-ttc strong"><span>Total TTC</span><span>${esc(ht(D.withVat(t.amountHT)))}</span></div>`}
+      </div>${checks}
+      ${inSheet ? `${bilListPlain(done)}<div class="bil-sh-acts"><button type="button" class="ret-btn" data-bil-copy-prov="${esc(name)}">${icon("list")}Copier ses lignes pour Google Sheets</button>
+        <button type="button" class="ret-btn" data-bil-filter="${esc(name)}" data-team-sheet-close>Voir seulement ${esc(name)}</button></div>` : ""}</section>`;
+  }
+  const bilListPlain = (rows) => rows.length ? `<h3 class="ret-gh bil-sh-h"><span>Véhicules réalisés</span><em>${rows.length}</em></h3><div class="bil-card bil-rows">${rows.map((d) => bilRow(d, false)).join("")}</div>` : "";
+  function openInvoiceSheet(name) {
+    const report = currentReport();
+    const t = (report.byProvider.find(([k]) => k === name) || [, null])[1];
+    if (!t) return;
+    teamSheet.open(name, `<div class="bil-sheet"><div class="bil-sh-hero">${bilArt("bil-facture", "lg")}<span><span class="bil-hero-k">${esc(D.monthLabel($("#b-month").value))}</span>
+        <span class="bil-total"><b>${!t.amountHT && t.flat ? "Forfait" : esc(ht(t.amountHT))}</b><small>${!t.amountHT && t.flat ? "mensuel" : "HT"}</small></span>
+        <span class="bil-hero-sub">${t.done} réalisée${t.done > 1 ? "s" : ""} sur ${t.requested} demandée${t.requested > 1 ? "s" : ""}</span></span></div>
+      ${invoiceSection(name, report, true)}</div>`, { cls: "bil-sheet-wrap" });
+  }
+  function openExportSheet() {
+    const row = (attr, art, title, sub) => `<button type="button" class="bil-exp-row" ${attr}>${icon(art)}<span><b>${title}</b><small>${sub}</small></span>${icon("chev-r")}</button>`;
+    teamSheet.open("Exporter le bilan", `<div class="bil-sheet"><p class="sheet-sub">${esc(D.monthLabel($("#b-month").value))}${$("#b-prest").value ? " · " + esc($("#b-prest").value) : ", tous les prestataires"}.</p>
+      <div class="bil-card">${row("data-bil-do=\"copy\"", "copy", "Copier le résumé", "Les chiffres du mois, à coller dans WhatsApp ou un mail")}
+      ${row("data-bil-do=\"tsv\"", "list", "Copier pour Google Sheets", "Une ligne par véhicule, avec le prix HT")}
+      ${state.downloads ? row("data-bil-do=\"csv\"", "download", "Télécharger le CSV", "Le même tableau, en fichier") : ""}</div></div>`, { cls: "bil-sheet-wrap" });
+  }
+  function openMonthSheet() {
+    const thisMonth = today().slice(0, 7), month = $("#b-month").value;
+    const months = Array.from({ length: 24 }, (_, i) => monthShift(thisMonth, -i));
+    const years = [...new Set(months.map((m) => m.slice(0, 4)))];
+    teamSheet.open("Choisir un mois", `<div class="bil-sheet">${years.map((y) => `<h3 class="ret-gh bil-sh-h"><span>${y}</span></h3><div class="bil-month-grid">
+      ${months.filter((m) => m.startsWith(y)).reverse().map((m) => `<button type="button" class="bil-month" data-bil-set-month="${m}" aria-pressed="${m === month}">${esc(monthShort(m))}</button>`).join("")}</div>`).join("")}
+      <p class="ret-gsub bil-sh-foot">Les mois anciens sont lus seulement quand tu les ouvres.</p></div>`, { cls: "bil-sheet-wrap" });
+  }
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-bil-month], [data-bil-pick-month], [data-bil-filter], [data-bil-prov], [data-bil-split], [data-bil-all], [data-bil-jump], [data-bil-export], [data-bil-do], [data-bil-set-month], [data-bil-copy-prov]");
+    if (!el) return;
+    const ds = el.dataset;
+    if (ds.bilMonth) setReportMonth(ds.bilMonth);
+    else if ("bilPickMonth" in ds) openMonthSheet();
+    else if (ds.bilSetMonth) { teamSheet.close(); setReportMonth(ds.bilSetMonth); }
+    else if ("bilFilter" in ds) setReportProvider(ds.bilFilter);
+    else if (ds.bilProv) openInvoiceSheet(ds.bilProv);
+    else if (ds.bilSplit) { bil.split = ds.bilSplit; renderReport(); }
+    else if (ds.bilAll) { bil.all.add(ds.bilAll); renderReport(); }
+    else if (ds.bilJump) { bil.all.add(ds.bilJump); renderReport(); $("#bil-" + ds.bilJump)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); }
+    else if ("bilExport" in ds) openExportSheet();
+    else if (ds.bilDo) $("#b-" + ds.bilDo).click();
+    else if (ds.bilCopyProv) copyProviderRows(ds.bilCopyProv);
+  });
+  $("#b-body").addEventListener("click", (e) => { const r = e.target.closest("[data-open]"); if (r) openDemandeFromPlanning(r.dataset.open); });
+  document.addEventListener("click", (e) => { const r = e.target.closest(".bil-sheet [data-open]"); if (r) openDemandeFromPlanning(r.dataset.open); });
   ["#b-month", "#b-prest"].forEach((s) => $(s).addEventListener("change", renderReport));
   $("#b-copy").onclick = async () => {
     const text = D.monthlySummaryMessage(currentReport(), { month: $("#b-month").value, provider: $("#b-prest").value });
     if (await copyText(text)) toast("Résumé copié");
   };
-  const exportRows = () => [D.EXPORT_HEADER, ...currentReport().rows.slice().sort(D.byDateThenTime).map(D.exportRow)];
+  const exportRows = (rows = currentReport().rows) => [D.EXPORT_HEADER, ...rows.slice().sort(D.byDateThenTime).map(D.exportRow)];
+  async function copyProviderRows(name) {
+    const rows = exportRows(currentReport().rows.filter((d) => (d.prestataire || "—") === name && d.statut === "realisee"));
+    if (await copyText(D.toTsv(rows))) toast(`${plural(rows.length - 1, "ligne")} copiée${rows.length > 2 ? "s" : ""} : colle-les dans une feuille Google Sheets`);
+  }
   $("#b-tsv").onclick = async () => {
     const rows = exportRows();
     if (await copyText(D.toTsv(rows))) toast(`${plural(rows.length - 1, "ligne")} copiée${rows.length > 2 ? "s" : ""} : colle-les dans une feuille Google Sheets`);

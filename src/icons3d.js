@@ -300,6 +300,17 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     `<circle cx="24" cy="23" r="16" fill="url(#i3-body)" ${S}/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeR)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeB)"/>` +
     `<ellipse cx="20" cy="13.4" rx="8" ry="3.6" fill="url(#i3-shine)" opacity=".7"/>` +
     `<path d="M18.4 17.4a8 8 0 1 0 11.2 0" fill="none" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/><path d="M24 13.4v9" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/>`;
+  // Bilan de l'équipe : facture HT (feuille + pièce verte), en attente (pastille orange, horloge), annulé (pastille acier, croix).
+  ICONS["bil-facture"] = ground(24, 43, 17, 2.2) +
+    `<path d="M10.6 4.6h21.2a1.8 1.8 0 0 1 1.8 1.8v31.4l-3.1-2-3.1 2-3.1-2-3.1 2-3.1-2-3.1 2-3.1-2-2 1.3V6.4a1.8 1.8 0 0 1 1.7-1.8Z" fill="#fff" ${S}/>` +
+    `<path d="M13 9.6h10.4" stroke="#0f6f8f" stroke-width="2.2" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="1.6" stroke-linecap="round"><path d="M13 14.6h16"/><path d="M13 18.6h16"/><path d="M13 22.6h9"/></g>` +
+    `<circle cx="33.6" cy="31.6" r="9.2" fill="url(#i3-spg)" ${S}/><ellipse cx="31.4" cy="27.6" rx="5" ry="2.4" fill="url(#i3-shine)" opacity=".7"/>` +
+    `<path d="M36.6 27.9a4.6 4.6 0 1 0 0 7.4M29 30.5h5.6M29 32.9h5.6" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/>`;
+  ICONS["bil-attente"] = badge("ora",
+    `<circle cx="24" cy="23" r="9.6" fill="none" stroke="#fff" stroke-width="2.8"/><path d="M24 17.4V23l3.8 2.6" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>`);
+  ICONS["bil-annule"] = badge("steel",
+    `<path d="M18.4 17.4l11.2 11.2M29.6 17.4L18.4 28.6" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/>`);
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
