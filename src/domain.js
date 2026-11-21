@@ -362,15 +362,40 @@
       cancelled: demandes.filter((d) => d.statut === "annulee").length,
       overdue: pending.filter((d) => lastDay(d) < todayIso).length,
       upcoming: pending.filter((d) => lastDay(d) >= todayIso).length,
-      amount: done.reduce((sum, d) => sum + (+d.montant || 0), 0),
+      ...amountsOf(done),
     };
+  }
+  // HT amounts of the done jobs, to check a provider's invoice (payment stays by bank transfer).
+  // A tailgate job without a price is the monthly flat fee (DHOLLIANDA, Fabian 2026-11-18): counted apart, never as "missing".
+  const hasPrice = (d) => d.prixHT != null && d.prixHT !== "" && Number.isFinite(+d.prixHT);
+  const isFlatFee = (d) => d.service === "hayon" && !hasPrice(d);
+  function amountsOf(done) {
+    const priced = done.filter(hasPrice);
+    return {
+      amountHT: Math.round(priced.reduce((sum, d) => sum + +d.prixHT, 0) * 100) / 100,
+      flat: done.filter(isFlatFee).length,
+      unpriced: done.filter((d) => !hasPrice(d) && !isFlatFee(d)).length,
+    };
+  }
+  // Invoice lines of done jobs: one line per job kind and unit price (« Lavage complet · 12 × 37 € »), biggest first.
+  function invoiceLines(done) {
+    const lines = new Map();
+    done.forEach((d) => {
+      const unit = hasPrice(d) ? +d.prixHT : null;
+      const label = jobLabel(d) || "Prestation";
+      const key = `${label}|${unit ?? (isFlatFee(d) ? "flat" : "none")}`;
+      const line = lines.get(key) || { label, unit, flat: isFlatFee(d), count: 0, total: 0 };
+      line.count++; if (unit != null) line.total = Math.round((line.total + unit) * 100) / 100;
+      lines.set(key, line);
+    });
+    return [...lines.values()].sort((a, b) => b.total - a.total || b.count - a.count);
   }
   function monthlyReport(demandes, { month, provider, todayIso }) {
     const rows = demandes.filter((d) => d.date && d.date.slice(0, 7) === month && (!provider || d.prestataire === provider));
     const tallyBy = (keyOf) => [...groupBy(rows, keyOf).entries()]
       .map(([key, items]) => [key, tally(items, todayIso)])
       .sort((a, b) => b[1].requested - a[1].requested);
-    return { rows, total: tally(rows, todayIso), byProvider: tallyBy((d) => d.prestataire || "—"), bySite: tallyBy(siteOf), byModel: tallyBy((d) => vehicleLabel(d) || "Modèle non précisé") };
+    return { rows, total: tally(rows, todayIso), byProvider: tallyBy((d) => d.prestataire || "—"), bySite: tallyBy(siteOf), byModel: tallyBy((d) => vehicleLabel(d) || "Modèle non précisé"), byService: tallyBy(jobLabel) };
   }
   function monthlySummaryMessage(report, { month, provider }) {
     const t = report.total;
@@ -384,11 +409,12 @@
       ...report.bySite.map(([k, a]) => `• ${k} : ${a.done} / ${a.requested}`),
     ].join("\n");
   }
-  const EXPORT_HEADER = ["Dispo du", "Dispo au", "Immatriculation", "Modèle", "Cubage (m³)", "Prestation", "Site", "Adresse", "Prestataire", "Statut", "Envoyée le", "Réalisée le"];
+  const EXPORT_HEADER = ["Dispo du", "Dispo au", "Immatriculation", "Modèle", "Cubage (m³)", "Prestation", "Site", "Adresse", "Prestataire", "Statut", "Envoyée le", "Réalisée le", "Prix HT"];
   function exportRow(d) {
     return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", jobLabel(d),
       d.site, d.adresse, d.prestataire, statusOf(d.statut).label,
-      d.sentAt ? numericDate(d.sentAt.slice(0, 10)) : "", d.doneAt ? numericDate(d.doneAt.slice(0, 10)) : ""];
+      d.sentAt ? numericDate(d.sentAt.slice(0, 10)) : "", d.doneAt ? numericDate(d.doneAt.slice(0, 10)) : "",
+      hasPrice(d) ? String(+d.prixHT).replace(".", ",") : ""];
   }
   function toTsv(rows) {
     const clean = (v) => String(v ?? "").replace(/[\t\r\n]/g, " ");
@@ -1025,7 +1051,7 @@
     serviceOf, WASH_KINDS, washKindOf, jobLabel, jobTitle, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
-    monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
+    monthlyReport, invoiceLines, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_DAYS, TEAM_RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,

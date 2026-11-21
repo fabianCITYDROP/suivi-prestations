@@ -315,14 +315,15 @@
 
   <!-- BILAN -->
   <section id="view-bilan" hidden>
-    <div class="tools">
-      <label class="field"><span>Mois</span><input type="month" id="b-month"></label>
-      <label class="field"><span>Prestataire</span><select id="b-prest"></select></label>
-      <span style="flex:1"></span>
-      <button type="button" id="b-copy"><svg class="icon"><use href="#i-copy"/></svg>Copier le résumé</button>
-      <button type="button" id="b-tsv"><svg class="icon"><use href="#i-list"/></svg>Copier pour Google Sheets</button>
-      <button type="button" class="primary" id="b-csv" hidden><svg class="icon"><use href="#i-download"/></svg>Télécharger le CSV</button>
-    </div>
+    <header class="bil-head">
+      <div class="bil-titles"><p class="bil-kicker" id="bilKicker"></p><h1 class="bil-title">Bilan</h1></div>
+      <button type="button" class="bil-export" data-bil-export><svg class="icon"><use href="#i-download"/></svg>Exporter</button>
+    </header>
+    <div class="bil-months" id="bilMonths" role="tablist" aria-label="Mois"></div>
+    <div class="bil-provs" id="bilProvs"></div>
+    <!-- Les vrais champs restent (cachés) : le mois et le prestataire choisis y sont gardés. -->
+    <div hidden><input type="month" id="b-month" aria-label="Mois"><select id="b-prest" aria-label="Prestataire"></select>
+      <button type="button" id="b-copy">Copier le résumé</button><button type="button" id="b-tsv">Copier pour Google Sheets</button><button type="button" id="b-csv" hidden>Télécharger le CSV</button></div>
     <div id="b-body"></div>
   </section>
 

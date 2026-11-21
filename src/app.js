@@ -1792,53 +1792,205 @@
     finally { buttons.forEach((b) => (b.disabled = false)); }
   }));
 
-  // ================= monthly report =================
+  // ================= monthly report (« Bilan », façon iPhone 2026-11-21) =================
+  // HT amounts of the done jobs per provider, to check their invoices (payment stays by bank transfer).
+  // The month and the provider stay in the hidden #b-month / #b-prest fields; the segmented control and the pills drive them.
   $("#b-month").value = today().slice(0, 7);
+  const bil = { split: "service", all: new Set() };
   const currentReport = () => D.monthlyReport(state.demandes, { month: $("#b-month").value, provider: $("#b-prest").value, todayIso: today() });
-  function tallyTable(title, list) {
-    return `<div class="section"><h3>${title}</h3><div class="tablewrap"><table><thead><tr><th></th><th class="num">Demandés</th><th class="num">Réalisés</th><th class="num">Annulés</th><th class="num">En attente</th></tr></thead><tbody>
-      ${list.map(([k, t]) => `<tr><td>${esc(k)}</td><td class="num">${t.requested}</td><td class="num">${t.done}</td><td class="num">${t.cancelled}</td><td class="num">${t.overdue + t.upcoming}</td></tr>`).join("")}
-      </tbody></table></div></div>`;
+  const bilArt = (key, size = "sm") => `<span class="ret-ico ${size}" aria-hidden="true">${self.IssueArt?.art(key, "ret-art") || ""}</span>`;
+  const ht = (n) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const monthShift = (month, k) => { const d = new Date(+month.slice(0, 4), +month.slice(5, 7) - 1 + k, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+  const monthShort = (month) => { const s = new Date(+month.slice(0, 4), +month.slice(5, 7) - 1, 1).toLocaleDateString("fr-FR", { month: "short" }); return s.charAt(0).toUpperCase() + s.slice(1); };
+  const isFlat = (d) => d.service === "hayon" && !(d.prixHT != null && d.prixHT !== "" && Number.isFinite(+d.prixHT));
+  const priceOf = (d) => (isFlat(d) ? "Forfait" : d.prixHT != null && d.prixHT !== "" && Number.isFinite(+d.prixHT) ? ht(+d.prixHT) : "Sans prix");
+  function setReportMonth(month) { $("#b-month").value = month; bil.all.clear(); renderReport(); }
+  function setReportProvider(provider) { $("#b-prest").value = provider; bil.all.clear(); renderReport(); }
+  function renderReportControls(month, provider) {
+    const thisMonth = today().slice(0, 7);
+    const recent = [-2, -1, 0].map((k) => monthShift(thisMonth, k));
+    const other = !recent.includes(month);
+    $("#bilMonths").innerHTML = recent.map((m) => `<button type="button" role="tab" data-bil-month="${m}" aria-selected="${m === month}">${esc(monthShort(m))}${m.slice(0, 4) !== thisMonth.slice(0, 4) ? " " + m.slice(0, 4) : ""}</button>`).join("")
+      + `<button type="button" role="tab" data-bil-pick-month aria-selected="${other}">${other ? esc(monthShort(month) + " " + month.slice(0, 4)) : "Autre mois…"}</button>`;
+    const names = [...new Set([...state.providers, ...(provider ? [provider] : [])])];
+    $("#bilProvs").hidden = names.length < 2;
+    $("#bilProvs").innerHTML = [["", "Tous"], ...names.map((p) => [p, p])].map(([v, l]) => `<button type="button" class="plan-prov" data-bil-filter="${esc(v)}" aria-pressed="${provider === v}">${esc(l)}</button>`).join("");
+    $("#bilKicker").textContent = D.monthLabel(month) + (provider ? " · " + provider : "");
   }
-  function reportLine(d) {
-    return `<tr class="click" data-open="${esc(d.id)}"><td class="date">${esc(D.numericDate(d.date))}</td><td>${plateTag(d.plaque)}</td><td>${esc(D.vehicleLabel(d))}</td><td>${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td><td>${statusChip(d.statut)}</td></tr>`;
+  function bilRow(d, who = !$("#b-prest").value) {
+    const late = D.isOpen(d) && D.lastDay(d) < today();
+    const status = d.statut === "realisee" ? "" : `<span class="bil-st ${late ? "wait" : d.statut === "annulee" ? "off" : ""}"><i></i>${esc(late ? "À confirmer" : D.statusOf(d.statut).label)}</span>`;
+    return `<button type="button" class="bil-row" data-open="${esc(d.id)}">
+      <span class="bil-row-date"><b>${+d.date.slice(8, 10)}</b><small>${esc(new Date(d.date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short" }))}</small></span>
+      <span class="bil-row-main"><span class="bil-row-line">${plateTag(d.plaque)}${status}</span>
+        <span class="bil-row-sub">${esc([D.jobLabel(d), D.vehicleLabel(d), who && d.prestataire].filter(Boolean).join(" · "))}</span></span>
+      <span class="bil-row-price${d.statut !== "realisee" || isFlat(d) || priceOf(d) === "Sans prix" ? " soft" : ""}${d.statut === "annulee" ? " off" : ""}">${esc(priceOf(d))}</span></button>`;
+  }
+  function bilList(id, title, rows, note = "") {
+    if (!rows.length) return "";
+    const open = bil.all.has(id) || rows.length <= 8;
+    return `<section class="bil-sec" id="bil-${id}"><h2 class="ret-gh"><span>${title}</span><em>${rows.length}</em></h2>${note ? `<p class="ret-gsub">${note}</p>` : ""}
+      <div class="bil-card bil-rows">${(open ? rows : rows.slice(0, 6)).map((d) => bilRow(d)).join("")}
+      ${open ? "" : `<button type="button" class="bil-more" data-bil-all="${id}">Tout voir (${rows.length})${icon("chev-d")}</button>`}</div></section>`;
+  }
+  function providerCard(report) {
+    const max = Math.max(1, ...report.byProvider.map(([, t]) => t.amountHT));
+    const rows = report.byProvider.map(([name, t]) => {
+      const flatOnly = !t.amountHT && t.flat;
+      const sub = [`${t.done} réalisé${t.done > 1 ? "s" : ""} sur ${t.requested}`, t.overdue ? `<b class="wait">${t.overdue} à confirmer</b>` : "", t.unpriced ? `<b class="wait">${t.unpriced} sans prix</b>` : ""].filter(Boolean).join(" · ");
+      return `<button type="button" class="bil-prov-row" data-bil-prov="${esc(name)}">
+        <span class="bil-prov-main"><b>${esc(name)}</b><span>${sub}</span>
+          <span class="bil-bar" aria-hidden="true"><i style="width:${flatOnly ? 0 : Math.max(t.amountHT ? 3 : 0, Math.round((t.amountHT / max) * 100))}%"></i></span></span>
+        <span class="bil-prov-amount">${flatOnly ? `<b class="soft">Forfait</b><small>mensuel</small>` : `<b>${esc(ht(t.amountHT))}</b><small>HT${t.flat ? " + forfait" : ""}</small>`}</span>
+        ${icon("chev-r")}</button>`;
+    }).join("");
+    return `<section class="bil-sec"><h2 class="ret-gh"><span>Par prestataire</span><em>${report.byProvider.length}</em></h2>
+      <p class="ret-gsub">Touche un prestataire pour le détail à comparer avec sa facture.</p><div class="bil-card">${rows}</div></section>`;
+  }
+  const SPLITS = [["service", "Prestation", "byService"], ["site", "Site", "bySite"], ["model", "Modèle", "byModel"]];
+  function splitCard(report) {
+    const [, , key] = SPLITS.find(([id]) => id === bil.split) || SPLITS[0];
+    const list = report[key];
+    const max = Math.max(1, ...list.map(([, t]) => t.requested));
+    return `<section class="bil-sec"><h2 class="ret-gh"><span>Répartition</span></h2>
+      <div class="ret-seg bil-seg" role="tablist" aria-label="Répartition">${SPLITS.map(([id, label]) => `<button type="button" role="tab" data-bil-split="${id}" aria-selected="${id === bil.split}">${label}</button>`).join("")}</div>
+      <div class="bil-card">${list.map(([name, t]) => `<div class="bil-split-row"><span class="bil-split-name">${esc(name)}</span>
+        <span class="bil-bar two" aria-hidden="true"><i style="width:${Math.round((t.requested / max) * 100)}%"><i style="width:${t.requested ? Math.round((t.done / t.requested) * 100) : 0}%"></i></i></span>
+        <span class="bil-split-n"><span><b>${t.done}</b> / ${t.requested}</span>${t.amountHT ? `<small>${esc(ht(t.amountHT))} HT</small>` : ""}</span></div>`).join("")}</div>
+      <p class="bil-legend"><i class="done"></i>réalisés <i></i>demandés</p></section>`;
+  }
+  function dayChart(report, month) {
+    const days = new Date(+month.slice(0, 4), +month.slice(5, 7), 0).getDate();
+    const counts = Array(days).fill(0);
+    report.rows.filter((d) => d.statut === "realisee").forEach((d) => { counts[+d.date.slice(8, 10) - 1]++; });
+    const max = Math.max(1, ...counts);
+    const now = today().slice(0, 7) === month ? +today().slice(8, 10) : 0;
+    return `<div class="bil-chart" role="img" aria-label="Prestations réalisées par jour">${counts.map((c, i) => `<span class="${i + 1 === now ? "now" : i + 1 > now && now ? "later" : ""}" title="${i + 1} : ${c}"><i style="height:${c ? Math.max(8, Math.round((c / max) * 100)) : 0}%"></i></span>`).join("")}</div>
+      <div class="bil-chart-axis"><span>1</span><span>${Math.ceil(days / 2)}</span><span>${days}</span></div>`;
   }
   function renderReport() {
     const month = $("#b-month").value, provider = $("#b-prest").value;
+    renderReportControls(month, provider);
     // The start of the month is read only when the Bilan page is open (it would cost reads at every opening otherwise).
     const loading = month && !$("#view-bilan").hidden && needOlder(D.monthStart(month + "-01"), D.nextMonthStart(month + "-01"));
     const report = currentReport();
     if (loading && !report.rows.length) {
-      $("#b-body").innerHTML = `<div class="empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les ouvres.</span></div>`;
+      $("#b-body").innerHTML = `<div class="ret-empty" aria-busy="true">${bilArt("bil-facture", "xl")}<b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les ouvres.</span></div>`;
       return;
     }
     if (!report.rows.length) {
-      $("#b-body").innerHTML = `<div class="empty"><b>Aucune demande en ${esc(D.monthLabel(month))}${provider ? " avec " + esc(provider) : ""}.</b><span>Le bilan compte les demandes selon leur premier jour de disponibilité : demandées, réalisées, annulées et encore en attente.</span></div>`;
+      $("#b-body").innerHTML = `<div class="ret-empty">${bilArt("bil-facture", "xl")}<b>Aucune demande en ${esc(D.monthLabel(month))}${provider ? " avec " + esc(provider) : ""}</b><span>Le bilan compte les demandes selon leur premier jour de disponibilité : demandées, réalisées, annulées et encore en attente.</span></div>`;
       return;
     }
     const t = report.total;
+    const pct = t.requested ? Math.round((t.done / (t.requested - t.cancelled || 1)) * 100) : 0;
     const done = report.rows.filter((d) => d.statut === "realisee").sort(D.byDateThenTime);
-    const open = report.rows.filter(D.isOpen).sort(D.byDateThenTime);
-    const head = `<thead><tr><th>Dispo</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th></tr></thead>`;
+    const overdue = report.rows.filter((d) => D.isOpen(d) && D.lastDay(d) < today()).sort(D.byDateThenTime);
+    const upcoming = report.rows.filter((d) => D.isOpen(d) && D.lastDay(d) >= today()).sort(D.byDateThenTime);
+    const cancelled = report.rows.filter((d) => d.statut === "annulee").sort(D.byDateThenTime);
+    const notes = [
+      t.flat ? `<span class="bil-note">${t.flat} contrôle${t.flat > 1 ? "s" : ""} hayon au forfait mensuel, hors total</span>` : "",
+      t.unpriced ? `<span class="bil-note wait">${plural(t.unpriced, "prestation réalisée")} sans prix : à vérifier sur la facture</span>` : "",
+    ].join("");
+    const tile = (art, n, label, jump, tone = "") => `<button type="button" class="ret-tile bil-tile ${tone}" data-bil-jump="${jump}"${n ? "" : " disabled"}>${bilArt(art)}<b>${n}</b><span>${label}</span></button>`;
     $("#b-body").innerHTML = `
-      <div class="kpis">
-        <div class="kpi"><span class="label">Demandés</span><b>${t.requested}</b><span class="muted small">${esc(D.monthLabel(month))}</span></div>
-        <div class="kpi done"><span class="label">Réalisés</span><b>${t.done}</b><span class="muted small">${t.requested ? Math.round((t.done / t.requested) * 100) : 0} % des demandes</span></div>
-        <div class="kpi wait"><span class="label">À confirmer</span><b>${t.overdue}</b><span class="muted small">dispo passée, pas encore réalisé</span></div>
-        <div class="kpi"><span class="label">À venir</span><b>${t.upcoming}</b><span class="muted small">pas encore passé</span></div>
-        <div class="kpi off"><span class="label">Annulés</span><b>${t.cancelled}</b><span class="muted small">&nbsp;</span></div>
-      </div>
-      <div class="tallies">${tallyTable("Par prestataire", report.byProvider)}${tallyTable("Par site", report.bySite)}${tallyTable("Par modèle", report.byModel)}</div>
-      <div class="section"><h3>Véhicules réalisés · ${done.length}</h3>${done.length ? `<div class="tablewrap"><table class="wide">${head}<tbody>${done.map(reportLine).join("")}</tbody></table></div>` : `<p class="muted">Aucun véhicule marqué « Réalisée » ce mois-ci. Utilise l'onglet Vérification pour les cocher.</p>`}</div>
-      ${open.length ? `<div class="section"><h3>Pas encore réalisés · ${open.length}</h3><div class="tablewrap"><table class="wide">${head}<tbody>${open.map(reportLine).join("")}</tbody></table></div></div>` : ""}`;
+      <section class="bil-hero">
+        <div class="bil-hero-top">${bilArt("bil-facture", "lg")}
+          <div class="bil-hero-txt"><span class="bil-hero-k">Total réalisé${provider ? " · " + esc(provider) : ""}</span>
+            <span class="bil-total"><b class="bil-total-n">${esc(ht(t.amountHT))}</b><small>HT</small></span>
+            <span class="bil-hero-sub">soit ${esc(ht(D.withVat(t.amountHT)))} TTC · ${t.done} réalisée${t.done > 1 ? "s" : ""} sur ${t.requested - t.cancelled} à faire</span></div></div>
+        <div class="bil-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Part réalisée"><i style="width:${pct}%"></i></div>
+        <div class="bil-progress-l"><span>${pct} % réalisé</span><span>${esc(D.monthLabel(month))}</span></div>
+        ${dayChart(report, month)}
+        ${notes ? `<div class="bil-notes">${notes}</div>` : ""}
+      </section>
+      <div class="ret-tiles bil-tiles">${tile("ret-fait", t.done, "Réalisés", "done")}${tile("bil-attente", t.overdue, "À confirmer", "overdue", "wait")}${tile("act-date", t.upcoming, "À venir", "upcoming")}${tile("bil-annule", t.cancelled, "Annulés", "cancelled")}</div>
+      <div class="bil-cols"><div class="bil-col">
+      ${provider ? invoiceSection(provider, report) : providerCard(report)}
+      ${splitCard(report)}
+      </div><div class="bil-col">
+      ${bilList("overdue", "À confirmer", overdue, "Dispo passée, pas encore « Réalisée ». À vérifier avant de valider la facture.")}
+      ${bilList("done", "Réalisés", done)}
+      ${bilList("upcoming", "À venir", upcoming)}
+      ${bilList("cancelled", "Annulés", cancelled)}
+      </div></div>`;
   }
-  $("#b-body").addEventListener("click", (e) => { const r = e.target.closest("[data-open]"); if (r) openDemande(r.dataset.open); });
+  // Invoice detail of one provider: lines « job × unit price », totals HT / TTC, what to check.
+  function invoiceSection(name, report, inSheet = false) {
+    const rows = report.rows.filter((d) => (d.prestataire || "—") === name);
+    const t = (report.byProvider.find(([k]) => k === name) || [, null])[1];
+    if (!t) return "";
+    const done = rows.filter((d) => d.statut === "realisee").sort(D.byDateThenTime);
+    const lines = D.invoiceLines(done);
+    const checks = [
+      t.overdue ? `<p class="bil-check wait">${bilArt("bil-attente", "xs")}<span><b>${plural(t.overdue, "véhicule")} encore à confirmer</b>Dispo passée sans « Réalisée » : vérifie avant de payer.</span></p>` : "",
+      t.unpriced ? `<p class="bil-check wait">${bilArt("bil-attente", "xs")}<span><b>${plural(t.unpriced, "prestation")} sans prix</b>Le tarif manquait à l'enregistrement : prends le prix de la facture.</span></p>` : "",
+    ].join("");
+    return `<section class="bil-sec bil-invoice">${inSheet ? "" : `<h2 class="ret-gh"><span>Détail pour la facture</span></h2>`}
+      <div class="bil-card bil-inv">
+        ${lines.map((l) => `<div class="bil-inv-line"><span><b>${esc(l.label)}</b><small>${l.flat ? "Forfait mensuel" : l.unit == null ? "Sans prix" : `${l.count} × ${esc(ht(l.unit))}`}</small></span><em>${l.count}</em><strong class="${l.unit == null ? "soft" : ""}">${l.flat ? "Forfait" : l.unit == null ? "—" : esc(ht(l.total))}</strong></div>`).join("")
+          || `<p class="bil-inv-empty">Rien de réalisé ce mois-ci.</p>`}
+        ${!t.amountHT && t.flat ? `<p class="bil-inv-flat">Payé au forfait mensuel : la facture doit reprendre le forfait convenu. Les ${t.flat} contrôle${t.flat > 1 ? "s" : ""} du mois servent à vérifier que le travail a bien été fait.</p>`
+          : `<div class="bil-inv-total"><span>Total HT${t.flat ? " (hors forfait)" : ""}</span><strong>${esc(ht(t.amountHT))}</strong></div>
+        <div class="bil-inv-ttc"><span>TVA ${Math.round(D.VAT_RATE * 100)} %</span><span>${esc(ht(D.withVat(t.amountHT) - t.amountHT))}</span></div>
+        <div class="bil-inv-ttc strong"><span>Total TTC</span><span>${esc(ht(D.withVat(t.amountHT)))}</span></div>`}
+      </div>${checks}
+      ${inSheet ? `${bilListPlain(done)}<div class="bil-sh-acts"><button type="button" class="ret-btn" data-bil-copy-prov="${esc(name)}">${icon("list")}Copier ses lignes pour Google Sheets</button>
+        <button type="button" class="ret-btn" data-bil-filter="${esc(name)}" data-team-sheet-close>Voir seulement ${esc(name)}</button></div>` : ""}</section>`;
+  }
+  const bilListPlain = (rows) => rows.length ? `<h3 class="ret-gh bil-sh-h"><span>Véhicules réalisés</span><em>${rows.length}</em></h3><div class="bil-card bil-rows">${rows.map((d) => bilRow(d, false)).join("")}</div>` : "";
+  function openInvoiceSheet(name) {
+    const report = currentReport();
+    const t = (report.byProvider.find(([k]) => k === name) || [, null])[1];
+    if (!t) return;
+    teamSheet.open(name, `<div class="bil-sheet"><div class="bil-sh-hero">${bilArt("bil-facture", "lg")}<span><span class="bil-hero-k">${esc(D.monthLabel($("#b-month").value))}</span>
+        <span class="bil-total"><b>${!t.amountHT && t.flat ? "Forfait" : esc(ht(t.amountHT))}</b><small>${!t.amountHT && t.flat ? "mensuel" : "HT"}</small></span>
+        <span class="bil-hero-sub">${t.done} réalisée${t.done > 1 ? "s" : ""} sur ${t.requested} demandée${t.requested > 1 ? "s" : ""}</span></span></div>
+      ${invoiceSection(name, report, true)}</div>`, { cls: "bil-sheet-wrap" });
+  }
+  function openExportSheet() {
+    const row = (attr, art, title, sub) => `<button type="button" class="bil-exp-row" ${attr}>${icon(art)}<span><b>${title}</b><small>${sub}</small></span>${icon("chev-r")}</button>`;
+    teamSheet.open("Exporter le bilan", `<div class="bil-sheet"><p class="sheet-sub">${esc(D.monthLabel($("#b-month").value))}${$("#b-prest").value ? " · " + esc($("#b-prest").value) : ", tous les prestataires"}.</p>
+      <div class="bil-card">${row("data-bil-do=\"copy\"", "copy", "Copier le résumé", "Les chiffres du mois, à coller dans WhatsApp ou un mail")}
+      ${row("data-bil-do=\"tsv\"", "list", "Copier pour Google Sheets", "Une ligne par véhicule, avec le prix HT")}
+      ${state.downloads ? row("data-bil-do=\"csv\"", "download", "Télécharger le CSV", "Le même tableau, en fichier") : ""}</div></div>`, { cls: "bil-sheet-wrap" });
+  }
+  function openMonthSheet() {
+    const thisMonth = today().slice(0, 7), month = $("#b-month").value;
+    const months = Array.from({ length: 24 }, (_, i) => monthShift(thisMonth, -i));
+    const years = [...new Set(months.map((m) => m.slice(0, 4)))];
+    teamSheet.open("Choisir un mois", `<div class="bil-sheet">${years.map((y) => `<h3 class="ret-gh bil-sh-h"><span>${y}</span></h3><div class="bil-month-grid">
+      ${months.filter((m) => m.startsWith(y)).reverse().map((m) => `<button type="button" class="bil-month" data-bil-set-month="${m}" aria-pressed="${m === month}">${esc(monthShort(m))}</button>`).join("")}</div>`).join("")}
+      <p class="ret-gsub bil-sh-foot">Les mois anciens sont lus seulement quand tu les ouvres.</p></div>`, { cls: "bil-sheet-wrap" });
+  }
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-bil-month], [data-bil-pick-month], [data-bil-filter], [data-bil-prov], [data-bil-split], [data-bil-all], [data-bil-jump], [data-bil-export], [data-bil-do], [data-bil-set-month], [data-bil-copy-prov]");
+    if (!el) return;
+    const ds = el.dataset;
+    if (ds.bilMonth) setReportMonth(ds.bilMonth);
+    else if ("bilPickMonth" in ds) openMonthSheet();
+    else if (ds.bilSetMonth) { teamSheet.close(); setReportMonth(ds.bilSetMonth); }
+    else if ("bilFilter" in ds) setReportProvider(ds.bilFilter);
+    else if (ds.bilProv) openInvoiceSheet(ds.bilProv);
+    else if (ds.bilSplit) { bil.split = ds.bilSplit; renderReport(); }
+    else if (ds.bilAll) { bil.all.add(ds.bilAll); renderReport(); }
+    else if (ds.bilJump) { bil.all.add(ds.bilJump); renderReport(); $("#bil-" + ds.bilJump)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); }
+    else if ("bilExport" in ds) openExportSheet();
+    else if (ds.bilDo) $("#b-" + ds.bilDo).click();
+    else if (ds.bilCopyProv) copyProviderRows(ds.bilCopyProv);
+  });
+  $("#b-body").addEventListener("click", (e) => { const r = e.target.closest("[data-open]"); if (r) openDemandeFromPlanning(r.dataset.open); });
+  document.addEventListener("click", (e) => { const r = e.target.closest(".bil-sheet [data-open]"); if (r) openDemandeFromPlanning(r.dataset.open); });
   ["#b-month", "#b-prest"].forEach((s) => $(s).addEventListener("change", renderReport));
   $("#b-copy").onclick = async () => {
     const text = D.monthlySummaryMessage(currentReport(), { month: $("#b-month").value, provider: $("#b-prest").value });
     if (await copyText(text)) toast("Résumé copié");
   };
-  const exportRows = () => [D.EXPORT_HEADER, ...currentReport().rows.slice().sort(D.byDateThenTime).map(D.exportRow)];
+  const exportRows = (rows = currentReport().rows) => [D.EXPORT_HEADER, ...rows.slice().sort(D.byDateThenTime).map(D.exportRow)];
+  async function copyProviderRows(name) {
+    const rows = exportRows(currentReport().rows.filter((d) => (d.prestataire || "—") === name && d.statut === "realisee"));
+    if (await copyText(D.toTsv(rows))) toast(`${plural(rows.length - 1, "ligne")} copiée${rows.length > 2 ? "s" : ""} : colle-les dans une feuille Google Sheets`);
+  }
   $("#b-tsv").onclick = async () => {
     const rows = exportRows();
     if (await copyText(D.toTsv(rows))) toast(`${plural(rows.length - 1, "ligne")} copiée${rows.length > 2 ? "s" : ""} : colle-les dans une feuille Google Sheets`);
