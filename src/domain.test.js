@@ -800,3 +800,13 @@ test("« Signaler » : Autre demande des mots, et on retrouve les mots pour modi
   const p = D.fieldEditPatch({ ...r, at: "t0" }, { plaque: "ef456gh", quoi: ["Véhicule sale"], texte: "" }, "t1");
   assert.deepEqual(p, { plaque: "EF-456-GH", quoi: ["Véhicule sale"], texte: "Véhicule sale", photo: "", modifieAt: "t1" });
 });
+
+test("Nouvelle demande : seulement les sites donnés au prestataire, tous s'il n'en a aucun", () => {
+  const names = ["Saint-Cloud", "La Défense", "Aulnay", "Lille"];
+  const garages = [{ garage: "Allo", prestataire: "ALLO", site: "Aulnay" }, { garage: "Allo Défense", prestataire: "ALLO", site: "La Défense" },
+    { garage: "Allo vieux", prestataire: "ALLO", site: "Ancien site" }, { garage: "Allo ?", prestataire: "ALLO", site: "" }, { garage: "DSAT", prestataire: "DSAT", site: "Lille" }];
+  assert.deepEqual(D.providerSites(garages, "ALLO", names), ["La Défense", "Aulnay"]);
+  assert.deepEqual(D.providerSites(garages, "Khalid", names), []);
+  assert.deepEqual(D.providerSites(garages, "", names), []);
+  assert.deepEqual(D.providerSites(null, "ALLO", names), []);
+});

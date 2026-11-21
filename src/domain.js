@@ -458,6 +458,12 @@
     const hits = (sites || []).filter((s) => { const sw = new Set(nameWords(s.nom)); return words.some((w) => sw.has(w)); });
     return hits.length === 1 ? hits[0] : null;
   }
+  // The sites a provider goes to = the sites of its garages in Réglages › Garages des mails, in the order of the
+  // app's site list. Empty when none is given: the new-request form then offers every site.
+  function providerSites(garages, provider, siteNames) {
+    const mine = new Set(normalizeGarages(garages).filter((g) => provider && g.prestataire === provider && g.site).map((g) => g.site));
+    return (siteNames || []).filter((n) => mine.has(n));
+  }
   // The garages seen in mails (and those already set up), with what the app makes of each one.
   function garageList(demandes, garages, { providerNames, sites }) {
     const rows = normalizeGarages(garages).map((g) => ({ ...g, saved: true, count: 0 }));
@@ -1099,7 +1105,7 @@
     monthlyReport, invoiceLines, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_DAYS, TEAM_RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
-    providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
+    providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, providerSites, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
