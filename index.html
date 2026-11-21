@@ -662,9 +662,78 @@ button.pf-line:hover { background: var(--accent-soft); }
 .trash-days { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; color: var(--ink-2); background: var(--surface-2); font-variant-numeric: tabular-nums; }
 .trash-days.soon { color: var(--lv-soon); background: var(--lv-soon-bg); }
 @media (max-width: 560px) { .trash-card { grid-template-columns: minmax(0, 1fr); } .trash-card > button { width: 100%; justify-content: center; } }
-/* Provider « Faits »: older month report on demand */
-.presta-body .month-pick { margin: 12px 0; max-width: 260px; }
-.presta-body .month-back { width: 100%; min-height: 48px; justify-content: center; gap: 8px; margin: 4px 0 14px; font-weight: 600; color: var(--accent); border: 1px solid var(--line-strong); background: var(--surface); }
+/* ===== Prestataire « Faits » façon iPhone (2026-11-21) : compteur en grand, mois en pastilles, liste groupée par jour.
+   Tout est préfixé .done- / .month- pour ne rien changer aux autres onglets. Vert = fait, orange = Corriger (statuts). */
+.done-sum { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; border-radius: 20px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 12px 26px -18px rgba(10, 20, 28, .4); }
+.done-sum.loading { flex-direction: row; align-items: center; gap: 12px; color: var(--ink-2); font-size: 15px; min-height: 92px; }
+.done-sum-main { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; min-width: 0; }
+.done-count { font: 700 48px/1 var(--f-body); letter-spacing: -.035em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.done-sum-main > span { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 500; color: var(--ink-2); }
+.done-sum-main > span .icon { width: 16px; height: 16px; stroke-width: 2.6; color: var(--st-done); flex: none; }
+.done-sum-side { display: grid; grid-template-columns: 1fr 1fr; margin: 0; padding-top: 12px; border-top: .5px solid var(--line-strong); }
+.done-sum-side > div { display: flex; flex-direction: column; gap: 3px; padding: 0 12px; }
+.done-sum-side > div:first-child { padding-left: 0; }
+.done-sum-side > div + div { border-left: .5px solid var(--line-strong); padding-left: 16px; }
+.done-sum-side dt { font-size: 12px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.done-sum-side dd { margin: 0; font: 700 22px/1.1 var(--f-body); color: var(--ink); font-variant-numeric: tabular-nums; }
+/* Les mois en pastilles, qui défilent sur le côté sur téléphone */
+.month-pills { display: flex; gap: 8px; overflow-x: auto; margin: 2px -16px 0; padding: 2px 16px 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.month-pills::-webkit-scrollbar { display: none; }
+.month-pill { flex: none; min-height: 38px; padding: 0 15px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 14px var(--f-body); white-space: nowrap;
+  box-shadow: 0 0 0 .5px rgba(10, 20, 28, .12), 0 1px 2px rgba(10, 20, 28, .06); -webkit-tap-highlight-color: transparent; transition: transform 140ms var(--ease-out), background-color .15s ease, color .15s ease; }
+.month-pill:active { transform: scale(.95); }
+.month-pill[aria-pressed="true"] { background: var(--ink); color: var(--bg); box-shadow: none; }
+.month-pill.more { gap: 6px; color: var(--accent); }
+.month-pill.more .icon { width: 16px; height: 16px; }
+.presta-body .done-day + .done-day, .presta-body .month-pills + .job-search, .presta-body .done-sum + .month-pills { margin-top: 2px; }
+.presta-body .job-search:has([data-search]) { border: 0; min-height: 44px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.presta-body .job-search:has([data-search]):focus-within { box-shadow: 0 0 0 3px var(--accent-soft); }
+.presta-body .job-search [data-search] { min-height: 42px; }
+/* Un jour = un groupe : titre en petites capitales grises, carte blanche, séparateurs fins décalés après l'icône */
+.done-day { display: flex; flex-direction: column; gap: 7px; }
+.done-day-head { display: flex; align-items: baseline; justify-content: space-between; margin: 8px 6px 0; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.done-day-head em { font-style: normal; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.presta-body .done-list { border: 0; border-radius: 18px; box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+.done-item { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 14px; }
+.done-item + .done-item { border-top: 0; }
+.done-item + .done-item::before { content: ""; position: absolute; top: 0; left: 64px; right: 0; border-top: .5px solid var(--line-strong); }
+.svc-tile.xs { width: 38px; height: 38px; border-radius: 11px; margin-top: 1px; }
+.svc-tile.xs .svc-art { width: 29px; height: 29px; }
+.done-item .done-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.done-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+.done-line .plate { font-size: 13.5px; }
+.done-line .plate span { padding: 4px 6px; }
+.done-time { font-size: 14px; font-weight: 500; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.done-item .done-model { font-weight: 600; font-size: 15px; line-height: 1.3; white-space: normal; }
+.done-model span { display: inline; font-weight: 500; color: var(--ink-2); }
+.done-item .done-sub { color: var(--ink-2); font-size: 13.5px; line-height: 1.3; }
+.done-item .job-problem { margin-top: 6px; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); color: var(--ink); font-size: 13.5px; align-items: center; }
+.done-item .job-problem .icon { color: var(--danger); margin-top: 0; }
+.done-item .job-problem > span { display: block; }
+.done-item .job-problem b { font-weight: 600; }
+.done-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.done-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px 0 8px; border: 0; border-radius: 999px; background: var(--surface-2); color: var(--ink); font: 600 14px var(--f-body);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1); -webkit-tap-highlight-color: transparent; transition: transform 140ms var(--ease-out); }
+.done-pill:active { transform: scale(.95); }
+.done-pill-art { display: grid; place-items: center; width: 24px; height: 24px; }
+.done-pill-art .act-art { width: 22px; height: 22px; }
+.done-pill.undo { padding-left: 12px; background: var(--st-todo-bg); color: var(--st-todo); box-shadow: 0 0 0 .5px color-mix(in srgb, var(--st-todo) 35%, transparent); }
+.done-pill.undo .icon { width: 16px; height: 16px; stroke-width: 2.6; }
+.done-proof { width: 36px; height: 36px; min-height: 0; padding: 0; border: 0; border-radius: 50%; background: var(--surface-2); color: var(--accent); display: grid; place-items: center; }
+.done-proof .icon { width: 18px; height: 18px; }
+/* État vide : une icône en volume, pas de cadre en pointillés */
+.done-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 36px 24px 40px; text-align: center; color: var(--ink-2); font-size: 15px; }
+.done-empty b { color: var(--ink); font-size: 17px; margin-top: 8px; }
+.done-empty-ico { display: grid; place-items: center; width: 76px; height: 76px; border-radius: 22px; background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 8px 18px -8px rgba(10, 20, 28, .32), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.done-empty-ico .svc-art { width: 54px; height: 54px; }
+/* Feuille « Voir un autre mois » */
+.month-sheet { display: flex; flex-direction: column; gap: 18px; }
+.month-sheet section { display: flex; flex-direction: column; gap: 8px; }
+.month-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 721px) { .month-pills { margin: 2px 0 0; padding: 2px 0 4px; flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { .month-pill:active, .done-pill:active { transform: none; } .month-pill { transition: none; } }
 /* « Signaler »: blue + button. Wide screens: a blue pill at the end of the tabs. Phones: round, raised, in the middle of the bar. */
 .presta-tabs .tab-plus, .presta-tabs .tab-plus[aria-selected="true"] { background: var(--accent); color: #fff; box-shadow: none; }
 .presta-tabs .tab-plus .icon { display: block; width: 18px; height: 18px; }
@@ -3332,6 +3401,14 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     `<path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="none" stroke="#7d1810" stroke-width="1" stroke-linejoin="round"/>` +
     `<path d="M22.4 9.6a1.8 1.8 0 0 1 3.1 0l3 5.4c-2.6 1.6-6.4 1.9-9.4.9Z" fill="#fff" opacity=".35"/>` +
     `<rect x="22" y="17" width="4" height="12.4" rx="2" fill="#fff"/><circle cx="24" cy="34" r="2.2" fill="#fff"/>`;
+  ICONS["faits-vide"] = ground(24, 43.2, 15, 2.1) +
+    // « Faits » vide : un bloc-notes à pince, une pastille verte avec une coche
+    solid("M10 10.5a3.5 3.5 0 0 1 3.5-3.5h21a3.5 3.5 0 0 1 3.5 3.5V38a3.5 3.5 0 0 1-3.5 3.5h-21A3.5 3.5 0 0 1 10 38Z") +
+    `<path d="M12.6 9.2h22.6" stroke="#fff" stroke-opacity=".5" stroke-width=".9" stroke-linecap="round"/>` +
+    `<path d="M17.5 4.8h13a1.6 1.6 0 0 1 1.6 1.6v3.4a1.6 1.6 0 0 1-1.6 1.6h-13a1.6 1.6 0 0 1-1.6-1.6V6.4a1.6 1.6 0 0 1 1.6-1.6Z" fill="url(#i3-steel)" ${S}/>` +
+    `<g stroke="#c3ced6" stroke-width="2.2" stroke-linecap="round"><path d="M15.4 18h17"/><path d="M15.4 23.6h12"/><path d="M15.4 29.2h7"/></g>` +
+    `<circle cx="32.4" cy="33.2" r="8.6" fill="url(#i3-spg)" ${S}/><ellipse cx="30.4" cy="29.4" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".7"/>` +
+    `<path d="M28.4 33.4l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
   // « Pas possible » : panneau sens interdit en volume (refus d'une demande, à ne pas confondre avec « Problème »).
   ICONS["act-refuse"] = ground(24, 42.6, 15, 2.1) +
     `<circle cx="24" cy="23" r="16" fill="url(#i3-warn)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeR)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeB)"/>` +
@@ -3528,18 +3605,40 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       ${problemLines(d)}${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
     }
     const doneDayOf = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
+    // « Faits » : une liste groupée par jour, façon iPhone. L'heure du « fait » à droite, les deux actions possibles
+    // (Corriger pendant 10 minutes, Problème pendant 7 jours) en petites capsules sous la ligne.
+    function doneTime(d) {
+      const at = d.retour?.etat === "fait" ? d.retour.at : d.doneAt;
+      if (!at || !String(at).includes("T")) return "";
+      const t = new Date(at);
+      return Number.isNaN(t.getTime()) ? "" : t.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    }
     function doneRow(d) {
       const day = doneDayOf(d);
       // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
       const undo = D.canUndoDone(d, email, Date.now());
-      const more = recent || undo ? (state.busy.has(d.id) ? busyLine
-        : (undo ? `<button type="button" class="undo-done" data-act="undo" data-id="${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : "") +
-          (recent ? `<button type="button" class="report" data-act="problem" data-id="${esc(d.id)}">${icon("alert")}Signaler un problème</button>` : "")) : "";
-      const lines = problemLines(d);
-      return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
-        ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}
-        ${more || lines ? `<div class="done-more">${lines}${more}</div>` : ""}</li>`;
+      const acts = recent || undo ? (state.busy.has(d.id) ? busyLine
+        : `<div class="done-acts">${undo ? `<button type="button" class="done-pill undo" data-act="undo" data-id="${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : ""}${recent ? `<button type="button" class="done-pill" data-act="problem" data-id="${esc(d.id)}"><span class="done-pill-art" aria-hidden="true">${self.IssueArt?.art("act-problem", "act-art") || ""}</span>Problème</button>` : ""}</div>`) : "";
+      const [name, size] = (D.vehicleLabel(d) || "").split(" – ");
+      const time = doneTime(d);
+      return `<li class="done-item">${serviceTile(d, "svc-tile xs")}
+        <div class="done-main"><div class="done-line">${plateTag(d.plaque)}${time ? `<time class="done-time">${esc(time)}</time>` : ""}</div>
+          <b class="done-model">${esc(name || D.jobLabel(d))}${size ? `<span> · ${esc(size)}</span>` : ""}</b>
+          <small class="done-sub">${esc([name ? D.jobLabel(d) : "", d.site].filter(Boolean).join(" · "))}</small>
+          ${problemLines(d)}${acts}</div>
+        ${d.retour?.preuve ? `<button type="button" class="done-proof" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : ""}</li>`;
+    }
+    // « Aujourd'hui », « Hier », puis « Mercredi 18 novembre ».
+    function doneDayHead(iso) {
+      if (iso === today()) return "Aujourd'hui";
+      if (iso === D.addDays(today(), -1)) return "Hier";
+      return iso ? cap(D.dayLabel(iso)) : "Date inconnue";
+    }
+    function doneGroups(list) {
+      return [...D.groupBy(list, doneDayOf).entries()].map(([iso, rows]) => `<section class="done-day">
+        <h2 class="done-day-head"><span>${esc(doneDayHead(iso))}</span><em>${rows.length}</em></h2>
+        <ul class="done-list">${rows.map(doneRow).join("")}</ul></section>`).join("");
     }
     // Today's vehicles grouped by site: the provider goes site by site.
     function todayHtml(list) {
@@ -3591,23 +3690,50 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
         ? `<p class="tab-intro">Un véhicule est déjà sur site ? Tu peux le faire en avance.</p>${list.map((d) => doCard(d, { early: true })).join("")}`
         : state.query ? empty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.") : empty("Rien à venir", "Tes demandes acceptées des prochains jours s'afficheront ici."));
     }
+    // Le sélecteur de mois : les 40 derniers jours (chargés à l'ouverture), les 2 mois d'avant en un appui, les autres dans une feuille.
+    // Un ancien mois n'est lu qu'à la demande (quota de lectures), comme avant.
+    const monthOf = (k) => { const d = new Date(today().slice(0, 7) + "-15T12:00:00"); d.setMonth(d.getMonth() - k); return D.toIsoDate(d).slice(0, 7); };
+    const monthShort = (ym) => cap(new Date(ym + "-15T12:00:00").toLocaleDateString("fr-FR", { month: "long" }));
+    function monthPills() {
+      const quick = [monthOf(1), monthOf(2)];
+      const other = state.month && !quick.includes(state.month) ? state.month : "";
+      const pill = (ym, label) => `<button type="button" class="month-pill" data-month-pick="${ym}" aria-pressed="${state.month === ym}">${esc(label)}</button>`;
+      return `<div class="month-pills" role="group" aria-label="Période">${pill("", "40 derniers jours")}${quick.map((ym) => pill(ym, monthShort(ym))).join("")}
+        ${other ? pill(other, D.monthLabel(other)) : ""}<button type="button" class="month-pill more" data-month-more aria-haspopup="dialog">${icon("cal")}Autre mois</button></div>`;
+    }
+    function monthSheetBody() {
+      const months = Array.from({ length: 12 }, (_, i) => monthOf(i + 1));
+      return `<div class="month-sheet"><p class="sheet-sub">Le mois en cours est dans « 40 derniers jours ».</p>
+        ${[...D.groupBy(months, (ym) => ym.slice(0, 4)).entries()].map(([y, list]) => `<section><h3 class="sheet-label">${y}</h3><div class="month-grid">
+          ${list.map((ym) => `<button type="button" class="day-chip" data-month-pick="${ym}" aria-pressed="${state.month === ym}">${esc(monthShort(ym))}</button>`).join("")}</div></section>`).join("")}
+        <label class="sheet-group"><span class="sheet-label">Plus ancien</span><input type="month" class="sheet-input" data-month value="${esc(state.month)}" max="${monthOf(1)}"></label></div>`;
+    }
+    // Le compteur en grand : le mois en cours (ou le mois choisi), avec aujourd'hui et cette semaine à côté.
+    function doneSummary(n, label, side) {
+      return `<div class="done-sum"><div class="done-sum-main"><b class="done-count">${n}</b><span>${icon("check")}${esc(label)}</span></div>
+        ${side.length ? `<dl class="done-sum-side">${side.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join("")}</dl>` : ""}</div>`;
+    }
+    const doneEmpty = (title, text) => `<div class="done-empty"><span class="done-empty-ico" aria-hidden="true">${self.IssueArt?.art("faits-vide", "svc-art") || ""}</span><b>${title}</b><span>${text}</span></div>`;
+    const plural = (n, w) => `${w}${n > 1 ? "s" : ""}`;
     function doneTab(all) {
-      const counts = D.providerCounts(state.demandes, today());
-      const picker = `<label class="field month-pick"><span>Voir un ancien mois</span>
-          <input type="month" data-month value="${esc(state.month)}" max="${today().slice(0, 7)}" ${state.monthLoading ? "disabled aria-busy=\"true\"" : ""}></label>`;
       if (state.month) { // report of one month, loaded on demand
         const inMonth = all.filter((d) => doneDayOf(d).slice(0, 7) === state.month);
         const list = filtered(inMonth);
-        const head = state.monthLoading ? `<p class="tally">Chargement de ${esc(D.monthLabel(state.month))}…</p>`
-          : `<p class="tally"><b>${inMonth.length}</b> véhicule${inMonth.length > 1 ? "s" : ""} en ${esc(D.monthLabel(state.month))}</p>`;
-        const back = `<button type="button" class="month-back" data-month-reset>${icon("chev-l")}Revenir aux 40 derniers jours</button>`;
-        return back + head + picker + searchBox() +
-          (state.monthLoading ? "" : list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait ce mois-là", "Choisis un autre mois."));
+        const days = new Set(inMonth.map(doneDayOf)).size;
+        const head = state.monthLoading
+          ? `<div class="done-sum loading" aria-busy="true"><span class="spinner" aria-hidden="true"></span><span>Chargement de ${esc(D.monthLabel(state.month))}…</span></div>`
+          : doneSummary(inMonth.length, `${plural(inMonth.length, "véhicule")} en ${D.monthLabel(state.month)}`, inMonth.length ? [["Jours travaillés", days]] : []);
+        return head + monthPills() + (state.monthLoading ? "" : searchBox() + (list.length ? doneGroups(list)
+          : state.query ? doneEmpty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.") : doneEmpty("Aucun véhicule fait ce mois-là", "Choisis un autre mois.")));
       }
-      const list = filtered(all.filter((d) => doneDayOf(d) >= recentFrom)); // an older month looked at stays loaded, not listed here
-      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci</p>${searchBox()}` +
-        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici.")) +
-        `<p class="tab-intro">Ici : les 40 derniers jours.</p>` + picker;
+      const counts = D.providerCounts(state.demandes, today());
+      const recent = all.filter((d) => doneDayOf(d) >= recentFrom); // an older month looked at stays loaded, not listed here
+      const list = filtered(recent);
+      const monday = D.mondayOf(today());
+      const side = [["Aujourd'hui", recent.filter((d) => doneDayOf(d) === today()).length], ["Cette semaine", recent.filter((d) => doneDayOf(d) >= monday).length]];
+      return doneSummary(counts.month, `${plural(counts.month, "véhicule")} ${plural(counts.month, "fait")} en ${monthShort(today().slice(0, 7)).toLowerCase()}`, side) + monthPills() + searchBox() +
+        (list.length ? doneGroups(list) : state.query ? doneEmpty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.")
+          : doneEmpty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici."));
     }
     // ---------- « Signaler »: field reports on any vehicle ----------
     // One vehicle at a time: « Envoyer » clears the form for the next one (several vehicles = several quick sends).
@@ -3784,8 +3910,9 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
 `;
       const acting = state.sheetMode === "act";
       if (acting && state.sheetOpen && !actOf().d) closeSheet(); // the vehicle left the list meanwhile (done from another phone)
-      sheetEl.querySelector("#sheetTitle").textContent = acting ? actTitle(actOf().kind, actOf().d) : sheetTitle();
-      sheetEl.querySelector(".sheet-b").innerHTML = acting ? (state.openForm ? actBody() : "") : sheetBody();
+      const months = state.sheetMode === "month";
+      sheetEl.querySelector("#sheetTitle").textContent = acting ? actTitle(actOf().kind, actOf().d) : months ? "Voir un autre mois" : sheetTitle();
+      sheetEl.querySelector(".sheet-b").innerHTML = acting ? (state.openForm ? actBody() : "") : months ? monthSheetBody() : sheetBody();
       scheduleUndoEnd();
       const input = typing && view.querySelector(typing);
       if (input) { input.focus(); try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* date / time fields */ } }
@@ -3836,7 +3963,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
 
     view.addEventListener("change", (e) => {
       if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]);
-      if (e.target.matches("[data-month]")) showMonth(e.target.value);
+      if (e.target.matches("[data-month]")) { closeSheet(); showMonth(e.target.value); }
       if (e.target.matches("[data-fphoto]") && e.target.files[0]) addFieldPhoto(e.target.files[0]);
       if (e.target.matches("[data-fplate]")) { fd().plaque = D.normalizePlate(fd().plaque); e.target.value = fd().plaque; } // AB123CD -> AB-123-CD
     });
@@ -3859,7 +3986,8 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       const el = (sel) => e.target.closest(sel);
       let b;
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
-      else if ((b = el("[data-month-reset]"))) { state.month = ""; render(); }
+      else if ((b = el("[data-month-pick]"))) { const ym = b.dataset.monthPick; closeSheet(); if (!ym) { state.month = ""; state.query = ""; render(); } else if (ym !== state.month) showMonth(ym); }
+      else if ((b = el("[data-month-more]"))) openSheet("month");
       else if ((b = el("[data-sheet-open]"))) openSheet();
       else if ((b = el("[data-sheet-close]"))) closeSheet();
       else if ((b = el("[data-fissue]"))) {
