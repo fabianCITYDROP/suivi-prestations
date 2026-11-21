@@ -261,13 +261,6 @@
     const thumb = (vehicleOf(entry.plate)?.photos || []).find((p) => p.key === entry.key)?.thumb;
     return `<figure><img src="${safeImageSrc(thumb)}" data-zoom="${esc(entry.key)}" alt="Pare-brise ${esc(entry.plate)}"><figcaption>${esc(entry.plate)}</figcaption></figure>`;
   }
-  function photoTile(plate, photo, index) {
-    const name = photoFileName(plate, index);
-    return `<figure class="ph"><img src="${safeImageSrc(photo.thumb)}" data-zoom="${esc(photo.key)}" alt="Pare-brise ${esc(plate)} photo ${index + 1}">
-      <div class="actions"><button type="button" data-copy-photo="${esc(photo.key)}" data-name="${esc(name)}">${icon("copy")}Copier</button>
-      <button type="button" class="ghost" data-save-photo="${esc(photo.key)}" data-name="${esc(name)}" aria-label="Enregistrer">${icon("download")}</button>
-      ${state.canWrite ? `<button type="button" class="ghost danger" data-remove-photo="${esc(photo.key)}" aria-label="Supprimer">${icon("x")}</button>` : ""}</div></figure>`;
-  }
   // Each photo as its own full-size file: dropped together into WhatsApp they arrive as separate, sharp images.
   async function saveAllPhotos(entries) {
     if (!state.downloads) return toast("Téléchargement indisponible ici");
@@ -288,21 +281,118 @@
     if ((el = target("[data-save-sheet]"))) { saveBlob(buildPhotoSheet(photoEntries(shareRegistry.get(el.dataset.saveSheet) || []), "image/jpeg"), sheetName()); return; }
     if ((el = target("[data-copy-photo]"))) { const key = el.dataset.copyPhoto; copyImage(() => singlePhotoPng(key), el.dataset.name, () => singlePhotoJpeg(key)); return; }
     if ((el = target("[data-save-photo]"))) { saveBlob(singlePhotoJpeg(el.dataset.savePhoto), el.dataset.name); return; }
-    if ((el = target("[data-zoom]"))) openLightbox(el.dataset.zoom, el.src);
-    if ((el = target("[data-proof]"))) openProof(el.dataset.proof);
+    if ((el = target("[data-zoom]"))) { const all = [...(el.parentElement?.querySelectorAll("[data-zoom]") || [])]; const list = all.length ? all : [el];
+      viewer.open(list.map((x) => ({ key: x.dataset.zoom, thumb: x.getAttribute("src") || "" })), Math.max(0, list.indexOf(el))); }
+    if ((el = target("[data-proof]"))) viewer.open([{ key: el.dataset.proof, proof: true }], 0);
   }, true);
-  async function openLightbox(key, fallbackSrc) {
-    $("#lightImg").src = fallbackSrc; $("#lightbox").hidden = false;
-    const full = state.store ? await state.store.loadPhoto(key).catch(() => null) : null;
-    if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
-  }
-  async function openProof(key) {
-    $("#lightImg").removeAttribute("src"); $("#lightbox").hidden = false;
-    const full = state.store ? await state.store.loadProof(key).catch(() => null) : null;
-    if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
-    else if (!full) { $("#lightbox").hidden = true; toast("Photo introuvable"); }
-  }
-  $("#lightbox").onclick = () => ($("#lightbox").hidden = true);
+
+  // ================= photo en grand, plein écran (façon app Photos) =================
+  // Glisser à gauche / à droite = photo suivante, vers le bas = fermer ; Échap, flèches du clavier, ×.
+  // Avec un album (page Photos) : barre du bas Copier / Enregistrer / Supprimer.
+  const viewer = (() => {
+    let el = null, items = [], index = 0, album = null, lastFocus = null, token = 0;
+    const reduce = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function build() {
+      if (el) return;
+      document.body.insertAdjacentHTML("beforeend", `<div class="pho-viewer" role="dialog" aria-modal="true" aria-label="Photo en grand" hidden>
+        <div class="pho-v-top"><button type="button" class="pho-v-round" data-v-close aria-label="Fermer">${icon("x")}</button>
+          <p class="pho-v-title"><b></b><span></span></p><span class="pho-v-pad"></span></div>
+        <div class="pho-v-stage"><img alt="Photo du pare-brise" draggable="false"></div>
+        <button type="button" class="pho-v-round pho-v-nav prev" data-v-step="-1" aria-label="Photo précédente">${icon("chev-l")}</button>
+        <button type="button" class="pho-v-round pho-v-nav next" data-v-step="1" aria-label="Photo suivante">${icon("chev-r")}</button>
+        <div class="pho-v-bar"></div></div>`);
+      el = document.querySelector(".pho-viewer");
+      el.addEventListener("click", (e) => {
+        if (e.target.closest("[data-v-close]")) return close();
+        const st = e.target.closest("[data-v-step]"); if (st) return step(+st.dataset.vStep);
+        const del = e.target.closest("[data-v-remove]"); if (del) return removeCurrent();
+        if (moved) return;
+        if (e.target.matches(".pho-v-stage")) close();
+        else if (e.target.matches(".pho-v-stage img")) el.classList.toggle("bare");
+      });
+      document.addEventListener("keydown", (e) => {
+        if (el.hidden) return;
+        if (e.key === "Escape") { e.stopImmediatePropagation(); close(); }
+        else if (e.key === "ArrowRight") step(1); else if (e.key === "ArrowLeft") step(-1);
+      }, true);
+      // Le geste : on décide l'axe après quelques pixels, la photo suit le doigt, puis suivante / fermer / retour en place.
+      const stage = el.querySelector(".pho-v-stage"), img = stage.querySelector("img");
+      let x0 = 0, y0 = 0, axis = "", down = false, moved = false, lastT = 0, lastX = 0, lastY = 0, vx = 0, vy = 0;
+      stage.addEventListener("pointerdown", (e) => { if (e.button) return; down = true; moved = false; axis = ""; x0 = lastX = e.clientX; y0 = lastY = e.clientY; lastT = e.timeStamp; vx = vy = 0; });
+      stage.addEventListener("pointermove", (e) => {
+        if (!down) return;
+        const dx = e.clientX - x0, dy = e.clientY - y0;
+        if (!axis && Math.hypot(dx, dy) > 8) { axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y"; moved = true; stage.setPointerCapture(e.pointerId); el.classList.add("dragging"); }
+        const dt = Math.max(1, e.timeStamp - lastT); vx = (e.clientX - lastX) / dt; vy = (e.clientY - lastY) / dt; lastX = e.clientX; lastY = e.clientY; lastT = e.timeStamp;
+        if (axis === "x") { const edge = (index === 0 && dx > 0) || (index === items.length - 1 && dx < 0); img.style.transform = `translateX(${edge ? dx / 4 : dx}px)`; }
+        else if (axis === "y") { const d = Math.max(0, dy); img.style.transform = `translateY(${dy > 0 ? dy : dy / 6}px) scale(${1 - Math.min(d, 400) / 1600})`; el.style.setProperty("--pho-dim", String(Math.max(0.25, 1 - d / 500))); }
+      });
+      const end = (e) => {
+        if (!down) return; down = false; el.classList.remove("dragging");
+        const dx = e.clientX - x0, dy = e.clientY - y0;
+        if (axis === "y" && (dy > 110 || vy > 0.6)) { close(true); }
+        else if (axis === "x" && (Math.abs(dx) > 70 || Math.abs(vx) > 0.5) && items[index + (dx < 0 ? 1 : -1)]) { step(dx < 0 ? 1 : -1, true); }
+        else { img.style.transform = ""; el.style.removeProperty("--pho-dim"); }
+        setTimeout(() => (moved = false), 0);
+      };
+      stage.addEventListener("pointerup", end); stage.addEventListener("pointercancel", end);
+    }
+    async function show(fromSwipe) {
+      const it = items[index]; if (!it) return close();
+      const img = el.querySelector(".pho-v-stage img"), my = ++token;
+      img.style.transform = ""; el.style.removeProperty("--pho-dim");
+      if (fromSwipe && !reduce()) { img.classList.remove("pho-v-in"); void img.offsetWidth; img.classList.add("pho-v-in"); }
+      if (it.thumb) img.src = safeImageSrc(it.thumb); else img.removeAttribute("src");
+      el.querySelector(".pho-v-title b").textContent = album ? album.label : "Photo";
+      el.querySelector(".pho-v-title span").textContent = items.length > 1 ? `${index + 1} sur ${items.length}` : "";
+      el.querySelector(".prev").hidden = index === 0; el.querySelector(".next").hidden = index >= items.length - 1;
+      const name = album ? photoFileName(album.label, index) : "photo.jpg";
+      el.querySelector(".pho-v-bar").innerHTML = album ? `
+        <button type="button" class="pho-v-act" data-copy-photo="${esc(it.key)}" data-name="${esc(name)}">${icon("copy")}<span>Copier</span></button>
+        <button type="button" class="pho-v-act" data-save-photo="${esc(it.key)}" data-name="${esc(name)}">${icon("download")}<span>Enregistrer</span></button>
+        ${state.canWrite ? `<button type="button" class="pho-v-act danger" data-v-remove>${icon("trash")}<span>Supprimer</span></button>` : ""}` : "";
+      el.classList.toggle("with-bar", !!album);
+      const full = state.store ? await (it.proof ? state.store.loadProof(it.key) : state.store.loadPhoto(it.key)).catch(() => null) : null;
+      if (my !== token || el.hidden) return;
+      if (full) img.src = safeImageSrc(full);
+      else if (!it.thumb) { close(); toast("Photo introuvable"); }
+    }
+    function open(list, at = 0, withAlbum = null) {
+      build();
+      items = list.filter((x) => x.key); index = Math.min(Math.max(0, at), items.length - 1); album = withAlbum;
+      if (!items.length) return;
+      if (el.hidden) { lastFocus = document.activeElement; el.hidden = false; el.classList.remove("bare"); document.body.classList.add("pho-viewing"); requestAnimationFrame(() => el.classList.add("on")); }
+      show();
+      setTimeout(() => el.querySelector("[data-v-close]")?.focus({ preventScroll: true }), 30);
+    }
+    function close(fromSwipe) {
+      if (!el || el.hidden) return;
+      token++; el.classList.remove("on"); document.body.classList.remove("pho-viewing");
+      const img = el.querySelector(".pho-v-stage img");
+      if (fromSwipe && !reduce()) img.style.transform = `translateY(${innerHeight * 0.6}px) scale(.85)`;
+      setTimeout(() => { el.hidden = true; img.style.transform = ""; el.style.removeProperty("--pho-dim"); img.removeAttribute("src"); }, reduce() ? 0 : 220);
+      lastFocus?.focus?.({ preventScroll: true });
+    }
+    function step(d, fromSwipe) { if (!items[index + d]) return; index += d; show(fromSwipe); }
+    async function removeCurrent() {
+      const it = items[index]; if (!it || !album) return;
+      const ok = await removeAlbumPhoto(album.model, it.key);
+      if (!ok) return;
+      // La liste a peut-être déjà été mise à jour par refresh() pendant l'attente : on retire par la clé, pas par la position.
+      items = items.filter((x) => x.key !== it.key);
+      if (!items.length) close(); else { index = Math.min(index, items.length - 1); show(); }
+    }
+    // Les photos de l'album ont changé (ajout, suppression, autre appareil) : on suit, en restant sur la même photo.
+    function refresh() {
+      if (!el || el.hidden || !album) return;
+      const key = items[index]?.key;
+      items = modelPhotos(album.model).map((p) => ({ key: p.key, thumb: p.thumb }));
+      if (!items.length) return close();
+      const i = items.findIndex((p) => p.key === key); index = i >= 0 ? i : Math.min(index, items.length - 1);
+      show();
+    }
+    return { open, close, refresh, get isOpen() { return !!el && !el.hidden; } };
+  })();
 
   // ================= Corbeille: deleted requests, kept 20 days, restorable =================
   // Façon iPhone (2026-11-21) : résumé en haut, recherche de plaque, cartes groupées par jour de suppression avec les jours
@@ -1243,55 +1333,133 @@
     }
   });
 
-  // ================= photo library (one album per fleet model) =================
+  // ================= photo library (one album per fleet model), façon app Photos =================
+  // Une grille d'albums (un par modèle de la flotte) ; toucher un album = feuille avec ses photos, ajout en tuile,
+  // prochains pare-brise du modèle ; toucher une photo = plein écran. « Sans photo » montre ce qu'il reste à compléter.
+  const lib = { filter: "all" };
   const openModel = () => state.fleet.find((f) => D.modelKey(f) === state.openModelKey) || state.models.get(state.openModelKey);
+  const WIND_ART = (cls) => self.IssueArt?.art("Pare-brise", cls) || "";
+  const relDay = (iso) => iso === today() ? "aujourd'hui" : iso === D.addDays(today(), 1) ? "demain" : D.dayLabel(iso);
+  // Pare-brise encore à faire pour ce modèle (dans les demandes chargées), le plus proche d'abord.
+  const upcomingWindshields = (key) => state.demandes
+    .filter((d) => D.isWindshield(d) && D.isActive(d) && D.isOpen(d) && (d.dateFin || d.date || "") >= today() && D.modelKey(d) === key)
+    .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  const libModels = () => D.uniqueModels(state.fleet).map((f) => { const key = D.modelKey(f); return { f, key, photos: modelPhotos(f), next: upcomingWindshields(key) }; });
   function renderPhotoLibrary() {
+    const all = libModels();
+    const missing = all.filter((m) => !m.photos.length);
+    const urgent = missing.filter((m) => m.next.length);
+    const total = all.reduce((n, m) => n + m.photos.length, 0);
+    $("#phoKicker").textContent = `Pare-brise · ${plural(all.length, "modèle")} · ${plural(total, "photo")}`;
+    $("#phoAllN").textContent = all.length;
+    $("#phoMissN").textContent = missing.length || "";
+    $("#phoMissN").hidden = !missing.length;
+    for (const b of document.querySelectorAll("[data-pho-filter]")) b.setAttribute("aria-selected", String(b.dataset.phoFilter === lib.filter));
     const query = $("#p-q").value;
-    const models = D.uniqueModels(state.fleet).filter((f) => D.matchesSearch([D.fleetLabel(f)], query));
-    $("#p-list").innerHTML = models.length
-      ? `<div class="veh-grid">${models.map(modelCard).join("")}</div>`
-      : `<div class="empty"><b>Aucun modèle ne correspond.</b><span>Les modèles viennent de la flotte, dans Réglages.</span></div>`;
-    renderModelDetail();
+    $("#p-alert").innerHTML = urgent.length && !query ? alertCard(urgent) : "";
+    const shown = all.filter((m) => (lib.filter === "all" || !m.photos.length) && D.matchesSearch([D.fleetLabel(m.f)], query));
+    $("#p-list").innerHTML = shown.length
+      ? `<div class="pho-grid">${shown.map(albumCard).join("")}</div>`
+      : !all.length ? emptyLib("Aucun modèle dans la flotte.", "Les modèles viennent de la flotte, dans Réglages.")
+      : lib.filter === "missing" && !query ? emptyLib("Tous les modèles ont leur photo.", "Chaque demande de pare-brise part avec les photos de son modèle.", "Pare-brise")
+      : emptyLib("Aucun modèle ne correspond.", "Essaie avec la marque ou le cubage, par exemple « Movano » ou « 20 m³ ».");
+    if (teamSheet.isOpen && state.openModelKey && teamSheet.body.querySelector(".pho-sheet")) {
+      const model = openModel();
+      if (model) { teamSheet.body.innerHTML = albumSheetHtml(model); } else teamSheet.close();
+    }
+    viewer.refresh();
   }
-  function modelCard(f) {
-    const key = D.modelKey(f);
-    const photos = modelPhotos(f);
-    const thumbs = Array.from({ length: 4 }, (_, i) => photos[i] ? `<img src="${safeImageSrc(photos[i].thumb)}" alt="">` : "<span></span>").join("");
-    return `<button class="veh-card" data-model="${esc(key)}" aria-current="${key === state.openModelKey}">
-      <span class="row"><b>${esc(f.modele)}</b><span class="muted small">${photos.length ? plural(photos.length, "photo") : "aucune photo"}</span></span>
-      <span>${f.cubage ? esc(f.cubage) + " m³" : ""}</span>
-      <span class="thumbs">${thumbs}</span></button>`;
+  const emptyLib = (title, text, art) => `<div class="pho-empty">${art ? `<span class="pho-ico xl" aria-hidden="true">${WIND_ART("pho-art")}</span>` : ""}<b>${esc(title)}</b><span>${esc(text)}</span></div>`;
+  function alertCard(urgent) {
+    const first = urgent[0], d = first.next[0];
+    const what = urgent.length > 1 ? `${urgent.length} modèles ont un pare-brise prévu sans photo` : "Pare-brise prévu, mais aucune photo";
+    const sub = urgent.length > 1 ? urgent.map((m) => D.fleetLabel(m.f)).join(", ")
+      : `${D.fleetLabel(first.f)}\n${[d.plaque, relDay(d.date)].filter(Boolean).join(", ")}`;
+    return `<button type="button" class="pho-alert" data-model="${esc(first.key)}">
+      <span class="pho-ico" aria-hidden="true">${WIND_ART("pho-art")}</span>
+      <span class="pho-alert-t"><span class="pho-pill warn">À compléter</span><b>${esc(what)}</b><span>${esc(sub).replace("\n", "<br>")}</span></span>
+      ${icon("chev-r")}</button>`;
   }
-  function renderModelDetail() {
-    const model = state.openModelKey ? openModel() : null;
-    if (!model) { $("#p-detail").innerHTML = ""; return; }
-    const photos = modelPhotos(model);
-    const label = D.fleetLabel(model);
-    $("#p-detail").innerHTML = `<div class="panel" style="margin-bottom:24px">
-      <div class="panel-head"><h2>${esc(label)}</h2><button type="button" class="ghost" data-close-model aria-label="Fermer">${icon("x")}</button></div>
-      <p class="hint">Ces photos partent avec chaque demande de pare-brise pour un ${esc(model.modele)}${model.cubage ? ` de ${esc(model.cubage)} m³` : ""}. Tu peux aussi coller une capture (Ctrl+V).</p>
-      <h3>Photos du pare-brise · ${photos.length}/${MAX_PHOTOS_PER_VEHICLE}</h3>
-      <div class="ph-grid">${photos.map((p, i) => photoTile(label, p, i)).join("")}<button type="button" class="drop" style="width:auto;height:auto;min-height:150px" data-add-model-photo>${icon("plus")}Ajouter des photos</button></div>
+  function albumCard({ f, key, photos, next }) {
+    const cover = photos[0]
+      ? `<img src="${safeImageSrc(photos[0].thumb)}" alt="" loading="lazy">${photos.length > 1 ? `<span class="pho-count">${photos.length}</span>` : ""}`
+      : `<span class="pho-ico lg" aria-hidden="true">${WIND_ART("pho-art")}</span>${state.canWrite ? `<span class="pho-cover-add">${icon("plus")}Ajouter</span>` : ""}`;
+    const sub = [f.cubage ? `${esc(f.cubage)} m³` : "", photos.length ? plural(photos.length, "photo") : `<em class="pho-miss">Aucune photo</em>`].filter(Boolean).join(" · ");
+    const nextLine = next.length ? `<span class="pho-next${photos.length ? "" : " warn"}">${next.length} pare-brise à venir</span>` : "";
+    return `<button type="button" class="pho-album${photos.length ? "" : " none"}" data-model="${esc(key)}" aria-label="${esc(D.fleetLabel(f))}, ${photos.length ? plural(photos.length, "photo") : "aucune photo"}">
+      <span class="pho-cover">${cover}</span><span class="pho-name">${esc(f.modele)}</span><span class="pho-sub">${sub}</span>${nextLine}</button>`;
+  }
+  function albumSheetHtml(model) {
+    const key = D.modelKey(model), photos = modelPhotos(model), next = upcomingWindshields(key), label = D.fleetLabel(model);
+    const canAdd = state.canWrite && photos.length < MAX_PHOTOS_PER_VEHICLE;
+    const tiles = photos.map((p, i) => `<button type="button" class="pho-ph" data-pho-view="${esc(p.key)}" aria-label="Voir la photo ${i + 1} en grand"><img src="${safeImageSrc(p.thumb)}" alt=""></button>`).join("")
+      + (canAdd ? `<button type="button" class="pho-add" data-pho-add><span class="pho-add-b">${icon("plus")}</span><span>Ajouter</span></button>` : "");
+    const many = photos.length > 1;
+    return `<div class="pho-sheet" data-pho-model="${esc(key)}">
+      <div class="pho-sh-hero"><span class="pho-ico lg" aria-hidden="true">${WIND_ART("pho-art")}</span>
+        <div><p class="pho-sh-kind">Photos du pare-brise</p><b>${esc(model.cubage ? `${model.cubage} m³` : model.modele)} · ${photos.length ? `${photos.length} sur ${MAX_PHOTOS_PER_VEHICLE}` : "aucune photo"}</b>
+        <span>Elles partent avec chaque demande de pare-brise de ce modèle, pour tous ses véhicules.</span></div></div>
+      ${photos.length || canAdd ? `<div class="pho-ph-grid">${tiles}</div>` : `<p class="sheet-sub">Aucune photo pour ce modèle.</p>`}
+      ${canAdd ? `<p class="pho-tip desk">Tu peux aussi glisser des images ici, ou coller une capture (Ctrl+V).</p>` : photos.length >= MAX_PHOTOS_PER_VEHICLE ? `<p class="pho-tip">${MAX_PHOTOS_PER_VEHICLE} photos au maximum : supprimes-en une pour en ajouter.</p>` : ""}
+      ${photos.length ? `<div class="pho-sh-acts">
+        <button type="button" class="pho-btn primary" data-pho-copy-all>${icon("copy")}${many ? `Copier les ${photos.length} photos` : "Copier la photo"}</button>
+        <button type="button" class="pho-btn" data-pho-save-all>${icon("download")}Télécharger en taille réelle</button></div>` : ""}
+      ${next.length ? `<section><h3 class="sheet-label">Prochains pare-brise de ce modèle</h3><div class="pho-next-list">${next.slice(0, 4).map((d) => `
+        <button type="button" class="pho-next-row" data-pho-demande="${esc(d.id)}">${plateTag(d.plaque)}<span><b>${esc(capFirst(relDay(d.date)))}</b><small>${esc([d.site, d.prestataire].filter(Boolean).join(" · "))}</small></span>${icon("chev-r")}</button>`).join("")}</div>
+        ${next.length > 4 ? `<p class="pho-tip">et ${next.length - 4} autre${next.length - 4 > 1 ? "s" : ""}</p>` : ""}</section>` : ""}
     </div>`;
   }
-  $("#p-q").addEventListener("input", renderPhotoLibrary);
-  $("#p-list").addEventListener("click", (e) => {
-    const card = e.target.closest("[data-model]");
-    if (card) { state.openModelKey = card.dataset.model; renderPhotoLibrary(); window.scrollTo({ top: 0 }); }
-  });
-  $("#p-detail").addEventListener("click", async (e) => {
-    const model = openModel();
-    if (!model) return;
-    if (e.target.closest("[data-close-model]")) { state.openModelKey = null; renderPhotoLibrary(); }
-    else if (e.target.closest("[data-add-model-photo]")) pickPhotosFor(model);
-    else if (e.target.closest("[data-remove-photo]")) confirmPhotoRemoval(e.target.closest("[data-remove-photo]"), albumOf(model));
-  });
-  async function confirmPhotoRemoval(button, album) {
-    if (!album) return;
-    if (button.dataset.armed !== "1") { button.dataset.armed = "1"; button.textContent = "Confirmer"; return; }
-    try { await state.store.removeModelPhoto(album, button.dataset.removePhoto); toast("Photo supprimée"); }
-    catch (err) { reportWriteError(err); }
+  function openAlbum(key) {
+    state.openModelKey = key;
+    const model = openModel(); if (!model) return;
+    teamSheet.open(model.modele, albumSheetHtml(model), { cls: "pho-sheet-b", closed: () => (state.openModelKey = null) });
   }
+  // Supprimer : tout de suite, avec « Annuler » dans la bulle (la photo est gardée en mémoire le temps de la bulle).
+  async function removeAlbumPhoto(model, key) {
+    const album = albumOf(model);
+    if (!album || !requireStore()) return false;
+    const entry = album.photos.find((p) => p.key === key);
+    if (!entry) return false;
+    const full = await state.store.loadPhoto(key).catch(() => null);
+    try { await state.store.removeModelPhoto(album, key); }
+    catch (err) { reportWriteError(err); return false; }
+    toast("Photo supprimée", full ? { label: "Annuler", run: async () => {
+      try { await state.store.addModelPhoto(albumOf(model), model, { full, thumb: entry.thumb }); toast("Photo remise"); }
+      catch (err) { reportWriteError(err); }
+    } } : undefined);
+    return true;
+  }
+  $("#p-q").addEventListener("input", renderPhotoLibrary);
+  document.querySelector(".pho-seg").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pho-filter]"); if (!b) return;
+    lib.filter = b.dataset.phoFilter; renderPhotoLibrary();
+  });
+  $("#view-photos").addEventListener("click", (e) => {
+    const card = e.target.closest("[data-model]");
+    if (card) openAlbum(card.dataset.model);
+  });
+  teamSheet.body.addEventListener("click", (e) => {
+    const sheet = e.target.closest(".pho-sheet"); if (!sheet) return;
+    const model = openModel(); if (!model) return;
+    const photos = modelPhotos(model), label = D.fleetLabel(model);
+    const entries = photos.map((p) => ({ key: p.key, plate: label, label: "" }));
+    let el;
+    if ((el = e.target.closest("[data-pho-view]"))) viewer.open(photos.map((p) => ({ key: p.key, thumb: p.thumb })), photos.findIndex((p) => p.key === el.dataset.phoView), { model, label });
+    else if (e.target.closest("[data-pho-add]")) pickPhotosFor(model);
+    else if (e.target.closest("[data-pho-copy-all]")) copyImage(() => buildPhotoSheet(entries), sheetName(), () => buildPhotoSheet(entries, "image/jpeg"));
+    else if (e.target.closest("[data-pho-save-all]")) saveAllPhotos(entries);
+    else if ((el = e.target.closest("[data-pho-demande]"))) { teamSheet.close(); openDemande(el.dataset.phoDemande); }
+  });
+  // Glisser-déposer des images sur la feuille d'un album (ordinateur).
+  document.addEventListener("dragover", (e) => { const s = e.target.closest?.(".pho-sheet"); if (s && state.canWrite) { e.preventDefault(); s.classList.add("drop-on"); } });
+  document.addEventListener("dragleave", (e) => { const s = e.target.closest?.(".pho-sheet"); if (s && !s.contains(e.relatedTarget)) s.classList.remove("drop-on"); });
+  document.addEventListener("drop", (e) => {
+    const s = e.target.closest?.(".pho-sheet"); if (!s) return;
+    e.preventDefault(); s.classList.remove("drop-on");
+    const files = [...(e.dataTransfer?.files || [])].filter((f) => f.type.startsWith("image/"));
+    const model = openModel();
+    if (files.length && model && state.canWrite) addPhotoFiles(model, files);
+  });
 
   // ================= verification =================
   // Relance d'un prestataire (2026-11-21, façon iPhone) : qui et quand en pastilles, le message à copier, sa réponse collée

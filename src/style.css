@@ -314,8 +314,6 @@ td.date { font-variant-numeric: tabular-nums; white-space: nowrap; }
 pre.code { background: var(--surface-2); border-radius: var(--r-sm); padding: 14px; font: 500 12.5px/1.5 var(--f-mono); overflow-x: auto; margin: 0; max-height: 340px; }
 ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 75ch; }
 
-.lightbox { position: fixed; inset: 0; background: rgba(6, 12, 16, .86); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; }
-.lightbox img { max-height: 100%; max-width: 100%; border-radius: var(--r-sm); }
 
 @media (max-width: 640px) {
   .strip { gap: 3px; }
@@ -1796,6 +1794,144 @@ body.team-sheet-open .toast { z-index: 45; }
 .hist-export-head p { margin-top: 2px; }
 .hist-sheet .plan-cta .icon, .hist-sheet .plan-soft .icon { width: 18px; height: 18px; }
 @media (prefers-reduced-motion: reduce) { .hist-export:active, .hist-more:active, .hist-chip:active, .hist-month:active { transform: none; } }
+/* ===== Équipe « Photos » façon app Photos (2026-11-21). Tout est préfixé .pho- (et .pho-sheet-b pour la feuille partagée).
+   Albums carrés par modèle, feuille de l'album, plein écran avec gestes. Bleu City-Drop pour les actions,
+   orange seulement pour « sans photo », rouge seulement pour Supprimer. ===== */
+#view-photos { max-width: 1120px; }
+.pho-head { display: flex; align-items: flex-end; gap: 12px; margin: 4px 0 14px; }
+.pho-titles { flex: 1; min-width: 0; }
+.pho-kicker { margin: 0 0 2px; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.pho-title { margin: 0; font: 700 34px/1.1 -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--f-body); letter-spacing: -.025em; color: var(--ink); }
+.pho-find { position: relative; flex: 0 1 260px; display: block; }
+.pho-find .icon { position: absolute; left: 12px; top: 50%; width: 17px; height: 17px; transform: translateY(-50%); color: var(--ink-2); pointer-events: none; }
+.pho-find input { width: 100%; min-height: 40px; padding: 0 12px 0 36px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); color: var(--ink); font: 400 16px var(--f-body); box-shadow: none; }
+.pho-find input:focus { outline: none; box-shadow: 0 0 0 2px var(--accent) inset; }
+/* Contrôle segmenté (même dessin que Retours) */
+.pho-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; max-width: 340px; padding: 2px; margin-bottom: 16px; border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); }
+.pho-seg button { min-height: 34px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: 600 14px var(--f-body); display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background-color .2s ease, box-shadow .2s ease; }
+.pho-seg button[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 2px rgba(10, 20, 28, .1), 0 3px 8px -3px rgba(10, 20, 28, .18), 0 0 0 .5px rgba(10, 20, 28, .06); }
+.pho-seg-n { font: 600 13px var(--f-body); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pho-seg-n.warn { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--st-todo-bg); color: var(--st-todo); font: 700 12px/20px var(--f-body); }
+/* Tuile d'icône en relief (même famille que .ret-ico) */
+.pho-ico { display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 13px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.pho-ico .pho-art { width: 36px; height: 36px; overflow: visible; }
+.pho-ico.lg { width: 60px; height: 60px; border-radius: 17px; }
+.pho-ico.lg .pho-art { width: 46px; height: 46px; }
+.pho-ico.xl { width: 84px; height: 84px; border-radius: 22px; }
+.pho-ico.xl .pho-art { width: 62px; height: 62px; }
+.pho-pill { align-self: flex-start; padding: 2px 8px; border-radius: 999px; font: 700 11.5px/1.5 var(--f-body); letter-spacing: .02em; }
+.pho-pill.warn { background: var(--st-todo-bg); color: var(--st-todo); }
+/* Encadré « à compléter » : un pare-brise est prévu pour un modèle sans photo */
+.pho-alert { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 0; margin: 0 0 18px; padding: 12px 14px; border: 0; border-radius: 18px; background: var(--surface); color: var(--ink); text-align: left; font: inherit;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); transition: transform 140ms var(--ease-out); -webkit-tap-highlight-color: transparent; }
+.pho-alert:active { transform: scale(.98); }
+.pho-alert-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pho-alert-t b { font: 650 15.5px/1.3 var(--f-body); letter-spacing: -.01em; }
+.pho-alert-t span:last-child { font-size: 13.5px; color: var(--ink-2); }
+.pho-alert > .icon { color: var(--ink-2); width: 18px; height: 18px; }
+/* La grille d'albums : vignettes carrées, coins arrondis, nom et nombre dessous */
+.pho-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 20px 16px; }
+.pho-album { align-self: start; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; gap: 0; min-height: 0; padding: 0; border: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pho-cover { position: relative; display: grid; place-items: center; align-content: center; gap: 8px; width: 100%; aspect-ratio: 1; margin-bottom: 8px; border-radius: 16px; overflow: hidden; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 2px rgba(10, 20, 28, .06), 0 10px 22px -16px rgba(10, 20, 28, .45); transition: transform 160ms var(--ease-out), box-shadow .2s ease; }
+.pho-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pho-album.none .pho-cover { background: color-mix(in srgb, var(--surface-2) 70%, var(--surface)); }
+.pho-cover-add { display: inline-flex; align-items: center; gap: 4px; font: 600 13.5px var(--f-body); color: var(--accent); }
+.pho-cover-add .icon { width: 15px; height: 15px; stroke-width: 2.6; }
+.pho-count { position: absolute; right: 8px; bottom: 8px; min-width: 26px; height: 26px; padding: 0 8px; border-radius: 13px; background: rgba(10, 20, 28, .55); color: #fff; font: 700 13px/26px var(--f-body); text-align: center; font-variant-numeric: tabular-nums; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.pho-album:hover .pho-cover { box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .14), 0 2px 4px rgba(10, 20, 28, .08), 0 16px 30px -18px rgba(10, 20, 28, .55); }
+.pho-album:active .pho-cover { transform: scale(.97); }
+.pho-album:focus-visible { outline: none; } .pho-album:focus-visible .pho-cover { box-shadow: 0 0 0 3px var(--accent); }
+.pho-name { padding: 0 2px; font: 650 15px/1.25 var(--f-body); letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pho-sub { padding: 0 2px; font-size: 13.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pho-miss { font-style: normal; font-weight: 600; color: var(--st-todo); }
+.pho-next { padding: 2px 2px 0; font-size: 12.5px; color: var(--ink-2); }
+.pho-next.warn { color: var(--st-todo); font-weight: 600; }
+.pho-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 56px 16px; text-align: center; color: var(--ink-2); }
+.pho-empty .pho-ico { margin-bottom: 8px; }
+.pho-empty b { font-size: 18px; color: var(--ink); letter-spacing: -.01em; }
+.pho-empty span:last-child { max-width: 320px; font-size: 14px; }
+/* La feuille d'un album */
+body.team-sheet-open .toast, body.pho-viewing .toast { z-index: 70; }
+body.pho-viewing .toast { bottom: calc(104px + env(safe-area-inset-bottom, 0px)) !important; }
+.pho-sheet { display: flex; flex-direction: column; gap: 16px; border-radius: 18px; transition: box-shadow .15s ease, background-color .15s ease; }
+.pho-sheet.drop-on { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent); }
+.pho-sh-hero { display: flex; align-items: center; gap: 14px; padding: 4px 4px 0; }
+.pho-sh-hero > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pho-sh-kind { margin: 0; font: 600 12.5px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.pho-sh-hero b { font: 700 19px/1.25 var(--f-body); letter-spacing: -.015em; font-variant-numeric: tabular-nums; }
+.pho-sh-hero span { font-size: 14px; line-height: 1.35; color: var(--ink-2); }
+.pho-ph-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.pho-ph, .pho-add { position: relative; display: block; width: 100%; aspect-ratio: 1; min-height: 0; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: var(--surface-2); cursor: zoom-in; -webkit-tap-highlight-color: transparent; transition: transform 140ms var(--ease-out); }
+.pho-ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pho-ph:active, .pho-add:active { transform: scale(.96); }
+.pho-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: pointer; background: var(--surface); color: var(--accent); font: 600 14px var(--f-body);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 2px rgba(10, 20, 28, .05); }
+.pho-add-b { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: #fff;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 82%, #fff) 0%, var(--accent) 55%, color-mix(in srgb, var(--accent) 86%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 6px 14px -8px color-mix(in srgb, var(--accent) 85%, transparent); }
+.pho-add-b .icon { width: 22px; height: 22px; stroke-width: 2.6; }
+.pho-tip { margin: -6px 4px 0; font-size: 13px; color: var(--ink-2); }
+@media (pointer: coarse) { .pho-tip.desk { display: none; } }
+.pho-sh-acts { display: flex; flex-direction: column; gap: 10px; }
+.pho-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 16px var(--f-body); white-space: nowrap;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 1px 1px rgba(10, 20, 28, .06), 0 0 0 .5px rgba(10, 20, 28, .1); transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
+.pho-btn .icon { width: 18px; height: 18px; stroke-width: 2.2; }
+.pho-btn.primary { color: var(--accent-ink); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(10, 20, 28, .12), 0 6px 14px -8px color-mix(in srgb, var(--accent) 85%, transparent); }
+.pho-btn:hover { filter: brightness(1.04); }
+.pho-btn:active { transform: scale(.97); }
+.pho-next-list { border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); overflow: hidden; }
+.pho-next-row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 14px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; }
+.pho-next-row + .pho-next-row::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--line-strong); }
+.pho-next-row > span:not(.plate) { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pho-next-row b { font: 600 15px var(--f-body); }
+.pho-next-row small { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pho-next-row .plate { font-size: 13.5px; } .pho-next-row .plate span { padding: 4px 6px; }
+.pho-next-row > .icon { width: 16px; height: 16px; color: var(--ink-2); }
+.pho-next-row:active { background: color-mix(in srgb, var(--surface) 92%, var(--ink)); }
+/* Plein écran : fond noir, la photo suit le doigt, barres translucides */
+.pho-viewer { --pho-dim: 1; position: fixed; inset: 0; z-index: 60; display: grid; grid-template-rows: auto 1fr auto; background: rgba(0, 0, 0, var(--pho-dim)); color: #fff; opacity: 0; transition: opacity 200ms ease; overscroll-behavior: contain; }
+.pho-viewer.on { opacity: 1; }
+.pho-viewer[hidden] { display: none; }
+.pho-v-top { z-index: 2; display: flex; align-items: center; gap: 12px; padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px; transition: opacity .2s ease; }
+.pho-v-title { flex: 1; margin: 0; display: flex; flex-direction: column; align-items: center; text-align: center; line-height: 1.25; }
+.pho-v-title b { font: 600 15px var(--f-body); } .pho-v-title span { font-size: 13px; opacity: .7; font-variant-numeric: tabular-nums; }
+.pho-v-pad { width: 40px; flex: none; }
+.pho-v-round { display: grid; place-items: center; flex: none; width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .16); color: #fff; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.pho-v-round .icon { width: 18px; height: 18px; stroke-width: 2.4; }
+.pho-v-stage { position: relative; display: grid; place-items: center; min-height: 0; padding: 0 12px; overflow: hidden; touch-action: none; cursor: zoom-out; }
+.pho-v-stage img { max-width: 100%; max-height: 100%; border-radius: 6px; object-fit: contain; cursor: default; user-select: none; -webkit-user-select: none; transition: transform 320ms cubic-bezier(.32, .72, 0, 1); }
+.pho-viewer.dragging .pho-v-stage img { transition: none; }
+.pho-v-stage img.pho-v-in { animation: pho-v-in 240ms var(--ease-out); }
+@keyframes pho-v-in { from { opacity: .4; transform: scale(.97); } to { opacity: 1; transform: none; } }
+.pho-v-nav { position: absolute; top: 50%; z-index: 2; width: 46px; height: 46px; margin-top: -23px; }
+.pho-v-nav.prev { left: 16px; } .pho-v-nav.next { right: 16px; }
+.pho-v-nav[hidden] { display: none; }
+.pho-v-bar { z-index: 2; display: flex; justify-content: center; gap: 28px; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); transition: opacity .2s ease; }
+.pho-viewer:not(.with-bar) .pho-v-bar { padding-top: 0; }
+.pho-v-act { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 64px; min-height: 0; padding: 6px 4px; border: 0; border-radius: 12px; background: none; color: #fff; font: 600 12.5px var(--f-body); }
+.pho-v-act .icon { width: 24px; height: 24px; stroke-width: 2; }
+.pho-v-act.danger { color: #ff8a80; }
+.pho-v-act:active { background: rgba(255, 255, 255, .12); }
+.pho-viewer.bare .pho-v-top, .pho-viewer.bare .pho-v-bar, .pho-viewer.bare .pho-v-nav { opacity: 0; pointer-events: none; }
+@media (hover: none) { .pho-v-nav { display: none; } }
+@media (max-width: 640px) {
+  .pho-head { flex-wrap: wrap; }
+  .pho-title { font-size: 32px; }
+  .pho-find { flex: 1 0 100%; order: 2; }
+  .pho-seg { max-width: none; }
+  .pho-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; }
+  .pho-cover { border-radius: 14px; }
+  .pho-ph-grid { gap: 4px; }
+  .pho-ph, .pho-add { border-radius: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pho-album .pho-cover, .pho-alert, .pho-ph, .pho-add, .pho-btn, .pho-viewer, .pho-v-stage img { transition: none; animation: none; }
+  .pho-album:active .pho-cover, .pho-alert:active, .pho-ph:active, .pho-add:active, .pho-btn:active { transform: none; }
+}
 /* ===== Équipe « Vérification » façon iPhone (2026-11-21). Tout est préfixé .vf- (ou rangé sous #view-verif).
    Bleu City-Drop = actions ; vert = reconnu / coché / réalisée, orange = pas dans la liste, rouge = annuler.
    Une seule lumière, en haut à gauche ; pas de bande de couleur sur les cartes. ===== */
