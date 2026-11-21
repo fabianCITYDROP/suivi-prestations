@@ -3213,14 +3213,20 @@
     const thumb = v.photo ? `<span class="ret-thumb" data-thumb="${esc(v.photo)}">${ret.thumbs.get(v.photo) ? `<img src="${ret.thumbs.get(v.photo)}" alt="">` : ""}${icon("image")}</span>` : "";
     const meta = [v.who, v.job, v.d && D.siteOf(v.d)].filter(Boolean).join(" · ");
     const acts = state.canWrite ? v.acts.filter((a) => !["open", "replan"].includes(a.act) || v.d) : [];
-    return `<article class="ret-card${isRetDone(it) ? " done" : ""}" data-ret="${esc(it.key)}">
+    const done = isRetDone(it);
+    // 2026-11-21 : fiche courte. Le logo du type de prestation (pare-brise, lavage, intervention, hayon) se repère d'un coup d'œil ;
+    // dans « À traiter », le petit logo de la réponse (absent, autre date…) reste en pastille dans le coin.
+    const typeArt = v.d ? SERVICE_ART[v.d.service || "pare-brise"] || "svc-intervention" : v.art;
+    const badge = !done && typeArt !== v.art ? `<span class="ret-badge">${retArt(v.art, "ret-badge-art")}</span>` : "";
+    const time = done ? it.at.slice(11, 16).replace(":", "h") : timeOf(it.at);
+    const side = acts.length === 1 && !acts[0].primary;
+    return `<article class="ret-card${done ? " done" : ""}${side ? " side" : ""}" data-ret="${esc(it.key)}">
       <button type="button" class="ret-open" data-ret-open="${esc(it.key)}" aria-label="${esc(`${v.kind} : ${v.plate} – détail`)}">
-        <span class="ret-ico" aria-hidden="true">${retArt(v.art)}</span>
+        <span class="ret-ico" aria-hidden="true">${retArt(typeArt)}${badge}</span>
         <span class="ret-main">
-          <span class="ret-line">${plateTag(v.plate)}<span class="ret-time">${esc(isRetDone(it) ? it.at.slice(11, 16).replace(":", "h") : timeOf(it.at))}</span></span>
-          <span class="ret-what">${v.extraArts?.length ? `<span class="ret-minis">${v.extraArts.map((q) => retArt(q, "mini-art")).join("")}</span>` : ""}${esc(v.whatOverride || v.what)}</span>
+          <span class="ret-line">${plateTag(v.plate)}<span class="ret-what">${v.extraArts?.length ? `<span class="ret-minis">${v.extraArts.map((q) => retArt(q, "mini-art")).join("")}</span>` : ""}${esc(v.whatOverride || v.what)}</span></span>
           ${v.note ? `<span class="ret-note">${esc(v.note)}</span>` : ""}
-          <span class="ret-meta">${esc(meta)}${v.doneLine && v.doneLine !== "Vu" ? ` · ${esc(v.doneLine)}` : ""}${v.edited ? ` · ${esc(v.edited)}` : ""}</span>
+          <span class="ret-meta"><span class="ret-time">${esc(time)}</span>${meta ? ` · ${esc(meta)}` : ""}${v.doneLine && v.doneLine !== "Vu" ? ` · ${esc(v.doneLine)}` : ""}${v.edited ? ` · ${esc(v.edited)}` : ""}</span>
         </span>
         ${thumb}
       </button>
