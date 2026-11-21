@@ -9113,8 +9113,15 @@ function page(texte) {
     const o = e.target.closest("[data-rg-open]");
     if (o) return openRg(o.dataset.rgOpen);
     const b = e.target.closest("[data-rg-act]");
-    if (b && !b.disabled) rgAct(b.dataset.rgAct, b);
+    if (b && !b.disabled) { releaseTyping(); rgAct(b.dataset.rgAct, b); }
   });
+  // La feuille ne se redessine pas tant qu'on tape dans un de ses champs (pour ne rien effacer).
+  // Après « Ajouter » (clic, ou Entrée, ou Safari qui laisse le curseur dans le champ), on quitte d'abord le champ :
+  // sinon le nouveau site / modèle / garage était bien enregistré mais n'apparaissait qu'en rouvrant la feuille.
+  function releaseTyping() {
+    const el = document.activeElement;
+    if (el && el.matches("input, textarea, select") && teamSheet.body?.contains(el)) el.blur();
+  }
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" || !inRg(e.target) || !e.target.matches("input:not([type=checkbox])")) return;
     const btn = e.target.closest(".rg-form")?.querySelector("[data-rg-act]");
