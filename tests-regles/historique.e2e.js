@@ -56,7 +56,7 @@ const check = (ok, what) => { if (!ok) { console.error('ÉCHEC : ' + what); proc
     await p.waitForTimeout(1800);
     return p;
   }
-  const openR9 = async (p) => { await p.evaluate(() => { location.hash = 'historique'; }); await p.waitForTimeout(400); await p.locator('[data-open="r9"]:visible').first().click(); await p.waitForTimeout(400); };
+  const openR9 = async (p) => { await p.evaluate(() => { location.hash = 'historique'; }); await p.waitForTimeout(400); await p.locator('#histWrap [data-open="r9"]').first().click(); await p.waitForTimeout(500); await p.click('.team-sheet [data-plan-edit]'); await p.waitForTimeout(400); };
 
   // 1. The team moves the date.
   const f = await open('fabian@city-drop.com', { width: 1440, height: 900 });

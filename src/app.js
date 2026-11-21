@@ -792,7 +792,7 @@
   }
 
   // ---------- the request's card, in a sheet: details, provider answer, status in one tap, « Modifier » for the full form ----------
-  const planSheet = { kind: "", id: "" };
+  const planSheet = { kind: "", id: "", log: false }; // log: the Historique page adds the change timeline
   const PLAN_STEPS = ["a_envoyer", "envoyee", "confirmee", "realisee"];
   function ficheBody(d) {
     const answer = planAnswer(d);
@@ -839,18 +839,18 @@
       ${state.canWrite && toSend.length ? `<section class="plan-box mid"><p class="plan-box-text">Message envoyé ?<small>${plural(toSend.length, "véhicule")} encore « À envoyer ».</small></p>
         <div class="plan-box-actions"><button type="button" data-plan-mark-sent>${icon("check")}Passer en « Envoyée »</button></div></section>` : ""}`;
   }
-  function openPlanSheet(kind, id = "") {
-    planSheet.kind = kind; planSheet.id = id;
+  function openPlanSheet(kind, id = "", log = false) {
+    planSheet.kind = kind; planSheet.id = id; planSheet.log = log;
     refreshPlanSheet(true);
   }
   function refreshPlanSheet(opening = false) {
     if (!opening && !teamSheet.isOpen) return;
-    const closed = () => { planSheet.kind = ""; planSheet.id = ""; };
+    const closed = () => { planSheet.kind = ""; planSheet.id = ""; planSheet.log = false; };
     if (planSheet.kind === "fiche") {
       const d = demandeById(planSheet.id);
       if (!d) { teamSheet.close(); return; }
       if (!opening && teamSheet.body.contains(document.activeElement) && document.activeElement.matches("input, textarea")) return;
-      teamSheet.open(d.plaque ? `Demande ${d.plaque}` : "Demande", ficheBody(d), { cls: "plan-sheet side-sheet", closed });
+      teamSheet.open(d.plaque ? `Demande ${d.plaque}` : "Demande", ficheBody(d) + (planSheet.log ? histLogHtml() : ""), { cls: "plan-sheet side-sheet", closed });
     } else if (planSheet.kind === "send") {
       if (!opening) return; // the folded message stays as the user left it
       teamSheet.open("Liste du jour à envoyer", sendBody(), { cls: "plan-sheet side-sheet", closed });
@@ -987,7 +987,7 @@
       } else if (b.dataset.planAccept) { await state.store.acceptProposedDate(d); toast(`Date changée pour ${d.plaque}`); }
       else await state.store.markAnswerSeen(d);
     } catch (err) { reportWriteError(err); }
-    finally { b.disabled = false; refreshPlanSheet(); }
+    finally { b.disabled = false; refreshPlanSheet(); if (planSheet.log) setTimeout(() => planSheet.log && loadHistLog(planSheet.id), 900); }
   });
 
   // ================= request form =================
@@ -1670,48 +1670,198 @@
     saveBlob(Promise.resolve(new Blob([D.toCsv(exportRows())], { type: "text/csv" })), filename);
   };
 
-  // ================= history =================
+  // ================= history (façon iPhone, 2026-11-21) =================
+  // Big title, grey search field, period and status in pills, the other filters in a sheet; the list is grouped by day
+  // (a fine table on computer). A tap opens the request's card in a sheet, with its change history as a timeline.
+  // The hidden selects (#h-prest…#h-mois) stay the source of truth, so links from the Planning keep working.
   const HISTORY_STATUS_FILTERS = { "": () => true, ouvert: D.isOpen };
-  function renderHistory() {
-    const query = $("#q").value, provider = $("#h-prest").value, status = $("#h-statut").value, service = $("#h-svc").value, site = $("#h-site").value;
-    const statusFilter = HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
-    const month = $("#h-mois").value, from = month && month + "-01", to = month && D.nextMonthStart(from);
-    const loading = month && needOlder(from, to);
-    renderOlderNote();
-    const rows = state.demandes.filter((d) => (!month || (d.date && d.date < to && D.lastDay(d) >= from)) &&
+  const HIST_STATUS_PILLS = [["", "Toutes"], ["ouvert", "En cours"], ["a_envoyer", "À envoyer"], ["realisee", "Réalisées"], ["annulee", "Annulées"]];
+  const HIST_TONE = { a_envoyer: "todo", realisee: "ok", annulee: "off" };
+  const hv = (id) => $("#h-" + id).value;
+  const setHist = (id, value) => { $("#h-" + id).value = value; renderHistory(); };
+  const histMonthLabel = (m) => capFirst(D.monthLabel(m));
+  function historyRows({ ignoreStatus = false } = {}) {
+    const query = $("#q").value, provider = hv("prest"), status = hv("statut"), service = hv("svc"), site = hv("site");
+    const statusFilter = ignoreStatus ? () => true : HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
+    const month = hv("mois"), from = month && month + "-01", to = month && D.nextMonthStart(from);
+    return state.demandes.filter((d) => (!month || (d.date && d.date < to && D.lastDay(d) >= from)) &&
       (!provider || d.prestataire === provider) && (!service || d.service === service) && (!site || d.site === site) && statusFilter(d) &&
-      D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire], query)
+      D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire, d.tache], query)
     ).sort((a, b) => (b.date || "").localeCompare(a.date || "") || D.byStartTime(a, b));
+  }
+  function renderHistoryPills(all) {
+    const month = hv("mois"), now = today().slice(0, 7);
+    const prev = D.toIsoDate((() => { const d = D.parseIsoDate(now + "-01"); d.setMonth(d.getMonth() - 1); return d; })()).slice(0, 7);
+    const other = month && month !== now && month !== prev;
+    const per = (value, label) => `<button type="button" class="plan-prov" data-h-mois="${value}" aria-pressed="${month === value}">${esc(label)}</button>`;
+    $("#h-periods").innerHTML = per("", "Récentes") + per(now, histMonthLabel(now).replace(/ \d{4}$/, "")) + per(prev, histMonthLabel(prev).replace(/ \d{4}$/, ""))
+      + `<button type="button" class="plan-prov" data-h-other aria-pressed="${!!other}">${other ? esc(histMonthLabel(month)) : "Autre mois…"}${icon("chev-d")}</button>`;
+    const status = hv("statut");
+    const count = (value) => all.filter(HISTORY_STATUS_FILTERS[value] || ((d) => d.statut === value)).length;
+    const pills = HIST_STATUS_PILLS.slice();
+    if (status && !pills.some(([v]) => v === status)) pills.push([status, D.statusOf(status).label]);
+    const extra = [["prest", hv("prest")], ["site", hv("site")], ["svc", hv("svc") && D.SERVICES.find((s) => s.id === hv("svc"))?.label]].filter(([, v]) => v);
+    $("#h-filters").innerHTML = `<button type="button" class="hist-more${extra.length ? " on" : ""}" data-h-more aria-label="Filtres : prestataire, site, prestation">${icon("list")}<span>Filtres</span>${extra.length ? `<em>${extra.length}</em>` : ""}</button>`
+      + extra.map(([id, label]) => `<button type="button" class="hist-chip" data-h-clear="${id}" aria-label="Retirer le filtre ${esc(label)}">${esc(label)}${icon("x")}</button>`).join("")
+      + `<span class="hist-sep" aria-hidden="true"></span>`
+      + pills.map(([v, label]) => `<button type="button" class="plan-prov hist-st ${HIST_TONE[v] || ""}" data-h-statut="${v}" aria-pressed="${status === v}">${v && v !== "ouvert" ? `<i aria-hidden="true"></i>` : ""}${esc(label)}<em>${count(v)}</em></button>`).join("");
+  }
+  function renderHistory() {
+    const month = hv("mois"), from = month && month + "-01", to = month && D.nextMonthStart(from);
+    const loading = month && needOlder(from, to);
+    $("#h-kicker").textContent = month ? histMonthLabel(month) : "15 derniers jours et en cours";
+    renderOlderNote();
+    const all = historyRows({ ignoreStatus: true });
+    renderHistoryPills(all);
+    const rows = historyRows();
+    $("#h-export").disabled = !rows.length;
     if (loading && !rows.length) {
-      $("#histWrap").innerHTML = `<div class="empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les choisis.</span></div>`;
+      $("#histWrap").innerHTML = `<div class="plan-empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les choisis.</span></div>`;
       return;
     }
     if (!rows.length) {
-      $("#histWrap").innerHTML = `<div class="empty"><b>${state.demandes.length ? "Aucune demande ne correspond à ces filtres." : "Aucune demande enregistrée pour l'instant."}</b><span>Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée.</span></div>`;
+      const filtered = $("#q").value || hv("prest") || hv("site") || hv("svc") || hv("statut");
+      $("#histWrap").innerHTML = `<div class="plan-empty"><span class="svc-tile lg" aria-hidden="true">${self.IssueArt?.art("hist-vide", "svc-art") || ""}</span>
+        <b>${state.demandes.length ? (filtered ? "Aucune demande ne correspond" : "Aucune demande sur cette période") : "Aucune demande enregistrée pour l'instant"}</b>
+        <span>${filtered ? "Essaie une autre plaque, ou retire un filtre." : "Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée."}</span>
+        ${filtered ? `<button type="button" class="plan-link" data-h-reset>Effacer la recherche et les filtres</button>` : ""}</div>`;
       return;
     }
-    $("#histWrap").innerHTML = `<div class="tablewrap"><table class="wide hist"><thead><tr><th>Dispo</th><th>Créneau</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th><th>Envoyée le</th></tr></thead><tbody>${rows.map(historyLine).join("")}</tbody></table></div>`;
+    const groups = [];
+    rows.forEach((d) => { const key = d.date || ""; const g = groups[groups.length - 1]; g && g.key === key ? g.items.push(d) : groups.push({ key, items: [d] }); });
+    const year = today().slice(0, 4);
+    const dayName = (iso) => !iso ? "Sans date" : capFirst(D.dayLabel(iso)) + (iso.slice(0, 4) !== year ? " " + iso.slice(0, 4) : "");
+    $("#histWrap").innerHTML = `<p class="hist-count">${plural(rows.length, "demande")}${rows.length < all.length ? ` sur ${all.length}` : ""}</p>
+      <div class="hist-cols" aria-hidden="true"><span></span><span>Véhicule</span><span>Site</span><span>Prestataire</span><span>Statut</span><span>Envoyée le</span></div>`
+      + groups.map((g) => `<section class="hist-day"><h3 class="hist-day-head">${esc(dayName(g.key))}<em>${g.items.length}</em></h3>
+        <div class="plan-list hist-list">${g.items.map(historyLine).join("")}</div></section>`).join("");
   }
   // Below the history: older requests stay unread until asked for, to spare the free plan's daily reads.
   function renderOlderNote() {
     const note = $("#h-older");
     const loading = state.olderRanges.some((r) => !r.ready && r.from === D.OLDEST_DAY);
-    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded() || !!$("#h-mois").value;
+    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded() || !!hv("mois");
     if (note.hidden) return;
-    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours ou en retard, quel que soit leur âge, et les contrôles hayon des 8 derniers mois. Pour un mois plus ancien, choisis-le dans la liste des périodes en haut (une semaine : dans le Planning).
-      <button type="button" class="ghost small-btn" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
+    note.innerHTML = `<span>Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours ou en retard, et les contrôles hayon des 8 derniers mois. Pour un mois plus ancien, choisis-le dans « Autre mois ».</span>
+      <button type="button" class="plan-link" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
   }
   $("#h-older").addEventListener("click", (e) => { if (e.target.closest("#h-older-btn")) { needOlder(D.OLDEST_DAY, null); renderHistory(); } });
   function historyLine(d) {
-    const span = D.isMultiDay(d) ? `${D.shortDate(d.date)} → ${D.shortDate(D.lastDay(d))}` : D.shortDate(d.date);
-    const slot = esc(D.timeSlotLabel(d));
-    // data-slot / data-provider let the phone layout show a compact card without a second markup.
-    return `<tr class="click" data-open="${esc(d.id)}"><td class="date" data-slot="· ${slot}">${esc(span)}</td><td class="date">${slot}</td><td>${plateTag(d.plaque)}</td>
-      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
-      <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
+    const slot = D.timeSlotLabel(d).replace(/^de /, "");
+    const span = D.isMultiDay(d) ? ` → ${D.shortDate(D.lastDay(d))}` : "";
+    const what = [D.vehicleLabel(d) || "Modèle non précisé", D.jobLabel(d)].filter(Boolean).join(" · ");
+    return `<button type="button" class="plan-row hist-row${D.isActive(d) ? "" : " cancel"}" data-open="${esc(d.id)}">
+      ${serviceTile(d)}
+      <span class="plan-row-main hist-veh">
+        <span class="plan-row-line">${plateTag(d.plaque)}<span class="plan-time">${esc(slot + span)}</span></span>
+        <span class="plan-what"><b class="hist-slot-m">${esc(slot + span)}</b>${esc(what)}</span>
+        <span class="plan-sub hist-where">${esc(D.siteOf(d))}<span class="hist-who"> · ${esc(d.prestataire || "")}</span></span>
+      </span>
+      <span class="hist-c hist-c-site">${esc(D.siteOf(d))}</span>
+      <span class="hist-c hist-c-prov">${esc(d.prestataire || "")}</span>
+      <span class="hist-c hist-c-st">${planStatus(d)}</span>
+      <span class="hist-c hist-c-sent">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</span>
+      <span class="plan-row-end hist-end">${planStatus(d)}${icon("chev-r")}</span>
+    </button>`;
   }
-  ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site", "#h-mois"].forEach((s) => $(s).addEventListener("input", renderHistory));
-  $("#histWrap").addEventListener("click", (e) => { const r = e.target.closest("[data-open]"); if (r) openDemande(r.dataset.open); });
+  $("#q").addEventListener("input", renderHistory);
+  $("#q").addEventListener("keydown", (e) => { if (e.key === "Escape" && e.target.value) { e.target.value = ""; renderHistory(); } });
+  ["#h-prest", "#h-statut", "#h-svc", "#h-site", "#h-mois"].forEach((s) => $(s).addEventListener("input", renderHistory));
+  $("#histWrap").addEventListener("click", (e) => {
+    if (e.target.closest("[data-h-reset]")) { $("#q").value = ""; ["prest", "site", "svc", "statut"].forEach((id) => ($("#h-" + id).value = "")); renderHistory(); return; }
+    const r = e.target.closest("[data-open]"); if (r) openHistorySheet(r.dataset.open);
+  });
+  $("#view-historique").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-h-mois], [data-h-statut], [data-h-clear], [data-h-more], [data-h-other]");
+    if (!b) return;
+    if (b.dataset.hMois !== undefined) return setHist("mois", b.dataset.hMois);
+    if (b.dataset.hStatut !== undefined) return setHist("statut", hv("statut") === b.dataset.hStatut ? "" : b.dataset.hStatut);
+    if (b.dataset.hClear) return setHist(b.dataset.hClear, "");
+    if (b.dataset.hMore !== undefined) return openHistFilters();
+    if (b.dataset.hOther !== undefined) return openHistMonths();
+  });
+
+  // ---------- sheets: other month, filters, export ----------
+  const histChoice = (attr, value, label, on, art = "") => `<button type="button" class="hist-opt" ${attr}="${esc(value)}" aria-pressed="${on}">${art}<span>${esc(label)}</span>${icon("check")}</button>`;
+  function histMonthsBody() {
+    const months = Array.from($("#h-mois").options).map((o) => o.value).filter(Boolean);
+    const years = [...new Set(months.map((m) => m.slice(0, 4)))];
+    return `<p class="sheet-sub">Un mois ancien est lu seulement quand tu le choisis.</p>
+      ${histChoice("data-hs-mois", "", "15 derniers jours et en cours", !hv("mois"))}
+      ${years.map((y) => `<section><p class="sheet-label">${y}</p><div class="hist-months">${months.filter((m) => m.startsWith(y)).map((m) =>
+        `<button type="button" class="hist-month" data-hs-mois="${m}" aria-pressed="${hv("mois") === m}">${esc(capFirst(D.monthLabel(m).replace(/ \d{4}$/, "")))}</button>`).join("")}</div></section>`).join("")}`;
+  }
+  const histOpen = (title, html, cls) => { teamSheet.open(title, html, { cls }); teamSheet.body.scrollTop = 0; };
+  const openHistMonths = () => histOpen("Choisir un mois", histMonthsBody(), "hist-sheet");
+  function histFiltersBody() {
+    const group = (title, id, list) => `<section><p class="sheet-label">${title}</p><div class="hist-opts">${list.map(([v, label, art]) => histChoice("data-hs-" + id, v, label, hv(id) === v, art)).join("")}</div></section>`;
+    const n = historyRows().length;
+    return group("Prestataire", "prest", [["", "Tous les prestataires"], ...state.providers.map((p) => [p, p])])
+      + group("Prestation", "svc", [["", "Toutes les prestations"], ...D.SERVICES.map((s) => [s.id, s.label, serviceTile({ service: s.id })])])
+      + (siteNames().length ? group("Site", "site", [["", "Tous les sites"], ...siteNames().map((s) => [s, s])]) : "")
+      + group("Statut", "statut", [["", "Tous les statuts"], ["ouvert", "En cours (hors réalisées / annulées)"], ...D.STATUSES.map((s) => [s.id, s.label])])
+      + `<div class="plan-fiche-actions"><button type="button" class="primary plan-cta" data-team-sheet-close>Voir ${plural(n, "demande")}</button>
+        <button type="button" class="plan-soft" data-hs-reset>Tout effacer</button></div>`;
+  }
+  const openHistFilters = () => histOpen("Filtres", histFiltersBody(), "hist-sheet side-sheet");
+  function histExportBody() {
+    const rows = historyRows();
+    const what = [hv("mois") ? histMonthLabel(hv("mois")) : "15 derniers jours et en cours", hv("prest"), hv("site"), hv("svc") && D.SERVICES.find((s) => s.id === hv("svc"))?.label,
+      hv("statut") && (hv("statut") === "ouvert" ? "En cours" : D.statusOf(hv("statut")).label), $("#q").value && `« ${$("#q").value} »`].filter(Boolean).join(" · ");
+    return `<div class="plan-fiche-head hist-export-head"><span class="svc-tile sm" aria-hidden="true">${self.IssueArt?.art("ask-inbox", "svc-art") || ""}</span><div><b>${plural(rows.length, "demande")}</b><p>${esc(what)}</p></div></div>
+      <p class="sheet-sub">Exactement la liste affichée, avec les dates, la plaque, le modèle, le site, le prestataire, le statut et les dates d'envoi et de réalisation.</p>
+      <div class="plan-fiche-actions"><button type="button" class="primary plan-cta" data-hs-tsv>${icon("copy")}Copier pour Google Sheets</button>
+        <button type="button" class="plan-soft" data-hs-csv>${icon("download")}Télécharger le fichier (CSV)</button></div>`;
+  }
+  $("#h-export").addEventListener("click", () => histOpen("Exporter la liste", histExportBody(), "hist-sheet"));
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest(".hist-sheet [data-hs-mois], .hist-sheet [data-hs-prest], .hist-sheet [data-hs-svc], .hist-sheet [data-hs-site], .hist-sheet [data-hs-statut], .hist-sheet [data-hs-reset], .hist-sheet [data-hs-tsv], .hist-sheet [data-hs-csv]");
+    if (!b) return;
+    if (b.dataset.hsMois !== undefined) { teamSheet.close(); return setHist("mois", b.dataset.hsMois); }
+    const exportRows = () => [D.EXPORT_HEADER, ...historyRows().slice().reverse().map(D.exportRow)];
+    if (b.dataset.hsTsv !== undefined) {
+      const rows = exportRows();
+      if (await copyText(D.toTsv(rows))) { teamSheet.close(); toast(`${plural(rows.length - 1, "ligne")} copiée${rows.length > 2 ? "s" : ""} : colle-les dans une feuille Google Sheets`); }
+      return;
+    }
+    if (b.dataset.hsCsv !== undefined) {
+      const name = `historique-prestations-${hv("mois") || today()}${hv("prest") ? "-" + hv("prest").replace(/[^\w-]+/g, "-") : ""}.csv`;
+      saveBlob(Promise.resolve(new Blob([D.toCsv(exportRows())], { type: "text/csv" })), name); teamSheet.close(); return;
+    }
+    if (b.dataset.hsReset !== undefined) ["prest", "site", "svc", "statut"].forEach((id) => ($("#h-" + id).value = ""));
+    else for (const id of ["prest", "svc", "site", "statut"]) if (b.dataset["hs" + capFirst(id)] !== undefined) $("#h-" + id).value = b.dataset["hs" + capFirst(id)];
+    renderHistory();
+    teamSheet.body.innerHTML = histFiltersBody();
+  });
+
+  // ---------- the request's card + its change history as a timeline (read once per opening: free plan's reads) ----------
+  const histLog = { id: "", lines: null, failed: false };
+  function openHistorySheet(id) {
+    histLog.id = id; histLog.lines = null; histLog.failed = false;
+    openPlanSheet("fiche", id, true); teamSheet.body.scrollTop = 0;
+    loadHistLog(id);
+  }
+  function loadHistLog(id) {
+    if (!state.store?.loadHistory) return;
+    const d = demandeById(id);
+    state.store.loadHistory(id).then((entries) => { if (histLog.id === id) histLog.lines = D.historyLines(entries, d); })
+      .catch(() => { if (histLog.id === id) histLog.failed = true; })
+      .finally(() => { if (histLog.id === id && planSheet.log && planSheet.id === id) refreshPlanSheet(); });
+  }
+  function histLogHtml() {
+    const lines = histLog.lines;
+    const body = histLog.failed ? `<p class="sheet-sub">L'historique n'est pas encore lisible : les règles Firebase doivent être publiées.</p>`
+      : !lines ? `<p class="sheet-sub" aria-busy="true">Chargement…</p>`
+      : !lines.length ? `<p class="sheet-sub">Aucune modification notée pour l'instant.</p>`
+      : `<ol class="hist-tl">${lines.map((l) => {
+          const tone = /annul|suppr/i.test(l.action) ? "bad" : /Réalisée|fait/i.test(l.changes.map((c) => c.apres).join(" ")) ? "ok" : /Création/.test(l.action) ? "start" : "";
+          const changes = l.changes.map((c) => `<li><span>${esc(c.label)}</span>${c.avant != null ? `<s>${esc(c.avant)}</s>${icon("chev-r")}` : ""}<b>${esc(c.apres)}</b></li>`).join("");
+          return `<li class="${tone}"><i aria-hidden="true"></i><div><p class="hist-tl-head"><b>${esc(l.action)}</b><small>${esc(l.when)}</small></p>
+            <p class="hist-tl-who">${esc(l.who || "avant le suivi des modifications")}</p>${changes ? `<ul>${changes}</ul>` : ""}</div></li>`;
+        }).join("")}</ol>`;
+    return `<section class="hist-log"><p class="sheet-label">Modifications</p>${body}
+      <p class="hist-log-note">Chaque changement est noté avec son auteur et l'heure du serveur. Personne ne peut modifier ni effacer cette liste.</p></section>`;
+  }
 
   // ================= settings =================
   const currentSettings = () => ({ sites: state.sites, flotte: state.fleet, prestataires: state.providers, contacts: state.contacts, sheetUrl: state.sheetUrl });
