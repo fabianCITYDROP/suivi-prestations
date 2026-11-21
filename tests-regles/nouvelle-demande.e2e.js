@@ -54,7 +54,7 @@ async function seed() {
   async function open(opts) {
     const ctx = await b.newContext(opts);
     const p = await ctx.newPage();
-    p.on('pageerror', (e) => errors.push('page: ' + e.message));
+    p.on('pageerror', (e) => { console.log('PAGEERR', e.message); errors.push('page: ' + e.message); });
     await p.route('https://www.gstatic.com/firebasejs/**', (r) => r.fulfill({ contentType: 'text/javascript',
       body: fs.readFileSync(path.join(__dirname, 'node_modules/firebase', r.request().url().split('/').pop())) }));
     await p.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: '' }));

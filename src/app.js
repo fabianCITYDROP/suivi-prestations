@@ -887,7 +887,6 @@
   })();
 
   // ----- tiles: type first, then only the providers who do it (same rules as Réglages › Prestataires) -----
-  const SERVICE_ART = { lavage: "Véhicule sale", "pare-brise": "Pare-brise", intervention: "svc-intervention", hayon: "svc-hayon" };
   const offers = (name, service) => D.servicesFor(state.providerDocs.get(D.providerId(name)), name).includes(service);
   const providersFor = (service) => state.providers.filter((name) => offers(name, service));
   const initials = (name) => name.replace(/\(.*?\)/g, "").split(/[\s-]+/).filter((w) => /^[a-zà-ÿ]/i.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
