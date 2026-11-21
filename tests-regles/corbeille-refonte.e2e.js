@@ -35,6 +35,7 @@ async function seed() {
   // Aujourd'hui : un lavage groupé de 3 véhicules et un pare-brise.
   for (const [i, plaque, debut] of [[1, 'GA-731-PM', '08:30'], [2, 'GB-118-KD', '10:00'], [3, 'GC-905-LT', '11:30']])
     await T('g' + i, d({ prestataire: 'Khalid', service: 'lavage', formule: 'complet', plaque, debut, fin: '19:00', date: day(2), prixHT: 42, groupe: 'G1' }), ago(0, 1), 'fabian@city-drop.com');
+  await T('in0', d({ prestataire: 'Khalid', service: 'intervention', tache: 'AdBlue + éteindre le voyant', plaque: 'GF-310-AK', date: day(2), prixHT: 25 }), ago(0, 2), 'fabian@city-drop.com');
   await T('pb1', d({ prestataire: 'Allo Pare-Brise', service: 'pare-brise', plaque: 'GD-207-NF', date: day(3), prixHT: 360, notes: 'Impact côté conducteur' }), ago(0, 3), 'micha@city-drop.com');
   // Hier : une intervention.
   await T('in1', d({ prestataire: 'Roig', service: 'intervention', tache: 'Changer le rétroviseur droit', plaque: 'FT-219-ZB', site: 'Gennevilliers', adresse: '12 rue du Port, 92230 Gennevilliers', date: day(1), prixHT: 85, statut: 'confirmee' }), ago(1), 'jerome@city-drop.com');
@@ -81,7 +82,7 @@ async function seed() {
     await s('1-corbeille'); await s('1-corbeille-long', true);
     if (!BEFORE) {
       check(await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) <= 0, `pas de débordement sur téléphone (${scheme})`);
-      await p.locator('[data-trash-open="g1,g2,g3"]').click(); await p.waitForTimeout(600);
+      await p.locator('[data-trash-open^="g1,"]').click(); await p.waitForTimeout(600);
       await s('2-feuille-groupe');
       await p.keyboard.press('Escape'); await p.waitForTimeout(400);
       await p.locator('[data-trash-open="lv4"]').click(); await p.waitForTimeout(600);
@@ -89,6 +90,17 @@ async function seed() {
       await p.keyboard.press('Escape'); await p.waitForTimeout(400);
       await p.fill('#trashSearch', 'GD207'); await p.waitForTimeout(300);
       await s('4-recherche');
+      await p.fill('#trashSearch', ''); await p.waitForTimeout(300);
+      if (scheme === 'light') {
+        // Un seul véhicule du lavage groupé, depuis la feuille : les deux autres restent ensemble dans la corbeille.
+        await p.locator('[data-trash-open="g1,g2,g3"]').click(); await p.waitForTimeout(600);
+        await p.locator('.tr-sheet [data-trash-restore="g2"]').click(); await p.waitForTimeout(1500);
+        check(await exists('demandes/g2') && !(await exists('corbeille/g2')) && await exists('corbeille/g1') && await exists('corbeille/g3'), 'un seul véhicule du groupe revient, les deux autres restent');
+        check(await p.locator('.tr-sheet [data-trash-restore="g1,g3"]').count() === 1 && (await p.textContent('#toast')).includes('Véhicule restauré'), 'la feuille montre les 2 véhicules restants');
+        await s('6-un-vehicule-restaure');
+        await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+        check((await p.textContent('[data-trash-key="g1,g3"] .tr-restore')).includes('Restaurer les 2'), 'la carte propose « Restaurer les 2 »');
+      }
     }
     await ctx.close();
   }
@@ -97,7 +109,9 @@ async function seed() {
     const s = (n, full) => p.screenshot({ path: `${OUT}/${pre}ordi-${n}.png`, fullPage: !!full });
     await s('1-corbeille'); await s('1-corbeille-long', true);
     if (!BEFORE) {
-      check(await p.locator('.tr-card').count() === 6, '6 cartes (le lavage groupé = une carte)');
+      check(await p.locator('.tr-card').count() === 7, '7 cartes (le lavage groupé = une carte)');
+      check(await p.evaluate(() => [...document.querySelectorAll('.tr-group:first-child .tr-card')].map((c) => c.dataset.trashKey).join(' ')) === 'pb1 g1,g3 in0', "aujourd'hui trié par type : pare-brise, lavage, intervention");
+      check(await p.evaluate(() => getComputedStyle(document.querySelector('.tr-cards')).gridTemplateColumns.split(' ').length) === 3, '3 cartes par ligne sur ordinateur');
       check(await p.locator('.tr-days.soon').count() === 2 && await p.locator('.tr-card .tr-days.bad').count() === 1, 'pastilles : orange à 3 jours, rouge le dernier jour');
       check(await p.locator('.tr-group').count() === 5, "groupes par jour de suppression : aujourd'hui, hier, il y a 6, 17 et 19 jours");
       await p.locator('[data-trash-open="pb1"]').click(); await p.waitForTimeout(600);
@@ -107,20 +121,20 @@ async function seed() {
       check(await exists('demandes/pb1') && !(await exists('corbeille/pb1')), 'le pare-brise revient dans le planning');
       check((await p.textContent('#toast')).includes('Voir au planning'), 'bulle avec « Voir au planning »');
       await s('3-restauree');
-      check(await p.locator('.tr-card').count() === 5, 'la carte est retirée');
+      check(await p.locator('.tr-card').count() === 6, 'la carte est retirée');
       await p.locator('#toast .toast-action').click(); await p.waitForTimeout(800);
       check(await p.evaluate(() => location.hash) === '#planning', '« Voir au planning » ouvre le planning');
       await s('4-planning');
       // Le lavage groupé revient entier depuis le bouton de la carte.
       await p.evaluate(() => { location.hash = 'corbeille'; }); await p.waitForTimeout(1400);
-      await p.locator('.tr-card [data-trash-restore="g1,g2,g3"]').click(); await p.waitForTimeout(1500);
-      check(await exists('demandes/g1') && await exists('demandes/g2') && await exists('demandes/g3'), 'le lavage groupé revient entier');
+      await p.locator('.tr-card [data-trash-restore="g1,g3"]').click(); await p.waitForTimeout(1500);
+      check(await exists('demandes/g1') && await exists('demandes/g2') && await exists('demandes/g3'), 'le reste du lavage groupé revient, tout le groupe est de nouveau ensemble');
     }
     await ctx.close();
   }
   if (!BEFORE) {
     const { p, ctx } = await open({ ...phone }, 'jerome@city-drop.com');
-    check(await p.locator('.tr-card').count() === 4 && await p.locator('[data-trash-restore]').count() === 0, 'Jérôme (lecture) voit la corbeille sans « Restaurer »');
+    check(await p.locator('.tr-card').count() === 5 && await p.locator('[data-trash-restore]').count() === 0, 'Jérôme (lecture) voit la corbeille sans « Restaurer »');
     await p.screenshot({ path: `${OUT}/light-5-lecture.png` });
     await ctx.close();
   }

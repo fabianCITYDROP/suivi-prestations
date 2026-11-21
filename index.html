@@ -1715,7 +1715,7 @@ body.team-sheet-open .lightbox { z-index: 50; }
 }
 @media (prefers-reduced-transparency: reduce) and (max-width: 720px) { body:not(.presta-mode) nav.tabs { background: var(--surface) !important; } }
 /* ===== Équipe « Corbeille » (2026-11-21, façon iPhone). Tout est préfixé .tr- ou #view-corbeille ; reprend les tuiles,
-   titres et feuille de « Retours » (.ret-ico, .ret-title, .ret-sh-*). Jours restants : gris, orange à 3 jours, rouge le dernier. ===== */
+   titres et feuille de « Retours » (.ret-ico, .ret-title, .ret-sh-*). Jours restants : vert, orange à 3 jours, rouge le dernier. ===== */
 #view-corbeille { max-width: 1120px; }
 .tr-sum { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 14px; border-radius: 18px; background: var(--surface);
   box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
@@ -1730,7 +1730,19 @@ body.team-sheet-open .lightbox { z-index: 50; }
 .tr-search input { flex: 1; min-width: 0; min-height: 38px; padding: 0; border: 0; background: none; color: var(--ink); font: 500 16px var(--f-body); box-shadow: none; outline: none; }
 .tr-group { margin-top: 20px; }
 .tr-cards { display: grid; gap: 10px; }
-@media (min-width: 900px) { .tr-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+@media (min-width: 700px) { .tr-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+@media (min-width: 1100px) { .tr-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Ordinateur : cartes compactes, pour voir un jour entier d'un coup d'œil. */
+@media (min-width: 700px) {
+  .tr-open { gap: 10px; padding: 12px 12px 8px; }
+  .tr-open .svc-tile.sm { width: 36px; height: 36px; border-radius: 11px; }
+  .tr-open .svc-tile.sm .svc-art { width: 28px; height: 28px; }
+  .tr-what { font-size: 14.5px; }
+  .tr-meta { font-size: 12.5px; }
+  .tr-plates .plate { font-size: 12.5px; }
+  .tr-acts { padding: 0 12px 12px; }
+  .tr-restore { min-height: 32px; padding: 0 14px; font-size: 13.5px; }
+}
 .tr-card { display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); overflow: hidden;
   box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35);
   transition: opacity 220ms ease, transform 260ms var(--ease-out); }
@@ -1739,7 +1751,6 @@ body.team-sheet-open .lightbox { z-index: 50; }
   -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
 .tr-open:active { background: color-mix(in srgb, var(--surface) 92%, var(--ink)); }
 .tr-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.tr-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
 .tr-plates { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
 .tr-plates .plate { font-size: 13.5px; }
 .tr-plates .plate span { padding: 4px 6px; }
@@ -1747,11 +1758,13 @@ body.team-sheet-open .lightbox { z-index: 50; }
 .tr-what { font: 650 15.5px/1.3 var(--f-body); letter-spacing: -.01em; }
 .tr-meta { font-size: 13px; line-height: 1.35; color: var(--ink-2); overflow-wrap: anywhere; }
 .tr-days { flex: none; padding: 3px 10px; border-radius: 999px; font: 600 12.5px var(--f-body); white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink-2); background: var(--surface-2); }
+.tr-days.ok { color: var(--st-done); background: var(--st-done-bg); }
 .tr-days.soon { color: var(--st-todo); background: var(--st-todo-bg); }
 .tr-days.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 13%, var(--surface)); }
-.tr-acts { display: flex; justify-content: flex-end; padding: 0 14px 14px; }
-.tr-restore { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font: 600 14px var(--f-body); white-space: nowrap;
-  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px color-mix(in srgb, var(--accent) 18%, transparent); transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
+.tr-acts { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 36px; margin-top: auto; padding: 0 14px 14px; }
+.tr-main > .tr-plates { margin-bottom: 3px; }
+.tr-restore { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--st-done-bg); color: var(--st-done); font: 600 14px var(--f-body); white-space: nowrap;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px color-mix(in srgb, var(--st-done) 18%, transparent); transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
 .tr-restore .icon { width: 16px; height: 16px; stroke-width: 2.4; }
 .tr-restore:hover { filter: brightness(1.03); }
 .tr-restore:active { transform: scale(.96); }
@@ -1761,6 +1774,14 @@ body.team-sheet-open .lightbox { z-index: 50; }
 .tr-sheet .svc-tile.lg .svc-art { width: 46px; height: 46px; }
 .tr-sheet .ret-sh-hero .tr-plates { margin-top: 6px; }
 .tr-sheet .ret-sh-info dt .plate { font-size: 14px; }
+.tr-sheet .ret-btn.primary { color: var(--st-done-bg); background: linear-gradient(180deg, color-mix(in srgb, var(--st-done) 86%, #fff) 0%, var(--st-done) 52%, color-mix(in srgb, var(--st-done) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(10, 20, 28, .12), 0 6px 14px -8px color-mix(in srgb, var(--st-done) 85%, transparent); }
+.tr-veh div { gap: 10px; }
+.tr-veh div { padding-right: 10px; }
+.tr-veh dd { flex: 1; min-width: 0; font-size: 13.5px; white-space: nowrap; }
+.tr-veh .tr-restore { flex: none; }
+.tr-restore.sm { min-height: 32px; padding: 0 12px; font-size: 13px; gap: 4px; }
+.tr-restore.sm .icon { width: 14px; height: 14px; }
 .tr-count { display: flex; flex-direction: column; gap: 3px; padding: 12px 16px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
 .tr-count b { font: 700 16px var(--f-body); color: var(--ink); }
 .tr-count span { font-size: 13.5px; color: var(--ink-2); }
@@ -6181,8 +6202,10 @@ function page(texte) {
 
   // ================= Corbeille: deleted requests, kept 20 days, restorable =================
   // Façon iPhone (2026-11-21) : résumé en haut, recherche de plaque, cartes groupées par jour de suppression avec les jours
-  // restants (gris, orange à 3 jours, rouge le dernier jour), « Restaurer » en bouton clair + bulle « Voir au planning »,
+  // restants (vert, orange à 3 jours, rouge le dernier jour), « Restaurer » en bouton vert + bulle « Voir au planning »,
   // fiche complète dans la feuille de l'équipe (teamSheet). Rien n'est effacé avant 20 jours : les règles l'interdisent.
+  // Retouches (2026-11-21) : cartes compactes par 3 sur ordinateur, triées par type dans chaque jour, et dans un lavage
+  // groupé chaque véhicule peut être restauré seul depuis la feuille (il garde son groupe et y revient s'il est restauré).
   const trash = { groups: [], error: false, loading: false, query: "" };
   async function openTrash() {
     trash.loading = true; trash.error = false; renderTrash();
@@ -6195,7 +6218,8 @@ function page(texte) {
   }
   const trashKey = (group) => group.ids.join(",");
   const trashLeft = (group) => D.trashDaysLeft(group.supprimeLe, new Date().toISOString());
-  const trashTone = (left) => (left <= 1 ? "bad" : left <= 3 ? "soon" : "");
+  const trashTone = (left) => (left <= 1 ? "bad" : left <= 3 ? "soon" : "ok");
+  const trashTypeRank = (group) => { const i = D.SERVICES.findIndex((s) => s.id === group.rows[0].demande.service); return i < 0 ? 99 : i; };
   const trashLeftLabel = (left) => (left <= 0 ? "Effacée aujourd'hui" : left === 1 ? "Effacée demain" : `Effacée dans ${left} j`);
   const trashWho = (email) => { const name = String(email || "").split("@")[0].split(/[._-]/)[0]; return name ? capFirst(name) : ""; };
   const trashHour = (iso) => (iso ? iso.slice(11, 16).replace(":", "h") : "");
@@ -6223,13 +6247,13 @@ function page(texte) {
       <button type="button" class="tr-open" data-trash-open="${esc(trashKey(group))}" aria-label="${esc(trashTitle(group))} : voir le détail">
         ${serviceTile(first, "sm")}
         <span class="tr-main">
-          <span class="tr-line"><span class="tr-plates">${plates}</span><span class="tr-days ${trashTone(left)}">${trashLeftLabel(left)}</span></span>
+          <span class="tr-plates">${plates}</span>
           <span class="tr-what">${esc(trashTitle(group))}</span>
           <span class="tr-meta">${esc(meta)}</span>
           <span class="tr-meta">${esc(by)}</span>
         </span>
       </button>
-      ${state.canWrite ? `<div class="tr-acts"><button type="button" class="tr-restore" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer</button></div>` : ""}
+      <div class="tr-acts"><span class="tr-days ${trashTone(left)}">${trashLeftLabel(left)}</span>${state.canWrite ? `<button type="button" class="tr-restore" data-trash-restore="${esc(trashKey(group))}">${icon("check")}${group.rows.length > 1 ? `Restaurer les ${group.rows.length}` : "Restaurer"}</button>` : ""}</div>
     </article>`;
   }
   function renderTrash() {
@@ -6240,7 +6264,7 @@ function page(texte) {
     $("#trashSearchWrap").hidden = trash.loading || trash.error || groups.length < 2;
     $("#trashSum").innerHTML = trash.loading || trash.error || !groups.length ? "" : `<div class="tr-sum">
         <span class="ret-ico lg" aria-hidden="true">${self.IssueArt?.art("corbeille", "ret-art") || ""}</span>
-        <div class="tr-sum-txt"><b>${plural(count, "demande")}</b><span>Restaurables pendant 20 jours après la suppression, puis effacées pour de bon.</span>
+        <div class="tr-sum-txt"><b>${plural(count, "demande")}</b><span>Gardées 20 jours, puis effacées.</span>
         ${soon ? `<span class="tr-days soon">${soon} bientôt effacée${soon > 1 ? "s" : ""}</span>` : ""}</div>
       </div>`;
     if (trash.loading && !groups.length) { box.innerHTML = `<p class="hint">Chargement…</p>`; return; }
@@ -6258,6 +6282,8 @@ function page(texte) {
       const last = days[days.length - 1];
       if (last && last.day === day) last.groups.push(g); else days.push({ day, groups: [g] });
     }
+    // Dans un même jour : pare-brise, lavages, interventions, contrôles hayon, puis la plus récente d'abord.
+    for (const d of days) d.groups.sort((a, b) => trashTypeRank(a) - trashTypeRank(b) || (a.supprimeLe < b.supprimeLe ? 1 : a.supprimeLe > b.supprimeLe ? -1 : 0));
     box.innerHTML = days.map(({ day, groups: list }) => `<section class="tr-group">
         <h2 class="ret-gh">${esc(trashDayHeading(day))}<em>· ${list.reduce((n, g) => n + g.rows.length, 0)}</em></h2>
         <div class="tr-cards">${list.map(trashCard).join("")}</div>
@@ -6272,7 +6298,8 @@ function page(texte) {
     const line = (label, value, small = "") => (value ? `<div><dt>${label}</dt><dd>${esc(value)}${small ? `<small>${esc(small)}</small>` : ""}</dd></div>` : "");
     const total = group.rows.reduce((n, r) => n + (Number(r.demande.prixHT) || 0), 0);
     const when = first.date ? capFirst(D.isMultiDay(first) ? D.availabilityLabel(first) : D.dayLabel(first.date)) : "";
-    const vehicles = many ? `<section><p class="sheet-label">Véhicules</p><dl class="ret-sh-info">${group.rows.map((r) => `<div><dt>${plateTag(r.demande.plaque)}</dt><dd>${esc(D.timeSlotLabel(r.demande))}</dd></div>`).join("")}</dl></section>` : "";
+    const one = (r) => (state.canWrite ? `<button type="button" class="tr-restore sm" data-trash-restore="${esc(r.id)}" aria-label="Restaurer seulement ${esc(r.demande.plaque || "ce véhicule")}">${icon("check")}Restaurer</button>` : "");
+    const vehicles = many ? `<section><p class="sheet-label">Véhicules${state.canWrite ? " · un seul ou tous" : ""}</p><dl class="ret-sh-info tr-veh">${group.rows.map((r) => `<div><dt>${plateTag(r.demande.plaque)}</dt><dd>${esc(D.timeSlotLabel(r.demande).replace(/^de /, "").replace(" à ", " – "))}</dd>${one(r)}</div>`).join("")}</dl></section>` : "";
     return `<div class="ret-sheet tr-sheet">
       <div class="ret-sh-hero">${serviceTile(first, "lg")}<div><p class="ret-sh-kind">Dans la corbeille</p><span class="ret-sh-what">${esc(trashTitle(group))}</span>
         <div class="tr-plates">${many ? "" : plateTag(first.plaque)}</div></div></div>
@@ -6289,40 +6316,51 @@ function page(texte) {
       </dl>
       ${first.notes ? `<p class="ret-sh-note">${esc(first.notes)}</p>` : ""}
       <div class="ret-sh-acts">${state.canWrite
-        ? `<button type="button" class="ret-btn primary" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer dans le planning</button>`
+        ? `<button type="button" class="ret-btn primary" data-trash-restore="${esc(trashKey(group))}">${icon("check")}${many ? `Restaurer les ${group.rows.length} dans le planning` : "Restaurer dans le planning"}</button>`
         : `<p class="ret-foot">Seuls les administrateurs peuvent restaurer une demande.</p>`}</div>
     </div>`;
   }
-  async function restoreTrash(key, button) {
+  // key = the ids to put back: a whole card (« g1,g2,g3 ») or one vehicle of a grouped wash (« g2 », from the sheet).
+  async function restoreTrash(key) {
     if (!requireStore()) return;
-    const group = trash.groups.find((g) => trashKey(g) === key);
-    if (!group) return;
     const ids = key.split(",");
-    const date = group.rows[0].demande.date;
-    document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = true));
+    const group = trash.groups.find((g) => ids.every((id) => g.ids.includes(id)));
+    if (!group) return;
+    const partial = group.ids.length > ids.length;
+    const date = group.rows.find((r) => r.id === ids[0])?.demande.date;
+    const buttons = () => document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`);
+    buttons().forEach((b) => (b.disabled = true));
     try {
       await state.store.restoreDemandes(ids);
+      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : partial ? "Véhicule restauré" : "Demande restaurée",
+        date ? { label: "Voir au planning", run: () => { if (teamSheet.isOpen) teamSheet.close(); state.day = date; show("planning"); renderPlanning(); } } : undefined);
+      if (partial) {
+        // Only this vehicle goes back: the others stay together in the trash, the sheet shows what is left.
+        group.ids = group.ids.filter((id) => !ids.includes(id));
+        group.rows = group.rows.filter((r) => !ids.includes(r.id));
+        renderTrash();
+        if (teamSheet.isOpen) teamSheet.open("Demande supprimée", trashSheetBody(group), { cls: "tr-sheet-wrap" });
+        return;
+      }
       if (teamSheet.isOpen) teamSheet.close();
-      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : "Demande restaurée",
-        date ? { label: "Voir au planning", run: () => { state.day = date; show("planning"); renderPlanning(); } } : undefined);
       const card = document.querySelector(`.tr-card[data-trash-key="${CSS.escape(key)}"]`);
-      const drop = () => { trash.groups = trash.groups.filter((g) => trashKey(g) !== key); renderTrash(); };
+      const drop = () => { trash.groups = trash.groups.filter((g) => g !== group); renderTrash(); };
       if (card && !matchMedia("(prefers-reduced-motion: reduce)").matches) { card.classList.add("tr-leave"); setTimeout(drop, 260); } else drop();
     } catch (err) {
-      document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = false));
+      buttons().forEach((b) => (b.disabled = false));
       if (err?.code === "already_exists") toast("Cette demande existe déjà dans le planning"); else reportWriteError(err);
     }
   }
   $("#trashList").addEventListener("click", (e) => {
     const button = e.target.closest("[data-trash-restore]");
-    if (button) { restoreTrash(button.dataset.trashRestore, button); return; }
+    if (button) { restoreTrash(button.dataset.trashRestore); return; }
     const open = e.target.closest("[data-trash-open]");
     const group = open && trash.groups.find((g) => trashKey(g) === open.dataset.trashOpen);
     if (group) teamSheet.open("Demande supprimée", trashSheetBody(group), { cls: "tr-sheet-wrap" });
   });
   document.addEventListener("click", (e) => {
     const button = e.target.closest(".tr-sheet [data-trash-restore]");
-    if (button) restoreTrash(button.dataset.trashRestore, button);
+    if (button) restoreTrash(button.dataset.trashRestore);
   });
   $("#trashSearch").addEventListener("input", (e) => { trash.query = e.target.value; renderTrash(); });
 

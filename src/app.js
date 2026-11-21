@@ -396,8 +396,10 @@
 
   // ================= Corbeille: deleted requests, kept 20 days, restorable =================
   // Façon iPhone (2026-11-21) : résumé en haut, recherche de plaque, cartes groupées par jour de suppression avec les jours
-  // restants (gris, orange à 3 jours, rouge le dernier jour), « Restaurer » en bouton clair + bulle « Voir au planning »,
+  // restants (vert, orange à 3 jours, rouge le dernier jour), « Restaurer » en bouton vert + bulle « Voir au planning »,
   // fiche complète dans la feuille de l'équipe (teamSheet). Rien n'est effacé avant 20 jours : les règles l'interdisent.
+  // Retouches (2026-11-21) : cartes compactes par 3 sur ordinateur, triées par type dans chaque jour, et dans un lavage
+  // groupé chaque véhicule peut être restauré seul depuis la feuille (il garde son groupe et y revient s'il est restauré).
   const trash = { groups: [], error: false, loading: false, query: "" };
   async function openTrash() {
     trash.loading = true; trash.error = false; renderTrash();
@@ -410,7 +412,8 @@
   }
   const trashKey = (group) => group.ids.join(",");
   const trashLeft = (group) => D.trashDaysLeft(group.supprimeLe, new Date().toISOString());
-  const trashTone = (left) => (left <= 1 ? "bad" : left <= 3 ? "soon" : "");
+  const trashTone = (left) => (left <= 1 ? "bad" : left <= 3 ? "soon" : "ok");
+  const trashTypeRank = (group) => { const i = D.SERVICES.findIndex((s) => s.id === group.rows[0].demande.service); return i < 0 ? 99 : i; };
   const trashLeftLabel = (left) => (left <= 0 ? "Effacée aujourd'hui" : left === 1 ? "Effacée demain" : `Effacée dans ${left} j`);
   const trashWho = (email) => { const name = String(email || "").split("@")[0].split(/[._-]/)[0]; return name ? capFirst(name) : ""; };
   const trashHour = (iso) => (iso ? iso.slice(11, 16).replace(":", "h") : "");
@@ -438,13 +441,13 @@
       <button type="button" class="tr-open" data-trash-open="${esc(trashKey(group))}" aria-label="${esc(trashTitle(group))} : voir le détail">
         ${serviceTile(first, "sm")}
         <span class="tr-main">
-          <span class="tr-line"><span class="tr-plates">${plates}</span><span class="tr-days ${trashTone(left)}">${trashLeftLabel(left)}</span></span>
+          <span class="tr-plates">${plates}</span>
           <span class="tr-what">${esc(trashTitle(group))}</span>
           <span class="tr-meta">${esc(meta)}</span>
           <span class="tr-meta">${esc(by)}</span>
         </span>
       </button>
-      ${state.canWrite ? `<div class="tr-acts"><button type="button" class="tr-restore" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer</button></div>` : ""}
+      <div class="tr-acts"><span class="tr-days ${trashTone(left)}">${trashLeftLabel(left)}</span>${state.canWrite ? `<button type="button" class="tr-restore" data-trash-restore="${esc(trashKey(group))}">${icon("check")}${group.rows.length > 1 ? `Restaurer les ${group.rows.length}` : "Restaurer"}</button>` : ""}</div>
     </article>`;
   }
   function renderTrash() {
@@ -455,7 +458,7 @@
     $("#trashSearchWrap").hidden = trash.loading || trash.error || groups.length < 2;
     $("#trashSum").innerHTML = trash.loading || trash.error || !groups.length ? "" : `<div class="tr-sum">
         <span class="ret-ico lg" aria-hidden="true">${self.IssueArt?.art("corbeille", "ret-art") || ""}</span>
-        <div class="tr-sum-txt"><b>${plural(count, "demande")}</b><span>Restaurables pendant 20 jours après la suppression, puis effacées pour de bon.</span>
+        <div class="tr-sum-txt"><b>${plural(count, "demande")}</b><span>Gardées 20 jours, puis effacées.</span>
         ${soon ? `<span class="tr-days soon">${soon} bientôt effacée${soon > 1 ? "s" : ""}</span>` : ""}</div>
       </div>`;
     if (trash.loading && !groups.length) { box.innerHTML = `<p class="hint">Chargement…</p>`; return; }
@@ -473,6 +476,8 @@
       const last = days[days.length - 1];
       if (last && last.day === day) last.groups.push(g); else days.push({ day, groups: [g] });
     }
+    // Dans un même jour : pare-brise, lavages, interventions, contrôles hayon, puis la plus récente d'abord.
+    for (const d of days) d.groups.sort((a, b) => trashTypeRank(a) - trashTypeRank(b) || (a.supprimeLe < b.supprimeLe ? 1 : a.supprimeLe > b.supprimeLe ? -1 : 0));
     box.innerHTML = days.map(({ day, groups: list }) => `<section class="tr-group">
         <h2 class="ret-gh">${esc(trashDayHeading(day))}<em>· ${list.reduce((n, g) => n + g.rows.length, 0)}</em></h2>
         <div class="tr-cards">${list.map(trashCard).join("")}</div>
@@ -487,7 +492,8 @@
     const line = (label, value, small = "") => (value ? `<div><dt>${label}</dt><dd>${esc(value)}${small ? `<small>${esc(small)}</small>` : ""}</dd></div>` : "");
     const total = group.rows.reduce((n, r) => n + (Number(r.demande.prixHT) || 0), 0);
     const when = first.date ? capFirst(D.isMultiDay(first) ? D.availabilityLabel(first) : D.dayLabel(first.date)) : "";
-    const vehicles = many ? `<section><p class="sheet-label">Véhicules</p><dl class="ret-sh-info">${group.rows.map((r) => `<div><dt>${plateTag(r.demande.plaque)}</dt><dd>${esc(D.timeSlotLabel(r.demande))}</dd></div>`).join("")}</dl></section>` : "";
+    const one = (r) => (state.canWrite ? `<button type="button" class="tr-restore sm" data-trash-restore="${esc(r.id)}" aria-label="Restaurer seulement ${esc(r.demande.plaque || "ce véhicule")}">${icon("check")}Restaurer</button>` : "");
+    const vehicles = many ? `<section><p class="sheet-label">Véhicules${state.canWrite ? " · un seul ou tous" : ""}</p><dl class="ret-sh-info tr-veh">${group.rows.map((r) => `<div><dt>${plateTag(r.demande.plaque)}</dt><dd>${esc(D.timeSlotLabel(r.demande).replace(/^de /, "").replace(" à ", " – "))}</dd>${one(r)}</div>`).join("")}</dl></section>` : "";
     return `<div class="ret-sheet tr-sheet">
       <div class="ret-sh-hero">${serviceTile(first, "lg")}<div><p class="ret-sh-kind">Dans la corbeille</p><span class="ret-sh-what">${esc(trashTitle(group))}</span>
         <div class="tr-plates">${many ? "" : plateTag(first.plaque)}</div></div></div>
@@ -504,40 +510,51 @@
       </dl>
       ${first.notes ? `<p class="ret-sh-note">${esc(first.notes)}</p>` : ""}
       <div class="ret-sh-acts">${state.canWrite
-        ? `<button type="button" class="ret-btn primary" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer dans le planning</button>`
+        ? `<button type="button" class="ret-btn primary" data-trash-restore="${esc(trashKey(group))}">${icon("check")}${many ? `Restaurer les ${group.rows.length} dans le planning` : "Restaurer dans le planning"}</button>`
         : `<p class="ret-foot">Seuls les administrateurs peuvent restaurer une demande.</p>`}</div>
     </div>`;
   }
-  async function restoreTrash(key, button) {
+  // key = the ids to put back: a whole card (« g1,g2,g3 ») or one vehicle of a grouped wash (« g2 », from the sheet).
+  async function restoreTrash(key) {
     if (!requireStore()) return;
-    const group = trash.groups.find((g) => trashKey(g) === key);
-    if (!group) return;
     const ids = key.split(",");
-    const date = group.rows[0].demande.date;
-    document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = true));
+    const group = trash.groups.find((g) => ids.every((id) => g.ids.includes(id)));
+    if (!group) return;
+    const partial = group.ids.length > ids.length;
+    const date = group.rows.find((r) => r.id === ids[0])?.demande.date;
+    const buttons = () => document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`);
+    buttons().forEach((b) => (b.disabled = true));
     try {
       await state.store.restoreDemandes(ids);
+      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : partial ? "Véhicule restauré" : "Demande restaurée",
+        date ? { label: "Voir au planning", run: () => { if (teamSheet.isOpen) teamSheet.close(); state.day = date; show("planning"); renderPlanning(); } } : undefined);
+      if (partial) {
+        // Only this vehicle goes back: the others stay together in the trash, the sheet shows what is left.
+        group.ids = group.ids.filter((id) => !ids.includes(id));
+        group.rows = group.rows.filter((r) => !ids.includes(r.id));
+        renderTrash();
+        if (teamSheet.isOpen) teamSheet.open("Demande supprimée", trashSheetBody(group), { cls: "tr-sheet-wrap" });
+        return;
+      }
       if (teamSheet.isOpen) teamSheet.close();
-      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : "Demande restaurée",
-        date ? { label: "Voir au planning", run: () => { state.day = date; show("planning"); renderPlanning(); } } : undefined);
       const card = document.querySelector(`.tr-card[data-trash-key="${CSS.escape(key)}"]`);
-      const drop = () => { trash.groups = trash.groups.filter((g) => trashKey(g) !== key); renderTrash(); };
+      const drop = () => { trash.groups = trash.groups.filter((g) => g !== group); renderTrash(); };
       if (card && !matchMedia("(prefers-reduced-motion: reduce)").matches) { card.classList.add("tr-leave"); setTimeout(drop, 260); } else drop();
     } catch (err) {
-      document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = false));
+      buttons().forEach((b) => (b.disabled = false));
       if (err?.code === "already_exists") toast("Cette demande existe déjà dans le planning"); else reportWriteError(err);
     }
   }
   $("#trashList").addEventListener("click", (e) => {
     const button = e.target.closest("[data-trash-restore]");
-    if (button) { restoreTrash(button.dataset.trashRestore, button); return; }
+    if (button) { restoreTrash(button.dataset.trashRestore); return; }
     const open = e.target.closest("[data-trash-open]");
     const group = open && trash.groups.find((g) => trashKey(g) === open.dataset.trashOpen);
     if (group) teamSheet.open("Demande supprimée", trashSheetBody(group), { cls: "tr-sheet-wrap" });
   });
   document.addEventListener("click", (e) => {
     const button = e.target.closest(".tr-sheet [data-trash-restore]");
-    if (button) restoreTrash(button.dataset.trashRestore, button);
+    if (button) restoreTrash(button.dataset.trashRestore);
   });
   $("#trashSearch").addEventListener("input", (e) => { trash.query = e.target.value; renderTrash(); });
 
