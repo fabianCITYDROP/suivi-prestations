@@ -612,10 +612,10 @@
     const plate = normalizePlate(plaque);
     const ticks = FIELD_ISSUES.filter((q) => quoi.includes(q));
     const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
-    if (!plateKey(plate)) return { error: "Écris la plaque du véhicule" };
-    if (!fieldPlateOk(plate)) return { error: `Plaque ${plate} incomplète : vérifie-la` };
-    if (!ticks.length && !text) return { error: `Coche ce que tu as vu sur ${plate}, ou écris-le` };
-    if (ticks.includes("Autre") && !text) return { error: "« Autre » : écris en quelques mots ce que tu as vu" };
+    if (!plateKey(plate)) return { error: "Immatriculation à renseigner" };
+    if (!fieldPlateOk(plate)) return { error: `Immatriculation ${plate} incomplète` };
+    if (!ticks.length && !text) return { error: `Cochez au moins une anomalie pour ${plate}, ou ajoutez un commentaire` };
+    if (ticks.includes("Autre") && !text) return { error: "« Autre » : précisez l'anomalie dans le commentaire" };
     return { demandeId: "", source: "terrain", plaque: plate, prestataireId, type: "autre", quoi: ticks,
       texte: [fieldTicksText(ticks), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...(photo ? { photo } : {}),
       statut: "nouveau", at: nowIso, par: email };

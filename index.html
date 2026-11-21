@@ -1873,10 +1873,10 @@ window.SUIVI_FIREBASE_CONFIG = {
     const plate = normalizePlate(plaque);
     const ticks = FIELD_ISSUES.filter((q) => quoi.includes(q));
     const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
-    if (!plateKey(plate)) return { error: "Écris la plaque du véhicule" };
-    if (!fieldPlateOk(plate)) return { error: `Plaque ${plate} incomplète : vérifie-la` };
-    if (!ticks.length && !text) return { error: `Coche ce que tu as vu sur ${plate}, ou écris-le` };
-    if (ticks.includes("Autre") && !text) return { error: "« Autre » : écris en quelques mots ce que tu as vu" };
+    if (!plateKey(plate)) return { error: "Immatriculation à renseigner" };
+    if (!fieldPlateOk(plate)) return { error: `Immatriculation ${plate} incomplète` };
+    if (!ticks.length && !text) return { error: `Cochez au moins une anomalie pour ${plate}, ou ajoutez un commentaire` };
+    if (ticks.includes("Autre") && !text) return { error: "« Autre » : précisez l'anomalie dans le commentaire" };
     return { demandeId: "", source: "terrain", plaque: plate, prestataireId, type: "autre", quoi: ticks,
       texte: [fieldTicksText(ticks), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...(photo ? { photo } : {}),
       statut: "nouveau", at: nowIso, par: email };
@@ -3083,21 +3083,21 @@ window.SUIVI_FIREBASE_CONFIG = {
         ? `<button type="button" class="field-del armed" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer ?</button>`
         : `<button type="button" class="field-del" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer</button>`;
       return `<article class="job field-card${editing ? " editing" : ""}">
-        ${editing ? `<p class="field-editing">Tu modifies ton signalement. L'équipe verra la nouvelle version.</p>` : ""}
-        <label class="field"><span>Plaque du véhicule</span><input class="field-plate" data-fplate data-keep="fplate" value="${esc(r.plaque)}" placeholder="AB-123-CD" autocapitalize="characters" autocomplete="off" spellcheck="false" list="fieldPlates" maxlength="12"></label>
-        <fieldset class="issue-set"><legend>Ce que tu as vu</legend><div class="issue-grid">
+        ${editing ? `<p class="field-editing">Modification du signalement. L'équipe verra la nouvelle version.</p>` : ""}
+        <label class="field"><span>Immatriculation</span><input class="field-plate" data-fplate data-keep="fplate" value="${esc(r.plaque)}" placeholder="AB-123-CD" autocapitalize="characters" autocomplete="off" spellcheck="false" list="fieldPlates" maxlength="12"></label>
+        <fieldset class="issue-set"><legend>Anomalies constatées</legend><div class="issue-grid">
           ${D.FIELD_ISSUES.map((q) => { const on = r.quoi.includes(q); return `<button type="button" class="issue-tile" data-fissue data-q="${esc(q)}" aria-pressed="${on}"><span class="tick" aria-hidden="true">${on ? icon("check") : ""}</span>${esc(q)}</button>`; }).join("")}
         </div></fieldset>
-        <label class="field"><span>${r.quoi.includes("Autre") ? "Dis ce que tu as vu" : "Précisions (facultatif)"}</span><input data-ftext data-keep="ftext" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche lisse"></label>
+        <label class="field"><span>${r.quoi.includes("Autre") ? "Commentaire (à préciser pour « Autre »)" : "Commentaire (facultatif)"}</span><input data-ftext data-keep="ftext" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche usé"></label>
         ${photo}
         ${state.fieldBusy ? busyLine : editing
           ? `<div class="field-actions"><button type="button" class="primary big" data-fsend>${icon("check")}Enregistrer</button><div class="field-actions-row"><button type="button" class="ghost" data-fcancel>Annuler</button>${del}</div></div>`
-          : `<button type="button" class="primary big field-send" data-fsend>${icon("check")}Envoyer à l'équipe</button>`}
+          : `<button type="button" class="primary big field-send" data-fsend>${icon("check")}Transmettre à City-Drop</button>`}
       </article>`;
     }
     function sentRow(p) {
       const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}${p.modifieAt ? " · modifié" : ""}</small></span>
-        <span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé"}</span>`;
+        <span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${p.statut === "traite" ? "Traité" : "Transmis"}</span>`;
       return editable(p)
         ? `<li><button type="button" class="sent-row${fd().editId === p.id ? " current" : ""}" data-fedit="${esc(p.id)}" aria-label="Modifier ou supprimer le signalement ${esc(p.plaque)}">${body}${icon("chev-r")}</button></li>`
         : `<li><div class="sent-row">${body}<span></span></div></li>`;
@@ -3105,10 +3105,10 @@ window.SUIVI_FIREBASE_CONFIG = {
     function reportTab() {
       const plates = [...new Set(state.demandes.map((d) => d.plaque).filter(Boolean))];
       const mine = state.problems.filter(D.isFieldReport).sort((a, b) => (b.at || "").localeCompare(a.at || "")).slice(0, 15);
-      return `<p class="tab-intro">Un souci sur un véhicule, même s'il n'est pas dans tes demandes ? Envoie-le à l'équipe, puis passe au suivant.</p>
+      return `<p class="tab-intro">Signalez toute anomalie constatée sur un véhicule de la flotte, même hors de vos interventions. Un véhicule par envoi.</p>
         <datalist id="fieldPlates">${plates.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
         ${fieldForm()}
-        ${mine.length ? `<h2 class="field-sent-title">Tes derniers signalements</h2><p class="field-sent-hint">Touche un signalement pour le modifier ou le supprimer, tant que l'équipe ne l'a pas vu.</p><ul class="field-sent">${mine.map(sentRow).join("")}</ul>` : ""}`;
+        ${mine.length ? `<h2 class="field-sent-title">Signalements récents</h2><p class="field-sent-hint">Modifiable ou supprimable tant que City-Drop ne l'a pas traité.</p><ul class="field-sent">${mine.map(sentRow).join("")}</ul>` : ""}`;
     }
     async function sendField() {
       const r = fd();
@@ -3119,11 +3119,11 @@ window.SUIVI_FIREBASE_CONFIG = {
       try {
         const fields = { plaque: r.plaque, quoi: r.quoi, texte: r.texte, par: email };
         if (r.editId) { await store.updateField(state.problems.find((p) => p.id === r.editId), fields, r.photo?.full, r.photoKey); toast(`Signalement ${D.normalizePlate(r.plaque)} modifié`); }
-        else { await store.reportField(account.prestataireId, fields, r.photo?.full); toast(`${D.normalizePlate(r.plaque)} envoyé à l'équipe, merci ! Tu peux en faire un autre.`); }
+        else { await store.reportField(account.prestataireId, fields, r.photo?.full); toast(`Signalement ${D.normalizePlate(r.plaque)} transmis, merci`); }
         state.fd = emptyField();
         window.scrollTo({ top: 0 });
       } catch (err) {
-        toast(err?.code === "permission-denied" && r.editId ? "Déjà vu par l'équipe : refais un signalement" : "Envoi impossible : vérifie ta connexion et réessaie");
+        toast(err?.code === "permission-denied" && r.editId ? "Déjà traité par City-Drop : faites un nouveau signalement" : "Envoi impossible : vérifie ta connexion et réessaie");
       } finally {
         state.fieldBusy = false; render();
         if (!state.fd.editId) view.querySelector("[data-fplate]")?.focus({ preventScroll: true });

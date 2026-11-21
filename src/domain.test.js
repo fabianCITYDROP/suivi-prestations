@@ -725,9 +725,9 @@ test("« Signaler » : remontée terrain sur n'importe quel véhicule", () => {
   assert.equal(D.problemSummary(r), r.texte);
   assert.ok(D.isFieldReport(r));
   assert.equal(D.fieldReport({ plaque: "AB-123-CD", texte: "rétro cassé" }, "k", "e", "t").texte, "rétro cassé");
-  assert.match(D.fieldReport({ plaque: "", quoi: ["Pare-brise"] }, "k", "e", "t").error, /plaque/);
+  assert.match(D.fieldReport({ plaque: "", quoi: ["Pare-brise"] }, "k", "e", "t").error, /Immatriculation/);
   assert.match(D.fieldReport({ plaque: "AB1", quoi: ["Pare-brise"] }, "k", "e", "t").error, /incomplète/);
-  assert.match(D.fieldReport({ plaque: "AB-123-CD" }, "k", "e", "t").error, /Coche/);
+  assert.match(D.fieldReport({ plaque: "AB-123-CD" }, "k", "e", "t").error, /Cochez/);
 });
 
 test("« Signaler » : Autre demande des mots, et on retrouve les mots pour modifier", () => {
