@@ -1841,15 +1841,6 @@
 
   // ---------- answers from providers: Retours page, tab badge, window title, desktop notifications ----------
   const answerSentence = (d) => `${d.prestataire} ${D.answerOf(d.retour.etat)?.team || "a répondu pour"} ${d.plaque}`;
-  function answerRow(d, { seen = false } = {}) {
-    const r = d.retour;
-    return `<div class="answer-row${seen ? " seen" : ""}">${plateTag(d.plaque)}
-      <span><b>${esc(d.prestataire)}</b> · ${esc(D.answerSummary(r))}<br><span class="muted">${esc([D.jobLabel(d), d.tache, D.vehicleLabel(d), D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(D.numericDate(r.at.slice(0, 10)))} ${esc(r.at.slice(11, 16))}</span></span>
-      <span class="row">${r.preuve ? `<button type="button" data-proof="${esc(r.preuve)}">${icon("image")}Photo</button>` : ""}
-      ${!seen && r.etat === "autre-date" && state.canWrite ? `<button type="button" data-accept-date="${esc(d.id)}">Accepter cette date</button>` : ""}
-      ${!seen && state.canWrite ? `<button type="button" class="ghost" data-seen="${esc(d.id)}">Vu</button>` : ""}
-      <button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button></span></div>`;
-  }
   // ---------- problems seen on a vehicle by a provider (shock, tyre, warning light) ----------
   const providerOfProblem = (p) => demandeById(p.demandeId)?.prestataire || state.providerDocs.get(p.prestataireId)?.nom || "Prestataire";
   const atLabel = (iso) => `${D.numericDate(iso.slice(0, 10))} ${iso.slice(11, 16)}`;
@@ -1859,23 +1850,6 @@
   }
   // Petites icônes des anomalies cochées par le prestataire (pare-brise, pneu…), les mêmes que sur son écran.
   const problemArts = (p) => { const arts = (p.quoi || []).filter((q) => self.IssueArt?.has(q)).slice(0, 4).map((q) => self.IssueArt.art(q, "mini-art")).join(""); return arts ? `<span class="mini-arts">${arts}</span>` : ""; };
-  function problemRow(p, { handled = false } = {}) {
-    const d = demandeById(p.demandeId);
-    return `<div class="answer-row problem-row${handled ? " seen" : ""}">${plateTag(p.plaque)}
-      <span><span class="problem-type">${D.isFieldReport(p) ? "Vu en passant" : "Problème"}</span> · ${problemArts(p)}${esc(D.problemSummary(p))}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
-      <span class="row">${p.photo ? `<button type="button" data-proof="${esc(p.photo)}">${icon("image")}Photo</button>` : ""}
-      ${state.canWrite ? (handled ? `<button type="button" class="ghost" data-problem-undo="${esc(p.id)}">Rouvrir</button>` : `<button type="button" data-problem-done="${esc(p.id)}">${icon("check")}Traité</button>`) : ""}
-      ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : state.canWrite ? `<button type="button" class="ghost" data-problem-new="${esc(p.plaque)}">${icon("plus")}Créer une demande</button>` : ""}</span></div>`;
-  }
-  function renderProblems() {
-    const open = D.openProblems(state.problems);
-    const handled = D.handledProblems(state.problems);
-    $("#problemsBlock").hidden = !open.length && !handled.length;
-    $("#problems").innerHTML = open.length ? open.map((p) => problemRow(p)).join("") : `<p class="hint">Aucun problème en attente.</p>`;
-    $("#problemsHandled").hidden = !handled.length;
-    $("#problemsHandled").innerHTML = handled.length ? `<summary>Problèmes déjà traités (${handled.length})</summary><div class="panel answers">${handled.map((p) => problemRow(p, { handled: true })).join("")}</div>` : "";
-    return open.length;
-  }
   let knownProblems = null;
   function followProblems(rows) {
     const fresh = D.openProblems(rows).filter((p) => knownProblems && !knownProblems.has(p.id));
@@ -1891,17 +1865,14 @@
 
   function renderAnswers() {
     const rows = D.unseenAnswers(state.demandes);
-    const openProblems = renderProblems();
+    const openProblems = D.openProblems(state.problems).length;
     const n = rows.length + openProblems;
     $("#retoursBadge").hidden = !n; $("#retoursBadge").textContent = n;
     document.title = (n ? `(${n}) ` : "") + "City-Drop × Presta";
     try { n ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.(); } catch {}
     renderRetoursSide(rows, openProblems);
-    $("#allSeenBtn").hidden = !rows.length || !state.canWrite;
     renderAlertButton();
-    $("#answers").innerHTML = rows.length ? rows.map((d) => answerRow(d)).join("") : `<p class="hint">Aucun nouveau retour. Les réponses des prestataires s'afficheront ici.</p>`;
-    const seen = D.seenAnswers(state.demandes);
-    $("#answersSeen").innerHTML = seen.length ? seen.map((d) => answerRow(d, { seen: true })).join("") : `<p class="hint">Rien pour l'instant.</p>`;
+    renderRetours();
   }
   // Planning side card: the latest unseen answers, handled without leaving the planning.
   const SIDE_MAX = 4;
@@ -1961,22 +1932,215 @@
     try { await state.store.saveAlertSettings({ url, cle }); await state.alerts?.reload(); toast("Script des alertes branché"); renderAnswers(); }
     catch (err) { reportWriteError(err); }
   };
-  $("#allSeenBtn").onclick = async () => {
+  // ================= « Retours » page (2026-11-21, façon iPhone) =================
+  // Grouped by what the team has to do: problems on a vehicle, answers to decide (other date, not possible, absent,
+  // cancelled « fait »), things seen in passing, then answers already applied (done, taken) that only need « Vu ».
+  // A card opens a sheet with the detail and the photo; « Vu » / « Traité » send the card away with « Annuler » in the bubble.
+  const RET_ART = { "autre-date": "act-date", absent: "act-absent", refuse: "act-refuse", erreur: "ret-erreur", fait: "ret-fait", confirme: "ret-confirme" };
+  const RET_DECIDE = ["autre-date", "refuse", "absent", "erreur"];
+  const RET_GROUPS = [
+    { id: "problems", title: "Problèmes sur un véhicule", short: "Problèmes", art: "act-problem" },
+    { id: "decide", title: "À décider", short: "À décider", art: "act-date" },
+    { id: "field", title: "Vu en passant", short: "Vu en passant", art: "Pare-brise" },
+    { id: "info", title: "Pour info · déjà appliqué", short: "Pour info", art: "ret-fait" },
+  ];
+  const ret = { tab: "todo", open: null, thumbs: new Map() };
+  const retArt = (key, cls = "ret-art") => self.IssueArt?.art(key, cls) || "";
+  const reduceMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const hourLabel = (t) => (t ? t.replace(":", "h") : "");
+  const ticksOf = (p) => (p.quoi || []).filter((q) => q !== "Autre");
+  function retItem(key) {
+    const [kind, id] = [key.slice(0, 1), key.slice(2)];
+    if (kind === "d") { const d = demandeById(id); return d?.retour ? { key, kind, d, at: d.retour.at } : null; }
+    const p = state.problems.find((x) => x.id === id);
+    return p ? { key, kind, p, d: p.demandeId ? demandeById(p.demandeId) : null, at: p.at } : null;
+  }
+  const answerItem = (d) => ({ key: "d:" + d.id, kind: "d", d, at: d.retour.at });
+  const problemItem = (p) => ({ key: (D.isFieldReport(p) ? "f:" : "p:") + p.id, kind: D.isFieldReport(p) ? "f" : "p", p, d: p.demandeId ? demandeById(p.demandeId) : null, at: p.at });
+  function retGroups() {
+    const answers = D.unseenAnswers(state.demandes).map(answerItem);
+    const problems = D.openProblems(state.problems).map(problemItem);
+    return {
+      problems: problems.filter((it) => it.kind === "p"),
+      decide: answers.filter((it) => RET_DECIDE.includes(it.d.retour.etat)),
+      field: problems.filter((it) => it.kind === "f"),
+      info: answers.filter((it) => !RET_DECIDE.includes(it.d.retour.etat)),
+    };
+  }
+  const isRetDone = (it) => (it.kind === "d" ? !!it.d.retour.vu : it.p.statut === "traite");
+  // What a card and its sheet show, for the three kinds of retour.
+  function retView(it) {
+    const done = isRetDone(it);
+    const d = it.d;
+    const job = d ? [D.jobLabel(d), d.tache].filter(Boolean).join(" · ") : "";
+    if (it.kind === "d") {
+      const r = d.retour;
+      const what = r.etat === "autre-date" ? `Propose le ${D.shortDate(r.date)}${r.debut ? " à " + hourLabel(r.debut) : ""}`
+        : r.etat === "fait" ? "Passage fait" : D.answerOf(r.etat)?.label || r.etat;
+      const acts = done ? [{ act: "unseen", label: "Remettre à traiter" }]
+        : r.etat === "autre-date" ? [{ act: "accept", label: `Accepter le ${D.shortDate(r.date)}`, primary: true }, { act: "seen", label: "Vu" }]
+        : RET_DECIDE.includes(r.etat) ? [{ act: "replan", label: "Replanifier", primary: true }, { act: "seen", label: "Vu" }]
+        : [{ act: "seen", label: "Vu" }];
+      return { art: RET_ART[r.etat] || "ret-fait", kind: "Réponse à une demande", what, note: r.note || "", who: d.prestataire, plate: d.plaque, job, d, photo: r.preuve || "", acts,
+        doneLine: done ? "Vu" : "" };
+    }
+    const p = it.p;
+    const who = providerOfProblem(p);
+    const handledBy = done ? `Traité${p.traitePar ? " par " + p.traitePar.split("@")[0] : ""}${p.traiteAt ? " le " + atLabel(p.traiteAt) : ""}` : "";
+    if (it.kind === "p") {
+      const acts = done ? [{ act: "reopen", label: "Rouvrir" }] : [{ act: "handled", label: "Traité", primary: true, check: true }, ...(d ? [{ act: "open", label: "Ouvrir la demande" }] : [])];
+      return { art: "act-problem", kind: "Problème sur un véhicule", what: D.problemSummary(p), note: "", who, plate: p.plaque, job, d, photo: p.photo || "", acts, doneLine: handledBy };
+    }
+    const ticks = ticksOf(p);
+    const tickText = ticks.join(", ");
+    const words = p.texte && p.texte !== tickText ? p.texte.replace(tickText + " – ", "") : "";
+    const acts = done ? [{ act: "reopen", label: "Rouvrir" }] : [{ act: "new", label: "Créer une demande", primary: true, plus: true }, { act: "handled", label: "Traité" }];
+    return { art: ticks.find((q) => self.IssueArt?.has(q)) || "Autre", kind: "Vu en passant", what: ticks.length ? ticks.join(", ") : "Autre", note: ticks.length ? words : "", noteIsText: !ticks.length,
+      extraArts: ticks.slice(1).filter((q) => self.IssueArt?.has(q)), who, plate: p.plaque, job: "", d: null, photo: p.photo || "", acts, doneLine: handledBy,
+      edited: p.modifieAt ? `modifié le ${atLabel(p.modifieAt)}` : "", whatOverride: !ticks.length ? words || p.texte : "" };
+  }
+  const retBtn = (a, key) => `<button type="button" class="ret-btn${a.primary ? " primary" : ""}" data-ret-act="${a.act}" data-key="${esc(key)}">${a.check ? icon("check") : a.plus ? icon("plus") : ""}${esc(a.label)}</button>`;
+  function retCard(it) {
+    const v = retView(it);
+    const thumb = v.photo ? `<span class="ret-thumb" data-thumb="${esc(v.photo)}">${ret.thumbs.get(v.photo) ? `<img src="${ret.thumbs.get(v.photo)}" alt="">` : ""}${icon("image")}</span>` : "";
+    const meta = [v.who, v.job, v.d && D.siteOf(v.d)].filter(Boolean).join(" · ");
+    const acts = state.canWrite ? v.acts.filter((a) => !["open", "replan"].includes(a.act) || v.d) : [];
+    return `<article class="ret-card${isRetDone(it) ? " done" : ""}" data-ret="${esc(it.key)}">
+      <button type="button" class="ret-open" data-ret-open="${esc(it.key)}" aria-label="${esc(`${v.kind} : ${v.plate} – détail`)}">
+        <span class="ret-ico" aria-hidden="true">${retArt(v.art)}</span>
+        <span class="ret-main">
+          <span class="ret-line">${plateTag(v.plate)}<span class="ret-time">${esc(isRetDone(it) ? it.at.slice(11, 16).replace(":", "h") : timeOf(it.at))}</span></span>
+          <span class="ret-what">${v.extraArts?.length ? `<span class="ret-minis">${v.extraArts.map((q) => retArt(q, "mini-art")).join("")}</span>` : ""}${esc(v.whatOverride || v.what)}</span>
+          ${v.note ? `<span class="ret-note">${esc(v.note)}</span>` : ""}
+          <span class="ret-meta">${esc(meta)}${v.doneLine && v.doneLine !== "Vu" ? ` · ${esc(v.doneLine)}` : ""}${v.edited ? ` · ${esc(v.edited)}` : ""}</span>
+        </span>
+        ${thumb}
+      </button>
+      ${acts.length ? `<div class="ret-acts">${acts.map((a) => retBtn(a, it.key)).join("")}</div>` : ""}
+    </article>`;
+  }
+  const retDayLabel = (iso) => { const day = iso.slice(0, 10); return day === today() ? "Aujourd'hui" : day === D.addDays(today(), -1) ? "Hier" : D.shortDate(day); };
+  function renderRetours() {
+    const g = retGroups();
+    const todo = g.problems.length + g.decide.length + g.field.length;
+    const all = todo + g.info.length;
+    $("#retTodoN").textContent = todo || ""; $("#retTodoN").hidden = !todo;
+    $("#retKicker").textContent = !all ? "Tout est à jour" : [todo ? `${todo} à traiter` : "Rien à décider", g.info.length ? `${g.info.length} pour info` : ""].filter(Boolean).join(" · ");
+    document.querySelectorAll("[data-ret-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.retTab === ret.tab)));
+    let html;
+    if (ret.tab === "done") {
+      const items = [...D.seenAnswers(state.demandes).map(answerItem), ...D.handledProblems(state.problems).map(problemItem)].sort((a, b) => (b.at || "").localeCompare(a.at || "")).slice(0, 60);
+      const days = [];
+      items.forEach((it) => { const lbl = retDayLabel(it.at); (days.at(-1)?.lbl === lbl ? days.at(-1).items : (days.push({ lbl, items: [] }), days.at(-1).items)).push(it); });
+      html = items.length ? days.map((day) => `<section class="ret-group"><h2 class="ret-gh"><span>${esc(day.lbl)}</span></h2><div class="ret-cards">${day.items.map(retCard).join("")}</div></section>`).join("")
+        + `<p class="ret-foot">Les 40 derniers retours vus et les 40 derniers problèmes traités.</p>`
+        : `<div class="ret-empty"><span class="ret-ico xl" aria-hidden="true">${retArt("faits-vide")}</span><b>Rien de traité pour l'instant</b><span>Les retours rangés avec « Vu » ou « Traité » restent ici quelques semaines.</span></div>`;
+    } else if (!all) {
+      html = `<div class="ret-empty"><span class="ret-ico xl" aria-hidden="true">${retArt("empty-inbox")}</span><b>Tout est traité</b><span>Les réponses des prestataires et ce qu'ils signalent sur les véhicules arrivent ici.</span></div>`;
+    } else {
+      const tiles = `<div class="ret-tiles">${RET_GROUPS.map((grp) => `<button type="button" class="ret-tile" data-ret-jump="${grp.id}"${g[grp.id].length ? "" : " disabled"}>
+          <span class="ret-ico sm" aria-hidden="true">${retArt(grp.art)}</span><b>${g[grp.id].length}</b><span>${grp.short}</span></button>`).join("")}</div>`;
+      html = tiles + RET_GROUPS.filter((grp) => g[grp.id].length).map((grp) => `<section class="ret-group" id="ret-g-${grp.id}">
+          <h2 class="ret-gh"><span>${grp.title}</span><em>${g[grp.id].length}</em>${grp.id === "info" && state.canWrite && g.info.length > 1 ? `<button type="button" class="ret-link" data-ret-act="all-info">Tout ranger</button>` : ""}</h2>
+          ${grp.id === "info" ? `<p class="ret-gsub">Déjà reportés sur le planning. « Vu » les range simplement.</p>` : ""}
+          <div class="ret-cards${grp.id === "info" ? " compact" : ""}">${g[grp.id].map(retCard).join("")}</div></section>`).join("");
+    }
+    $("#retList").innerHTML = html;
+    loadThumbs();
+    if (teamSheet.isOpen && ret.open) { const it = retItem(ret.open); it ? (teamSheet.body.innerHTML = retSheetHtml(it)) : teamSheet.close(); }
+  }
+  // Photos: read once (one read each, kept in memory), only for retours that have one.
+  function loadThumbs() {
+    if (!state.store) return;
+    document.querySelectorAll("[data-thumb]:not(:has(img))").forEach((el) => {
+      const key = el.dataset.thumb;
+      state.store.loadProof(key).then((src) => {
+        const safe = safeImageSrc(src); if (!safe) return;
+        ret.thumbs.set(key, safe);
+        document.querySelectorAll(`[data-thumb="${CSS.escape(key)}"]:not(:has(img))`).forEach((t) => t.insertAdjacentHTML("afterbegin", `<img src="${safe}" alt="">`));
+      }).catch(() => {});
+    });
+  }
+  function retSheetHtml(it) {
+    const v = retView(it);
+    const d = v.d;
+    const rows = [
+      ["Véhicule", `${plateTag(v.plate)}${d ? `<small>${esc(D.vehicleLabel(d))}</small>` : ""}`],
+      ["Prestataire", esc(v.who)],
+      d && ["Prestation", esc(v.job)],
+      d && ["Site", esc(D.siteOf(d))],
+      d?.date && ["Prévue le", esc(D.shortDate(d.date) + (d.debut ? " à " + hourLabel(d.debut) : ""))],
+      ["Reçu le", esc(atLabel(it.at))],
+      v.edited && ["Modifié", esc(v.edited.replace("modifié ", ""))],
+      v.doneLine && ["Rangé", esc(v.doneLine)],
+    ].filter(Boolean);
+    const acts = state.canWrite ? v.acts.filter((a) => !["open", "replan"].includes(a.act) || d) : [];
+    if (d && !acts.some((a) => ["open", "replan"].includes(a.act))) acts.push({ act: "open", label: "Ouvrir la demande" });
+    return `<div class="ret-sheet">
+      <div class="ret-sh-hero"><span class="ret-ico lg" aria-hidden="true">${retArt(v.art)}</span>
+        <div><b class="ret-sh-what">${esc(v.whatOverride || v.what)}</b>
+        ${v.extraArts?.length ? `<span class="ret-minis">${[v.art, ...v.extraArts].map((q) => retArt(q, "mini-art")).join("")}</span>` : ""}</div></div>
+      ${v.note ? `<blockquote class="ret-sh-note">${esc(v.note)}<cite>${esc(v.who)}</cite></blockquote>` : ""}
+      ${v.photo ? `<button type="button" class="ret-sh-photo" data-proof="${esc(v.photo)}" aria-label="Voir la photo en grand"><span class="ret-thumb big" data-thumb="${esc(v.photo)}">${ret.thumbs.get(v.photo) ? `<img src="${ret.thumbs.get(v.photo)}" alt="">` : ""}${icon("image")}</span><span class="ret-sh-zoom">Agrandir</span></button>` : ""}
+      <dl class="ret-sh-info">${rows.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join("")}</dl>
+      ${acts.length ? `<div class="ret-sh-acts">${acts.map((a) => retBtn(a, it.key)).join("")}</div>` : ""}
+    </div>`;
+  }
+  function openRetSheet(key) {
+    const it = retItem(key); if (!it) return;
+    ret.open = key;
+    teamSheet.open(retView(it).kind, retSheetHtml(it), { cls: "ret-sheet-b", closed: () => (ret.open = null) });
+    loadThumbs();
+  }
+  // The card leaves (fade + slide), then the write; the snapshot re-renders the list without it.
+  async function retLeave(key) {
+    const card = document.querySelector(`#retList .ret-card[data-ret="${CSS.escape(key)}"]`);
+    if (!card || reduceMotion()) return;
+    card.style.height = card.offsetHeight + "px"; card.classList.add("ret-leave");
+    await new Promise((r) => setTimeout(r, 260));
+  }
+  const retBack = (card) => { if (card) { card.classList.remove("ret-leave"); card.style.height = ""; } };
+  async function retAct(act, key) {
+    if (act === "all-info") return retAllInfo();
+    const it = retItem(key); if (!it) return;
+    const { d, p } = it;
+    if (act === "replan" || act === "open") { teamSheet.close(); return openDemande(d.id); }
+    if (act === "new") { teamSheet.close(); return newDemandeFor({ plaque: p.plaque }); }
     if (!requireStore()) return;
-    try { await Promise.all(D.unseenAnswers(state.demandes).map((d) => state.store.markAnswerSeen(d))); toast("Tous les retours sont marqués comme vus"); }
-    catch (err) { reportWriteError(err); }
+    const plate = d?.plaque || p?.plaque;
+    const fromSheet = teamSheet.isOpen; teamSheet.close();
+    const leaves = ["seen", "handled", "accept"].includes(act) && ret.tab === "todo" || ["unseen", "reopen"].includes(act) && ret.tab === "done";
+    if (leaves) { if (fromSheet) await new Promise((r) => setTimeout(r, 120)); await retLeave(key); }
+    const card = () => document.querySelector(`#retList .ret-card[data-ret="${CSS.escape(key)}"]`);
+    try {
+      if (act === "seen") { await state.store.markAnswerSeen(d); toast(`Retour de ${d.prestataire} sur ${plate} rangé`, { label: "Annuler", run: () => state.store.markAnswerUnseen(d).catch(reportWriteError) }); }
+      else if (act === "unseen") { await state.store.markAnswerUnseen(d); toast(`Retour sur ${plate} remis à traiter`); }
+      else if (act === "accept") { const day = d.retour.date; await state.store.acceptProposedDate(d); toast(`Date changée pour ${plate} : ${D.shortDate(day)}`); }
+      else if (act === "handled") { await state.store.markProblemHandled(p, state.userEmail, true); toast(`${it.kind === "f" ? "Signalement" : "Problème"} sur ${plate} traité`, { label: "Annuler", run: () => state.store.markProblemHandled(p, state.userEmail, false).catch(reportWriteError) }); }
+      else if (act === "reopen") { await state.store.markProblemHandled(p, state.userEmail, false); toast(`${it.kind === "f" ? "Signalement" : "Problème"} sur ${plate} rouvert`); }
+    } catch (err) { retBack(card()); reportWriteError(err); }
+  }
+  // « Tout ranger » only touches answers already applied (done, taken), never one that still needs a decision.
+  async function retAllInfo() {
+    const list = retGroups().info.map((it) => it.d);
+    if (!list.length || !requireStore()) return;
+    try {
+      await Promise.all(list.map((d) => state.store.markAnswerSeen(d)));
+      toast(`${plural(list.length, "retour")} pour info rangé${list.length > 1 ? "s" : ""}`, { label: "Annuler", run: () => Promise.all(list.map((d) => state.store.markAnswerUnseen(d))).catch(reportWriteError) });
+    } catch (err) { reportWriteError(err); }
+  }
+  document.querySelectorAll("[data-ret-tab]").forEach((b) => b.addEventListener("click", () => { ret.tab = b.dataset.retTab; renderRetours(); }));
+  const retClick = (e) => {
+    const act = e.target.closest("[data-ret-act]");
+    if (act) return retAct(act.dataset.retAct, act.dataset.key);
+    const open = e.target.closest("[data-ret-open]");
+    if (open) return openRetSheet(open.dataset.retOpen);
+    const jump = e.target.closest("[data-ret-jump]");
+    if (jump) $("#ret-g-" + jump.dataset.retJump)?.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
   };
-  ["#problems", "#problemsHandled"].forEach((sel) => $(sel).addEventListener("click", (e) => {
-    const b = e.target.closest("[data-problem-done], [data-problem-undo], [data-open], [data-problem-new]");
-    if (!b) return;
-    if (b.dataset.open) return openDemande(b.dataset.open);
-    if (b.dataset.problemNew) return newDemandeFor({ plaque: b.dataset.problemNew }); // seen in passing: book the job (windscreen → Allo, wash…)
-    const p = state.problems.find((x) => x.id === (b.dataset.problemDone || b.dataset.problemUndo));
-    if (!p || !requireStore()) return;
-    state.store.markProblemHandled(p, state.userEmail, !!b.dataset.problemDone)
-      .then(() => toast(b.dataset.problemDone ? `Problème sur ${p.plaque} marqué comme traité` : `Problème sur ${p.plaque} rouvert`), reportWriteError);
-  }));
-  ["#answers", "#answersSeen", "#retoursSide"].forEach((sel) => $(sel).addEventListener("click", (e) => {
+  $("#retList").addEventListener("click", retClick);
+  teamSheet.body.addEventListener("click", retClick);
+  $("#retoursSide").addEventListener("click", (e) => {
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
     const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
     if (!d) return;
@@ -1984,7 +2148,7 @@
     if (!requireStore()) return;
     (b.dataset.seen ? state.store.markAnswerSeen(d) : state.store.acceptProposedDate(d))
       .then(() => b.dataset.acceptDate && toast(`Date changée pour ${d.plaque}`), reportWriteError);
-  }));
+  });
 
   // ================= render & boot =================
   function renderAll() {

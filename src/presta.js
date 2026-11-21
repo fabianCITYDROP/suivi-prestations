@@ -32,6 +32,35 @@
     document.querySelectorAll("main > section").forEach((s) => (s.hidden = s !== view));
     view.hidden = false;
 
+    // ---------- barre du haut (fixe, translucide) ----------
+    // Au repos : logo + « City-Drop × Presta » et le nom du prestataire dessous. Une fois le grand titre passé sous la barre,
+    // le titre de l'onglet prend sa place (comme les grands titres sur iPhone) et un filet fin apparaît sous la barre.
+    const brandWord = document.querySelector("header.top .brand-word");
+    const bar = document.createElement("span");
+    bar.className = "bar-stack";
+    brandWord.replaceWith(bar);
+    bar.innerHTML = `<span class="bar-rest"></span><span class="bar-ctx" aria-hidden="true"><b data-bar-title></b><small data-bar-sub></small></span>`;
+    bar.firstChild.append(brandWord);
+    bar.firstChild.insertAdjacentHTML("beforeend", `<small class="bar-who" data-bar-who></small>`);
+    let barTicking = false;
+    function barScroll() {
+      barTicking = false;
+      const h1 = view.querySelector(".presta-top h1");
+      const barBottom = document.querySelector("header.top").getBoundingClientRect().bottom;
+      document.body.classList.toggle("bar-edge", scrollY > 4);
+      document.body.classList.toggle("bar-titled", !!h1 && h1.getBoundingClientRect().bottom < barBottom + 2);
+    }
+    addEventListener("scroll", () => { if (!barTicking) { barTicking = true; requestAnimationFrame(barScroll); } }, { passive: true });
+    function paintBar(title) {
+      const who = state.providerName || "Mon espace prestataire";
+      bar.querySelector("[data-bar-who]").textContent = who;
+      bar.querySelector("[data-bar-title]").textContent = title;
+      bar.querySelector("[data-bar-sub]").textContent = who;
+      barScroll();
+    }
+    // Initiales du prestataire dans une pastille en relief (« Allo Pare-Brise » → AP).
+    const initials = (name) => (name || "").replace(/[^\p{L}\p{N}\s-]/gu, " ").split(/[\s-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
+
     // ---------- pieces ----------
     const modelPhotos = (d) => state.models.get(D.modelKey(d))?.photos || [];
     const slot = (d) => D.timeSlotLabel(d).replace(/^de /, "").replace(" à ", " – ");
@@ -142,17 +171,27 @@
       const x = new Date((iso || today()) + "T12:00:00");
       return `<span class="cal-tile" aria-hidden="true"><small>${esc(x.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", ""))}</small><b>${x.getDate()}</b></span>`;
     }
+    // En tête de carte : le jour en grand (c'est ce qui décide), puis le lieu et le véhicule dans une liste groupée.
     function askWhen(d) {
       const rel = !D.isMultiDay(d) && d.date ? relDay(d.date) : "";
-      const dm = (iso, month = true) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", month ? { day: "numeric", month: "short" } : { day: "numeric" });
+      const n = d.date ? Math.round((new Date(d.date + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5) : null;
+      const over = !d.date ? "" : rel || (n > 1 ? `Dans ${n} jours` : "");
+      const long = (iso) => cap(new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }));
+      const dm = (iso, month = true) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", month ? { day: "numeric", month: "long" } : { day: "numeric" });
       const last = D.lastDay(d);
       const day = !d.date ? "Date à préciser"
-        : D.isMultiDay(d) ? `Du ${dm(d.date, d.date.slice(0, 7) !== last.slice(0, 7))} au ${dm(last)}` // la tuile donne déjà le jour de la semaine
-        : rel ? `${rel} · ${dm(d.date)}` : cap(D.shortDate(d.date));
+        : D.isMultiDay(d) ? `Du ${dm(d.date, d.date.slice(0, 7) !== last.slice(0, 7))} au ${dm(last)}`
+        : long(d.date);
       return `<header class="ask-when">${calTile(d.date)}
-        <div class="ask-when-txt"><p class="ask-day"><b>${esc(day)}</b><span class="job-time">${esc(slot(d))}</span></p>
-        <p class="ask-site">${icon("pin")}<span><b>${esc(d.site || "Site à préciser")}</b>${d.adresse ? `<small>${esc(d.adresse)}</small>` : ""}</span></p></div></header>`;
+        <div class="ask-when-txt">${over ? `<p class="ask-rel">${esc(over)}</p>` : ""}<p class="ask-day">${esc(day)}</p><p class="ask-slot">${icon("clock")}${esc(slot(d))}</p></div></header>`;
     }
+    function askFacts(d) {
+      return `<ul class="ask-facts">
+        <li><span class="ask-glyph" aria-hidden="true">${icon("pin")}</span><span class="ask-fact"><b>${esc(d.site || "Site à préciser")}</b>${d.adresse ? `<small>${esc(d.adresse)}</small>` : ""}</span></li>
+        <li>${serviceTile(d, "svc-tile xs")}<span class="ask-fact"><span class="ask-plate">${plateTag(d.plaque)}<em>${esc(D.jobLabel(d))}</em></span>${modelHtml(d)}</span></li>
+      </ul>`;
+    }
+    const askAlt = (kind, id, label) => `<button type="button" class="ask-alt" data-act="${kind}" data-id="${esc(id)}"><span class="ask-alt-art" aria-hidden="true">${self.IssueArt?.art(ACT_ART[kind], "act-art") || ""}</span>${label}</button>`;
     // Réponse déjà envoyée (autre date, pas possible…) : pastille orange en haut de la carte, l'équipe n'a pas encore tranché.
     function askAnswer(d) {
       const r = d.retour;
@@ -161,11 +200,12 @@
     }
     function validateCard(d) {
       const flying = state.accepting === d.id;
-      return `<article class="job ask${flying ? " accepting" : ""}" data-job="${esc(d.id)}">${askWhen(d)}<div class="ask-veh">${jobHead(d)}</div>${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}${photosStrip(d)}${askAnswer(d)}
-        ${state.busy.has(d.id) && !flying ? busyLine : `<div class="job-actions">
+      return `<article class="job ask${flying ? " accepting" : ""}" data-job="${esc(d.id)}">${askWhen(d)}${askFacts(d)}${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}${photosStrip(d)}${askAnswer(d)}
+        ${state.busy.has(d.id) && !flying ? busyLine : `<div class="job-actions ask-btns">
           <button type="button" class="primary big ok-btn" data-take="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Accepter</button>
-          <div class="act-row two">${actBtn("date", d.id, "Autre date")}${actBtn("refuse", d.id, "Pas possible")}</div></div>`}
-      ${flying ? `<div class="job-done-flash ask-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Acceptée</b><small>Rangée dans ${esc(state.acceptTo === "today" ? "Aujourd'hui" : "À venir")}</small></div>` : ""}</article>`;
+          <div class="ask-alts">${askAlt("date", d.id, "Autre date")}${askAlt("refuse", d.id, "Pas possible")}</div></div>`}
+      ${flying ? `<div class="job-done-flash ask-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Acceptée</b><small>Rangée dans ${esc(state.acceptTo === "today" ? "Aujourd'hui" : "À venir")}</small></div>` : ""}</article>
+`;
     }
     // early: a vehicle of « À venir » done ahead of time (date and site shown, the section does not give them).
     function doCard(d, { early = false } = {}) {
@@ -238,9 +278,13 @@
       if (!list.length) return `<div class="job-empty ask-empty"><span class="svc-tile lg" aria-hidden="true">${self.IssueArt?.art("empty-inbox", "svc-art") || ""}</span><b>Aucune demande à valider</b><span>Les nouvelles demandes de City-Drop arrivent ici.</span></div>`;
       const waiting = list.filter((d) => d.retour && !["fait", "confirme", "erreur"].includes(d.retour.etat)).length;
       const todo = list.length - waiting;
-      const head = todo ? `<b>${todo}</b> demande${todo > 1 ? "s" : ""} à valider` : `<b>${icon("check")}Tu as répondu à tout</b>`;
-      return `<div class="ask-sum"><p>${head}${waiting ? `<span class="ask-sum-wait"> · ${waiting} en attente de l'équipe</span>` : ""}</p>
-        <p class="ask-sum-sub">${todo ? "Accepte chaque demande, ou propose une autre date." : "L'équipe City-Drop te répond ici."}</p></div>${list.map(validateCard).join("")}`;
+      const tile = (n, label, cls = "") => `<div class="ask-stat${cls}"><b>${n}</b><span>${label}</span></div>`;
+      return `<section class="ask-sum" aria-label="Résumé">
+          <span class="svc-tile" aria-hidden="true">${self.IssueArt?.art(todo ? "ask-inbox" : "empty-inbox", "svc-art") || ""}</span>
+          ${todo ? tile(todo, `demande${todo > 1 ? "s" : ""} à valider`) : `<div class="ask-stat all"><b>${icon("check")}</b><span>Tu as répondu à tout</span></div>`}
+          ${tile(waiting, "en attente de l'équipe", waiting ? " wait" : " none")}
+        </section>
+        <p class="ask-sum-sub">${todo ? "Accepte chaque demande, ou propose une autre date." : "L'équipe City-Drop te répond ici."}</p>${list.map(validateCard).join("")}`;
     }
     // The day at a glance: what is left, what is already done today (green bar = done only).
     function daySummary(left) {
@@ -519,9 +563,11 @@
       const body = state.loaded ? TAB_BODY[state.tab](lists[state.tab]) : loadingHtml;
       const a = document.activeElement;
       const typing = a?.matches?.("[data-keep]") ? `[data-keep="${a.dataset.keep}"]` : a?.matches?.("[data-search], [data-note]") ? (a.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
-      main.innerHTML = `<header class="presta-top">
-          <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}<span> · ${esc(cap(D.dayLabel(today())))}</span></p>
-          <h1>${esc(TABS.find((t) => t.id === state.tab)?.label || "Mes demandes")}</h1>
+      const title = TABS.find((t) => t.id === state.tab)?.label || "Mes demandes";
+      const who = state.providerName || "Mon espace prestataire";
+      main.innerHTML = `<header class="presta-top hero">
+          <div class="hero-txt"><p class="hero-date">${esc(cap(D.dayLabel(today())))}</p><h1>${esc(title)}</h1></div>
+          <span class="hero-me" role="img" aria-label="${esc(who)}" title="${esc(who)}"><span>${esc(initials(state.providerName))}</span></span>
         </header>
         ${alertCard()}
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
@@ -533,6 +579,7 @@
       sheetEl.querySelector("#sheetTitle").textContent = acting ? actTitle(actOf().kind, actOf().d) : months ? "Voir un autre mois" : sheetTitle();
       sheetEl.querySelector(".sheet-b").innerHTML = acting ? (state.openForm ? actBody() : "") : months ? monthSheetBody() : sheetBody();
       scheduleUndoEnd();
+      paintBar(title);
       const input = typing && view.querySelector(typing);
       if (input) { input.focus(); try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* date / time fields */ } }
     }
