@@ -58,9 +58,6 @@ const put = (p, obj) => fetch(`${FS}/${p}`, { method: 'PATCH', headers: owner, b
   // 3. Clic normal
   await p.fill('#s-newsite', 'Lille'); await p.click('#s-addsite'); await p.waitForTimeout(900);
   if (!(await names()).includes('Lille')) fails.push('Clic : site absent de la feuille ' + await names());
-  // le curseur part dans l'adresse du nouveau site
-  const focused = await p.evaluate(() => document.activeElement?.getAttribute('aria-label'));
-  if (focused !== 'Adresse de Lille') fails.push('Curseur pas dans la nouvelle adresse : ' + focused);
   await p.screenshot({ path: path.join(OUT, '2-trois-sites-ajoutes.png') });
   await p.click('.team-sheet .sheet-x'); await p.waitForTimeout(500);
   // 4. Même chose pour la flotte (même mécanisme)

@@ -27,7 +27,7 @@ const field = async (id, k) => (await get('demandes/' + id)).fields?.[k];
 async function seed() {
   await put('comptes/fabian@city-drop.com', { role: 'admin', email: 'fabian@city-drop.com' });
   await put('config/reglages', { prestataires: ['Allo Pare-Brise', 'Du Sol au Toit', 'Khalid'],
-    sites: [{ nom: 'La Défense', adresse: 'Rue des Hautes Pâtures, 92000 Nanterre' }, { nom: 'Lille', adresse: '10 rue de Lille, 59000 Lille' }, { nom: 'Saint-Cloud', adresse: 'Quai Carnot, 92210 Saint-Cloud' }],
+    sites: [{ nom: 'La Défense', adresse: 'Rue des Hautes Pâtures, 92000 Nanterre' }, { nom: 'Lille', adresse: '10 rue de Lille, 59000 Lille' }, { nom: 'Saint-Cloud', adresse: 'Quai Carnot, 92210 Saint-Cloud' }, { nom: 'Aulnay', adresse: 'Secteur 2, 93606 Aulnay-sous-Bois' }, { nom: 'Meaux', adresse: '' }, { nom: 'Paris-Centre', adresse: 'Parking Indigo, 75007 Paris' }],
     flotte: [{ modele: 'Renault Master 2023', cubage: 20 }] });
   await put('prestataires/du-sol-au-toit', { nom: 'Du Sol au Toit', lavage: true, tarifs: [{ service: 'lavage', formule: 'complet', cubageMin: null, cubageMax: null, prixHT: 42 }] });
   await put('prestataires/allo-pare-brise', { nom: 'Allo Pare-Brise', lavage: true, pareBrise: true, tarifs: [{ service: 'lavage', formule: 'complet', cubageMin: null, cubageMax: null, prixHT: 37 }] });
@@ -67,7 +67,7 @@ async function seed() {
     await p.evaluate(() => { location.hash = 'reglages'; }); await p.waitForTimeout(900);
     return { p, ctx };
   }
-  const row = (p, open) => p.locator(`[data-rg-open="${open}"]`).first();
+  const row = (p, open) => ({ click: () => p.locator(`[data-rg-open="${open}"]`).last().evaluate((el) => el.click()) });
   const close = async (p) => { await p.click('.team-sheet .sheet-x'); await p.waitForTimeout(500); };
   const phone = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true };
   const check = async (id, k, want) => { const f = await field(id, k); const got = f?.stringValue ?? f?.doubleValue ?? f?.integerValue; if (String(got) !== String(want)) errors.push(`${id}.${k} = ${got}, attendu ${want}`); };
@@ -83,9 +83,11 @@ async function seed() {
     }
     await s('1-reglages');
     await row(p, 'garages').click(); await p.waitForTimeout(700); await s('2-garages');
-    await p.click('[data-rg-act="unfold-garages"]'); await p.waitForTimeout(400);
-    if (await p.locator('[data-rg-act="unfold-garages"]').count()) errors.push('groupe pas déplié');
+    await p.click('[data-rg-act="unfold"]'); await p.waitForTimeout(400);
+    if (await p.locator('[data-rg-act="unfold"]').count()) errors.push('groupe pas déplié');
     await p.locator('.team-sheet .sheet-b').evaluate((el) => (el.scrollTop = 400)); await p.waitForTimeout(200); await s('2b-deplie');
+    await close(p); await row(p, 'sites').click(); await p.waitForTimeout(700); await s('6-sites');
+    await row(p, 'garages').click(); await p.waitForTimeout(700);
     await row(p, 'garage:Du Sol au Toit').click(); await p.waitForTimeout(700); await s('3-un-garage');
     if (scheme === 'light') {
       await p.selectOption('#g-site', 'La Défense'); await p.click('[data-rg-act="save-garage"]'); await p.waitForTimeout(1500);

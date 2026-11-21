@@ -2372,6 +2372,8 @@ input[type=checkbox].rg-switch, .rg-switch { flex: none; position: relative; wid
 .rg-site .rg-x { margin-top: 4px; }
 .rg-garage .rg-txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rg-more-row { min-height: 44px; }
+.rg-form-top { margin-top: 0; }
+.rg-site .rg-txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rg-more-row .rg-txt b { color: var(--accent); font-weight: 600; }
 .rg-pick select { flex: 0 1 60%; min-width: 0; min-height: 34px; padding: 0 8px; border: 0; background: none; box-shadow: none; color: var(--ink-2); font-size: 15px; text-align: right; text-align-last: right; }
 .rg-sheet > .rg-btn.big { width: 100%; margin-top: 12px; }
