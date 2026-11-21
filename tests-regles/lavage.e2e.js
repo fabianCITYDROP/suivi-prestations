@@ -39,9 +39,12 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   const shots = process.env.SHOTS || '/tmp';
   await p.goto('http://localhost:8765/#reglages'); await p.waitForTimeout(1200);
   const box = (prov, flag) => p.locator(`[data-prov="${prov}"][data-prov-flag="${flag}"]`);
-  ok('Khalid ticked Lavage by default', await box('Khalid Lavage', 'lavage').isChecked());
+  const sheet = async (prov) => { if (await p.isVisible('.team-sheet.on')) { await p.click('.team-sheet .sheet-x'); await p.waitForTimeout(400); } await p.click(`[data-rg-open="prov:${prov}"]`); await p.waitForTimeout(600); };
+  await sheet('DHOLLIANDA');
   ok('DHOLLIANDA not ticked Lavage (tailgate only)', !(await box('DHOLLIANDA', 'lavage').isChecked()));
-  await p.locator('#s-provs').scrollIntoViewIfNeeded(); await p.locator('#s-provs').screenshot({ path: shots + '/reglages-ordi.png' });
+  await sheet('Khalid Lavage');
+  ok('Khalid ticked Lavage by default', await box('Khalid Lavage', 'lavage').isChecked());
+  await p.locator('.team-sheet').screenshot({ path: shots + '/reglages-ordi.png' });
   // Unticking Lavage for Khalid is saved on its provider document.
   await box('Khalid Lavage', 'lavage').uncheck(); await p.waitForTimeout(1200);
   const khalid = (await list('prestataires')).find((x) => x.id === 'khalid-lavage');

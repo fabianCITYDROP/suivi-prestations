@@ -267,6 +267,39 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
   ICONS["vf-reponse"] = ground(25, 43, 17, 2.1) +
     bubble("M38 7H12a4 4 0 0 0-4 4v14a4 4 0 0 0 4 4h17l7.4 6.4V29H38a4 4 0 0 0 4-4V11a4 4 0 0 0-4-4Z") +
     corner("spg", `<path d="M30.8 31.8l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`);
+  // Réglages de l'équipe (2026-11-21) : même lumière en haut à gauche, bleu City-Drop pour la couleur, rien de multicolore.
+  ICONS["rg-pin"] = ground(24, 43, 9, 1.8) +
+    solid("M24 4.5c-7.7 0-13.5 5.8-13.5 13.2 0 9.6 11 20.6 12.2 21.8a1.8 1.8 0 0 0 2.6 0c1.2-1.2 12.2-12.2 12.2-21.8C37.5 10.3 31.7 4.5 24 4.5Z", "grip") +
+    `<ellipse cx="19.6" cy="10.4" rx="6.4" ry="3" fill="url(#i3-shine)" opacity=".55"/>` +
+    `<circle cx="24" cy="18" r="5.6" fill="url(#i3-body)" stroke="#0a3a4c" stroke-width=".9"/><ellipse cx="22.6" cy="16.2" rx="2.4" ry="1.2" fill="#fff" opacity=".9"/>`;
+  ICONS["rg-van"] = `<g transform="translate(0 2)">${van(false, false)}</g>`;
+  ICONS["rg-key"] = ground(24, 43, 16, 2) +
+    `<g transform="rotate(-38 24 24)">` +
+    solid("M27 21.4h16.6v5.2H40v3.6h-3.4v-3.6h-2.2v4.8H31v-4.8h-4Z", "steel") +
+    `<path d="M28 22.3h14.8" stroke="#fff" stroke-width=".8" stroke-linecap="round" opacity=".8"/>` +
+    solid("M4.5 24a9.5 9.5 0 1 1 19 0a9.5 9.5 0 1 1-19 0Z", "grip") +
+    `<circle cx="11.2" cy="24" r="3" fill="url(#i3-dark)" stroke="#0a3a4c" stroke-width=".8"/><path d="M8 18a7 7 0 0 1 7.4-2.4" stroke="#fff" stroke-opacity=".55" stroke-width="1.3" fill="none" stroke-linecap="round"/>` +
+    `</g>`;
+  ICONS["rg-bell"] = ground(24, 43, 15, 2) +
+    `<circle cx="24" cy="38.2" r="3.6" fill="url(#i3-dark)" ${S}/>` +
+    solid("M24 5.4c-1.5 0-2.6 1.1-2.6 2.5v.9c-5.7 1.2-9.4 6-9.4 12.1v6.6l-3.2 4.3c-.8 1 0 2.5 1.3 2.5h27.8c1.3 0 2.1-1.5 1.3-2.5L36 27.5v-6.6c0-6.1-3.7-10.9-9.4-12.1v-.9c0-1.4-1.1-2.5-2.6-2.5Z", "steel") +
+    `<path d="M16.6 20.4c.4-3.6 2.6-6.4 5.8-7.4" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".9"/>` +
+    `<circle cx="35" cy="11.8" r="6.6" fill="url(#i3-grip)" ${S}/><ellipse cx="33.4" cy="9" rx="3.4" ry="1.7" fill="url(#i3-shine)" opacity=".6"/>`;
+  ICONS["rg-mail"] = ground(24, 42.4, 19, 2.1) +
+    solid("M5 13.5a3 3 0 0 1 3-3h32a3 3 0 0 1 3 3v21a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3Z") +
+    `<path d="M6.6 36.2l13-11.4M41.4 36.2l-13-11.4" stroke="#aebbc6" stroke-width="1" fill="none"/>` +
+    `<path d="M5.6 12.2l16.2 13a3.4 3.4 0 0 0 4.4 0l16.2-13" fill="url(#i3-grip)" stroke="#0a3a4c" stroke-width="1" stroke-linejoin="round"/>` +
+    `<path d="M9 12.4h30" stroke="#fff" stroke-opacity=".45" stroke-width=".9" stroke-linecap="round"/>`;
+  ICONS["rg-sheet"] = ground(24, 43.2, 15, 2.1) +
+    solid("M9 8.5A3.5 3.5 0 0 1 12.5 5h23A3.5 3.5 0 0 1 39 8.5v31a3.5 3.5 0 0 1-3.5 3.5h-23A3.5 3.5 0 0 1 9 39.5Z") +
+    `<path d="M9 8.5A3.5 3.5 0 0 1 12.5 5h23A3.5 3.5 0 0 1 39 8.5V14H9Z" fill="url(#i3-grip)" ${S}/>` +
+    `<path d="M11.4 6.8h25.2" stroke="#fff" stroke-opacity=".45" stroke-width=".9" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="1.1"><path d="M9.5 21.5h29M9.5 28.5h29M9.5 35.5h29M19 14.5v28M29 14.5v28"/></g>` +
+    `<path d="M21.4 31.6l2.2 2.2 4-4.4" fill="none" stroke="#0f6f8f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+  ICONS["rg-power"] = ground(24, 42.6, 15, 2.1) +
+    `<circle cx="24" cy="23" r="16" fill="url(#i3-body)" ${S}/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeR)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeB)"/>` +
+    `<ellipse cx="20" cy="13.4" rx="8" ry="3.6" fill="url(#i3-shine)" opacity=".7"/>` +
+    `<path d="M18.4 17.4a8 8 0 1 0 11.2 0" fill="none" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/><path d="M24 13.4v9" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };

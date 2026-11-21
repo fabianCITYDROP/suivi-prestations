@@ -2103,4 +2103,138 @@ body.vf-bar-on:not(.presta-mode) .toast { bottom: calc(100px + env(safe-area-ins
   .vf-tick, .vf-tick svg, .vf-row, .vf-prov, .vf-seg button, .vf-kind span { transition: none; }
 }
 @media (prefers-reduced-transparency: reduce) { .vf-bar-in { background: var(--surface); } }
+/* ===== Équipe « Réglages » (2026-11-21), façon Réglages de l'iPhone. Tout est préfixé .rg- (feuille : .team-sheet.rg-sheet-b).
+   Listes groupées en cartes blanches, lignes à chevron qui ouvrent une feuille, interrupteurs, statut = point vert / orange / rouge. ===== */
+#view-reglages { max-width: 1080px; }
+.rg-head { margin: 4px 0 14px; }
+.rg-kicker { margin: 0 0 2px; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.rg-title { margin: 0; font: 700 34px/1.1 -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--f-body); letter-spacing: -.025em; color: var(--ink); }
+.rg-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 24px; }
+@media (min-width: 900px) { .rg-cols { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; } }
+.rg-group { margin-top: 22px; }
+.rg-group:first-child { margin-top: 10px; }
+.rg-gh { display: flex; align-items: center; gap: 8px; margin: 0 16px 7px; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.rg-gh em { font-style: normal; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.rg-foot { margin: 7px 16px 0; font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+.rg-foot a { color: var(--accent); }
+.rg-list { border-radius: 18px; background: var(--surface); overflow: hidden;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+#s-provs, #t-list, #s-sites, #s-fleet { display: contents; }
+/* Une ligne : icône en relief, titre (et sous-titre), valeur grise, chevron. Séparateur fin qui commence après l'icône. */
+.rg-row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; margin: 0; padding: 9px 14px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; box-shadow: none; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.rg-row + .rg-row::before, #s-provs + .rg-row::before, .rg-list > div > .rg-row + .rg-row::before { content: ""; position: absolute; top: 0; left: 66px; right: 0; border-top: .5px solid var(--line-strong); }
+.rg-row.rg-static + .rg-row::before, .rg-row.rg-static::before, .rg-row.rg-action + .rg-row::before { left: 16px; }
+button.rg-row { cursor: pointer; }
+@media (hover: hover) { button.rg-row:hover { background: color-mix(in srgb, var(--surface) 96%, var(--ink)); } }
+button.rg-row:active { background: color-mix(in srgb, var(--surface) 90%, var(--ink)); }
+.rg-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rg-txt b { font: 600 16px/1.25 var(--f-body); letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rg-txt small { font-size: 13.5px; line-height: 1.3; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rg-txt b.rg-mail { font-size: 15px; font-weight: 500; }
+.rg-sub-st { display: flex; align-items: center; gap: 6px; }
+.rg-val { flex: none; display: inline-flex; align-items: center; gap: 7px; max-width: 45%; font-size: 15px; color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rg-chev { flex: none; display: grid; place-items: center; color: color-mix(in srgb, var(--ink-2) 60%, transparent); margin-right: -4px; }
+.rg-chev .icon { width: 16px; height: 16px; stroke-width: 2.6; }
+.rg-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); font: 600 11.5px/1.5 var(--f-body); letter-spacing: 0; vertical-align: 2px; }
+/* Point de statut : vert = marche, orange = à regarder, rouge = arrêté, gris = rien à signaler */
+.rg-dot { flex: none; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--st-off); box-shadow: inset 0 -1px 1px rgba(0, 0, 0, .18), inset 0 1px 1px rgba(255, 255, 255, .4); }
+.rg-dot.ok { background: var(--st-done); } .rg-dot.todo { background: var(--st-todo); } .rg-dot.bad { background: var(--danger); } .rg-dot.off { background: color-mix(in srgb, var(--st-off) 55%, transparent); }
+/* Tuile d'icône en relief (même famille que .ret-ico) */
+.rg-ico { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 11px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 4px 10px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.rg-ico .rg-art { width: 31px; height: 31px; overflow: visible; }
+.rg-ico.sm { width: 36px; height: 36px; border-radius: 10px; } .rg-ico.sm .rg-art { width: 27px; height: 27px; }
+.rg-ico.lg { width: 64px; height: 64px; border-radius: 18px; } .rg-ico.lg .rg-art { width: 48px; height: 48px; }
+.rg-ico.plus { color: var(--accent); } .rg-ico.plus .icon { width: 20px; height: 20px; stroke-width: 2.6; }
+.rg-add .rg-txt b { color: var(--accent); }
+.rg-action .rg-txt b { color: var(--accent); }
+.rg-row.rg-danger .rg-txt b { color: var(--danger); }
+.rg-danger.armed { background: color-mix(in srgb, var(--danger) 9%, var(--surface)); }
+/* « À regarder » en haut */
+.rg-todo-row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; margin: 0; padding: 10px 14px; border: 0; background: none; color: var(--ink); text-align: left; font: inherit; }
+.rg-todo-row + .rg-todo-row::before { content: ""; position: absolute; top: 0; left: 35px; right: 0; border-top: .5px solid var(--line-strong); }
+.rg-todo-row > span:not(.rg-chev) { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rg-todo-row b { font: 600 15.5px/1.25 var(--f-body); }
+.rg-todo-row small { font-size: 13.5px; line-height: 1.35; color: var(--ink-2); }
+button.rg-todo-row { cursor: pointer; } button.rg-todo-row:active { background: color-mix(in srgb, var(--surface) 90%, var(--ink)); }
+.rg-pill { flex: none; min-height: 34px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font: 600 14px var(--f-body); box-shadow: none; transition: transform 140ms var(--ease-out); }
+.rg-pill:active { transform: scale(.96); }
+/* Interrupteur façon iPhone (vert quand activé : c'est un statut « oui ») */
+.rg-switchrow { cursor: pointer; }
+input[type=checkbox].rg-switch, .rg-switch { flex: none; position: relative; width: 51px; min-width: 51px; height: 31px; min-height: 31px; padding: 0; margin: 0; accent-color: auto; border: 0; border-radius: 999px; appearance: none; -webkit-appearance: none; cursor: pointer;
+  background: color-mix(in srgb, var(--ink) 16%, transparent); box-shadow: inset 0 0 0 .5px rgba(10, 20, 28, .06); transition: background-color 200ms ease; }
+.rg-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .15), 0 1px 1px rgba(0, 0, 0, .16), 0 0 0 .5px rgba(0, 0, 0, .04); transition: transform 260ms cubic-bezier(.32, .72, 0, 1); }
+.rg-switch:checked, input[type=checkbox].rg-switch:checked { background: var(--st-done); }
+.rg-switch:checked::after { transform: translateX(20px); }
+.rg-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rg-switch:disabled { opacity: .55; cursor: default; }
+/* Feuilles */
+.rg-sheet { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; }
+.rg-sheet .rg-group { margin-top: 16px; }
+.rg-sheet .rg-group:first-child { margin-top: 4px; }
+.rg-sheet .rg-list { border-radius: 14px; box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.rg-hero { display: flex; align-items: center; gap: 14px; padding: 2px 4px 4px; }
+.rg-hero > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.rg-hero b { font: 700 21px/1.2 -apple-system, BlinkMacSystemFont, var(--f-body); letter-spacing: -.02em; }
+.rg-hero small { font-size: 14px; line-height: 1.35; color: var(--ink-2); }
+.rg-intro { margin: 0 4px 4px; font-size: 14.5px; line-height: 1.45; color: var(--ink-2); }
+.rg-note { margin: 10px 0 0; padding: 12px 14px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); font-size: 14px; line-height: 1.45; }
+.rg-card { padding: 12px 16px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); font-size: 14.5px; line-height: 1.45; }
+.rg-card p { margin: 0; }
+.rg-empty { margin: 0; padding: 16px; font-size: 14.5px; color: var(--ink-2); }
+.rg-amount { flex: none; font: 650 16px var(--f-body); font-variant-numeric: tabular-nums; }
+.rg-amount small { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.rg-x { flex: none; display: grid; place-items: center; width: 34px; height: 34px; min-height: 0; margin-right: -6px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--ink-2); box-shadow: none; }
+.rg-x:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); }
+.rg-x .icon { width: 16px; height: 16px; }
+.rg-site { align-items: flex-start; }
+.rg-site .rg-txt input { width: 100%; min-height: 36px; margin-top: 4px; padding: 6px 10px; border: 0; border-radius: 9px; background: color-mix(in srgb, var(--ink) 5%, transparent); box-shadow: none; font-size: 14.5px; color: var(--ink); }
+.rg-site .rg-txt input:focus { outline: none; background: var(--surface); box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 1px var(--accent); }
+.rg-site .rg-x { margin-top: 4px; }
+/* Formulaire d'ajout sous une liste */
+.rg-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.rg-form-line { display: flex; gap: 8px; }
+.rg-form-line > * { flex: 1 1 0; min-width: 0; }
+.rg-form-line .rg-narrow { flex: 0 0 84px; }
+.rg-form input, .rg-form select, .rg-more textarea { width: 100%; min-height: 46px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--surface); color: var(--ink); font: 16px var(--f-body); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .12); }
+.rg-more textarea { min-height: 120px; padding: 12px 14px; resize: vertical; }
+.rg-form input:focus, .rg-form select:focus, .rg-more textarea:focus { outline: none; box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--accent-soft); }
+.rg-form select:disabled { opacity: .5; }
+.rg-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 46px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--surface-2); color: var(--ink); font: 600 15.5px var(--f-body);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 1px 1px rgba(10, 20, 28, .06), 0 0 0 .5px rgba(10, 20, 28, .06); transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
+.rg-btn .icon { width: 17px; height: 17px; stroke-width: 2.4; }
+.rg-btn.primary { color: var(--accent-ink); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(10, 20, 28, .12), 0 6px 14px -8px color-mix(in srgb, var(--accent) 85%, transparent); }
+.rg-btn.danger { color: #fff; background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 86%, #fff) 0%, var(--danger) 55%, color-mix(in srgb, var(--danger) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 1px 2px rgba(10, 20, 28, .12), 0 6px 14px -8px color-mix(in srgb, var(--danger) 85%, transparent); }
+.rg-btn.big { width: 100%; min-height: 52px; font-size: 16.5px; margin-top: 8px; }
+.rg-btn:hover { filter: brightness(1.04); }
+.rg-btn:active { transform: scale(.97); }
+.rg-more { margin-top: 14px; }
+.rg-more > summary { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 14px; border-radius: 12px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1); color: var(--accent); font: 600 15px var(--f-body); cursor: pointer; list-style: none; }
+.rg-more > summary::-webkit-details-marker { display: none; }
+.rg-more > summary .icon { width: 17px; height: 17px; }
+.rg-more[open] > summary { margin-bottom: 8px; }
+.rg-more .rg-foot { margin: 0 4px 8px; }
+.rg-more .rg-btn { margin-top: 8px; }
+.rg-more pre.code { max-height: 300px; overflow: auto; margin: 10px 0 0; border-radius: 12px; font-size: 12px; }
+.rg-steps { margin: 0; padding: 12px 16px 12px 36px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); font-size: 14.5px; line-height: 1.45; }
+.rg-steps li + li { margin-top: 6px; }
+/* Robot : grand statut */
+.rg-status { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.rg-status > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.rg-status b { display: flex; align-items: center; gap: 8px; font: 700 19px/1.2 -apple-system, BlinkMacSystemFont, var(--f-body); letter-spacing: -.015em; }
+.rg-status b .rg-dot { width: 11px; height: 11px; }
+.rg-status.ok b { color: var(--st-done); } .rg-status.todo b { color: var(--st-todo); } .rg-status.bad b { color: var(--danger); }
+.rg-status .robot-state { font-size: 14px; line-height: 1.4; color: var(--ink); background: none; padding: 0; border: 0; }
+@media (max-width: 640px) {
+  .rg-title { font-size: 32px; }
+  .rg-prov .rg-val { font-size: 13.5px; gap: 6px; }
+  .rg-group { margin-top: 20px; }
+}
+/* La bulle (« Annuler ») passe au-dessus de la feuille ouverte */
+body.team-sheet-open .toast { z-index: 60; }
+@media (prefers-reduced-motion: reduce) { .rg-switch, .rg-switch::after, .rg-btn, .rg-pill, .rg-row { transition: none; } .rg-btn:active, .rg-pill:active { transform: none; } }
 </style>
