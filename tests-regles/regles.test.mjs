@@ -148,6 +148,9 @@ test("le robot des mails ajoute une demande lue dans un mail, une seule fois", a
   const db = as("robot");
   await assertSucceeds(setDoc(doc(db, "demandes/mail-1"), mail));
   await assertFails(setDoc(doc(db, "demandes/mail-1"), mail), "le même mail ne s'ajoute pas deux fois");
+  await assertSucceeds(setDoc(doc(db, "demandes/mail-c"), { ...mail, notes: "Faire un diag : voyant allumé" }), "le commentaire du mail suit la demande");
+  await assertFails(setDoc(doc(db, "demandes/mail-d"), { ...mail, notes: "x".repeat(501) }), "commentaire trop long");
+  await assertFails(setDoc(doc(db, "demandes/mail-e"), { ...mail, notes: 12 }), "commentaire en texte seulement");
 });
 
 test("le robot lit les demandes (pour les alertes) mais ne peut rien changer d'autre", async () => {
