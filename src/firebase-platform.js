@@ -21,45 +21,68 @@
     if (document.getElementById("login")) return;
     const box = document.createElement("div");
     box.id = "login";
-    box.innerHTML = `<form class="panel login-card" data-view="login">
-        <img src="assets/logo-full.svg" alt="" width="64" height="64" style="display:block;border-radius:14px">
-        <h2>City-Drop × Presta</h2>
-        <p class="hint">Connecte-toi avec ton adresse et ton mot de passe. C'est demandé une seule fois sur cet ordinateur.</p>
-        <label class="field"><span>Adresse e-mail</span><input type="email" name="email" autocomplete="username" required></label>
-        <label class="field"><span>Mot de passe</span><input type="password" name="password" autocomplete="current-password" required></label>
-        <p class="login-error" hidden>Adresse ou mot de passe incorrect.</p>
-        <button class="primary big" type="submit">Ouvrir</button>
+    // Façon iPhone (21/11/2026) : l'icône de l'appli, une liste groupée de deux lignes, un bouton capsule.
+    const logo = (document.querySelector(".brand-logo")?.outerHTML || "").replace('class="brand-logo"', 'class="login-logo"');
+    box.innerHTML = `<div class="login-stage">
+      <form class="login-card" data-view="login" novalidate>
+        <div class="login-hero">${logo}<h1 class="login-title"><b>City-Drop</b> <i>×</i> <em>Presta</em></h1><p class="login-sub">Suivi des prestations du parc</p></div>
+        <div class="login-group">
+          <label class="login-row"><span>E-mail</span><input type="email" name="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="nom@exemple.fr" required></label>
+          <label class="login-row"><span>Mot de passe</span><input type="password" name="password" autocomplete="current-password" placeholder="Ton mot de passe" required></label>
+        </div>
+        <p class="login-error" role="alert" hidden>Adresse ou mot de passe incorrect.</p>
+        <button class="login-btn" type="submit">Se connecter</button>
         <button class="login-link" type="button" data-go="reset">Mot de passe oublié ?</button>
+        <p class="login-foot">Demandé une seule fois sur cet appareil.</p>
       </form>
-      <form class="panel login-card" data-view="reset" hidden>
-        <img src="assets/logo-full.svg" alt="" width="64" height="64" style="display:block;border-radius:14px">
-        <h2>Mot de passe oublié</h2>
-        <p class="hint">Indique ton adresse e-mail. Tu vas recevoir un lien pour choisir un nouveau mot de passe.</p>
-        <label class="field"><span>Adresse e-mail</span><input type="email" name="email" autocomplete="username" required></label>
-        <p class="login-sent" role="status" hidden>Si cette adresse a un compte, un e-mail vient de partir. Ouvre-le et clique sur le lien (pense à regarder dans les spams). Le lien est valable 1 heure.</p>
-        <p class="login-error" hidden></p>
-        <button class="primary big" type="submit">Recevoir le lien</button>
-        <button class="login-link" type="button" data-go="login">Retour à la connexion</button>
-      </form>`;
+      <form class="login-card" data-view="reset" novalidate hidden>
+        <div class="login-hero"><span class="login-tile" data-art="login-mail"></span><h1 class="login-title">Mot de passe oublié</h1><p class="login-sub">Indique ton adresse e-mail. Tu vas recevoir un lien pour choisir un nouveau mot de passe.</p></div>
+        <div class="login-group">
+          <label class="login-row"><span>E-mail</span><input type="email" name="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="nom@exemple.fr" required></label>
+        </div>
+        <p class="login-sent" role="status" hidden><span class="login-sent-ico" data-art="ret-fait"></span><span>Si cette adresse a un compte, un e-mail vient de partir. Ouvre-le et clique sur le lien (pense à regarder dans les spams). Le lien est valable 1 heure.</span></p>
+        <p class="login-error" role="alert" hidden></p>
+        <button class="login-btn" type="submit">Recevoir le lien</button>
+        <button class="login-link" type="button" data-go="login"><svg class="icon" aria-hidden="true"><use href="#i-chev-l"/></svg>Retour à la connexion</button>
+      </form>
+    </div>`;
+    box.querySelectorAll("[data-art]").forEach((s) => { s.innerHTML = window.IssueArt?.art(s.dataset.art, "login-art") || ""; });
     document.body.append(box);
     const login = box.querySelector('[data-view="login"]');
     const reset = box.querySelector('[data-view="reset"]');
     const show = (view) => {
       login.hidden = view !== "login"; reset.hidden = view !== "reset";
       const form = view === "login" ? login : reset;
+      // Glisse comme une page d'iPhone : vers la gauche en avançant, vers la droite en revenant.
+      form.classList.remove("login-fwd", "login-back"); void form.offsetWidth; form.classList.add(view === "reset" ? "login-fwd" : "login-back");
       const other = view === "login" ? reset : login;
       if (!form.email.value) form.email.value = other.email.value; // keep what was typed
       form.querySelectorAll(".login-error, .login-sent").forEach((p) => { p.hidden = true; });
       form.email.focus();
     };
+    // Mauvais mot de passe : la liste tremble deux fois, comme sur iPhone (coupé si « réduire les animations »).
+    const shake = (form) => { const g = form.querySelector(".login-group"); g.classList.remove("shake"); void g.offsetWidth; g.classList.add("shake"); };
     box.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => show(b.dataset.go)));
     login.email.focus();
     login.addEventListener("submit", async (e) => {
       e.preventDefault();
+      const button = login.querySelector('button[type="submit"]');
+      const error = login.querySelector(".login-error");
+      if (!login.email.value.trim() || !login.password.value) {
+        error.textContent = "Indique ton adresse e-mail et ton mot de passe."; error.hidden = false; shake(login); return;
+      }
+      button.disabled = true; button.textContent = "Connexion…"; error.hidden = true;
       try {
         await auth.signInWithEmailAndPassword(login.email.value.trim(), login.password.value);
-        box.remove();
-      } catch { login.querySelector(".login-error").hidden = false; }
+        box.classList.add("login-out");
+        setTimeout(() => box.remove(), matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 260);
+      } catch (err) {
+        error.textContent = err && err.code === "auth/network-request-failed" ? "Pas de connexion internet. Réessaie dans un instant."
+          : err && err.code === "auth/too-many-requests" ? "Trop d'essais d'un coup. Réessaie dans quelques minutes." : "Adresse ou mot de passe incorrect.";
+        error.hidden = false; shake(login);
+        button.disabled = false; button.textContent = "Se connecter";
+        login.password.select();
+      }
     });
     // Same answer whether the address has an account or not: nobody can use this screen to find out who has access.
     // The button stays off for 60 s after each send, so it cannot be used to flood someone's inbox.
@@ -69,6 +92,7 @@
       const error = reset.querySelector(".login-error");
       const sent = reset.querySelector(".login-sent");
       const email = reset.email.value.trim();
+      if (!email) { error.textContent = "Indique ton adresse e-mail."; error.hidden = false; shake(reset); return; }
       button.disabled = true; error.hidden = true; sent.hidden = true;
       auth.languageCode = "fr";
       const back = { url: location.origin + location.pathname };

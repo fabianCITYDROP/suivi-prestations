@@ -6,8 +6,10 @@ const read = (f) => fs.readFileSync(__dirname + "/" + f, "utf8");
 const sheet = read("sheet-script.txt").replace("const SCRIPT = `", "const SHEET_SCRIPT = `");
 const app = read("app.js").replace("/*@SHEET_SCRIPT*/", sheet.trim());
 const inline = (code) => `<script>\n${code}</script>`;
-const appScripts = ["domain.js", "store.js", "notifs.js", "presta.js"].map((f) => inline(read(f))).join("\n") + "\n" + inline(app) + "\n";
-const body = (scripts) => read("page.html").replace("<!--@style-->", read("style.css").trim()).replace("<!--@scripts-->", () => scripts);
+const appScripts = ["domain.js", "store.js", "notifs.js", "icons3d.js", "icons3d-nav.js", "presta.js"].map((f) => inline(read(f))).join("\n") + "\n" + inline(app) + "\n";
+// navigation.css (connexion, menu « Plus », onglets) then compact.css (tailles resserrées) are kept apart and added at the end of style.css.
+const style = read("style.css").trim().replace(/<\/style>$/, () => read("navigation.css").trim() + "\n" + read("compact.css").trim() + "\n</style>");
+const body = (scripts) => read("page.html").replace("<!--@style-->", () => style).replace("<!--@scripts-->", () => scripts);
 
 const artifact = body(appScripts);
 fs.writeFileSync(__dirname + "/../artifact.html", artifact);
@@ -22,6 +24,6 @@ const site = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">\n<link rel="icon" href="assets/logo.svg" type="image/svg+xml">\n<link rel="icon" href="assets/icon-32.png" sizes="32x32">\n<link rel="apple-touch-icon" href="assets/icon-180.png">\n<link rel="manifest" href="manifest.webmanifest">\n<meta name="theme-color" content="#0f6f8f">\n<meta name="apple-mobile-web-app-title" content="Presta">
-${body(siteScripts).replace(/^\s*<title>/, "<title>")}`.replace("<style>", "<style>\n[hidden]{display:none!important}\n#login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:100;padding:16px}\n.login-card{width:min(380px,100%);display:grid;gap:14px}\n.login-error{color:var(--danger);font-size:13px}\n.login-sent{font-size:14px;line-height:1.45;color:var(--ink);background:var(--st-done-bg);border-radius:var(--r-sm);padding:10px 12px;margin:0}\n.login-link{justify-self:center;background:none;border:0;padding:6px 8px;color:var(--ink-2);font:inherit;font-size:14px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;border-radius:var(--r-sm)}\n.login-link:hover{color:var(--ink)}\n.login-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}\n.account{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:14px;color:var(--ink-2)}\n");
+${body(siteScripts).replace(/^\s*<title>/, "<title>")}`.replace("<style>", "<style>\n[hidden]{display:none!important}\n.account{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:14px;color:var(--ink-2)}\n");
 fs.writeFileSync(__dirname + "/../index.html", site.replace(/<\/style>/, "</style>\n</head>\n<body>") + "\n</body>\n</html>\n");
 console.log("built artifact", artifact.length, "chars, site", site.length, "chars");

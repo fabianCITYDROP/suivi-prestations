@@ -1,0 +1,110 @@
+/* ----- Tailles resserrées (21/11/2026) -----
+   Fabian trouvait tout trop gros (icônes, cartes, titres) : référence = l'App Store de l'iPhone,
+   texte de 15 à 17 px, icônes de ligne de 28 à 40 px, cartes compactes. Ajouté en dernier par build.js :
+   ne fait que réduire des tailles déjà posées ailleurs, sans toucher aux couleurs ni aux fonctions. */
+
+/* Grands titres de page : 34 → 28 px. */
+.presta-top h1, .plan-top h1, .ret-title, .hy-title, .pho-title, .vf-title { font-size: 28px; }
+.hero-date { font-size: 12px; margin-bottom: 2px; }
+.presta-top.hero { padding: 2px 2px 12px; }
+.hero-me { width: 36px; height: 36px; font-size: 13px; }
+
+/* Barre du haut : logo et nom plus discrets. */
+.brand-logo, body.presta-mode .brand-logo { width: 30px; height: 30px; }
+body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17px; }
+@media (max-width: 420px) { .brand-word, body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 16px; } .brand-logo, body.presta-mode .brand-logo { width: 28px; height: 28px; } }
+
+/* Tuiles d'icône en volume : taille d'une icône de liste. */
+.svc-tile { width: 40px; height: 40px; border-radius: 11px; }
+.svc-art { width: 31px; height: 31px; }
+.svc-tile.sm, .up-row .svc-tile.sm { width: 36px; height: 36px; border-radius: 10px; }
+.svc-tile.sm .svc-art, .up-row .svc-tile.sm .svc-art { width: 28px; height: 28px; }
+.svc-tile.xs, .plan-row .svc-tile.xs { width: 32px; height: 32px; border-radius: 9px; }
+.svc-tile.xs .svc-art, .plan-row .svc-tile.xs .svc-art { width: 25px; height: 25px; }
+.ask-empty .svc-tile.lg, .plan-empty .svc-tile.lg, .hy-empty .svc-tile.lg, .done-empty-ico, .up-empty-ico { width: 52px; height: 52px; border-radius: 14px; }
+.ask-empty .svc-tile.lg .svc-art, .plan-empty .svc-tile.lg .svc-art, .hy-empty .svc-tile.lg .svc-art, .done-empty-ico .svc-art, .up-empty-ico .act-art { width: 38px; height: 38px; }
+.tr-sheet .svc-tile.lg, .hy-sh-hero .svc-tile.lg { width: 48px; height: 48px; border-radius: 13px; }
+.tr-sheet .svc-tile.lg .svc-art, .hy-sh-hero .svc-tile.lg .svc-art { width: 36px; height: 36px; }
+.vf-empty-art .svc-art { width: 44px; height: 44px; }
+.ret-ico, .pho-ico, .vf-step { width: 36px; height: 36px; border-radius: 10px; }
+.ret-ico.lg, .pho-ico.lg { width: 44px; height: 44px; border-radius: 12px; }
+.ret-ico.lg .ret-art, .pho-ico.lg .pho-art { width: 34px; height: 34px; }
+.ret-ico.xl, .pho-ico.xl { width: 56px; height: 56px; border-radius: 15px; }
+.ret-ico.xl .ret-art, .pho-ico.xl .pho-art { width: 42px; height: 42px; }
+.ret-thumb { width: 48px; height: 48px; border-radius: 10px; }
+
+/* Cartes des prestataires : moins de marge, coins moins ronds, plaque plus fine. */
+.job { padding: 12px; gap: 10px; border-radius: 16px; }
+.job-head { gap: 10px; }
+.job .plate, .ask-card .plate, .ask-plate .plate, .done-line .plate, .up-line .plate { font-size: 16.5px; }
+.job .plate span, .ask-card .plate span, .ask-plate .plate span, .done-line .plate span, .up-line .plate span { padding: 5px 7px; }
+.job-photos img { width: 56px; height: 56px; }
+.spot-head .spot-pin { flex-basis: 26px; width: 26px; height: 26px; }
+.spot-head .spot-pin .icon { width: 15px; height: 15px; }
+.spot-head b { font-size: 16px; }
+.spot-head small { font-size: 12.5px; }
+.spot-head em { min-width: 22px; height: 22px; font-size: 12px; }
+.day-sum { padding: 12px 14px; gap: 8px; border-radius: 14px; }
+.day-sum p { font-size: 14px; }
+.day-sum b { font-size: 15px; }
+
+/* Bouton principal « Prestation réalisée » / « Accepter » : même poids que la plaque au-dessus (Fabian, 21/11). */
+.job-actions .ok-btn, .ok-btn { min-height: 40px; font-size: 14.5px; font-weight: 600; gap: 8px; padding: 0 14px 0 8px; }
+.ok-badge { left: 6px; width: 26px; height: 26px; }
+.ok-badge .icon { width: 15px; height: 15px; }
+.job-actions .primary.big, .job-actions .big { min-height: 40px; font-size: 14.5px; }
+
+/* Actions secondaires rondes (Reporter, Véhicule absent, Problème) : 56 → 40 px. */
+.act-ico { width: 40px; height: 40px; }
+.act-art { width: 26px; height: 26px; }
+.act-lbl { font-size: 12px; }
+.job-actions .act-btn, .act-btn { gap: 4px; padding: 2px; }
+.ask-alt { min-height: 42px; font-size: 14.5px; }
+.ask-alt-art, .ask-alt-art .act-art { width: 22px; height: 22px; }
+
+/* Chiffres des résumés : 31–48 px → 24–34 px. */
+.ask-stat b { height: 26px; font-size: 24px; }
+.ask-stat.all b .icon { width: 22px; height: 22px; }
+.done-count { font-size: 34px; }
+.done-sum-side dd { font-size: 18px; }
+.cal-tile { width: 44px; height: 44px; border-radius: 11px; grid-template-rows: 15px 1fr; }
+.cal-tile b { font-size: 18px; }
+.up-day-head b { font-size: 17px; }
+.plan-strip b, .plan-count b, .tr-sum-txt b, .vf-bar-n b { font-size: 19px; }
+.ret-tile b { font-size: 21px; }
+.hy-tile b { font-size: 24px; }
+
+/* Feuilles (Signaler, actions) : titres, champs et tuiles d'anomalie plus petits. */
+.sheet-head h2 { font-size: 18px; }
+.field-plate, .sheet-input { min-height: 46px; border-radius: 12px; }
+.field-plate { font-size: 19px !important; }
+.issue-grid { gap: 8px 6px; }
+.issue-ico { max-width: 58px; border-radius: 15px; }
+.issue-art, .issue-tile .issue-art { width: 40px; height: 40px; max-width: 40px; max-height: 40px; }
+.issue-tile { gap: 5px; font-size: 12px; }
+.sheet-photo-add { min-height: 46px; border-radius: 12px; }
+.field-send, .field-actions .primary { min-height: 48px; font-size: 16px; }
+.day-chip { min-height: 44px; }
+.sent-flash-card svg, .job-done-flash svg { width: 48px; height: 48px; }
+
+/* Barre du bas : onglets un peu moins hauts, + plus petit. */
+@media (max-width: 720px) {
+  body.presta-mode main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .presta-tabs { right: 74px; }
+  .presta-tabs button { min-height: 46px; }
+  .presta-tabs .icon { width: 20px; height: 20px; }
+  .presta-tabs .tab-plus { right: -64px; width: 52px; height: 52px; }
+  .presta-tabs .tab-plus .icon { width: 24px; height: 24px; }
+  body:not(.presta-mode) nav.tabs > button:not(.nav-new), body:not(.presta-mode) .nav-more > summary { min-height: 46px; }
+  body:not(.presta-mode) .nav-new { width: 50px; height: 50px; }
+}
+
+/* Écran de connexion : l'icône de l'appli à la taille d'une icône de réglages, pas d'une affiche. */
+.login-logo { width: 56px; height: 56px; margin-bottom: 8px; filter: drop-shadow(0 4px 8px rgba(0, 59, 102, .2)); }
+.login-tile { width: 56px; height: 56px; margin-bottom: 8px; border-radius: 15px; }
+.login-tile .login-art { width: 40px; height: 40px; }
+.login-title { font-size: 22px; }
+.login-sub { font-size: 14px; }
+.login-row { min-height: 46px; }
+.login-row input { min-height: 44px; }
+.login-btn { min-height: 48px; }

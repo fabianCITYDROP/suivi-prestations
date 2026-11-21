@@ -93,8 +93,23 @@
     return siv ? `${siv[1]}-${siv[2]}-${siv[3]}` : String(plate || "").toUpperCase().trim();
   }
   // SIV plates (AB-123-CD) and old FNI plates (123 ABC 45) found in free text.
+  const PLATE_IN_TEXT_I = /\b[A-Z]{2}[\s-]?\d{3}[\s-]?[A-Z]{2}\b|\b\d{1,4}[\s-]?[A-Z]{2,3}[\s-]?\d{2}\b/gi;
   const PLATE_IN_TEXT = /\b[A-Z]{2}[\s-]?\d{3}[\s-]?[A-Z]{2}\b|\b\d{1,4}[\s-]?[A-Z]{2,3}[\s-]?\d{2}\b/g;
   const platesInText = (text) => (String(text || "").toUpperCase().match(PLATE_IN_TEXT) || []).map(plateKey);
+  // A provider reply read bit by bit (line, comma, semicolon, full stop): a plate next to « pas », « reste », « demain »…
+  // is not done, every other plate cited is. « pas de souci » / « pas de problème » stay positive.
+  const REPLY_NOT_DONE = /(?:^|[^\p{L}])(pas|non|rien|reste|restent|à faire|a faire|absente?s?|impossible|annul\p{L}*|report\p{L}*|demain|plus tard)(?=$|[^\p{L}])/iu;
+  const REPLY_FINE = /pas\s+(de|d')\s*(souci|soucis|problème|probleme|problèmes|problemes)/giu;
+  function replyPlates(text) {
+    const done = [], notDone = [];
+    String(text || "").split(/[\n,;.!]+|\s+et\s+/i).forEach((part) => {
+      const plates = platesInText(part);
+      if (!plates.length) return;
+      const target = REPLY_NOT_DONE.test(part.replace(PLATE_IN_TEXT_I, " ").replace(REPLY_FINE, " ")) ? notDone : done;
+      plates.forEach((k) => { if (!done.includes(k) && !notDone.includes(k)) target.push(k); });
+    });
+    return { done, notDone };
+  }
 
   // ---------- fleet & sites ----------
   const fleetLabel = ({ modele, cubage }) => [modele, cubage ? `${cubage} m³` : ""].filter(Boolean).join(" – ");
@@ -347,15 +362,40 @@
       cancelled: demandes.filter((d) => d.statut === "annulee").length,
       overdue: pending.filter((d) => lastDay(d) < todayIso).length,
       upcoming: pending.filter((d) => lastDay(d) >= todayIso).length,
-      amount: done.reduce((sum, d) => sum + (+d.montant || 0), 0),
+      ...amountsOf(done),
     };
+  }
+  // HT amounts of the done jobs, to check a provider's invoice (payment stays by bank transfer).
+  // A tailgate job without a price is the monthly flat fee (DHOLLIANDA, Fabian 2026-11-18): counted apart, never as "missing".
+  const hasPrice = (d) => d.prixHT != null && d.prixHT !== "" && Number.isFinite(+d.prixHT);
+  const isFlatFee = (d) => d.service === "hayon" && !hasPrice(d);
+  function amountsOf(done) {
+    const priced = done.filter(hasPrice);
+    return {
+      amountHT: Math.round(priced.reduce((sum, d) => sum + +d.prixHT, 0) * 100) / 100,
+      flat: done.filter(isFlatFee).length,
+      unpriced: done.filter((d) => !hasPrice(d) && !isFlatFee(d)).length,
+    };
+  }
+  // Invoice lines of done jobs: one line per job kind and unit price (« Lavage complet · 12 × 37 € »), biggest first.
+  function invoiceLines(done) {
+    const lines = new Map();
+    done.forEach((d) => {
+      const unit = hasPrice(d) ? +d.prixHT : null;
+      const label = jobLabel(d) || "Prestation";
+      const key = `${label}|${unit ?? (isFlatFee(d) ? "flat" : "none")}`;
+      const line = lines.get(key) || { label, unit, flat: isFlatFee(d), count: 0, total: 0 };
+      line.count++; if (unit != null) line.total = Math.round((line.total + unit) * 100) / 100;
+      lines.set(key, line);
+    });
+    return [...lines.values()].sort((a, b) => b.total - a.total || b.count - a.count);
   }
   function monthlyReport(demandes, { month, provider, todayIso }) {
     const rows = demandes.filter((d) => d.date && d.date.slice(0, 7) === month && (!provider || d.prestataire === provider));
     const tallyBy = (keyOf) => [...groupBy(rows, keyOf).entries()]
       .map(([key, items]) => [key, tally(items, todayIso)])
       .sort((a, b) => b[1].requested - a[1].requested);
-    return { rows, total: tally(rows, todayIso), byProvider: tallyBy((d) => d.prestataire || "—"), bySite: tallyBy(siteOf), byModel: tallyBy((d) => vehicleLabel(d) || "Modèle non précisé") };
+    return { rows, total: tally(rows, todayIso), byProvider: tallyBy((d) => d.prestataire || "—"), bySite: tallyBy(siteOf), byModel: tallyBy((d) => vehicleLabel(d) || "Modèle non précisé"), byService: tallyBy(jobLabel) };
   }
   function monthlySummaryMessage(report, { month, provider }) {
     const t = report.total;
@@ -369,11 +409,12 @@
       ...report.bySite.map(([k, a]) => `• ${k} : ${a.done} / ${a.requested}`),
     ].join("\n");
   }
-  const EXPORT_HEADER = ["Dispo du", "Dispo au", "Immatriculation", "Modèle", "Cubage (m³)", "Prestation", "Site", "Adresse", "Prestataire", "Statut", "Envoyée le", "Réalisée le"];
+  const EXPORT_HEADER = ["Dispo du", "Dispo au", "Immatriculation", "Modèle", "Cubage (m³)", "Prestation", "Site", "Adresse", "Prestataire", "Statut", "Envoyée le", "Réalisée le", "Prix HT"];
   function exportRow(d) {
     return [numericDate(d.date), numericDate(lastDay(d)), d.plaque, d.modele, d.cubage ?? "", jobLabel(d),
       d.site, d.adresse, d.prestataire, statusOf(d.statut).label,
-      d.sentAt ? numericDate(d.sentAt.slice(0, 10)) : "", d.doneAt ? numericDate(d.doneAt.slice(0, 10)) : ""];
+      d.sentAt ? numericDate(d.sentAt.slice(0, 10)) : "", d.doneAt ? numericDate(d.doneAt.slice(0, 10)) : "",
+      hasPrice(d) ? String(+d.prixHT).replace(".", ",") : ""];
   }
   function toTsv(rows) {
     const clean = (v) => String(v ?? "").replace(/[\t\r\n]/g, " ");
@@ -525,6 +566,7 @@
     { id: "absent", label: "Véhicule absent", team: "n'a pas trouvé le véhicule" },
     { id: "autre-date", label: "Autre date proposée", team: "propose une autre date pour" },
     { id: "refuse", label: "Pas possible", team: "ne peut pas faire" },
+    { id: "erreur", label: "« Fait » annulé : erreur de véhicule", team: "a annulé son « fait » sur" },
   ];
   const answerOf = (id) => ANSWERS.find((a) => a.id === id) || null;
   // A request shows on the provider's screen as soon as it is saved: the app is the channel,
@@ -599,6 +641,40 @@
   const problemsOfRequest = (list, demandeId) => list.filter((s) => s.demandeId === demandeId).sort(byNewest);
   const problemsOfPlate = (list, plate) => list.filter((s) => plateKey(s.plaque) === plateKey(plate)).sort(byNewest);
 
+  // ---------- field reports (« Signaler » tab): a provider walking by tells the team what it saw on ANY vehicle ----------
+  // Same collection as above, with no request: {demandeId: "", source: "terrain", plaque, quoi: [...], texte, photo?, …}.
+  // Several vehicles are sent at once, one report each. Ticks are quicker than typing on a parking lot.
+  // 8 choices so they sit in an even 2-column grid; « Autre » needs a few words.
+  const FIELD_ISSUES = ["Pare-brise", "Véhicule sale", "Pneu avant", "Pneu arrière", "Rétro cassé", "Carrosserie", "Voyant allumé", "Autre"];
+  const isFieldReport = (s) => s.source === "terrain";
+  const fieldPlateOk = (plate) => { const k = plateKey(plate); return k.length >= 5 && k.length <= 10; };
+  const fieldTicksText = (ticks) => ticks.filter((q) => q !== "Autre").join(", ");
+  function fieldReport({ plaque, quoi = [], texte = "", photo } = {}, prestataireId, email, nowIso) {
+    const plate = normalizePlate(plaque);
+    const ticks = FIELD_ISSUES.filter((q) => quoi.includes(q));
+    const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
+    if (!plateKey(plate)) return { error: "Immatriculation à renseigner" };
+    if (!fieldPlateOk(plate)) return { error: `Immatriculation ${plate} incomplète` };
+    if (!ticks.length && !text) return { error: `Cochez au moins une anomalie pour ${plate}, ou ajoutez une précision` };
+    if (ticks.includes("Autre") && !text) return { error: "« Autre » : précisez l'anomalie" };
+    return { demandeId: "", source: "terrain", plaque: plate, prestataireId, type: "autre", quoi: ticks,
+      texte: [fieldTicksText(ticks), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...(photo ? { photo } : {}),
+      statut: "nouveau", at: nowIso, par: email };
+  }
+  // The words the provider typed, without the ticks in front (to edit a report).
+  function fieldNoteOf(s) {
+    const head = fieldTicksText(s.quoi || []);
+    const t = String(s.texte || "");
+    if (!head) return t;
+    return t.startsWith(head + " – ") ? t.slice(head.length + 3) : t === head ? "" : t;
+  }
+  // What an edit may change (the access rules allow only these, while the team has not handled it).
+  function fieldEditPatch(report, fields, nowIso) {
+    const r = fieldReport({ ...fields, photo: fields.photo }, report.prestataireId, report.par, report.at);
+    if (r.error) return r;
+    return { plaque: r.plaque, quoi: r.quoi, texte: r.texte, photo: fields.photo || "", modifieAt: nowIso };
+  }
+
   // What a provider's answer writes. A "fait" or an acceptance also moves the request's status right away, so the
   // request is closed even when nobody of the team has the app open (the access rules allow exactly this).
   function answerPatch(d, retour, nowIso) {
@@ -612,6 +688,27 @@
     if (status === "realisee") patch.doneAt = nowIso;
     return patch;
   }
+  // ---------- a « fait » tapped by mistake ----------
+  // For a few minutes the provider who tapped « Prestation réalisée » can take it back: the vehicle goes back to its
+  // list, the team is told. The access rules check the same window with the server's own time (retour.le).
+  const UNDO_DONE_MINUTES = 10;
+  const UNDO_DONE_LABEL = "Corriger";
+  function undoDoneLeftMs(d, email, nowMs) {
+    const r = d.retour;
+    if (!r || r.etat !== "fait" || !r.le || d.statut !== "realisee" || emailKey(r.par) !== emailKey(email)) return 0;
+    const at = Date.parse(r.at);
+    return Number.isFinite(at) ? Math.max(0, at + UNDO_DONE_MINUTES * 60000 - nowMs) : 0;
+  }
+  const canUndoDone = (d, email, nowMs) => undoDoneLeftMs(d, email, nowMs) > 0;
+  // The request goes back to "confirmed" (the provider had it in hand) and no longer counts as done.
+  function undoDonePatch(d, email, nowIso, note = "") {
+    return { retour: { etat: "erreur", at: nowIso, par: email, ...(note ? { note } : {}) }, statut: "confirmee", updatedAt: nowIso };
+  }
+  const undoDoneChanges = (note = "") => [
+    { champ: "reponse", avant: "fait", apres: "erreur" },
+    { champ: "statut", avant: "realisee", apres: "confirmee" },
+    ...(note ? [{ champ: "note", avant: "", apres: plainValue(note) }] : []),
+  ];
   // Answers the team has not looked at yet, newest first.
   // Every answer already seen, newest first: the "Déjà vus" list of the Retours page.
   const seenAnswers = (demandes, limit = 40) => demandes.filter((d) => d.retour?.vu).sort((a, b) => (b.retour.at || "").localeCompare(a.retour.at || "")).slice(0, limit);
@@ -949,19 +1046,20 @@
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
-    plateKey, normalizePlate, platesInText, PLATE_SEARCH_MIN, plateLookup, isFullPlate,
+    plateKey, normalizePlate, platesInText, replyPlates, PLATE_SEARCH_MIN, plateLookup, isFullPlate,
     fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress, parseSiteList, mergeSites,
     serviceOf, WASH_KINDS, washKindOf, jobLabel, jobTitle, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
     requestMessage, duplicatePlates, dayListMessage, verificationMessage, whatsappLink, WHATSAPP_TARGETS, photoSheetLayout, squareSheetOptions,
-    monthlyReport, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
+    monthlyReport, invoiceLines, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_DAYS, TEAM_RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
-    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate,
+    UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport, fieldNoteOf, fieldEditPatch,
     TRASH_DAYS, trashPurgeDate, trashDaysLeft, groupTrash,
   };
 });

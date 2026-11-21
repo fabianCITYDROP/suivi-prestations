@@ -2,7 +2,7 @@
 import { test, before, beforeEach, after } from "node:test";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, serverTimestamp, writeBatch, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, serverTimestamp, writeBatch, Timestamp, deleteField } from "firebase/firestore";
 
 let env;
 const ALLO = "allo-pare-brise-78";
@@ -230,6 +230,35 @@ test("contrôles hayon : l'équipe gère la liste, Jérôme la lit, personne d'a
   await assertSucceeds(setDoc(doc(as("robot"), "demandes/mail-h"), { ...mail, service: "hayon" }), "le robot importe aussi les mails de contrôle hayon");
 });
 
+test("« Signaler » : un prestataire remonte ce qu'il voit sur n'importe quel véhicule, sans rien lire des autres", async () => {
+  const khalid = as("khalid");
+  const field = { demandeId: "", source: "terrain", plaque: "ZZ-999-ZZ", prestataireId: KHALID, type: "autre", quoi: ["Véhicule sale", "Pneu avant"],
+    texte: "Véhicule sale, Pneu avant", statut: "nouveau", at: "2026-11-20T10:00:00Z", par: people.khalid.email };
+  await assertSucceeds(setDoc(doc(khalid, "signalements/t1"), field), "un véhicule qui n'est dans aucune de ses demandes");
+  await assertSucceeds(setDoc(doc(khalid, "signalements/t2"), { ...field, quoi: [], texte: "Rétro gauche pendant", photo: "sig_ZZ999ZZ_x" }));
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, prestataireId: ALLO }), "jamais au nom d'un autre");
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, par: people.allo.email }));
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, statut: "traite" }));
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, plaque: "AB" }), "plaque trop courte");
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, quoi: "sale" }));
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, demandeId: "d1" }), "pas de rattachement à la demande d'un autre");
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, source: "autre" }));
+  await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, champ: "x" }));
+  await assertFails(setDoc(doc(as("jerome"), "signalements/t3"), { ...field, prestataireId: "" }), "l'équipe en lecture n'écrit pas");
+  await assertFails(getDoc(doc(as("allo"), "signalements/t1")), "un autre prestataire ne le voit pas");
+  // Its author changes it while the team has not handled it; nobody else, and never the status or the name.
+  await assertSucceeds(updateDoc(doc(khalid, "signalements/t1"), { plaque: "ZZ-998-ZZ", quoi: ["Pare-brise"], texte: "Pare-brise", photo: "", modifieAt: "2026-11-21T10:00:00Z" }));
+  await assertFails(updateDoc(doc(khalid, "signalements/t1"), { statut: "traite" }));
+  await assertFails(updateDoc(doc(khalid, "signalements/t1"), { prestataireId: ALLO, modifieAt: "x" }));
+  await assertFails(updateDoc(doc(khalid, "signalements/t1"), { plaque: "AB", modifieAt: "x" }));
+  await assertFails(updateDoc(doc(as("allo"), "signalements/t1"), { texte: "x", modifieAt: "x" }));
+  await assertSucceeds(updateDoc(doc(as("fabian"), "signalements/t1"), { statut: "traite", traiteAt: "2026-11-21T11:00:00Z", traitePar: people.fabian.email }));
+  await assertFails(updateDoc(doc(khalid, "signalements/t1"), { texte: "trop tard", modifieAt: "x" }), "déjà traité : plus de modification");
+  await assertFails(deleteDoc(doc(khalid, "signalements/t1")), "déjà traité : plus de suppression");
+  await assertSucceeds(deleteDoc(doc(khalid, "signalements/t2")), "pas encore traité : il le supprime");
+  await assertSucceeds(getDocs(collection(as("jerome"), "signalements")));
+});
+
 test("un prestataire signale un problème sur ses véhicules, et seulement les siens", async () => {
   const khalid = as("khalid");
   const report = { demandeId: "d2", plaque: "EF-456-GH", prestataireId: KHALID, type: "pneu", texte: "Pneu avant lisse", statut: "nouveau", at: "2026-11-18T10:00:00Z", par: people.khalid.email };
@@ -250,12 +279,14 @@ test("un prestataire signale un problème sur ses véhicules, et seulement les s
   await assertFails(getDoc(doc(as("allo"), "signalements/s1")));
   await assertFails(updateDoc(doc(khalid, "signalements/s1"), { texte: "autre chose" }));
   await assertFails(updateDoc(doc(khalid, "signalements/s1"), { statut: "traite" }));
-  await assertFails(deleteDoc(doc(khalid, "signalements/s1")));
   // The team reads everything; only an admin marks it handled, and only that.
   await assertSucceeds(getDocs(collection(as("jerome"), "signalements")));
   await assertFails(updateDoc(doc(as("jerome"), "signalements/s1"), { statut: "traite" }));
   await assertSucceeds(updateDoc(doc(as("fabian"), "signalements/s1"), { statut: "traite", traiteAt: "2026-11-18T11:00:00Z", traitePar: people.fabian.email }));
   await assertFails(updateDoc(doc(as("fabian"), "signalements/s1"), { texte: "réécrit" }));
+  await assertFails(deleteDoc(doc(khalid, "signalements/s1")), "déjà traité : plus de suppression");
+  await assertFails(deleteDoc(doc(as("allo"), "signalements/s2")), "jamais celui d'un autre");
+  await assertSucceeds(deleteDoc(doc(khalid, "signalements/s2")), "envoyé par erreur, pas encore traité : il le supprime");
   await assertFails(setDoc(doc(as("robot"), "signalements/s9"), report));
   await assertFails(updateDoc(doc(khalid, "signalements/s2"), { texte: "Rayure, pas le pneu", modifieAt: "2026-11-18T10:10:00Z" }), "pas de correction : il en renvoie un");
   // The robot reads the reports (to alert the team's phones) but never changes them.
@@ -359,4 +390,31 @@ test("corbeille : l'équipe restaure une demande, la corbeille se vide seule apr
   await assertFails(deleteDoc(doc(fabian, "corbeille/recente")));
   // La trace « restauration » est acceptée dans l'historique.
   await assertSucceeds(setDoc(doc(fabian, "historique/r1"), { demandeId: "d1", plaque: "AB-123-CD", action: "restauration", changes: [], par: people.fabian.email, at: serverTimestamp() }));
+});
+
+test("« Corriger » : le prestataire reprend son « fait » pendant 10 minutes, et rien d'autre", async () => {
+  const db = as("khalid");
+  const at = "2026-11-20T10:00:00.000Z";
+  const fait = { etat: "fait", at, par: people.khalid.email };
+  const erreur = { etat: "erreur", at, par: people.khalid.email };
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: { ...fait, le: Timestamp.fromMillis(0) }, statut: "realisee", doneAt: at }), "heure du serveur obligatoire");
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: { ...erreur, le: serverTimestamp() }, statut: "realisee", doneAt: at }));
+  await assertSucceeds(updateDoc(doc(db, "demandes/d2"), { retour: { ...fait, le: serverTimestamp() }, statut: "realisee", doneAt: at, updatedAt: at }));
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: { ...fait, le: serverTimestamp() }, updatedAt: at }), "pas de nouveau départ des 10 minutes");
+  await assertFails(updateDoc(doc(as("allo"), "demandes/d2"), { retour: { ...erreur, par: people.allo.email }, statut: "confirmee", doneAt: deleteField() }), "pas chez un autre prestataire");
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: erreur, statut: "confirmee", doneAt: deleteField(), prixHT: 1 }), "rien d'autre");
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: erreur, statut: "annulee", doneAt: deleteField() }));
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: erreur, statut: "confirmee" }), "la date de passage s'efface");
+  await assertFails(updateDoc(doc(db, "demandes/d2"), { retour: erreur, updatedAt: at }), "une erreur sans remettre à faire n'a pas de sens");
+  await assertSucceeds(updateDoc(doc(db, "demandes/d2"), { retour: erreur, statut: "confirmee", doneAt: deleteField(), updatedAt: at }));
+  // a « fait » of a colleague on the same provider account, or one older than 10 minutes, stays
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const admin = ctx.firestore();
+    await setDoc(doc(admin, "demandes/d6"), { ...lavage, statut: "realisee", retour: { ...fait, par: "collegue@lavage.fr", le: Timestamp.now() } });
+    await setDoc(doc(admin, "demandes/d7"), { ...lavage, statut: "realisee", retour: { ...fait, le: Timestamp.fromMillis(Date.now() - 11 * 60000) } });
+    await setDoc(doc(admin, "demandes/d8"), { ...lavage, statut: "realisee", retour: fait });
+  });
+  await assertFails(updateDoc(doc(db, "demandes/d6"), { retour: erreur, statut: "confirmee" }), "celui qui a fait le « OK » seulement");
+  await assertFails(updateDoc(doc(db, "demandes/d7"), { retour: erreur, statut: "confirmee" }), "plus de 10 minutes");
+  await assertFails(updateDoc(doc(db, "demandes/d8"), { retour: erreur, statut: "confirmee" }), "ancien « fait » sans heure du serveur");
 });

@@ -59,7 +59,8 @@ const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); retur
 
   // Fresh page (reload: a hash change alone keeps the page): the monthly report of an old month loads that month only.
   await p.goto('http://localhost:8766/#bilan'); await p.reload(); await p.waitForTimeout(1500);
-  await p.fill('#b-month', '2025-05'); await p.dispatchEvent('#b-month', 'change'); await p.waitForTimeout(800);
+  await p.evaluate(() => { const i = document.querySelector('#b-month'); i.value = '2025-05'; i.dispatchEvent(new Event('change')); }); // the field is hidden: the month sheet drives it await p.waitForTimeout(800);
+  await p.waitForFunction(() => document.querySelector('#b-body').textContent.includes('OD-004-DD'), null, { timeout: 5000 }).catch(() => {});
   ok('old month report shows its request', (await p.textContent('#b-body')).includes('OD-004-DD'));
   const syncText = await p.textContent('#sync'); ok('…without loading the other old months (' + syncText.trim() + ')', syncText.includes('3 demandes'));
   // The report of the month of a 25-day-old job: read when the Bilan page opens, not before.

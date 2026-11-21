@@ -13,6 +13,14 @@ test("normalizePlate formats SIV plates and leaves others uppercased", () => {
   assert.equal(D.normalizePlate("1234 ab 75"), "1234 AB 75");
 });
 
+test("replyPlates sorts the plates of a reply into done and not done", () => {
+  assert.deepEqual(D.replyPlates("Bonjour, GA-731-PM ok, HB220KL fait. EZ-655-LM pas encore\nGT 910 AB reste à faire, pas de souci pour FK-402-ZD"),
+    { done: ["GA731PM", "HB220KL", "FK402ZD"], notDone: ["EZ655LM", "GT910AB"] });
+  assert.deepEqual(D.replyPlates("AB-123-CD et EF-456-GH faits"), { done: ["AB123CD", "EF456GH"], notDone: [] });
+  assert.deepEqual(D.replyPlates("AB-123-CD absent, EF-456-GH reporté à demain"), { done: [], notDone: ["AB123CD", "EF456GH"] });
+  assert.deepEqual(D.replyPlates(""), { done: [], notDone: [] });
+});
+
 test("platesInText finds SIV and FNI plates in a provider reply", () => {
   assert.deepEqual(D.platesInText("ok pour AB-123-CD et ef 456 gh, pas 1234 AB 75"), ["AB123CD", "EF456GH", "1234AB75"]);
   assert.deepEqual(D.platesInText("rien ici"), []);
@@ -168,8 +176,28 @@ test("monthlyReport counts requested, done, cancelled, overdue and upcoming", ()
     demande({ date: "2026-11-02" }),
   ];
   const r = D.monthlyReport(list, { month: "2026-10", provider: "", todayIso: "2026-10-20" });
-  assert.deepEqual(r.total, { requested: 4, done: 1, cancelled: 1, overdue: 1, upcoming: 1, amount: 0 });
+  assert.deepEqual(r.total, { requested: 4, done: 1, cancelled: 1, overdue: 1, upcoming: 1, amountHT: 0, flat: 0, unpriced: 1 });
   assert.deepEqual(r.bySite.map(([k]) => k).sort(), ["La Défense", D.NO_SITE].sort());
+});
+
+test("monthlyReport adds up the HT price of done jobs; a tailgate without price is the monthly flat fee", () => {
+  const list = [
+    demande({ date: "2026-10-05", statut: "realisee", service: "lavage", prixHT: 37 }),
+    demande({ date: "2026-10-06", statut: "realisee", service: "lavage", prixHT: 37 }),
+    demande({ date: "2026-10-07", statut: "realisee", service: "pare-brise", prixHT: 360 }),
+    demande({ date: "2026-10-08", statut: "realisee", service: "lavage", prixHT: null }),
+    demande({ date: "2026-10-09", statut: "realisee", service: "hayon", prixHT: null }),
+    demande({ date: "2026-10-10", statut: "envoyee", service: "lavage", prixHT: 37 }),
+  ];
+  const r = D.monthlyReport(list, { month: "2026-10", provider: "", todayIso: "2026-10-20" });
+  assert.equal(r.total.amountHT, 434);
+  assert.equal(r.total.flat, 1);
+  assert.equal(r.total.unpriced, 1);
+  const lines = D.invoiceLines(r.rows.filter((d) => d.statut === "realisee"));
+  assert.deepEqual(lines[0], { label: D.jobLabel({ service: "pare-brise" }), unit: 360, flat: false, count: 1, total: 360 });
+  assert.deepEqual(lines[1], { label: "Lavage complet", unit: 37, flat: false, count: 2, total: 74 });
+  assert.ok(lines.some((l) => l.flat && l.count === 1));
+  assert.ok(lines.some((l) => l.unit === null && !l.flat && l.count === 1));
 });
 
 test("CSV and TSV exports escape separators", () => {
@@ -695,4 +723,48 @@ test("alertes : qui les reçoit, par compte et par prestataire", () => {
   assert.equal(D.providerAlertStatus(devices, accounts, "allo", now).level, "none");
   assert.equal(D.providerAlertStatus(devices, accounts, "dhollianda", now).level, "nobody");
   assert.equal(D.providerAlertStatus(null, accounts, "allo", now), null);
+});
+
+test("« Corriger » : 10 minutes, seulement pour celui qui a fait le « OK »", () => {
+  const at = "2026-11-20T10:00:00.000Z", t0 = Date.parse(at);
+  const d = { statut: "realisee", retour: { etat: "fait", at, par: "Khalid@lavage.fr", le: { seconds: 1 } } };
+  assert.equal(D.canUndoDone(d, "khalid@lavage.fr", t0 + 9 * 60000), true);
+  assert.equal(D.undoDoneLeftMs(d, "khalid@lavage.fr", t0 + 9 * 60000), 60000);
+  assert.equal(D.canUndoDone(d, "khalid@lavage.fr", t0 + 10 * 60000), false, "après 10 minutes");
+  assert.equal(D.canUndoDone(d, "autre@lavage.fr", t0), false, "pas pour un collègue");
+  assert.equal(D.canUndoDone({ ...d, retour: { ...d.retour, le: undefined } }, "khalid@lavage.fr", t0), false, "ancien « fait » sans heure du serveur");
+  assert.equal(D.canUndoDone({ ...d, statut: "confirmee" }, "khalid@lavage.fr", t0), false);
+  const now = "2026-11-20T10:05:00.000Z";
+  assert.deepEqual(D.undoDonePatch(d, "khalid@lavage.fr", now, "c'était l'autre"), { retour: { etat: "erreur", at: now, par: "khalid@lavage.fr", note: "c'était l'autre" }, statut: "confirmee", updatedAt: now });
+  assert.deepEqual(D.undoDoneChanges().map((c) => c.champ), ["reponse", "statut"]);
+  assert.equal(D.answerOf("erreur").team, "a annulé son « fait » sur");
+  // back in the provider's list, no longer done
+  const lists = D.providerLists([{ ...d, id: "x", date: "2026-11-20", ...D.undoDonePatch(d, "k", now) }], "2026-11-20");
+  assert.equal(lists.today.length, 1); assert.equal(lists.done.length, 0);
+});
+
+test("« Signaler » : remontée terrain sur n'importe quel véhicule", () => {
+  const r = D.fieldReport({ plaque: "ab123cd", quoi: ["Pneu avant", "Véhicule sale", "inconnu"], texte: " côté gauche " }, "khalid", "k@x.fr", "2026-11-20T10:00:00.000Z");
+  assert.equal(r.plaque, "AB-123-CD");
+  assert.equal(r.demandeId, "");
+  assert.equal(r.source, "terrain");
+  assert.deepEqual(r.quoi, ["Véhicule sale", "Pneu avant"]);
+  assert.equal(r.texte, "Véhicule sale, Pneu avant – côté gauche");
+  assert.equal(D.problemSummary(r), r.texte);
+  assert.ok(D.isFieldReport(r));
+  assert.equal(D.fieldReport({ plaque: "AB-123-CD", texte: "rétro cassé" }, "k", "e", "t").texte, "rétro cassé");
+  assert.match(D.fieldReport({ plaque: "", quoi: ["Pare-brise"] }, "k", "e", "t").error, /Immatriculation/);
+  assert.match(D.fieldReport({ plaque: "AB1", quoi: ["Pare-brise"] }, "k", "e", "t").error, /incomplète/);
+  assert.match(D.fieldReport({ plaque: "AB-123-CD" }, "k", "e", "t").error, /Cochez/);
+});
+
+test("« Signaler » : Autre demande des mots, et on retrouve les mots pour modifier", () => {
+  assert.match(D.fieldReport({ plaque: "AB-123-CD", quoi: ["Autre"] }, "k", "e", "t").error, /Autre/);
+  const r = D.fieldReport({ plaque: "AB-123-CD", quoi: ["Autre", "Pare-brise"], texte: "antenne pliée" }, "k", "e", "t");
+  assert.equal(r.texte, "Pare-brise – antenne pliée");
+  assert.equal(D.fieldNoteOf(r), "antenne pliée");
+  assert.equal(D.fieldNoteOf({ quoi: ["Pneu avant"], texte: "Pneu avant" }), "");
+  assert.equal(D.fieldNoteOf({ quoi: [], texte: "rétro" }), "rétro");
+  const p = D.fieldEditPatch({ ...r, at: "t0" }, { plaque: "ef456gh", quoi: ["Véhicule sale"], texte: "" }, "t1");
+  assert.deepEqual(p, { plaque: "EF-456-GH", quoi: ["Véhicule sale"], texte: "Véhicule sale", photo: "", modifieAt: "t1" });
 });

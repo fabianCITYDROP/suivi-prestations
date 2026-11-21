@@ -286,9 +286,25 @@
     const getProvider = (id) => db.doc("prestataires/" + id).get().then((snap) => (snap.exists ? snap.data() : null));
     async function answer(demande, retour) {
       const now = new Date().toISOString();
-      await writeWithHistory(demandeRef(demande.id), "update", D.answerPatch(demande, retour, now),
-        historyEntry(demande, "reponse", D.answerChanges(retour)));
+      const patch = D.answerPatch(demande, retour, now);
+      const entry = historyEntry(demande, "reponse", D.answerChanges(retour));
+      // A « fait » that closes the request carries the server's time: the provider can take it back for a few minutes.
+      if (patch.statut === "realisee" && retour.etat === "fait") {
+        try { await writeWithHistory(demandeRef(demande.id), "update", { ...patch, retour: { ...patch.retour, le: serverTime() } }, entry); }
+        catch (err) {
+          if (err?.code !== "permission-denied") throw err;
+          await writeWithHistory(demandeRef(demande.id), "update", patch, entry); // access rules not republished yet: as before
+        }
+      } else await writeWithHistory(demandeRef(demande.id), "update", patch, entry);
       changed();
+    }
+    // « Corriger »: the provider takes back its « fait » (the access rules allow it 10 minutes).
+    async function undoDone(demande, email, note = "") {
+      const now = new Date().toISOString();
+      const remove = typeof firebase !== "undefined" && firebase.firestore?.FieldValue ? firebase.firestore.FieldValue.delete() : null;
+      const patch = { ...D.undoDonePatch(demande, email, now, note), ...(remove ? { doneAt: remove } : {}) };
+      await writeWithHistory(demandeRef(demande.id), "update", patch, historyEntry(demande, "reponse", D.undoDoneChanges(note)));
+      changed(); // the alert script looks at once: the team is told even with the app closed
     }
     // A problem seen on a vehicle: the photo (optional) goes in preuves/<key> like a proof, then the report itself.
     async function reportProblem(demande, fields, photoFull) {
@@ -303,6 +319,35 @@
       await db.collection("signalements").doc().set(report);
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
+    // Field report on any vehicle (« Signaler » tab), not tied to a request: same collection, same photo place.
+    async function reportField(prestataireId, fields, photoFull) {
+      let photo = "";
+      const plaque = D.normalizePlate(fields.plaque);
+      if (photoFull) {
+        photo = `sig_${D.plateKey(plaque)}_${Date.now().toString(36)}`;
+        await db.doc("preuves/" + photo).set({ prestataireId, plaque, data: photoFull, at: new Date().toISOString() });
+        photoCache.set("preuve:" + photo, photoFull);
+      }
+      const report = D.fieldReport({ ...fields, photo }, prestataireId, fields.par, new Date().toISOString());
+      if (report.error) throw { code: "invalid", message: report.error };
+      await db.collection("signalements").doc().set(report);
+      changed(); // the alert script looks at once: the team is told even with the app closed
+    }
+    // Its author changes a « vu en passant » report until the team has handled it. A new photo replaces the old one.
+    async function updateField(report, fields, photoFull, keptPhoto) {
+      let photo = keptPhoto || "";
+      if (photoFull) {
+        photo = `sig_${D.plateKey(fields.plaque)}_${Date.now().toString(36)}`;
+        await db.doc("preuves/" + photo).set({ prestataireId: report.prestataireId, plaque: D.normalizePlate(fields.plaque), data: photoFull, at: new Date().toISOString() });
+        photoCache.set("preuve:" + photo, photoFull);
+      }
+      const patch = D.fieldEditPatch(report, { ...fields, photo }, new Date().toISOString());
+      if (patch.error) throw { code: "invalid", message: patch.error };
+      await db.doc("signalements/" + report.id).update(patch);
+      changed();
+    }
+    // Its author takes back a report sent by mistake (the access rules allow it until the team has handled it).
+    const deleteProblem = (id) => db.doc("signalements/" + id).delete();
     const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
       handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
     async function loadProof(key) {
@@ -321,6 +366,8 @@
         historyEntry(demande, "statut", D.changesBetween(demande, { statut: status }), { auto: true }));
     }
     const markAnswerSeen = (demande) => db.doc("demandes/" + demande.id).update({ retour: { ...demande.retour, vu: true } });
+    // « Annuler » just after « Vu », or « Remettre à traiter »: the answer goes back to the Retours to handle.
+    const markAnswerUnseen = (demande) => { const { vu, ...retour } = demande.retour; return db.doc("demandes/" + demande.id).update({ retour }); };
     // Accepting the provider's date also confirms the request: it moves to the provider's planning.
     function acceptProposedDate(demande) {
       const now = new Date().toISOString();
@@ -423,7 +470,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

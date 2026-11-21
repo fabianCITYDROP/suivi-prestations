@@ -44,9 +44,10 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   ok('allo has 4 lines', allo && allo.tarifs.arrayValue.values.length === 4);
   ok('5 providers? no, 4 filled (not DHOLLIANDA)', provs.filter((x) => x.tarifs?.arrayValue?.values?.length).length === 4);
   ok('button hidden once done', !(await p.isVisible('#t-known')));
-  await p.selectOption('#t-prov', 'ALLO pare-brise 78'); await p.waitForTimeout(300);
+  await p.click('[data-rg-open="prov:ALLO pare-brise 78"]'); await p.waitForTimeout(600);
   console.log(await p.textContent('#t-list'));
   // The mail robot's account can be added from Réglages (role « Robot des mails »).
+  await p.click('.team-sheet .sheet-x'); await p.waitForTimeout(400); await p.click('[data-rg-open="accounts"]'); await p.waitForTimeout(600);
   await p.fill('#a-email', 'robot-mails@citydrop-suivi.app'); await p.selectOption('#a-role', 'robot'); await p.click('#a-add'); await p.waitForTimeout(800);
   const robot = (await list('comptes')).find((c) => c.id === 'robot-mails@citydrop-suivi.app');
   ok('robot account added with role robot', robot && robot.role === 'robot' && robot.prestataireId === undefined);

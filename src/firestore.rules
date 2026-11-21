@@ -5,6 +5,7 @@ rules_version = '2';
 //   lecture     : sees everything (report), changes nothing.
 //   prestataire : sees only the requests of its own provider, and can only answer them (field "retour"); a "fait" or
 //                 an acceptance also moves the request's status, so it is closed even when nobody of the team is online.
+//                 For 10 minutes after its « fait », the provider who tapped it can take it back (wrong vehicle).
 //   robot       : the Apps Script of the team (mail import + alerts). Can create a request read from a City-Drop mail,
 //                 cancel it, or re-plan it after a cancellation; reads the requests, the reported problems and the alert subscriptions to
 //                 send alerts, only writes the "notifie" mark (what was already announced) on other requests,
@@ -42,7 +43,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (isRobot() && resource.data.source == 'mail' && (robotCancels() || robotReplans()))
         || (isRobot() && robotMarks())
-        || (ownsRequest(resource.data) && providerAnswers());
+        || (ownsRequest(resource.data) && (providerAnswers() || providerUndoesDone()));
     }
     // The provider's answer, and the status it implies: "fait" closes the request, an acceptance confirms it.
     // Dates written with it are the answer's own time; nothing else of the request changes.
@@ -51,13 +52,28 @@ service cloud.firestore {
       let after = request.resource.data;
       let changed = after.diff(before).affectedKeys();
       return changed.hasOnly(['retour', 'updatedAt', 'statut', 'sentAt', 'confirmedAt', 'doneAt'])
-        && validAnswer(after.retour)
+        && validAnswer(after.retour) && after.retour.etat != 'erreur'
+        // retour.le = the server's time of a « fait » that closes the request (starts the 10 minutes to take it back)
+        && (!('le' in after.retour) || (after.retour.le == request.time && after.retour.etat == 'fait'
+                                         && before.statut != 'realisee' && after.statut == 'realisee'))
         && (after.statut == before.statut
             || (before.statut != 'annulee' && after.retour.etat == 'fait' && after.statut == 'realisee')
             || (before.statut in ['a_envoyer', 'envoyee'] && after.retour.etat == 'confirme' && after.statut == 'confirmee'))
         && (!changed.hasAny(['sentAt']) || after.sentAt == after.retour.at)
         && (!changed.hasAny(['confirmedAt']) || after.confirmedAt == after.retour.at)
         && (!changed.hasAny(['doneAt']) || after.doneAt == after.retour.at);
+    }
+    // « Corriger »: within 10 minutes (server time), the provider who tapped « fait » takes it back.
+    // The request goes back to "confirmed", its done date is removed, nothing else changes.
+    function providerUndoesDone() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.statut == 'realisee' && before.retour is map && before.retour.etat == 'fait'
+        && before.retour.get('par', '') == email() && before.retour.get('le', null) is timestamp
+        && request.time < before.retour.le + duration.value(10, 'm')
+        && after.diff(before).affectedKeys().hasOnly(['retour', 'updatedAt', 'statut', 'doneAt'])
+        && after.statut == 'confirmee' && !('doneAt' in after)
+        && validAnswer(after.retour) && after.retour.etat == 'erreur' && !('le' in after.retour);
     }
     // The alert script notes what it already announced, so an alert never goes out twice.
     function robotMarks() {
@@ -90,8 +106,8 @@ service cloud.firestore {
     // A provider answer: what was done, when, by whom; never the team's own marks (vu, applique).
     function validAnswer(r) {
       return r is map
-        && r.keys().hasOnly(['etat', 'at', 'par', 'note', 'date', 'debut', 'preuve'])
-        && r.etat in ['confirme', 'fait', 'absent', 'autre-date', 'refuse']
+        && r.keys().hasOnly(['etat', 'at', 'par', 'note', 'date', 'debut', 'preuve', 'le'])
+        && r.etat in ['confirme', 'fait', 'absent', 'autre-date', 'refuse', 'erreur']
         && r.par == email();
     }
 
@@ -179,28 +195,44 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Problem seen on a vehicle (shock, tyre, warning light…): the provider reports it on one of its own requests,
+    // Problem seen on a vehicle (shock, tyre, warning light…): the provider reports it on one of its own requests
+    // (or on any vehicle from the « Signaler » tab, see validFieldReport),
     // the team reads it and marks it handled. A provider sees only its own reports and can neither change nor delete them
-    // (to add something, it reports again).
+    // (to add something, it reports again; sent by mistake, it deletes it until the team handles it).
     match /signalements/{reportId} {
       // The robot reads them only to alert the team's phones; it can never write here.
       allow read: if canReadAll() || isRobot() || (isProvider() && resource.data.prestataireId == account().prestataireId);
       allow create: if isProvider() && validReport(request.resource.data);
-      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'traiteAt', 'traitePar'])
-                    && request.resource.data.statut in ['nouveau', 'traite'];
-      allow delete: if isAdmin();
+      allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'traiteAt', 'traitePar'])
+                    && request.resource.data.statut in ['nouveau', 'traite'])
+                    // « Signaler »: its author changes a report seen in passing, until the team has handled it.
+                    || (isProvider() && resource.data.get('source', '') == 'terrain' && resource.data.statut == 'nouveau'
+                    && resource.data.par == email() && resource.data.prestataireId == account().prestataireId
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plaque', 'quoi', 'texte', 'photo', 'modifieAt'])
+                    && validReport(request.resource.data) && request.resource.data.modifieAt is string && request.resource.data.modifieAt.size() <= 40);
+      // Sent by mistake: its author deletes it, as long as the team has not handled it yet.
+      allow delete: if isAdmin() || (isProvider() && resource.data.prestataireId == account().prestataireId
+                    && resource.data.par == email() && resource.data.statut == 'nouveau');
     }
     function validReport(s) {
-      return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'statut', 'at', 'par'])
+      return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'statut', 'at', 'par', 'source', 'quoi', 'modifieAt'])
         && s.keys().hasAll(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'statut', 'at', 'par'])
         && s.prestataireId == account().prestataireId && s.par == email() && s.statut == 'nouveau'
         && s.type in ['choc', 'pneu', 'voyant', 'autre']
         && s.texte is string && s.texte.size() <= 500
         && s.at is string && s.at.size() <= 40
         && (!('photo' in s) || (s.photo is string && s.photo.size() <= 80))
-        && s.demandeId is string
-        && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.prestataireId == account().prestataireId
-        && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.plaque == s.plaque;
+        && s.demandeId is string && s.plaque is string
+        && (validFieldReport(s) || (!('source' in s) && !('quoi' in s) && s.demandeId != ''
+          && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.prestataireId == account().prestataireId
+          && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.plaque == s.plaque));
+    }
+    // « Signaler » tab: something seen on ANY vehicle, tied to no request. The provider still writes only under its own
+    // name, can read back only its own reports, and never sees anything about the vehicle.
+    function validFieldReport(s) {
+      return s.demandeId == '' && s.source == 'terrain' && s.type == 'autre'
+        && s.plaque.size() >= 5 && s.plaque.size() <= 12
+        && s.quoi is list && s.quoi.size() <= 10;
     }
 
     // Fleet models and their windshield photos: useful to every provider, changed only by the team.
