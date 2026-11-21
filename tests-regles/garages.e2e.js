@@ -35,7 +35,7 @@ async function seed() {
   await mail('mail-BB222BB', 'Du Sol au Toit Lille', 'BB-222-BB');
   await mail('mail-CC333CC', 'ALLO pare-brise 78', 'CC-333-CC');
   const allo = (site, nom) => ({ garage: `Allo Pare brise / Lavage (${nom})`, prestataire: 'Allo Pare-Brise', site });
-  await put('config/garages', { liste: [allo('Saint-Cloud', 'St-Cloud'), allo('La Défense', 'la def'), allo('Lille', 'Lille'), allo('Saint-Cloud', 'Paris'), { garage: 'Du Sol au Toit Lille', prestataire: 'Du Sol au Toit', site: 'Lille' }] });
+  await put('config/garages', { liste: [allo('Saint-Cloud', 'St-Cloud'), allo('La Défense', 'la def'), allo('Lille', 'Lille'), allo('Saint-Cloud', 'Paris'), allo('Saint-Cloud', 'Meaux'), allo('Saint-Cloud', 'Mantes la J.'), allo('La Défense', 'coignières'), allo('Lille', 'Aulnay'), { garage: 'Du Sol au Toit Lille', prestataire: 'Du Sol au Toit', site: 'Lille' }] });
   await put('robot/etat', { passage: new Date().toISOString(), dernierMail: new Date().toISOString(), erreur: '' });
   await signUp('fabian@city-drop.com');
 }
@@ -83,6 +83,9 @@ async function seed() {
     }
     await s('1-reglages');
     await row(p, 'garages').click(); await p.waitForTimeout(700); await s('2-garages');
+    await p.click('[data-rg-act="unfold-garages"]'); await p.waitForTimeout(400);
+    if (await p.locator('[data-rg-act="unfold-garages"]').count()) errors.push('groupe pas déplié');
+    await p.locator('.team-sheet .sheet-b').evaluate((el) => (el.scrollTop = 400)); await p.waitForTimeout(200); await s('2b-deplie');
     await row(p, 'garage:Du Sol au Toit').click(); await p.waitForTimeout(700); await s('3-un-garage');
     if (scheme === 'light') {
       await p.selectOption('#g-site', 'La Défense'); await p.click('[data-rg-act="save-garage"]'); await p.waitForTimeout(1500);
@@ -92,7 +95,7 @@ async function seed() {
       await p.fill('#g-new', 'Allo Pare brise / Lavage (Aulnay)'); await p.selectOption('#g-prov', 'Allo Pare-Brise'); await p.selectOption('#g-site', 'Saint-Cloud');
       await s('5-nouveau'); await p.click('[data-rg-act="save-garage"]'); await p.waitForTimeout(1200);
       const g = await get('config/garages');
-      if ((g.fields?.liste?.arrayValue?.values || []).length !== 7) errors.push('garages enregistrés : ' + (g.fields?.liste?.arrayValue?.values || []).length);
+      if ((g.fields?.liste?.arrayValue?.values || []).length !== 10) errors.push('garages enregistrés : ' + (g.fields?.liste?.arrayValue?.values || []).length);
       const reg = await get('config/reglages');
       if ((reg.fields.prestataires.arrayValue.values || []).length !== 3) errors.push('un prestataire a été créé');
     }

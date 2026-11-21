@@ -2308,7 +2308,7 @@
   // ================= « Réglages » façon Réglages de l'iPhone (2026-11-21) =================
   // Listes groupées ; chaque ligne ouvre une feuille (par le bas sur téléphone, à droite sur ordinateur).
   // Les écritures n'ont pas changé : config/reglages, prestataires/*, comptes/*, réglages des alertes. Aucune règle Firebase touchée.
-  const rg = { open: null, armed: "" };
+  const rg = { open: null, armed: "", unfolded: new Set() };
   const rgArt = (key) => self.IssueArt?.art(key, "rg-art") || "";
   const rgIco = (key, size = "") => `<span class="rg-ico ${size}" aria-hidden="true">${rgArt(key)}</span>`;
   const RG_FLAGS = [
@@ -2410,6 +2410,7 @@
   // en gris), le réglage s'ouvre en feuille. Les garages pas encore réglés passent en haut, avec un point orange.
   const garageLine = (r) => rgRow({ open: "garage:" + r.garage, title: r.missing || !r.guessSite ? r.garage : r.guessSite, sub: r.missing ? (r.guessProvider ? "Site à choisir" : "Prestataire à choisir") : r.guessSite ? r.garage : "Sans site", cls: "rg-garage",
     value: r.missing ? `<span class="rg-val"><i class="rg-dot todo" aria-hidden="true"></i></span>` : "" });
+  const GARAGES_FOLDED = 3; // au-delà, « + N autres » déplie le groupe
   function garagesSheet() {
     const rows = garageRows();
     const todo = rows.filter((r) => r.missing);
@@ -2417,7 +2418,12 @@
       .sort((x, y) => x.guessSite.localeCompare(y.guessSite, "fr"))]).filter(([, list]) => list.length);
     return `<div class="rg-sheet">
       ${todo.length ? rgSection(`À rattacher <em>${todo.length}</em>`, todo.map(garageLine).join("")) : ""}
-      ${groups.map(([p, list]) => rgSection(`${esc(p)} <em>${list.length}</em>`, list.map(garageLine).join(""))).join("")}
+      ${groups.map(([p, list]) => {
+        const shown = list.length > GARAGES_FOLDED + 1 && !rg.unfolded.has(p) ? list.slice(0, GARAGES_FOLDED) : list;
+        const more = list.length - shown.length;
+        return rgSection(`${esc(p)} <em>${list.length}</em>`, shown.map(garageLine).join("")
+          + (more ? `<button type="button" class="rg-row rg-more-row" data-rg-act="unfold-garages" data-i="${esc(p)}"><span class="rg-txt"><b>+ ${more} autre${more > 1 ? "s" : ""}</b></span></button>` : ""));
+      }).join("")}
       ${!rows.length ? `<p class="rg-empty">Aucun garage reçu par mail.</p>` : ""}
       ${state.canWrite ? rgSection("", `<button type="button" class="rg-row rg-add" data-rg-open="garage-new"><span class="rg-ico plus" aria-hidden="true">${icon("plus")}</span><span class="rg-txt"><b>Ajouter un garage</b></span></button>`) : ""}
     </div>`;
@@ -2660,6 +2666,7 @@
   async function rgAct(act, b) {
     if (act === "logout") { const out = $("#signOutBtn"); if (out) { out.classList.add("armed"); out.click(); } return; }
     if (act === "copy-script") { if (await copyText(SHEET_SCRIPT)) toast("Script copié"); return; }
+    if (act === "unfold-garages") { rg.unfolded.add(b.dataset.i); return refreshRgSheet(); }
     if (!state.canWrite) return toast("Accès en lecture : tu ne peux rien modifier ici");
     if (act === "known-prices") return fillKnownPrices();
     if (act === "prepare") return prepareAccess();
