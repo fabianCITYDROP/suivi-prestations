@@ -65,7 +65,7 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   ok('summary: Khalid missing, ASG to check', /activées chez : Khalid Lavage\./.test(summary) && /À vérifier .*: ASG BDX LAVAGE/.test(summary));
   await p.waitForTimeout(400); await p.screenshot({ path: shots + '/alertes.png' });
   await p.click('.team-sheet .sheet-x'); await p.waitForTimeout(400);
-  await p.locator('#s-provs').screenshot({ path: shots + '/prestataires-telephone.png' });
+  await p.locator('.rg-list', { has: p.locator('#s-provs') }).screenshot({ path: shots + '/prestataires-telephone.png' });
   ok('no page error', !p.errs.length); if (p.errs.length) console.log(p.errs);
   // Jérôme (read only) may not read the devices: no chip, no summary, no error.
   const j = await page(); await login(j, 'jerome@city-drop.com');
