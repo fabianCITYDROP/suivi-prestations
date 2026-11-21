@@ -177,18 +177,40 @@
       ${problemLines(d)}${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
     }
     const doneDayOf = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
+    // « Faits » : une liste groupée par jour, façon iPhone. L'heure du « fait » à droite, les deux actions possibles
+    // (Corriger pendant 10 minutes, Problème pendant 7 jours) en petites capsules sous la ligne.
+    function doneTime(d) {
+      const at = d.retour?.etat === "fait" ? d.retour.at : d.doneAt;
+      if (!at || !String(at).includes("T")) return "";
+      const t = new Date(at);
+      return Number.isNaN(t.getTime()) ? "" : t.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    }
     function doneRow(d) {
       const day = doneDayOf(d);
       // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
       const undo = D.canUndoDone(d, email, Date.now());
-      const more = recent || undo ? (state.busy.has(d.id) ? busyLine
-        : (undo ? `<button type="button" class="undo-done" data-act="undo" data-id="${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : "") +
-          (recent ? `<button type="button" class="report" data-act="problem" data-id="${esc(d.id)}">${icon("alert")}Signaler un problème</button>` : "")) : "";
-      const lines = problemLines(d);
-      return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
-        ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}
-        ${more || lines ? `<div class="done-more">${lines}${more}</div>` : ""}</li>`;
+      const acts = recent || undo ? (state.busy.has(d.id) ? busyLine
+        : `<div class="done-acts">${undo ? `<button type="button" class="done-pill undo" data-act="undo" data-id="${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : ""}${recent ? `<button type="button" class="done-pill" data-act="problem" data-id="${esc(d.id)}"><span class="done-pill-art" aria-hidden="true">${self.IssueArt?.art("act-problem", "act-art") || ""}</span>Problème</button>` : ""}</div>`) : "";
+      const [name, size] = (D.vehicleLabel(d) || "").split(" – ");
+      const time = doneTime(d);
+      return `<li class="done-item">${serviceTile(d, "svc-tile xs")}
+        <div class="done-main"><div class="done-line">${plateTag(d.plaque)}${time ? `<time class="done-time">${esc(time)}</time>` : ""}</div>
+          <b class="done-model">${esc(name || D.jobLabel(d))}${size ? `<span> · ${esc(size)}</span>` : ""}</b>
+          <small class="done-sub">${esc([name ? D.jobLabel(d) : "", d.site].filter(Boolean).join(" · "))}</small>
+          ${problemLines(d)}${acts}</div>
+        ${d.retour?.preuve ? `<button type="button" class="done-proof" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : ""}</li>`;
+    }
+    // « Aujourd'hui », « Hier », puis « Mercredi 18 novembre ».
+    function doneDayHead(iso) {
+      if (iso === today()) return "Aujourd'hui";
+      if (iso === D.addDays(today(), -1)) return "Hier";
+      return iso ? cap(D.dayLabel(iso)) : "Date inconnue";
+    }
+    function doneGroups(list) {
+      return [...D.groupBy(list, doneDayOf).entries()].map(([iso, rows]) => `<section class="done-day">
+        <h2 class="done-day-head"><span>${esc(doneDayHead(iso))}</span><em>${rows.length}</em></h2>
+        <ul class="done-list">${rows.map(doneRow).join("")}</ul></section>`).join("");
     }
     // Today's vehicles grouped by site: the provider goes site by site.
     function todayHtml(list) {
@@ -287,23 +309,50 @@
           <div class="up-list">${rows.map(upCard).join("")}</div></section>`).join("");
     }
     const upEmpty = (title, text) => `<div class="up-empty"><span class="up-empty-ico" aria-hidden="true">${self.IssueArt?.art("act-date", "act-art") || ""}</span><b>${title}</b><span>${text}</span></div>`;
+    // Le sélecteur de mois : les 40 derniers jours (chargés à l'ouverture), les 2 mois d'avant en un appui, les autres dans une feuille.
+    // Un ancien mois n'est lu qu'à la demande (quota de lectures), comme avant.
+    const monthOf = (k) => { const d = new Date(today().slice(0, 7) + "-15T12:00:00"); d.setMonth(d.getMonth() - k); return D.toIsoDate(d).slice(0, 7); };
+    const monthShort = (ym) => cap(new Date(ym + "-15T12:00:00").toLocaleDateString("fr-FR", { month: "long" }));
+    function monthPills() {
+      const quick = [monthOf(1), monthOf(2)];
+      const other = state.month && !quick.includes(state.month) ? state.month : "";
+      const pill = (ym, label) => `<button type="button" class="month-pill" data-month-pick="${ym}" aria-pressed="${state.month === ym}">${esc(label)}</button>`;
+      return `<div class="month-pills" role="group" aria-label="Période">${pill("", "40 derniers jours")}${quick.map((ym) => pill(ym, monthShort(ym))).join("")}
+        ${other ? pill(other, D.monthLabel(other)) : ""}<button type="button" class="month-pill more" data-month-more aria-haspopup="dialog">${icon("cal")}Autre mois</button></div>`;
+    }
+    function monthSheetBody() {
+      const months = Array.from({ length: 12 }, (_, i) => monthOf(i + 1));
+      return `<div class="month-sheet"><p class="sheet-sub">Le mois en cours est dans « 40 derniers jours ».</p>
+        ${[...D.groupBy(months, (ym) => ym.slice(0, 4)).entries()].map(([y, list]) => `<section><h3 class="sheet-label">${y}</h3><div class="month-grid">
+          ${list.map((ym) => `<button type="button" class="day-chip" data-month-pick="${ym}" aria-pressed="${state.month === ym}">${esc(monthShort(ym))}</button>`).join("")}</div></section>`).join("")}
+        <label class="sheet-group"><span class="sheet-label">Plus ancien</span><input type="month" class="sheet-input" data-month value="${esc(state.month)}" max="${monthOf(1)}"></label></div>`;
+    }
+    // Le compteur en grand : le mois en cours (ou le mois choisi), avec aujourd'hui et cette semaine à côté.
+    function doneSummary(n, label, side) {
+      return `<div class="done-sum"><div class="done-sum-main"><b class="done-count">${n}</b><span>${icon("check")}${esc(label)}</span></div>
+        ${side.length ? `<dl class="done-sum-side">${side.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join("")}</dl>` : ""}</div>`;
+    }
+    const doneEmpty = (title, text) => `<div class="done-empty"><span class="done-empty-ico" aria-hidden="true">${self.IssueArt?.art("faits-vide", "svc-art") || ""}</span><b>${title}</b><span>${text}</span></div>`;
+    const plural = (n, w) => `${w}${n > 1 ? "s" : ""}`;
     function doneTab(all) {
-      const counts = D.providerCounts(state.demandes, today());
-      const picker = `<label class="field month-pick"><span>Voir un ancien mois</span>
-          <input type="month" data-month value="${esc(state.month)}" max="${today().slice(0, 7)}" ${state.monthLoading ? "disabled aria-busy=\"true\"" : ""}></label>`;
       if (state.month) { // report of one month, loaded on demand
         const inMonth = all.filter((d) => doneDayOf(d).slice(0, 7) === state.month);
         const list = filtered(inMonth);
-        const head = state.monthLoading ? `<p class="tally">Chargement de ${esc(D.monthLabel(state.month))}…</p>`
-          : `<p class="tally"><b>${inMonth.length}</b> véhicule${inMonth.length > 1 ? "s" : ""} en ${esc(D.monthLabel(state.month))}</p>`;
-        const back = `<button type="button" class="month-back" data-month-reset>${icon("chev-l")}Revenir aux 40 derniers jours</button>`;
-        return back + head + picker + searchBox() +
-          (state.monthLoading ? "" : list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait ce mois-là", "Choisis un autre mois."));
+        const days = new Set(inMonth.map(doneDayOf)).size;
+        const head = state.monthLoading
+          ? `<div class="done-sum loading" aria-busy="true"><span class="spinner" aria-hidden="true"></span><span>Chargement de ${esc(D.monthLabel(state.month))}…</span></div>`
+          : doneSummary(inMonth.length, `${plural(inMonth.length, "véhicule")} en ${D.monthLabel(state.month)}`, inMonth.length ? [["Jours travaillés", days]] : []);
+        return head + monthPills() + (state.monthLoading ? "" : searchBox() + (list.length ? doneGroups(list)
+          : state.query ? doneEmpty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.") : doneEmpty("Aucun véhicule fait ce mois-là", "Choisis un autre mois.")));
       }
-      const list = filtered(all.filter((d) => doneDayOf(d) >= recentFrom)); // an older month looked at stays loaded, not listed here
-      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci</p>${searchBox()}` +
-        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici.")) +
-        `<p class="tab-intro">Ici : les 40 derniers jours.</p>` + picker;
+      const counts = D.providerCounts(state.demandes, today());
+      const recent = all.filter((d) => doneDayOf(d) >= recentFrom); // an older month looked at stays loaded, not listed here
+      const list = filtered(recent);
+      const monday = D.mondayOf(today());
+      const side = [["Aujourd'hui", recent.filter((d) => doneDayOf(d) === today()).length], ["Cette semaine", recent.filter((d) => doneDayOf(d) >= monday).length]];
+      return doneSummary(counts.month, `${plural(counts.month, "véhicule")} ${plural(counts.month, "fait")} en ${monthShort(today().slice(0, 7)).toLowerCase()}`, side) + monthPills() + searchBox() +
+        (list.length ? doneGroups(list) : state.query ? doneEmpty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.")
+          : doneEmpty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici."));
     }
     // ---------- « Signaler »: field reports on any vehicle ----------
     // One vehicle at a time: « Envoyer » clears the form for the next one (several vehicles = several quick sends).
@@ -480,8 +529,9 @@
 `;
       const acting = state.sheetMode === "act";
       if (acting && state.sheetOpen && !actOf().d) closeSheet(); // the vehicle left the list meanwhile (done from another phone)
-      sheetEl.querySelector("#sheetTitle").textContent = acting ? actTitle(actOf().kind, actOf().d) : sheetTitle();
-      sheetEl.querySelector(".sheet-b").innerHTML = acting ? (state.openForm ? actBody() : "") : sheetBody();
+      const months = state.sheetMode === "month";
+      sheetEl.querySelector("#sheetTitle").textContent = acting ? actTitle(actOf().kind, actOf().d) : months ? "Voir un autre mois" : sheetTitle();
+      sheetEl.querySelector(".sheet-b").innerHTML = acting ? (state.openForm ? actBody() : "") : months ? monthSheetBody() : sheetBody();
       scheduleUndoEnd();
       const input = typing && view.querySelector(typing);
       if (input) { input.focus(); try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* date / time fields */ } }
@@ -532,7 +582,7 @@
 
     view.addEventListener("change", (e) => {
       if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]);
-      if (e.target.matches("[data-month]")) showMonth(e.target.value);
+      if (e.target.matches("[data-month]")) { closeSheet(); showMonth(e.target.value); }
       if (e.target.matches("[data-fphoto]") && e.target.files[0]) addFieldPhoto(e.target.files[0]);
       if (e.target.matches("[data-fplate]")) { fd().plaque = D.normalizePlate(fd().plaque); e.target.value = fd().plaque; } // AB123CD -> AB-123-CD
     });
@@ -555,7 +605,8 @@
       const el = (sel) => e.target.closest(sel);
       let b;
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
-      else if ((b = el("[data-month-reset]"))) { state.month = ""; render(); }
+      else if ((b = el("[data-month-pick]"))) { const ym = b.dataset.monthPick; closeSheet(); if (!ym) { state.month = ""; state.query = ""; render(); } else if (ym !== state.month) showMonth(ym); }
+      else if ((b = el("[data-month-more]"))) openSheet("month");
       else if ((b = el("[data-sheet-open]"))) openSheet();
       else if ((b = el("[data-sheet-close]"))) closeSheet();
       else if ((b = el("[data-fissue]"))) {
