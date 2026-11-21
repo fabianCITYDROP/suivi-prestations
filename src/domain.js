@@ -497,11 +497,15 @@
     }
     const vehicle = vehicleOf(d.plaque);
     if (!d.modele && vehicle?.modele) { patch.modele = vehicle.modele; patch.cubage = vehicle.cubage ?? null; }
+    else if (!d.modele && (d.cubage == null || d.cubage === "") && vehicle?.cubage != null) patch.cubage = vehicle.cubage; // Metabase without the year: the cubage gives the price
     const provider = d.prestataire || patch.prestataire || "";
     const bySite = rule?.site ? sites.find((s) => s.nom === rule.site) || null : siteFromGarage(d.garageMail, provider, sites);
     const empty = !d.site && !d.adresse;
     if (bySite && (empty || (d.siteAuto && !CLOSED_STATUSES.includes(d.statut)))) {
       if (empty || d.site !== bySite.nom || (d.adresse || "") !== (bySite.adresse || "")) Object.assign(patch, { site: bySite.nom, adresse: bySite.adresse || "", siteAuto: "garage" });
+    } else if (empty && vehicle?.siteMetabase) {
+      const s = sites.find((x) => x.nom === vehicle.siteMetabase);
+      Object.assign(patch, { site: vehicle.siteMetabase, adresse: s?.adresse || "", siteAuto: "metabase" });
     } else if (empty) {
       const last = demandes.filter((o) => o.id !== d.id && plateKey(o.plaque) === plateKey(d.plaque) && (o.site || o.adresse))
         .sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
@@ -514,6 +518,59 @@
       if (prixHT != null && prixHT !== d.prixHT) patch.prixHT = prixHT;
     }
     return Object.keys(patch).length ? patch : null;
+  }
+
+  // ---------- vehicles known from the Metabase export (robot → metabase/flotte, once a day) ----------
+  // The robot copies, per plate, the Metabase model code (« MOV - 12 »), the category (« 12M3 », « 20HM3 » = 20 m³ with
+  // tailgate, « MINIBUS-9P ») and the site where the van is. The app turns that into a fleet model + cubage + site.
+  // Metabase has no year: when the fleet has two years for the same model and cubage, only the cubage is filled in.
+  const METABASE_BRANDS = [[/^MOV/, "movano"], [/^VIVA/, "vivaro"], [/^MAX/, "maxus"], [/^DAILY/, "daily"], [/^MAST/, "master"],
+    [/^JUMP/, "jumper"], [/^(PROACE|PRCE)/, "proace"], [/^COMB/, "combo"], [/^MAN\b/, "man"], [/^MINIBUS/, "minibus"]];
+  const looseKey = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  function metabaseCubage(categorie) {
+    const m = String(categorie || "").toUpperCase().match(/^(\d+)\s*(H?)\s*M3/);
+    return m ? { cubage: +m[1], hayon: !!m[2] } : { cubage: null, hayon: false };
+  }
+  function metabaseModel(code, categorie, fleet) {
+    const clean = String(code || "").replace(/^\*+/, "").trim().toUpperCase();
+    const { cubage, hayon } = metabaseCubage(categorie);
+    const brand = (METABASE_BRANDS.find(([re]) => re.test(clean)) || [])[1] || "";
+    const matches = brand ? (fleet || []).filter((f) => looseKey(baseModel(f.modele)).includes(brand) && (cubage == null || +f.cubage === cubage)) : [];
+    const one = matches.length === 1 ? matches[0] : null;
+    const bases = [...new Set(matches.map((f) => baseModel(f.modele)))];
+    return { modele: one ? one.modele : "", cubage: one ? one.cubage ?? cubage : cubage, base: one ? baseModel(one.modele) : bases.length === 1 ? bases[0] : "",
+      code: clean, hayon };
+  }
+  const SITE_ALIASES = { ladef: "ladefense" };
+  function metabaseSite(ville, sites) {
+    const k = SITE_ALIASES[looseKey(ville)] || looseKey(ville);
+    if (k.length < 3) return null;
+    return (sites || []).find((s) => looseKey(s.nom) === k)
+      || (sites || []).find((s) => { const n = looseKey(s.nom); return n.length >= 4 && (n.includes(k) || k.includes(n)); }) || null;
+  }
+  // doc = metabase/flotte {majLe, nb, donnees: JSON {PLATEKEY: [code, categorie, site, last seen YYYY-MM-DD]}} → Map PLATEKEY → raw entry.
+  function parseMetabase(doc) {
+    try {
+      const raw = JSON.parse(doc?.donnees || "{}");
+      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe]]) => [k, { code, categorie, site, vuLe }]));
+    } catch { return new Map(); }
+  }
+  // What the app knows about a plate: its own vehicle sheet first (chosen by the team), Metabase for the rest.
+  function knownVehicle(plate, vehicles, metabase, fleet, sites) {
+    const own = vehicles?.get(plateKey(plate));
+    const mb = metabase?.get(plateKey(plate));
+    if (!mb) return own || null;
+    const m = metabaseModel(mb.code, mb.categorie, fleet);
+    const site = metabaseSite(mb.site, sites);
+    const fromMb = { modele: m.modele, cubage: m.cubage, base: m.base, code: m.code, hayon: m.hayon, siteMetabase: site ? site.nom : "", villeMetabase: mb.site || "", metabase: true };
+    if (own?.modele) return { ...own, siteMetabase: fromMb.siteMetabase, villeMetabase: fromMb.villeMetabase, code: m.code };
+    return { ...(own || { plaque: plate, photos: [] }), ...fromMb };
+  }
+  // One line for the form: « Metabase : MOV - 12 · 12 m³ · Saint-Cloud ».
+  function metabaseHint(v) {
+    if (!v?.code && !v?.villeMetabase) return "";
+    const what = v.modele ? fleetLabel(v) : [v.base || v.code, v.cubage ? v.cubage + " m³" : "", v.hayon ? "hayon" : ""].filter(Boolean).join(" · ");
+    return "Metabase : " + [what, v.siteMetabase || v.villeMetabase].filter(Boolean).join(" · ");
   }
 
   // ---------- providers, accounts and prices (multi-provider access) ----------
@@ -1107,6 +1164,7 @@
     monthlyReport, invoiceLines, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_DAYS, TEAM_RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
+    metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint,
     providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, providerSites, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,

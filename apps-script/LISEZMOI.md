@@ -12,7 +12,8 @@ la demande apparaît toute seule dans Suivi prestations (statut « Envoyée »).
 3. Il crée la demande avec un compte « robot » qui ne peut **que** créer ce type de demande : il ne lit rien,
    ne modifie rien, ne choisit ni prestataire ni prix (règles Firestore, testées).
 4. Dès qu'un membre de l'équipe ouvre l'appli, celle-ci complète la demande : prestataire (d'après le nom du garage),
-   modèle connu pour la plaque, site de la dernière demande de cette plaque, prix HT. Le prestataire la voit alors dans son écran.
+   modèle et cubage connus pour la plaque (fiche véhicule, sinon export Metabase : voir LISEZMOI-flotte-metabase.md),
+   site (garage, sinon Metabase, sinon dernière demande de cette plaque), prix HT. Le prestataire la voit alors dans son écran.
 
 Une demande venue d'un mail porte un identifiant fait de la plaque et du début du créneau (ex. `mail-GS487PR-20261112-1830`).
 Ainsi :

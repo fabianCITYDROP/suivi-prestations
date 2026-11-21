@@ -4016,11 +4016,15 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     const vehicle = vehicleOf(d.plaque);
     if (!d.modele && vehicle?.modele) { patch.modele = vehicle.modele; patch.cubage = vehicle.cubage ?? null; }
+    else if (!d.modele && (d.cubage == null || d.cubage === "") && vehicle?.cubage != null) patch.cubage = vehicle.cubage; // Metabase without the year: the cubage gives the price
     const provider = d.prestataire || patch.prestataire || "";
     const bySite = rule?.site ? sites.find((s) => s.nom === rule.site) || null : siteFromGarage(d.garageMail, provider, sites);
     const empty = !d.site && !d.adresse;
     if (bySite && (empty || (d.siteAuto && !CLOSED_STATUSES.includes(d.statut)))) {
       if (empty || d.site !== bySite.nom || (d.adresse || "") !== (bySite.adresse || "")) Object.assign(patch, { site: bySite.nom, adresse: bySite.adresse || "", siteAuto: "garage" });
+    } else if (empty && vehicle?.siteMetabase) {
+      const s = sites.find((x) => x.nom === vehicle.siteMetabase);
+      Object.assign(patch, { site: vehicle.siteMetabase, adresse: s?.adresse || "", siteAuto: "metabase" });
     } else if (empty) {
       const last = demandes.filter((o) => o.id !== d.id && plateKey(o.plaque) === plateKey(d.plaque) && (o.site || o.adresse))
         .sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
@@ -4033,6 +4037,59 @@ window.SUIVI_FIREBASE_CONFIG = {
       if (prixHT != null && prixHT !== d.prixHT) patch.prixHT = prixHT;
     }
     return Object.keys(patch).length ? patch : null;
+  }
+
+  // ---------- vehicles known from the Metabase export (robot → metabase/flotte, once a day) ----------
+  // The robot copies, per plate, the Metabase model code (« MOV - 12 »), the category (« 12M3 », « 20HM3 » = 20 m³ with
+  // tailgate, « MINIBUS-9P ») and the site where the van is. The app turns that into a fleet model + cubage + site.
+  // Metabase has no year: when the fleet has two years for the same model and cubage, only the cubage is filled in.
+  const METABASE_BRANDS = [[/^MOV/, "movano"], [/^VIVA/, "vivaro"], [/^MAX/, "maxus"], [/^DAILY/, "daily"], [/^MAST/, "master"],
+    [/^JUMP/, "jumper"], [/^(PROACE|PRCE)/, "proace"], [/^COMB/, "combo"], [/^MAN\b/, "man"], [/^MINIBUS/, "minibus"]];
+  const looseKey = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  function metabaseCubage(categorie) {
+    const m = String(categorie || "").toUpperCase().match(/^(\d+)\s*(H?)\s*M3/);
+    return m ? { cubage: +m[1], hayon: !!m[2] } : { cubage: null, hayon: false };
+  }
+  function metabaseModel(code, categorie, fleet) {
+    const clean = String(code || "").replace(/^\*+/, "").trim().toUpperCase();
+    const { cubage, hayon } = metabaseCubage(categorie);
+    const brand = (METABASE_BRANDS.find(([re]) => re.test(clean)) || [])[1] || "";
+    const matches = brand ? (fleet || []).filter((f) => looseKey(baseModel(f.modele)).includes(brand) && (cubage == null || +f.cubage === cubage)) : [];
+    const one = matches.length === 1 ? matches[0] : null;
+    const bases = [...new Set(matches.map((f) => baseModel(f.modele)))];
+    return { modele: one ? one.modele : "", cubage: one ? one.cubage ?? cubage : cubage, base: one ? baseModel(one.modele) : bases.length === 1 ? bases[0] : "",
+      code: clean, hayon };
+  }
+  const SITE_ALIASES = { ladef: "ladefense" };
+  function metabaseSite(ville, sites) {
+    const k = SITE_ALIASES[looseKey(ville)] || looseKey(ville);
+    if (k.length < 3) return null;
+    return (sites || []).find((s) => looseKey(s.nom) === k)
+      || (sites || []).find((s) => { const n = looseKey(s.nom); return n.length >= 4 && (n.includes(k) || k.includes(n)); }) || null;
+  }
+  // doc = metabase/flotte {majLe, nb, donnees: JSON {PLATEKEY: [code, categorie, site, last seen YYYY-MM-DD]}} → Map PLATEKEY → raw entry.
+  function parseMetabase(doc) {
+    try {
+      const raw = JSON.parse(doc?.donnees || "{}");
+      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe]]) => [k, { code, categorie, site, vuLe }]));
+    } catch { return new Map(); }
+  }
+  // What the app knows about a plate: its own vehicle sheet first (chosen by the team), Metabase for the rest.
+  function knownVehicle(plate, vehicles, metabase, fleet, sites) {
+    const own = vehicles?.get(plateKey(plate));
+    const mb = metabase?.get(plateKey(plate));
+    if (!mb) return own || null;
+    const m = metabaseModel(mb.code, mb.categorie, fleet);
+    const site = metabaseSite(mb.site, sites);
+    const fromMb = { modele: m.modele, cubage: m.cubage, base: m.base, code: m.code, hayon: m.hayon, siteMetabase: site ? site.nom : "", villeMetabase: mb.site || "", metabase: true };
+    if (own?.modele) return { ...own, siteMetabase: fromMb.siteMetabase, villeMetabase: fromMb.villeMetabase, code: m.code };
+    return { ...(own || { plaque: plate, photos: [] }), ...fromMb };
+  }
+  // One line for the form: « Metabase : MOV - 12 · 12 m³ · Saint-Cloud ».
+  function metabaseHint(v) {
+    if (!v?.code && !v?.villeMetabase) return "";
+    const what = v.modele ? fleetLabel(v) : [v.base || v.code, v.cubage ? v.cubage + " m³" : "", v.hayon ? "hayon" : ""].filter(Boolean).join(" · ");
+    return "Metabase : " + [what, v.siteMetabase || v.villeMetabase].filter(Boolean).join(" · ");
   }
 
   // ---------- providers, accounts and prices (multi-provider access) ----------
@@ -4626,6 +4683,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     monthlyReport, invoiceLines, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_DAYS, TEAM_RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
+    metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint,
     providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, providerSites, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
@@ -4638,7 +4696,7 @@ window.SUIVI_FIREBASE_CONFIG = {
 </script>
 <script>
 // Shared database access. The page talks to the data only through this object.
-// Layout: demandes/<id>, corbeille/<id> (deleted requests, 20 days), vehicules/<PLATEKEY>, photos/<key>, config/reglages,
+// Layout: metabase/flotte (vehicles from the Metabase export, written by the robot), demandes/<id>, corbeille/<id> (deleted requests, 20 days), vehicules/<PLATEKEY>, photos/<key>, config/reglages,
 //         hayons/<PLATEKEY> {plaque, dernierControle}, prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId},
 //         robot/etat {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} written by the mail robot.
 (function (root, factory) {
@@ -4725,7 +4783,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     const OPEN_STATUSES = ["a_envoyer", "envoyee", "confirmee"];
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onGarages, onError, recentFrom, hayonFrom, problemsFrom }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onGarages, onMetabase, onError, recentFrom, hayonFrom, problemsFrom }) {
       const requests = db.collection("demandes");
       demandesFeed = createFeed(onDemandes, onError);
       const canQuery = typeof requests.where === "function" && recentFrom;
@@ -4769,6 +4827,8 @@ window.SUIVI_FIREBASE_CONFIG = {
       // City-Drop garage → provider + site (Réglages › Garages des mails). Its own document, so that an older copy of the
       // app saving config/reglages can never erase it.
       if (onGarages) unsubs.push(db.doc("config/garages").onSnapshot((s) => onGarages((s.exists && s.data().liste) || []), () => onGarages([])));
+      // Vehicles from the Metabase export, copied once a day by the robot into ONE document (1 read per opening).
+      if (onMetabase) unsubs.push(db.doc("metabase/flotte").onSnapshot((s) => onMetabase(s.exists ? s.data() : null), () => onMetabase(null)));
       if (onRobot) unsubs.push(db.doc("robot/etat").onSnapshot((s) => onRobot(s.exists ? s.data() : null), () => onRobot(null)));
       return () => unsubs.forEach((u) => u());
     }
@@ -6427,6 +6487,8 @@ function page(texte) {
     downloads: null,
     demandes: [],
     vehicles: new Map(),          // plateKey -> vehicle doc
+    metabase: new Map(),          // plateKey -> {code, categorie, site, vuLe} from the Metabase export (metabase/flotte)
+    metabaseAt: "",
     providers: D.DEFAULT_PROVIDERS.slice(),
     sites: D.DEFAULT_SITES.slice(), // [{nom, adresse}]
     fleet: D.DEFAULT_FLEET.slice(), // [{modele, cubage}]
@@ -6637,6 +6699,8 @@ function page(texte) {
 
   // ================= vehicles & photos =================
   const vehicleOf = (plate) => state.vehicles.get(D.plateKey(plate));
+  // The vehicle sheet if the team chose its model, else what the Metabase export says (model, cubage, site).
+  const knownOf = (plate) => D.knownVehicle(plate, state.vehicles, state.metabase, state.fleet, state.sites);
   const albumOf = (v) => state.models.get(D.modelKey(v));
   const modelPhotos = (v) => albumOf(v)?.photos || [];
   const photoFileName = (plate, index) => `${D.plateKey(plate)}-pare-brise-${index + 1}.jpg`;
@@ -7735,6 +7799,13 @@ function page(texte) {
     variant.value = String(D.fleetIndex(state.fleet, v));
   }
   const selectFleetModel = (v) => setModelPicker(field("base"), field("modele"), v);
+  // Model known for a plate: the exact fleet model, or (Metabase has no year) the model with the variants left to choose.
+  function pickKnownModel(base, variant, v) {
+    if (v?.modele) return setModelPicker(base, variant, v);
+    if (!v?.base || !D.fleetBases(state.fleet).includes(v.base)) return;
+    base.value = v.base;
+    fillVariants(base, variant);
+  }
   $("#form").addEventListener("change", (e) => {
     if (e.target.matches(".m-base")) fillVariants(e.target, variantSelectOf(e.target));
   }, true);
@@ -7773,9 +7844,9 @@ function page(texte) {
     const input = e.target.closest(".x-plaque");
     if (!input) return;
     input.value = D.normalizePlate(input.value);
-    const vehicle = vehicleOf(input.value);
+    const vehicle = knownOf(input.value);
     const row = input.closest(".extra-veh");
-    if (vehicle?.modele) setModelPicker(row.querySelector(".x-base"), row.querySelector(".x-modele"), vehicle);
+    pickKnownModel(row.querySelector(".x-base"), row.querySelector(".x-modele"), vehicle);
     renderFormSide();
   });
   $("#extraVeh").addEventListener("click", async (e) => {
@@ -7818,9 +7889,9 @@ function page(texte) {
     $("#msgTitle").textContent = others.length ? `Envoyer la demande (${others.length + 1} véhicules)` : "Envoyer la demande";
     $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others) + appLink(d.prestataire), vehicles });
     renderFormPhotos(d);
-    const vehicle = vehicleOf(d.plaque);
+    const vehicle = knownOf(d.plaque);
     const hayonWarning = (state.store ? hayonFormWarnings(d, readExtras())[0] : "") || problemHint(d.plaque);
-    $("#vehHint").textContent = hayonWarning || (vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "");
+    $("#vehHint").textContent = hayonWarning || (!D.plateKey(d.plaque) ? "" : vehicle?.metabase ? D.metabaseHint(vehicle) : vehicle?.modele ? "Véhicule connu : modèle repris automatiquement." : "");
     $("#vehHint").classList.toggle("warn", !!hayonWarning);
     const current = demandeById(state.editingId);
     $("#formSheet").innerHTML = current && ["confirmee", "realisee"].includes(current.statut) ? sheetLink([d.plaque]) : "";
@@ -7854,8 +7925,9 @@ function page(texte) {
   }
   function fillFromVehicle() {
     field("plaque").value = D.normalizePlate(field("plaque").value);
-    const vehicle = vehicleOf(field("plaque").value);
-    if (vehicle?.modele) selectFleetModel(vehicle);
+    const vehicle = knownOf(field("plaque").value);
+    pickKnownModel(field("base"), field("modele"), vehicle);
+    if (vehicle?.siteMetabase && !field("site").value) { field("site").value = vehicle.siteMetabase; field("adresse").value = D.siteAddress(state.sites, vehicle.siteMetabase); }
     renderFormSide();
   }
   $("#form").addEventListener("input", (e) => { if (e.target.id !== "f-plaque") renderFormSide(); });
@@ -9279,7 +9351,7 @@ function page(texte) {
   const completing = new Set();
   function completeMailRequests() {
     if (!state.canWrite || !state.store) return;
-    const ctx = { demandes: state.demandes, vehicleOf, providerNames: state.providers, pricesOf, garages: state.garages, sites: state.sites };
+    const ctx = { demandes: state.demandes, vehicleOf: knownOf, providerNames: state.providers, pricesOf, garages: state.garages, sites: state.sites };
     state.demandes.forEach((d) => {
       const patch = D.mailCompletion(d, ctx);
       if (!patch || completing.has(d.id)) return;
@@ -9882,6 +9954,7 @@ function page(texte) {
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
       onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderPlanning(); renderFormSide(); },
       onRobot: (etat) => { state.robot = etat; renderRobot(); },
+      onMetabase: (doc) => { state.metabase = D.parseMetabase(doc); state.metabaseAt = doc?.majLe || ""; completeMailRequests(); renderFormSide(); },
       onGarages: (list) => { state.garages = D.normalizeGarages(list); completeMailRequests(); renderSettings(); if (!$("#ndSites")?.closest("[hidden]")) renderChoiceTiles(); },
       onDevices: (rows) => { state.alertDevices = rows; renderSettings(); },
       onError: (err) => {

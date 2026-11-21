@@ -429,3 +429,18 @@ test("« Corriger » : le prestataire reprend son « fait » pendant 10 minutes,
   await assertFails(updateDoc(doc(db, "demandes/d7"), { retour: erreur, statut: "confirmee" }), "plus de 10 minutes");
   await assertFails(updateDoc(doc(db, "demandes/d8"), { retour: erreur, statut: "confirmee" }), "ancien « fait » sans heure du serveur");
 });
+
+test("véhicules Metabase : le robot écrit un seul document valide, l'équipe le lit, les prestataires non", async () => {
+  const ok = { majLe: "2026-11-22T06:00:00Z", nb: 1, donnees: JSON.stringify({ AB123CD: ["MOV - 12", "12M3", "Saint-Cloud", "2026-11-22"] }) };
+  await assertSucceeds(setDoc(doc(as("robot"), "metabase/flotte"), ok));
+  await assertSucceeds(getDoc(doc(as("robot"), "metabase/flotte")));
+  await assertSucceeds(getDoc(doc(as("fabian"), "metabase/flotte")));
+  await assertSucceeds(getDoc(doc(as("jerome"), "metabase/flotte")));
+  await assertFails(getDoc(doc(as("allo"), "metabase/flotte")));
+  await assertFails(setDoc(doc(as("allo"), "metabase/flotte"), ok));
+  await assertFails(setDoc(doc(as("robot"), "metabase/autre"), ok));
+  await assertFails(setDoc(doc(as("robot"), "metabase/flotte"), { ...ok, km: 41281 }));
+  await assertFails(setDoc(doc(as("robot"), "metabase/flotte"), { ...ok, donnees: "x".repeat(400001) }));
+  await assertFails(deleteDoc(doc(as("robot"), "metabase/flotte")));
+  await assertFails(setDoc(doc(as("fabian"), "metabase/flotte"), { ...ok, nb: "1" }));
+});

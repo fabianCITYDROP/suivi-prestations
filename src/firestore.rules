@@ -9,7 +9,7 @@ rules_version = '2';
 //   robot       : the Apps Script of the team (mail import + alerts). Can create a request read from a City-Drop mail,
 //                 cancel it, or re-plan it after a cancellation; reads the requests, the reported problems and the alert subscriptions to
 //                 send alerts, only writes the "notifie" mark (what was already announced) on other requests,
-//                 and leaves its trace in robot/etat.
+//                 leaves its trace in robot/etat, and copies the Metabase vehicles once a day into metabase/flotte.
 // A signed-in person without a comptes document sees nothing.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -188,6 +188,21 @@ service cloud.firestore {
         && d.passage is string && d.passage.size() <= 40
         && optionalText(d, 'dernierMail', 40) && optionalText(d, 'erreur', 300) && optionalText(d, 'erreurDepuis', 40)
         && optionalText(d, 'nonCompris', 200) && optionalText(d, 'nonComprisLe', 40);
+    }
+
+    // Vehicles from the Metabase export (plate → model code, category = cubage, site, last day seen), one document
+    // rewritten by the mail robot once a day when something changed. The robot reads it back only to keep vehicles
+    // missing from today's export (no booking) until they have been absent 60 days. No client data, no mileage.
+    match /metabase/{doc} {
+      allow read: if canReadAll() || (isRobot() && doc == 'flotte');
+      allow create, update: if isRobot() && doc == 'flotte' && validMetabase(request.resource.data);
+      allow delete: if isAdmin();
+    }
+    function validMetabase(d) {
+      return d.keys().hasOnly(['majLe', 'nb', 'donnees'])
+        && d.majLe is string && d.majLe.size() <= 40
+        && d.nb is int && d.nb >= 0 && d.nb <= 5000
+        && d.donnees is string && d.donnees.size() <= 400000;
     }
 
     // Proof photo taken by the provider when the job is done: the provider adds it, the team reads it.

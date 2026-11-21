@@ -1,5 +1,5 @@
 // Shared database access. The page talks to the data only through this object.
-// Layout: demandes/<id>, corbeille/<id> (deleted requests, 20 days), vehicules/<PLATEKEY>, photos/<key>, config/reglages,
+// Layout: metabase/flotte (vehicles from the Metabase export, written by the robot), demandes/<id>, corbeille/<id> (deleted requests, 20 days), vehicules/<PLATEKEY>, photos/<key>, config/reglages,
 //         hayons/<PLATEKEY> {plaque, dernierControle}, prestataires/<providerId> {nom, tarifs:[{service, cubageMin, cubageMax, prixHT}]}, comptes/<email> {role, prestataireId},
 //         robot/etat {passage, dernierMail, erreur, erreurDepuis, nonCompris, nonComprisLe} written by the mail robot.
 (function (root, factory) {
@@ -86,7 +86,7 @@
     }
     const OPEN_STATUSES = ["a_envoyer", "envoyee", "confirmee"];
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onGarages, onError, recentFrom, hayonFrom, problemsFrom }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onGarages, onMetabase, onError, recentFrom, hayonFrom, problemsFrom }) {
       const requests = db.collection("demandes");
       demandesFeed = createFeed(onDemandes, onError);
       const canQuery = typeof requests.where === "function" && recentFrom;
@@ -130,6 +130,8 @@
       // City-Drop garage → provider + site (Réglages › Garages des mails). Its own document, so that an older copy of the
       // app saving config/reglages can never erase it.
       if (onGarages) unsubs.push(db.doc("config/garages").onSnapshot((s) => onGarages((s.exists && s.data().liste) || []), () => onGarages([])));
+      // Vehicles from the Metabase export, copied once a day by the robot into ONE document (1 read per opening).
+      if (onMetabase) unsubs.push(db.doc("metabase/flotte").onSnapshot((s) => onMetabase(s.exists ? s.data() : null), () => onMetabase(null)));
       if (onRobot) unsubs.push(db.doc("robot/etat").onSnapshot((s) => onRobot(s.exists ? s.data() : null), () => onRobot(null)));
       return () => unsubs.forEach((u) => u());
     }

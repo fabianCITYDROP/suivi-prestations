@@ -12,7 +12,8 @@
     "lavage": "cd .. && firebase emulators:exec --only firestore,auth --project suivi-prestations \"node tests-regles/lavage.e2e.js\"",
     "corbeille": "cd .. && firebase emulators:exec --only firestore,auth --project suivi-prestations \"node tests-regles/corbeille.e2e.js\"",
     "qui-alertes": "cd .. && firebase emulators:exec --only firestore,auth --project suivi-prestations \"node tests-regles/qui-alertes.e2e.js\"",
-    "erreur-vehicule": "cd .. && firebase emulators:exec --only firestore,auth --project suivi-prestations \"node tests-regles/erreur-vehicule.e2e.js\""
+    "erreur-vehicule": "cd .. && firebase emulators:exec --only firestore,auth --project suivi-prestations \"node tests-regles/erreur-vehicule.e2e.js\"",
+    "metabase": "cd .. && firebase emulators:exec --only firestore,auth --project suivi-prestations \"node tests-regles/vehicules-metabase.e2e.js\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",

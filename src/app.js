@@ -10,6 +10,8 @@
     downloads: null,
     demandes: [],
     vehicles: new Map(),          // plateKey -> vehicle doc
+    metabase: new Map(),          // plateKey -> {code, categorie, site, vuLe} from the Metabase export (metabase/flotte)
+    metabaseAt: "",
     providers: D.DEFAULT_PROVIDERS.slice(),
     sites: D.DEFAULT_SITES.slice(), // [{nom, adresse}]
     fleet: D.DEFAULT_FLEET.slice(), // [{modele, cubage}]
@@ -220,6 +222,8 @@
 
   // ================= vehicles & photos =================
   const vehicleOf = (plate) => state.vehicles.get(D.plateKey(plate));
+  // The vehicle sheet if the team chose its model, else what the Metabase export says (model, cubage, site).
+  const knownOf = (plate) => D.knownVehicle(plate, state.vehicles, state.metabase, state.fleet, state.sites);
   const albumOf = (v) => state.models.get(D.modelKey(v));
   const modelPhotos = (v) => albumOf(v)?.photos || [];
   const photoFileName = (plate, index) => `${D.plateKey(plate)}-pare-brise-${index + 1}.jpg`;
@@ -1318,6 +1322,13 @@
     variant.value = String(D.fleetIndex(state.fleet, v));
   }
   const selectFleetModel = (v) => setModelPicker(field("base"), field("modele"), v);
+  // Model known for a plate: the exact fleet model, or (Metabase has no year) the model with the variants left to choose.
+  function pickKnownModel(base, variant, v) {
+    if (v?.modele) return setModelPicker(base, variant, v);
+    if (!v?.base || !D.fleetBases(state.fleet).includes(v.base)) return;
+    base.value = v.base;
+    fillVariants(base, variant);
+  }
   $("#form").addEventListener("change", (e) => {
     if (e.target.matches(".m-base")) fillVariants(e.target, variantSelectOf(e.target));
   }, true);
@@ -1356,9 +1367,9 @@
     const input = e.target.closest(".x-plaque");
     if (!input) return;
     input.value = D.normalizePlate(input.value);
-    const vehicle = vehicleOf(input.value);
+    const vehicle = knownOf(input.value);
     const row = input.closest(".extra-veh");
-    if (vehicle?.modele) setModelPicker(row.querySelector(".x-base"), row.querySelector(".x-modele"), vehicle);
+    pickKnownModel(row.querySelector(".x-base"), row.querySelector(".x-modele"), vehicle);
     renderFormSide();
   });
   $("#extraVeh").addEventListener("click", async (e) => {
@@ -1401,9 +1412,9 @@
     $("#msgTitle").textContent = others.length ? `Envoyer la demande (${others.length + 1} véhicules)` : "Envoyer la demande";
     $("#formShare").innerHTML = shareBlock({ text: D.requestMessage(d, photoCount, others) + appLink(d.prestataire), vehicles });
     renderFormPhotos(d);
-    const vehicle = vehicleOf(d.plaque);
+    const vehicle = knownOf(d.plaque);
     const hayonWarning = (state.store ? hayonFormWarnings(d, readExtras())[0] : "") || problemHint(d.plaque);
-    $("#vehHint").textContent = hayonWarning || (vehicle?.modele && D.plateKey(d.plaque) ? "Véhicule connu : modèle repris automatiquement." : "");
+    $("#vehHint").textContent = hayonWarning || (!D.plateKey(d.plaque) ? "" : vehicle?.metabase ? D.metabaseHint(vehicle) : vehicle?.modele ? "Véhicule connu : modèle repris automatiquement." : "");
     $("#vehHint").classList.toggle("warn", !!hayonWarning);
     const current = demandeById(state.editingId);
     $("#formSheet").innerHTML = current && ["confirmee", "realisee"].includes(current.statut) ? sheetLink([d.plaque]) : "";
@@ -1437,8 +1448,9 @@
   }
   function fillFromVehicle() {
     field("plaque").value = D.normalizePlate(field("plaque").value);
-    const vehicle = vehicleOf(field("plaque").value);
-    if (vehicle?.modele) selectFleetModel(vehicle);
+    const vehicle = knownOf(field("plaque").value);
+    pickKnownModel(field("base"), field("modele"), vehicle);
+    if (vehicle?.siteMetabase && !field("site").value) { field("site").value = vehicle.siteMetabase; field("adresse").value = D.siteAddress(state.sites, vehicle.siteMetabase); }
     renderFormSide();
   }
   $("#form").addEventListener("input", (e) => { if (e.target.id !== "f-plaque") renderFormSide(); });
@@ -2862,7 +2874,7 @@
   const completing = new Set();
   function completeMailRequests() {
     if (!state.canWrite || !state.store) return;
-    const ctx = { demandes: state.demandes, vehicleOf, providerNames: state.providers, pricesOf, garages: state.garages, sites: state.sites };
+    const ctx = { demandes: state.demandes, vehicleOf: knownOf, providerNames: state.providers, pricesOf, garages: state.garages, sites: state.sites };
     state.demandes.forEach((d) => {
       const patch = D.mailCompletion(d, ctx);
       if (!patch || completing.has(d.id)) return;
@@ -3465,6 +3477,7 @@
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
       onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderPlanning(); renderFormSide(); },
       onRobot: (etat) => { state.robot = etat; renderRobot(); },
+      onMetabase: (doc) => { state.metabase = D.parseMetabase(doc); state.metabaseAt = doc?.majLe || ""; completeMailRequests(); renderFormSide(); },
       onGarages: (list) => { state.garages = D.normalizeGarages(list); completeMailRequests(); renderSettings(); if (!$("#ndSites")?.closest("[hidden]")) renderChoiceTiles(); },
       onDevices: (rows) => { state.alertDevices = rows; renderSettings(); },
       onError: (err) => {
