@@ -55,7 +55,7 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
 .job-actions .primary.big, .job-actions .big { min-height: 40px; font-size: 14.5px; }
 
 /* Actions secondaires rondes (Reporter, Véhicule absent, Problème) : 56 → 40 px. */
-.act-ico { width: 40px; height: 40px; }
+.act-ico { width: 40px; height: 40px; border-radius: 10px; } /* forme d'icône d'app iPhone plutôt qu'un rond (Fabian, 21/11) */
 .act-art { width: 26px; height: 26px; }
 .act-lbl { font-size: 12px; }
 .job-actions .act-btn, .act-btn { gap: 4px; padding: 2px; }
