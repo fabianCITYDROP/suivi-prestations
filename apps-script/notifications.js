@@ -275,6 +275,26 @@ function demandesRecentes() {
   if (r.getResponseCode() !== 200) throw new Error('Lecture des demandes refusée (' + r.getResponseCode() + ') : ' + r.getContentText().slice(0, 300));
   return JSON.parse(r.getContentText()).filter((x) => x.document).map((x) => docVersObjet(x.document));
 }
+// Le même rappel pour chaque prestataire, limité à ses propres véhicules (sans son nom sur chaque ligne).
+// Renvoie { prestataireId: message } ; rien pour un prestataire qui n'a rien oublié.
+function rappelsPrestataires(demandes, aujourdhuiIso, maintenantIso) {
+  const parPrestataire = {};
+  // Déjà répondu (Reporter, Véhicule absent, Pas possible) : c'est à l'équipe d'agir, on ne relance pas le prestataire.
+  const repondu = (d) => d.retour && ['autre-date', 'absent', 'refuse'].includes(d.retour.etat);
+  demandes.forEach((d) => { if (d.prestataireId && !repondu(d)) (parPrestataire[d.prestataireId] = parPrestataire[d.prestataireId] || []).push({ ...d, prestataire: '' }); });
+  const messages = {};
+  Object.keys(parPrestataire).forEach((id) => {
+    const { pasFaites, sansReponse } = oublisDuMatin(parPrestataire[id], aujourdhuiIso, maintenantIso);
+    if (!pasFaites.length && !sansReponse.length) return;
+    const titres = [];
+    if (pasFaites.length) titres.push(pluriel(pasFaites.length, '1 véhicule sans « Prestation réalisée »', 'véhicules sans « Prestation réalisée »'));
+    if (sansReponse.length) titres.push(pluriel(sansReponse.length, '1 demande à valider', 'demandes à valider'));
+    const lignes = [...pasFaites.map((l) => 'Pas faite : ' + l), ...sansReponse.map((l) => 'À valider : ' + l)];
+    messages[id] = { titre: 'Rappel : ' + titres.join(' · '), texte: lignes.slice(0, 6).join('\n') + (lignes.length > 6 ? '\n…' : ''), url: './' };
+  });
+  return messages;
+}
+
 // Demandes encore ouvertes (pas réalisées, pas annulées), pour le rappel du matin.
 function demandesOuvertes() {
   const r = notifFirestore('post', ':runQuery', { structuredQuery: {
@@ -425,16 +445,23 @@ function installerNotifications() {
   console.log('Prêt. Étape suivante : Déployer › Nouveau déploiement › Application Web (exécuter en tant que Moi, accès Tout le monde), puis coller l\'adresse /exec dans l\'appli › Réglages › Alertes.');
 }
 
-// Chaque matin vers 8 h : alerte à l'équipe (comptes admin) s'il reste des prestations pas faites ou des demandes sans réponse.
+// Chaque matin vers 8 h : alerte à l'équipe (comptes admin), et à chaque prestataire pour ses propres véhicules, s'il reste des prestations pas faites ou des demandes sans réponse.
 function rappelDuMatin() {
   const verrou = LockService.getScriptLock();
   if (!verrou.tryLock(30000)) { console.warn('Rappel du matin reporté : un autre passage est en cours.'); return; }
   try {
     const aujourdhui = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
-    const msg = messageRappel(oublisDuMatin(demandesOuvertes(), aujourdhui, new Date().toISOString()));
+    const maintenant = new Date().toISOString();
+    const ouvertes = demandesOuvertes();
+    const msg = messageRappel(oublisDuMatin(ouvertes, aujourdhui, maintenant));
     if (!msg) { console.log('Rien d\'oublié ce matin.'); return; }
-    abonnements().filter((a) => a.role === 'admin').forEach((a) => envoyer(a, msg));
+    const appareils = abonnements();
+    appareils.filter((a) => a.role === 'admin').forEach((a) => envoyer(a, msg));
     console.log(msg.titre);
+    // Chaque prestataire reçoit seulement ses propres véhicules.
+    const parPrestataire = rappelsPrestataires(ouvertes, aujourdhui, maintenant);
+    appareils.filter((a) => a.role === 'prestataire' && parPrestataire[a.prestataireId]).forEach((a) => envoyer(a, parPrestataire[a.prestataireId]));
+    Object.keys(parPrestataire).forEach((id) => console.log(id + ' → ' + parPrestataire[id].titre));
   } finally { verrou.releaseLock(); }
 }
 // À lancer une fois (bouton ▶) : programme le rappel tous les jours vers 8 h, heure de Paris.
@@ -445,5 +472,5 @@ function installerRappelDuMatin() {
 }
 
 if (typeof module === 'object' && module.exports) {
-  module.exports = { EC, ecMul, creerCles, signerES256, jetonVapid, base64url, depuisBase64url, texteVersOctets, serviceAutorise, aAnnoncer, problemesAAnnoncer, messagePrestataire, messageEquipe, oublisDuMatin, messageRappel, depuisFirestore, docVersObjet, marqueVersFirestore };
+  module.exports = { EC, ecMul, creerCles, signerES256, jetonVapid, base64url, depuisBase64url, texteVersOctets, serviceAutorise, aAnnoncer, problemesAAnnoncer, messagePrestataire, messageEquipe, oublisDuMatin, messageRappel, rappelsPrestataires, depuisFirestore, docVersObjet, marqueVersFirestore };
 }
