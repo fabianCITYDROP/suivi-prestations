@@ -235,22 +235,15 @@
 
   <!-- TAILGATE CONTROLS -->
   <section id="view-hayon" hidden>
-    <p class="intro">Un contrôle hayon tous les 180 jours. Les rendez-vous arrivent tout seuls avec les mails. Dès que le jour d'un rendez-vous est passé, le contrôle compte comme fait et le compteur repart pour 180 jours, sauf si tu le marques « Pas fait ».</p>
-    <div class="hayon-kpis" id="hy-kpis"></div>
-    <div class="tools">
-      <input type="search" id="hy-q" placeholder="Rechercher une plaque…" aria-label="Rechercher une plaque">
-      <select id="hy-filter" aria-label="Afficher">
-        <option value="">Tous les véhicules</option>
-        <option value="atraiter">À traiter (30 jours ou moins, sans RDV)</option>
-        <option value="rdv">Avec un rendez-vous posé</option>
-      </select>
-    </div>
+    <header class="hy-head">
+      <div class="hy-kick-row"><p class="hy-kicker" id="hyKicker">DHOLLIANDA · tous les 180 jours</p>
+        <button type="button" class="hy-paste-btn" id="hy-paste-open" hidden><svg class="icon"><use href="#i-list"/></svg>Coller la liste</button></div>
+      <h1 class="hy-title">Contrôles hayon</h1>
+    </header>
+    <div class="hy-tiles" id="hy-kpis"></div>
+    <label class="hy-search"><svg class="icon"><use href="#i-search"/></svg><input type="search" id="hy-q" placeholder="Rechercher une plaque" aria-label="Rechercher une plaque"></label>
     <div id="hy-list"></div>
-    <details class="more" id="hy-pastebox"><summary><svg class="icon"><use href="#i-list"/></svg>Coller la liste des véhicules à hayon</summary>
-      <p class="hint">Copie les colonnes « immatriculation » et « date du dernier contrôle » du tableau du prestataire, puis colle-les ici. Une plaque déjà connue prend la date collée.</p>
-      <textarea id="hy-paste" placeholder="AB-123-CD&#9;12/05/2026&#10;EF-456-GH&#9;03/04/2026"></textarea>
-      <div class="actions"><button type="button" class="primary" id="hy-import">Ajouter ces véhicules</button><span class="muted small" id="hy-preview"></span></div>
-    </details>
+    <p class="hy-foot">Les rendez-vous arrivent tout seuls avec les mails. Dès que le jour d'un rendez-vous est passé, le contrôle compte comme fait et le compteur repart pour 180 jours, sauf si tu le marques « Pas fait ».</p>
   </section>
 
   <!-- BILAN -->
