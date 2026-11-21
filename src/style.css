@@ -2570,4 +2570,26 @@ body.team-sheet-open .toast { z-index: 60; }
   .bil-row { padding-left: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .bil-progress i, .bil-bar > i, .bil-export, .bil-month { transition: none; } .bil-export:active, .bil-month:active { transform: none; } }
+/* ----- Bouton mode clair / sombre (21/11) : même rond en relief que « Se déconnecter », juste à sa gauche.
+   Lune en mode clair (passer en sombre), soleil en mode sombre (passer en clair). Le choix reste sur l'appareil. ----- */
+.theme-btn { position: relative; display: grid; place-items: center; margin: auto 0 auto auto; flex: none; width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; border-radius: 999px; color: var(--ink-2);
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 1px rgba(10, 20, 28, .06), 0 4px 10px -6px rgba(10, 20, 28, .35);
+  transition: color .15s ease, transform 160ms var(--ease-out); -webkit-tap-highlight-color: transparent; }
+body.presta-mode .theme-btn { width: 38px; height: 38px; }
+.theme-btn:hover { color: var(--ink); }
+.theme-btn:active { transform: scale(.95); }
+.theme-btn .icon { grid-area: 1 / 1; width: 19px; height: 19px; transition: opacity .2s ease, transform .3s var(--ease-out); }
+.theme-btn .t-sun { opacity: 0; transform: rotate(-60deg) scale(.6); }
+:root[data-theme="dark"] .theme-btn .t-moon { opacity: 0; transform: rotate(60deg) scale(.6); }
+:root[data-theme="dark"] .theme-btn .t-sun { opacity: 1; transform: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-btn .t-moon { opacity: 0; transform: rotate(60deg) scale(.6); }
+  :root:not([data-theme="light"]) .theme-btn .t-sun { opacity: 1; transform: none; } }
+/* 10 px entre les deux ronds, quel que soit l'écart de la barre (24 px équipe, 12 px prestataire). */
+.theme-btn + .power-btn { margin-left: -14px; }
+body.presta-mode .theme-btn + .power-btn { margin-left: -2px; }
+.theme-btn:has(+ .power-btn.armed) { display: none; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .25s; }
+@media (prefers-reduced-motion: reduce) { .theme-btn, .theme-btn .icon { transition: none; } }
 </style>
