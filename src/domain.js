@@ -93,8 +93,23 @@
     return siv ? `${siv[1]}-${siv[2]}-${siv[3]}` : String(plate || "").toUpperCase().trim();
   }
   // SIV plates (AB-123-CD) and old FNI plates (123 ABC 45) found in free text.
+  const PLATE_IN_TEXT_I = /\b[A-Z]{2}[\s-]?\d{3}[\s-]?[A-Z]{2}\b|\b\d{1,4}[\s-]?[A-Z]{2,3}[\s-]?\d{2}\b/gi;
   const PLATE_IN_TEXT = /\b[A-Z]{2}[\s-]?\d{3}[\s-]?[A-Z]{2}\b|\b\d{1,4}[\s-]?[A-Z]{2,3}[\s-]?\d{2}\b/g;
   const platesInText = (text) => (String(text || "").toUpperCase().match(PLATE_IN_TEXT) || []).map(plateKey);
+  // A provider reply read bit by bit (line, comma, semicolon, full stop): a plate next to « pas », « reste », « demain »…
+  // is not done, every other plate cited is. « pas de souci » / « pas de problème » stay positive.
+  const REPLY_NOT_DONE = /(?:^|[^\p{L}])(pas|non|rien|reste|restent|à faire|a faire|absente?s?|impossible|annul\p{L}*|report\p{L}*|demain|plus tard)(?=$|[^\p{L}])/iu;
+  const REPLY_FINE = /pas\s+(de|d')\s*(souci|soucis|problème|probleme|problèmes|problemes)/giu;
+  function replyPlates(text) {
+    const done = [], notDone = [];
+    String(text || "").split(/[\n,;.!]+|\s+et\s+/i).forEach((part) => {
+      const plates = platesInText(part);
+      if (!plates.length) return;
+      const target = REPLY_NOT_DONE.test(part.replace(PLATE_IN_TEXT_I, " ").replace(REPLY_FINE, " ")) ? notDone : done;
+      plates.forEach((k) => { if (!done.includes(k) && !notDone.includes(k)) target.push(k); });
+    });
+    return { done, notDone };
+  }
 
   // ---------- fleet & sites ----------
   const fleetLabel = ({ modele, cubage }) => [modele, cubage ? `${cubage} m³` : ""].filter(Boolean).join(" – ");
@@ -1005,7 +1020,7 @@
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
-    plateKey, normalizePlate, platesInText, PLATE_SEARCH_MIN, plateLookup, isFullPlate,
+    plateKey, normalizePlate, platesInText, replyPlates, PLATE_SEARCH_MIN, plateLookup, isFullPlate,
     fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress, parseSiteList, mergeSites,
     serviceOf, WASH_KINDS, washKindOf, jobLabel, jobTitle, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,

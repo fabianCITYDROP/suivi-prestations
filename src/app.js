@@ -559,6 +559,7 @@
     if (view === "corbeille") openTrash();
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
     if (view === "bilan") renderReport(); // its month is read only once the page is opened
+    document.body.classList.toggle("vf-bar-on", view === "verif" && !$("#vfBar").hidden);
   }
   // Rare pages live under « Plus »: its label names the open page so the menu never hides where you are.
   function markCurrentNav(view) {
@@ -1461,62 +1462,155 @@
   });
 
   // ================= verification =================
-  $("#v-from").value = D.addDays(today(), -14);
-  $("#v-to").value = D.addDays(today(), 7);
+  // Relance d'un prestataire (2026-11-21, façon iPhone) : qui et quand en pastilles, le message à copier, sa réponse collée
+  // qui coche les plaques citées, la liste groupée par jour, puis une barre en bas pour tout mettre à jour (bulle « Annuler »).
+  const VF_DEFAULT_RANGE = 14;
+  function setVerificationRange(days) {
+    $("#v-from").value = D.addDays(today(), -days);
+    $("#v-to").value = D.addDays(today(), 7);
+  }
+  setVerificationRange(VF_DEFAULT_RANGE);
+  $("#vfMsgArt").innerHTML = self.IssueArt?.art("vf-message", "svc-art") || "";
+  $("#vfReplyArt").innerHTML = self.IssueArt?.art("vf-reponse", "svc-art") || "";
   const VERIFICATION_FILTERS = {
     pending: (d) => ["envoyee", "confirmee"].includes(d.statut),
     envoyee: (d) => d.statut === "envoyee",
     confirmee: (d) => d.statut === "confirmee",
     all: D.isActive,
   };
-  function verificationRows() {
-    const provider = $("#v-prest").value, from = $("#v-from").value, to = $("#v-to").value;
+  function verificationRows(provider = $("#v-prest").value) {
+    const from = $("#v-from").value, to = $("#v-to").value;
     const statusFilter = VERIFICATION_FILTERS[$("#v-st").value];
     return state.demandes
       .filter((d) => (!provider || d.prestataire === provider) && (!from || D.lastDay(d) >= from) && (!to || d.date <= to) && statusFilter(d))
       .sort(D.byDateThenTime);
+  }
+  const vfReply = () => D.replyPlates($("#v-paste").value);
+  function vfRow(d, reply, showProvider) {
+    const on = state.checkedForVerification.has(d.id);
+    const hour = (t) => String(t || "").replace(/^0?(\d+):(\d\d)$/, (m, h, mn) => `${h}h${mn === "00" ? "" : mn}`);
+    const slot = d.debut && d.fin ? `${hour(d.debut)}–${hour(d.fin)}` : D.timeSlotLabel(d);
+    const sub = [D.siteOf(d), slot, showProvider ? d.prestataire : ""].filter(Boolean).map(esc).join(" · ");
+    const key = D.plateKey(d.plaque);
+    const said = reply.done.includes(key) ? `<span class="vf-said ok">Répondu : fait</span>` : reply.notDone.includes(key) ? `<span class="vf-said todo">Répondu : pas fait</span>` : "";
+    return `<div class="vf-row${on ? " on" : ""}">
+      <button type="button" class="vf-check" data-check="${esc(d.id)}" aria-pressed="${on}" aria-label="${on ? "Décocher" : "Cocher"} ${esc(d.plaque)}">
+        <span class="vf-tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg></span>
+        ${serviceTile(d)}
+        <span class="vf-row-text"><span class="vf-row-top">${plateTag(d.plaque)}${said}</span><span class="vf-row-sub">${sub}</span></span>
+        ${planStatus(d)}
+      </button>
+      <button type="button" class="vf-more" data-vf-open="${esc(d.id)}" aria-label="Voir la demande ${esc(d.plaque)}">${icon("chev-r")}</button>
+    </div>`;
+  }
+  function renderVerificationPills() {
+    const box = $("#vfProvs");
+    const pill = (value, label) => `<button type="button" class="vf-prov" data-vf-prov="${esc(value)}" aria-pressed="${$("#v-prest").value === value}">${esc(label)}<em>${verificationRows(value).length}</em></button>`;
+    box.innerHTML = pill("", "Tous") + state.providers.map((p) => pill(p, p)).join("");
+    const from = $("#v-from").value, to = $("#v-to").value;
+    $("#vfRange").querySelectorAll("[data-range]").forEach((b) => b.setAttribute("aria-pressed", String(to === D.addDays(today(), 7) && from === D.addDays(today(), -Number(b.dataset.range)))));
+    $("#vfStatus").querySelectorAll("[data-st]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.st === $("#v-st").value)));
   }
   function renderVerification() {
     if ($("#v-from").value) needOlder($("#v-from").value, $("#v-to").value ? D.addDays($("#v-to").value, 1) : null);
     const rows = verificationRows();
     const checked = state.checkedForVerification;
     [...checked].forEach((id) => { if (!rows.some((r) => r.id === id)) checked.delete(id); });
-    $("#v-count").textContent = `${plural(rows.length, "véhicule")} · ${plural(checked.size, "coché")}`;
-    $("#v-table").innerHTML = rows.length ? `<div class="tablewrap"><table><thead><tr>
-        <th><input type="checkbox" id="v-all" aria-label="Tout cocher" ${checked.size && checked.size === rows.length ? "checked" : ""}></th><th>Dispo</th><th>Plaque</th><th>Site</th><th>Statut</th></tr></thead><tbody>
-      ${rows.map((d) => `<tr><td><input type="checkbox" data-check="${esc(d.id)}" aria-label="Cocher ${esc(d.plaque)}" ${checked.has(d.id) ? "checked" : ""}></td>
-        <td class="date">${esc(D.shortDate(d.date))}</td><td>${plateTag(d.plaque)}</td><td>${esc(D.siteOf(d))}</td><td>${statusChip(d.statut)}</td></tr>`).join("")}
-      </tbody></table></div>` : `<div class="empty"><b>Rien à vérifier sur cette période.</b><span>Les demandes envoyées ou confirmées dont la disponibilité tombe entre les deux dates s'affichent ici.</span></div>`;
     const provider = $("#v-prest").value;
+    const reply = vfReply();
+    const cited = [...reply.done, ...reply.notDone];
+    renderVerificationPills();
+    $("#vfKicker").textContent = provider ? `Relance de ${provider}` : "Relance d'un prestataire";
+    $("#v-count").textContent = rows.length ? `${plural(rows.length, "véhicule")} · ${plural(checked.size, "coché")}` : "";
+    const allOn = rows.length && checked.size === rows.length;
+    $("#vfAll").hidden = !rows.length;
+    $("#vfAll").textContent = allOn ? "Tout décocher" : "Tout cocher";
+    $("#v-table").innerHTML = rows.length
+      ? [...D.groupBy(rows, (d) => d.date)].map(([date, items]) => `<section class="vf-day"><h3>${esc(capFirst(D.dayLabel(date)))}<em>${items.length}</em></h3>
+          <div class="vf-list">${items.map((d) => vfRow(d, reply, !provider)).join("")}</div></section>`).join("")
+      : `<div class="vf-empty"><span class="vf-empty-art" aria-hidden="true">${self.IssueArt?.art("faits-vide", "svc-art") || ""}</span><b>Rien à vérifier sur cette période</b><span>Les demandes envoyées ou confirmées dont la disponibilité tombe entre les deux dates s'affichent ici.</span></div>`;
+    // Message: the same text as before, in a card with a capsule « Copier » and a WhatsApp shortcut.
     const kind = document.querySelector('input[name="vkind"]:checked')?.value;
-    $("#v-share").innerHTML = shareBlock({ text: D.verificationMessage(rows, { provider, kind, siteNames: siteNames() }) });
+    const text = D.verificationMessage(rows, { provider, kind, siteNames: siteNames() });
+    $("#v-share").innerHTML = `<pre class="vf-msg" id="v-msg">${esc(text)}</pre>
+      ${rows.length ? `<div class="vf-msg-actions"><button type="button" class="vf-copy" data-copy="#v-msg">${icon("copy")}Copier le message</button>
+        <a class="vf-wa" href="${esc(D.whatsappLink(text))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a></div>` : ""}`;
+    // Reply: what was recognised (done = ticked, not done = left unticked), and the plates it cites that are not in the list.
+    const known = new Set(rows.map((r) => D.plateKey(r.plaque)));
+    const found = reply.done.filter((k) => known.has(k));
+    const notDone = reply.notDone.filter((k) => known.has(k));
+    const unknown = cited.filter((k) => !known.has(k));
+    const plateList = (keys) => keys.map((k) => `<b>${esc(D.normalizePlate(k))}</b>`).join(", ");
+    $("#vfClearBtn").hidden = !$("#v-paste").value;
+    $("#vfMatch").innerHTML = !cited.length ? (($("#v-paste").value.trim()) ? `<p class="vf-match-line none">Aucune plaque reconnue dans ce texte.</p>` : "")
+      : `${found.length ? `<p class="vf-match-line ok"><span class="vf-dot" aria-hidden="true"></span>${found.length > 1 ? `${found.length} faites, cochées` : "1 faite, cochée"} : ${plateList(found)}</p>` : ""}
+        ${notDone.length ? `<p class="vf-match-line todo"><span class="vf-dot" aria-hidden="true"></span>${notDone.length > 1 ? `${notDone.length} pas encore faites, non cochées` : "1 pas encore faite, non cochée"} : ${plateList(notDone)}</p>` : ""}
+        ${unknown.length ? `<p class="vf-match-line none"><span class="vf-dot" aria-hidden="true"></span>Pas dans la liste : ${plateList(unknown)}</p>` : ""}`;
+    // Bottom bar: only once something is ticked.
+    const n = checked.size;
+    $("#vfBar").hidden = !n || !state.canWrite;
+    $("#vfBarN").textContent = n;
+    $("#vfBarLabel").textContent = n > 1 ? "véhicules cochés" : "véhicule coché";
+    document.body.classList.toggle("vf-bar-on", !$("#vfBar").hidden && !$("#view-verif").hidden);
     $("#v-sheet").innerHTML = sheetLink(state.demandes.filter((d) => checked.has(d.id)).map((d) => d.plaque));
   }
-  ["#v-prest", "#v-from", "#v-to", "#v-st"].forEach((s) => $(s).addEventListener("change", renderVerification));
+  ["#v-from", "#v-to"].forEach((s) => $(s).addEventListener("change", renderVerification));
   $("#v-kind").addEventListener("change", renderVerification);
-  $("#v-table").addEventListener("change", (e) => {
-    const checked = state.checkedForVerification;
-    if (e.target.id === "v-all") { checked.clear(); if (e.target.checked) verificationRows().forEach((r) => checked.add(r.id)); }
-    else if (e.target.dataset.check) e.target.checked ? checked.add(e.target.dataset.check) : checked.delete(e.target.dataset.check);
+  $("#vfProvs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-vf-prov]"); if (!b) return;
+    $("#v-prest").value = b.dataset.vfProv; renderVerification();
+  });
+  $("#vfRange").addEventListener("click", (e) => { const b = e.target.closest("[data-range]"); if (b) { setVerificationRange(Number(b.dataset.range)); renderVerification(); } });
+  $("#vfStatus").addEventListener("click", (e) => { const b = e.target.closest("[data-st]"); if (b) { $("#v-st").value = b.dataset.st; renderVerification(); } });
+  $("#v-table").addEventListener("click", (e) => {
+    const open = e.target.closest("[data-vf-open]");
+    if (open) { openDemandeFromPlanning(open.dataset.vfOpen); return; }
+    const b = e.target.closest("[data-check]"); if (!b) return;
+    const checked = state.checkedForVerification, id = b.dataset.check;
+    checked.has(id) ? checked.delete(id) : checked.add(id);
     renderVerification();
   });
-  $("#v-paste").addEventListener("input", () => {
-    const cited = D.platesInText($("#v-paste").value);
-    const newlyChecked = verificationRows().filter((r) => cited.includes(D.plateKey(r.plaque)) && !state.checkedForVerification.has(r.id));
+  $("#vfAll").addEventListener("click", () => {
+    const rows = verificationRows(), checked = state.checkedForVerification;
+    if (rows.length && checked.size === rows.length) checked.clear(); else rows.forEach((r) => checked.add(r.id));
+    renderVerification();
+  });
+  $("#vfNone").addEventListener("click", () => { state.checkedForVerification.clear(); renderVerification(); });
+  function applyPastedReply() {
+    const { done } = vfReply();
+    const newlyChecked = verificationRows().filter((r) => done.includes(D.plateKey(r.plaque)) && !state.checkedForVerification.has(r.id));
     newlyChecked.forEach((r) => state.checkedForVerification.add(r.id));
-    if (newlyChecked.length) toast(`${plural(newlyChecked.length, "véhicule")} coché${newlyChecked.length > 1 ? "s" : ""}`);
-    renderVerification();
+    renderVerification(); // the « Sa réponse » card and the bottom bar say what was ticked
+  }
+  $("#v-paste").addEventListener("input", applyPastedReply);
+  $("#vfPasteBtn").addEventListener("click", async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) { toast("Le presse-papiers est vide"); return; }
+      $("#v-paste").value = text; applyPastedReply();
+    } catch { $("#v-paste").focus(); toast("Colle sa réponse dans la case (Ctrl+V ou appui long)"); }
   });
-  document.querySelectorAll("[data-bulk]").forEach((button) => button.addEventListener("click", async () => {
+  $("#vfClearBtn").addEventListener("click", () => { $("#v-paste").value = ""; renderVerification(); $("#v-paste").focus(); });
+  document.querySelectorAll("#view-verif [data-bulk]").forEach((button) => button.addEventListener("click", async () => {
     if (!requireStore()) return;
     const status = button.dataset.bulk;
-    const targets = state.demandes.filter((d) => state.checkedForVerification.has(d.id));
-    if (!targets.length) return toast("Coche d'abord des véhicules");
+    const targets = state.demandes.filter((d) => state.checkedForVerification.has(d.id) && d.statut !== status);
+    if (!targets.length) return toast(state.checkedForVerification.size ? `Déjà en « ${D.statusOf(status).label} »` : "Coche d'abord des véhicules");
+    const before = targets.map((d) => ({ id: d.id, statut: d.statut }));
+    const buttons = document.querySelectorAll("#view-verif [data-bulk]");
+    buttons.forEach((b) => (b.disabled = true));
     try {
       for (const d of targets) await state.store.setStatus(d, status);
-      toast(`${plural(targets.length, "véhicule")} passé${targets.length > 1 ? "s" : ""} en « ${D.statusOf(status).label} »`);
-      if (status === "annulee") state.checkedForVerification.clear();
+      state.checkedForVerification.clear();
+      renderVerification();
+      toast(`${plural(targets.length, "véhicule")} passé${targets.length > 1 ? "s" : ""} en « ${D.statusOf(status).label} »`, { label: "Annuler", run: async () => {
+        try {
+          for (const b of before) { const d = demandeById(b.id); if (d && d.statut === status) await state.store.setStatus(d, b.statut); }
+          toast("Statuts remis comme avant");
+        } catch (err) { reportWriteError(err); }
+      } });
     } catch (err) { reportWriteError(err); }
+    finally { buttons.forEach((b) => (b.disabled = false)); }
   }));
 
   // ================= monthly report =================

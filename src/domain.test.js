@@ -13,6 +13,14 @@ test("normalizePlate formats SIV plates and leaves others uppercased", () => {
   assert.equal(D.normalizePlate("1234 ab 75"), "1234 AB 75");
 });
 
+test("replyPlates sorts the plates of a reply into done and not done", () => {
+  assert.deepEqual(D.replyPlates("Bonjour, GA-731-PM ok, HB220KL fait. EZ-655-LM pas encore\nGT 910 AB reste à faire, pas de souci pour FK-402-ZD"),
+    { done: ["GA731PM", "HB220KL", "FK402ZD"], notDone: ["EZ655LM", "GT910AB"] });
+  assert.deepEqual(D.replyPlates("AB-123-CD et EF-456-GH faits"), { done: ["AB123CD", "EF456GH"], notDone: [] });
+  assert.deepEqual(D.replyPlates("AB-123-CD absent, EF-456-GH reporté à demain"), { done: [], notDone: ["AB123CD", "EF456GH"] });
+  assert.deepEqual(D.replyPlates(""), { done: [], notDone: [] });
+});
+
 test("platesInText finds SIV and FNI plates in a provider reply", () => {
   assert.deepEqual(D.platesInText("ok pour AB-123-CD et ef 456 gh, pas 1234 AB 75"), ["AB123CD", "EF456GH", "1234AB75"]);
   assert.deepEqual(D.platesInText("rien ici"), []);
