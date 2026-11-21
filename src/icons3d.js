@@ -194,6 +194,14 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     `<path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="none" stroke="#7d1810" stroke-width="1" stroke-linejoin="round"/>` +
     `<path d="M22.4 9.6a1.8 1.8 0 0 1 3.1 0l3 5.4c-2.6 1.6-6.4 1.9-9.4.9Z" fill="#fff" opacity=".35"/>` +
     `<rect x="22" y="17" width="4" height="12.4" rx="2" fill="#fff"/><circle cx="24" cy="34" r="2.2" fill="#fff"/>`;
+  ICONS["faits-vide"] = ground(24, 43.2, 15, 2.1) +
+    // « Faits » vide : un bloc-notes à pince, une pastille verte avec une coche
+    solid("M10 10.5a3.5 3.5 0 0 1 3.5-3.5h21a3.5 3.5 0 0 1 3.5 3.5V38a3.5 3.5 0 0 1-3.5 3.5h-21A3.5 3.5 0 0 1 10 38Z") +
+    `<path d="M12.6 9.2h22.6" stroke="#fff" stroke-opacity=".5" stroke-width=".9" stroke-linecap="round"/>` +
+    `<path d="M17.5 4.8h13a1.6 1.6 0 0 1 1.6 1.6v3.4a1.6 1.6 0 0 1-1.6 1.6h-13a1.6 1.6 0 0 1-1.6-1.6V6.4a1.6 1.6 0 0 1 1.6-1.6Z" fill="url(#i3-steel)" ${S}/>` +
+    `<g stroke="#c3ced6" stroke-width="2.2" stroke-linecap="round"><path d="M15.4 18h17"/><path d="M15.4 23.6h12"/><path d="M15.4 29.2h7"/></g>` +
+    `<circle cx="32.4" cy="33.2" r="8.6" fill="url(#i3-spg)" ${S}/><ellipse cx="30.4" cy="29.4" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".7"/>` +
+    `<path d="M28.4 33.4l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
