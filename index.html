@@ -2416,9 +2416,13 @@ input[type=checkbox].rg-switch, .rg-switch { flex: none; position: relative; wid
 .rg-site .rg-txt input { width: 100%; min-height: 36px; margin-top: 4px; padding: 6px 10px; border: 0; border-radius: 9px; background: color-mix(in srgb, var(--ink) 5%, transparent); box-shadow: none; font-size: 14.5px; color: var(--ink); }
 .rg-site .rg-txt input:focus { outline: none; background: var(--surface); box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 1px var(--accent); }
 .rg-site .rg-x { margin-top: 4px; }
-.rg-garage .rg-txt b .rg-dot { margin: 0 7px 2px 0; vertical-align: middle; }
-.rg-garage .rg-form-line { margin-top: 6px; }
-.rg-garage select { width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 9px; background: color-mix(in srgb, var(--ink) 5%, transparent); box-shadow: none; font-size: 14.5px; color: var(--ink); }
+.rg-garage .rg-txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rg-more-row { min-height: 44px; }
+.rg-form-top { margin-top: 0; }
+.rg-site .rg-txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rg-more-row .rg-txt b { color: var(--accent); font-weight: 600; }
+.rg-pick select { flex: 0 1 60%; min-width: 0; min-height: 34px; padding: 0 8px; border: 0; background: none; box-shadow: none; color: var(--ink-2); font-size: 15px; text-align: right; text-align-last: right; }
+.rg-sheet > .rg-btn.big { width: 100%; margin-top: 12px; }
 /* Formulaire d'ajout sous une liste */
 .rg-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .rg-form-line { display: flex; gap: 8px; }
@@ -3941,11 +3945,13 @@ window.SUIVI_FIREBASE_CONFIG = {
       let row = rows.find((r) => garageKey(r.garage) === garageKey(d.garageMail));
       if (!row) rows.push(row = { garage: String(d.garageMail).trim(), prestataire: "", site: "", saved: false, count: 0 });
       row.count++;
+      row.hayon = (row.hayon ?? true) && d.service === "hayon";
     });
     return rows.map((r) => {
       const prov = providerNames.includes(r.prestataire) ? r.prestataire : providerFromGarage(r.garage, providerNames);
       const site = r.site && sites.some((s) => s.nom === r.site) ? r.site : siteFromGarage(r.garage, prov, sites)?.nom || "";
-      return { ...r, guessProvider: prov, guessSite: site, missing: !prov || !site };
+      // The site is not needed for tailgate controls (DHOLLIANDA has no app access), nor once the team saved « no site ».
+      return { ...r, guessProvider: prov, guessSite: site, missing: !prov || (!site && !r.saved && !r.hayon) };
     }).sort((a, b) => b.missing - a.missing || a.garage.localeCompare(b.garage, "fr"));
   }
   const MAIL_MARKERS = ["source", "mailId", "garageMail", "modeleMail", "km"];
@@ -8676,7 +8682,7 @@ function page(texte) {
   // ================= « Réglages » façon Réglages de l'iPhone (2026-11-21) =================
   // Listes groupées ; chaque ligne ouvre une feuille (par le bas sur téléphone, à droite sur ordinateur).
   // Les écritures n'ont pas changé : config/reglages, prestataires/*, comptes/*, réglages des alertes. Aucune règle Firebase touchée.
-  const rg = { open: null, armed: "" };
+  const rg = { open: null, armed: "", unfolded: new Set() };
   const rgArt = (key) => self.IssueArt?.art(key, "rg-art") || "";
   const rgIco = (key, size = "") => `<span class="rg-ico ${size}" aria-hidden="true">${rgArt(key)}</span>`;
   const RG_FLAGS = [
@@ -8774,18 +8780,73 @@ function page(texte) {
   const garageRows = () => D.garageList(state.demandes, state.garages, { providerNames: state.providers, sites: state.sites });
   const garagesMissing = () => garageRows().filter((r) => r.missing).length;
   const pickOptions = (values, chosen, empty) => `<option value="">${esc(empty)}</option>` + values.map((v) => `<option value="${esc(v)}" ${v === chosen ? "selected" : ""}>${esc(v)}</option>`).join("");
-  function garagesSheet() {
-    const w = state.canWrite, rows = garageRows();
-    const list = rows.map((r, i) => `<div class="rg-row rg-static rg-site rg-garage" data-garage="${esc(r.garage)}"><span class="rg-txt">
-        <b>${r.missing ? `<i class="rg-dot todo" aria-hidden="true"></i>` : ""}${esc(r.garage)}</b>${r.count ? `<small>${esc(plural(r.count, "demande"))}</small>` : ""}
-        <span class="rg-form-line"><select data-garage-prov="${i}" aria-label="Prestataire de ${esc(r.garage)}" ${w ? "" : "disabled"}>${pickOptions(state.providers, r.guessProvider, "Prestataire ?")}</select>
-        <select data-garage-site="${i}" aria-label="Site de ${esc(r.garage)}" ${w ? "" : "disabled"}>${pickOptions(siteNames(), r.guessSite, "Site ?")}</select></span></span>
-        ${w && r.saved ? rgRemove("remove-garage", r.garage, r.garage) : ""}</div>`).join("");
+  // Liste calme façon Réglages de l'iPhone : un groupe par prestataire, une ligne par garage (site en gras, nom du mail
+  // en gris), le réglage s'ouvre en feuille. Les garages pas encore réglés passent en haut, avec un point orange.
+  const garageLine = (r) => rgRow({ open: "garage:" + r.garage, title: r.missing || !r.guessSite ? r.garage : r.guessSite, sub: r.missing ? (r.guessProvider ? "Site à choisir" : "Prestataire à choisir") : r.guessSite ? r.garage : "Sans site", cls: "rg-garage",
+    value: r.missing ? `<span class="rg-val"><i class="rg-dot todo" aria-hidden="true"></i></span>` : "" });
+  // ----- sites : ajouter en haut, puis les sites connus (les plus récents d'abord), repliés au-delà de 3 -----
+  const foldMore = (group, more) => more ? `<button type="button" class="rg-row rg-more-row" data-rg-act="unfold" data-i="${esc(group)}"><span class="rg-txt"><b>+ ${more} autre${more > 1 ? "s" : ""}</b></span></button>` : "";
+  function sitesSheet() {
+    const w = state.canWrite;
+    const known = state.sites.map((site, i) => ({ ...site, i })).reverse();
+    const shown = known.length > GARAGES_FOLDED + 1 && !rg.unfolded.has("sites") ? known.slice(0, GARAGES_FOLDED) : known;
+    const rows = shown.map((x) => rgRow({ open: "site:" + x.nom, title: x.nom, sub: x.adresse || "Sans adresse", cls: "rg-site",
+      value: x.adresse ? "" : `<span class="rg-val"><i class="rg-dot todo" aria-hidden="true"></i></span>` })).join("");
     return `<div class="rg-sheet">
-      ${rgSection(plural(rows.length, "garage"), `<div id="s-garages">${list || `<p class="rg-empty">Aucun garage reçu par mail pour l'instant.</p>`}</div>`)}
-      ${rgForm(`<input id="g-new" placeholder="Nom du garage, comme dans le mail" aria-label="Nom du garage" autocomplete="off">
-        <div class="rg-form-line"><select id="g-prov" aria-label="Prestataire">${pickOptions(state.providers, "", "Prestataire ?")}</select><select id="g-site" aria-label="Site">${pickOptions(siteNames(), "", "Site ?")}</select></div>
-        ${rgAddBtn("g-add", "add-garage")}`)}</div>`;
+      ${w ? `<section class="rg-group"><h2 class="rg-gh">Nouveau site</h2><div class="rg-form rg-form-top">
+        <input id="s-newsite" placeholder="Nom du site" aria-label="Nom du nouveau site" autocomplete="off">
+        <input id="s-newaddr" placeholder="Adresse" aria-label="Adresse du nouveau site" autocomplete="off">
+        ${rgAddBtn("s-addsite", "add-site")}</div>
+        <details class="rg-more" id="s-pastebox"><summary>${icon("list")}Coller une liste</summary>
+        <textarea id="s-paste" rows="6" placeholder="Paris - Centre&#9;Parking Indigo, 75007 Paris" aria-label="Liste des sites à coller"></textarea>
+        <button type="button" class="rg-btn primary" id="s-importsites" data-rg-act="import-sites">Importer</button></details></section>` : ""}
+      ${rgSection(`Sites connus <em>${known.length}</em>`, `<div id="s-sites">${rows || `<p class="rg-empty">Aucun site.</p>`}${foldMore("sites", known.length - shown.length)}</div>`)}
+    </div>`;
+  }
+  function siteSheet(name) {
+    const w = state.canWrite, i = siteNames().indexOf(name);
+    if (i < 0) return null;
+    const site = state.sites[i];
+    return ["Site", `<div class="rg-sheet">
+      <div class="rg-hero"><div><b>${esc(site.nom)}</b></div></div>
+      <div class="rg-form"><input id="s-editaddr" value="${esc(site.adresse)}" placeholder="Adresse" aria-label="Adresse de ${esc(site.nom)}" ${w ? "" : "disabled"}></div>
+      ${w ? `<button type="button" class="rg-btn primary big" data-rg-act="save-site" data-i="${esc(site.nom)}">Enregistrer</button>
+        ${rgSection("", `<button type="button" class="rg-row rg-action rg-danger" data-rg-act="remove-site-named" data-i="${esc(site.nom)}"><span class="rg-txt"><b>Retirer ce site</b></span></button>`)}` : ""}
+    </div>`];
+  }
+  const GARAGES_FOLDED = 2; // au-delà, « + N autres » déplie le groupe
+  function garagesSheet() {
+    const rows = garageRows();
+    const todo = rows.filter((r) => r.missing);
+    const groups = state.providers.map((p) => [p, rows.filter((r) => !r.missing && r.guessProvider === p)
+      .sort((x, y) => x.guessSite.localeCompare(y.guessSite, "fr"))]).filter(([, list]) => list.length);
+    return `<div class="rg-sheet">
+      ${todo.length ? rgSection(`À rattacher <em>${todo.length}</em>`, todo.map(garageLine).join("")) : ""}
+      ${groups.map(([p, list]) => {
+        const shown = list.length > GARAGES_FOLDED + 1 && !rg.unfolded.has("g:" + p) ? list.slice(0, GARAGES_FOLDED) : list;
+        const more = list.length - shown.length;
+        return rgSection(`${esc(p)} <em>${list.length}</em>`, shown.map(garageLine).join("")
+          + foldMore("g:" + p, more));
+      }).join("")}
+      ${!rows.length ? `<p class="rg-empty">Aucun garage reçu par mail.</p>` : ""}
+      ${state.canWrite ? rgSection("", `<button type="button" class="rg-row rg-add" data-rg-open="garage-new"><span class="rg-ico plus" aria-hidden="true">${icon("plus")}</span><span class="rg-txt"><b>Ajouter un garage</b></span></button>`) : ""}
+    </div>`;
+  }
+  // Feuille d'un garage : le nom tel qu'écrit dans le mail, puis prestataire et site.
+  function garageSheet(name) {
+    const w = state.canWrite, isNew = name === null;
+    const r = isNew ? null : garageRows().find((x) => x.garage === name);
+    if (!isNew && !r) return null;
+    return [isNew ? "Nouveau garage" : "Garage", `<div class="rg-sheet">
+      ${isNew ? `<div class="rg-form"><input id="g-new" placeholder="Nom du garage, comme dans le mail" aria-label="Nom du garage" autocomplete="off"></div>`
+        : `<div class="rg-hero"><div><b>${esc(r.garage)}</b>${r.count ? `<small>${esc(plural(r.count, "demande"))}</small>` : ""}</div></div>`}
+      <section class="rg-group"><div class="rg-list">
+        <label class="rg-row rg-static rg-pick"><span class="rg-txt"><b>Prestataire</b></span><select id="g-prov" ${w ? "" : "disabled"}>${pickOptions(state.providers, r?.guessProvider || "", "Choisir")}</select></label>
+        <label class="rg-row rg-static rg-pick"><span class="rg-txt"><b>Site</b></span><select id="g-site" ${w ? "" : "disabled"}>${pickOptions(siteNames(), r?.guessSite || "", "Aucun")}</select></label>
+      </div></section>
+      ${w ? `<button type="button" class="rg-btn primary big" data-rg-act="save-garage" data-i="${esc(isNew ? "" : r.garage)}">Enregistrer</button>` : ""}
+      ${w && r?.saved ? rgSection("", `<button type="button" class="rg-row rg-action rg-danger" data-rg-act="remove-garage" data-i="${esc(r.garage)}"><span class="rg-txt"><b>Retirer ce garage</b></span></button>`) : ""}
+    </div>`];
   }
   async function saveGarage(garage, prestataire, site, message) {
     if (!requireStore()) return;
@@ -8836,16 +8897,11 @@ function page(texte) {
     if (key === "prov-new") return ["Nouveau prestataire", `<div class="rg-sheet">
       <p class="rg-intro">Ajoute-le ici, puis coche ce qu'il fait et ses tarifs dans sa fiche. Il reçoit les lavages par défaut.</p>
       <div class="rg-form"><input id="s-newprov" placeholder="Nom du prestataire" aria-label="Nom du prestataire" autocomplete="off">${rgAddBtn("s-addprov", "add-provider")}</div></div>`];
-    if (key === "sites") return ["Sites et adresses", `<div class="rg-sheet">
-      <p class="rg-intro">L'adresse se remplit toute seule dans la demande quand on choisit le site.</p>
-      ${rgSection(plural(state.sites.length, "site"), `<div id="s-sites">${state.sites.map((s, i) => `<div class="rg-row rg-static rg-site"><span class="rg-txt"><b>${esc(s.nom)}</b>
-        <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}" ${w ? "" : "disabled"}></span>${w ? rgRemove("remove-site", i, s.nom) : ""}</div>`).join("") || `<p class="rg-empty">Aucun site.</p>`}</div>`)}
-      ${rgForm(`<input id="s-newsite" placeholder="Nom du nouveau site" aria-label="Nom du nouveau site">${rgAddBtn("s-addsite", "add-site")}`)}
-      ${w ? `<details class="rg-more" id="s-pastebox"><summary>${icon("list")}Coller une liste</summary>
-        <p class="rg-foot">Copie les deux colonnes (nom, adresse) depuis ton tableau et colle-les ici. Les sites déjà présents gardent leur nom, leur adresse est mise à jour.</p>
-        <textarea id="s-paste" rows="6" placeholder="Paris - Centre&#9;Parking Indigo, 75007 Paris" aria-label="Liste des sites à coller"></textarea>
-        <button type="button" class="rg-btn primary" id="s-importsites" data-rg-act="import-sites">Importer</button></details>` : ""}</div>`];
+    if (key === "sites") return ["Sites et adresses", sitesSheet()];
+    if (key.startsWith("site:")) return siteSheet(key.slice(5));
     if (key === "garages") return ["Garages des mails", garagesSheet()];
+    if (key === "garage-new") return garageSheet(null);
+    if (key.startsWith("garage:")) return garageSheet(key.slice(7));
     if (key === "fleet") return ["Flotte", `<div class="rg-sheet">
       <p class="rg-intro">Modèles proposés dans la demande. Choisir un modèle remplit le cubage.</p>
       ${rgSection(plural(state.fleet.length, "modèle"), `<div id="s-fleet">${state.fleet.map((f, i) => `<div class="rg-row rg-static"><span class="rg-txt"><b>${esc(f.modele)}</b></span>${f.cubage ? rgVal("", f.cubage + " m³") : ""}${w ? rgRemove("remove-model", i, D.fleetLabel(f)) : ""}</div>`).join("") || `<p class="rg-empty">Aucun modèle.</p>`}</div>`)}
@@ -9007,6 +9063,7 @@ function page(texte) {
   async function rgAct(act, b) {
     if (act === "logout") { const out = $("#signOutBtn"); if (out) { out.classList.add("armed"); out.click(); } return; }
     if (act === "copy-script") { if (await copyText(SHEET_SCRIPT)) toast("Script copié"); return; }
+    if (act === "unfold") { rg.unfolded.add(b.dataset.i); return refreshRgSheet(); }
     if (!state.canWrite) return toast("Accès en lecture : tu ne peux rien modifier ici");
     if (act === "known-prices") return fillKnownPrices();
     if (act === "prepare") return prepareAccess();
@@ -9041,25 +9098,36 @@ function page(texte) {
       return;
     }
     if (act === "add-site") {
-      const nom = rgValue("#s-newsite");
+      const nom = rgValue("#s-newsite"), adresse = rgValue("#s-newaddr");
       if (!nom) return toast("Indique le nom du site");
       if (siteNames().includes(nom)) return toast(`${nom} est déjà dans la liste`);
-      $("#s-newsite").value = ""; state.sites.push({ nom, adresse: "" }); renderAll(); persistSettings("Site ajouté");
-      return setTimeout(() => teamSheet.body.querySelector(`[data-site-address="${state.sites.length - 1}"]`)?.focus(), 50);
+      $("#s-newsite").value = ""; $("#s-newaddr").value = ""; state.sites.push({ nom, adresse }); renderAll();
+      return persistSettings("Site ajouté");
     }
-    if (act === "add-garage") {
-      const garage = rgValue("#g-new");
+    if (act === "save-site") {
+      const site = state.sites.find((x) => x.nom === b.dataset.i);
+      if (site) { site.adresse = rgValue("#s-editaddr"); renderAll(); persistSettings("Adresse enregistrée"); }
+      return openRg("sites");
+    }
+    if (act === "save-garage") {
+      const garage = b.dataset.i || rgValue("#g-new");
       if (!garage) return toast("Indique le nom du garage, comme dans le mail");
-      if (!$("#g-prov").value || !$("#g-site").value) return toast("Choisis le prestataire et le site");
-      await saveGarage(garage, $("#g-prov").value, $("#g-site").value, "Garage ajouté");
-      if ($("#g-new")) $("#g-new").value = "";
-      return refreshRgSheet();
+      if (!$("#g-prov").value) return toast("Choisis le prestataire");
+      const done = saveGarage(garage, $("#g-prov").value, $("#g-site").value, `${garage} : ${$("#g-site").value || $("#g-prov").value}`);
+      openRg("garages"); // sans attendre l'accusé du serveur : l'instantané local redessine la liste
+      return done;
     }
     if (act === "remove-garage") {
       const before = state.garages.slice(), key = D.providerId(b.dataset.i);
       if (!requireStore()) return;
+      openRg("garages");
       try { await state.store.saveGarages(before.filter((g) => D.providerId(g.garage) !== key)); undoable("Garage retiré", () => state.store.saveGarages(before)); }
       catch (err) { reportWriteError(err); }
+      return;
+    }
+    if (act === "remove-site-named") {
+      const i = siteNames().indexOf(b.dataset.i);
+      if (i >= 0) { openRg("sites"); removeWithUndo("sites", i, "Site retiré"); }
       return;
     }
     if (act === "remove-site") return removeWithUndo("sites", +b.dataset.i, "Site retiré");
@@ -9108,12 +9176,6 @@ function page(texte) {
   document.addEventListener("change", async (e) => {
     if (!inRg(e.target)) return;
     if (e.target.id === "a-role") return syncAccountRole();
-    const garageRow = e.target.closest("[data-garage]");
-    if (garageRow && e.target.matches("select")) {
-      if (!state.canWrite) return;
-      const prov = garageRow.querySelector("[data-garage-prov]").value, site = garageRow.querySelector("[data-garage-site]").value;
-      return saveGarage(garageRow.dataset.garage, prov, site, prov && site ? `${garageRow.dataset.garage} : ${prov}, ${site}` : "Enregistré");
-    }
     const box = e.target.closest("[data-prov-flag]");
     if (box) {
       if (!requireStore()) return;

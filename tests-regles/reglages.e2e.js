@@ -126,13 +126,14 @@ async function seed() {
       await close(p);
       // Sites : ajout, adresse, retrait + Annuler
       await row(p, 'sites').click(); await p.waitForTimeout(700);
-      await p.fill('#s-newsite', 'Lyon Gerland'); await p.click('#s-addsite'); await p.waitForTimeout(900);
-      await p.fill('[data-site-address="4"]', '5 rue de Gerland, 69007 Lyon'); await p.press('[data-site-address="4"]', 'Tab'); await p.waitForTimeout(900);
+      await p.fill('#s-newsite', 'Lyon Gerland'); await p.fill('#s-newaddr', '5 rue de Gerland, 69007 Lyon'); await p.click('#s-addsite'); await p.waitForTimeout(900);
       doc = await get('config/reglages');
       const sites = () => doc.fields.sites.arrayValue.values.map((v) => v.mapValue.fields.nom.stringValue + '=' + (v.mapValue.fields.adresse?.stringValue || ''));
       if (!sites().includes('Lyon Gerland=5 rue de Gerland, 69007 Lyon')) errors.push('Site ajouté non enregistré ' + sites());
       await s('4-sites');
-      await p.locator('#s-sites [data-rg-act="remove-site"]').first().click(); await p.waitForTimeout(900);
+      await p.click('[data-rg-act="unfold"]'); await p.waitForTimeout(300);
+      await p.locator('[data-rg-open="site:Saint-Cloud"]').click(); await p.waitForTimeout(600);
+      await p.click('[data-rg-act="remove-site-named"]'); await p.waitForTimeout(900);
       doc = await get('config/reglages');
       if (sites().some((x) => x.startsWith('Saint-Cloud'))) errors.push('Site non retiré');
       await p.click('#toast .toast-action'); await p.waitForTimeout(900);
