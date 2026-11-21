@@ -40,21 +40,28 @@
 
     function modelHtml(d) {
       const [name, size] = (D.vehicleLabel(d) || "").split(" – ");
-      return `<span class="job-model">${esc(name || "Modèle non précisé")}${size ? `<small>${esc(size)}</small>` : ""}</span>`;
+      return `<span class="job-model">${esc(name || "Modèle non précisé")}${size ? ` · ${esc(size)}` : ""}</span>`;
     }
-    function jobHead(d) {
-      return `<div class="job-head">${plateTag(d.plaque)}
-        ${modelHtml(d)}
-        <span class="job-kind">${esc(D.jobLabel(d))}</span></div>`;
+    // Le type de prestation en icône en volume (même famille que « Signaler »), dans une tuile en relief.
+    const SERVICE_ART = { lavage: "Véhicule sale", "pare-brise": "Pare-brise", intervention: "svc-intervention", hayon: "svc-hayon" };
+    const serviceTile = (d, cls = "svc-tile") => `<span class="${cls}" aria-hidden="true">${self.IssueArt?.art(SERVICE_ART[d.service] || "svc-intervention", "svc-art") || ""}</span>`;
+    // withTime: the slot on the right (« Aujourd'hui », where date and site are already given by the section).
+    function jobHead(d, { withTime = false } = {}) {
+      return `<div class="job-head">${serviceTile(d)}
+        <div class="job-id"><div class="job-line">${plateTag(d.plaque)}${withTime ? `<span class="job-time">${esc(slot(d))}</span>` : ""}</div>${modelHtml(d)}<span class="job-kind">${esc(D.jobLabel(d))}</span></div></div>`;
     }
     function jobMeta(d, { withDate = true, withSite = true } = {}) {
       const late = D.isLate(d, today());
-      return `<ul class="job-meta">
-        ${withDate ? `<li>${icon("cal")}<span>${esc(cap(when(d)))}</span></li>` : ""}
-        <li>${icon("clock")}<span>${esc(cap(slot(d)))}${!withDate && D.isMultiDay(d) ? ` · sur site jusqu'au ${esc(D.shortDate(D.lastDay(d)))}` : ""}</span></li>
-        ${withSite ? `<li>${icon("pin")}<span>${esc([d.site, d.adresse].filter(Boolean).join(" · ") || "Site à préciser")}</span></li>` : ""}
-        ${late ? `<li class="late">${icon("alert")}<span>En retard : prévu jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>` : ""}
-      </ul>${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}`;
+      const items = [
+        withDate && `<li>${icon("cal")}<span>${esc(cap(when(d)))}</span></li>`,
+        withDate ? `<li>${icon("clock")}<span>${esc(cap(slot(d)))}</span></li>`
+          : D.isMultiDay(d) && !late && `<li>${icon("cal")}<span>Sur site jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>`,
+        withSite && `<li>${icon("pin")}<span>${esc([d.site, d.adresse].filter(Boolean).join(" · ") || "Site à préciser")}</span></li>`,
+        late && `<li class="late">${icon("alert")}<span>En retard · prévu jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>`,
+      ].filter(Boolean);
+      return (items.length ? `<ul class="job-meta">${items.join("")}</ul>` : "") +
+        (d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : "") +
+        (d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : "");
     }
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
@@ -76,61 +83,69 @@
       return `<p class="job-answer">${icon("alert")}<span>${esc(D.answerSummary(r))}${r.vu ? "" : " · en attente de l'équipe"}</span></p>`;
     }
 
-    // ---------- inline forms (done, another date, missing vehicle, not possible) ----------
-    function formHtml(d) {
-      const cancel = (kind) => `<button type="button" class="ghost" data-form="${kind}:${esc(d.id)}">Annuler</button>`;
-      const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note value="${esc(state.draft.note || "")}" placeholder="${placeholder}" maxlength="${D.PROBLEM_TEXT_MAX}"></label>`;
-      // "Done": one confirmation step so a slip of the finger does not close a job. No photo: providers are trusted.
-      if (state.openForm === "done:" + d.id) return `<div class="job-form">
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. RAS, tout est propre")}
-        <div class="job-form-actions">${cancel("done")}<button type="button" class="primary" data-send="done:${esc(d.id)}">${icon("check")}Confirmer : réalisée</button></div></div>`;
-      if (state.openForm === "undo:" + d.id) return `<div class="job-form">
-        <p class="job-form-text">Ce véhicule revient dans ta liste à faire. L'équipe est prévenue.</p>
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. c'était le véhicule d'à côté")}
-        <div class="job-form-actions">${cancel("undo")}<button type="button" class="primary" data-send="undo:${esc(d.id)}">Oui, remettre à faire</button></div></div>`;
-      if (state.openForm === "problem:" + d.id) return `<div class="job-form">
-        <label class="field"><span>Qu'est-ce qui ne va pas sur le véhicule ?</span><textarea data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(state.draft.note || "")}</textarea></label>
-        ${photoPicker()}
-        <div class="job-form-actions">${cancel("problem")}<button type="button" class="primary" data-send="problem:${esc(d.id)}">${icon("alert")}Envoyer à l'équipe</button></div></div>`;
-      if (state.openForm === "date:" + d.id) return `<div class="job-form">
-        <div class="job-form-row"><label class="field"><span>Date proposée</span><input type="date" data-date min="${today()}"></label>
-        <label class="field"><span>Heure</span><input type="time" data-time step="900"></label></div>
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. complet jeudi matin")}
-        <div class="job-form-actions">${cancel("date")}<button type="button" class="primary" data-send="date:${esc(d.id)}">Proposer cette date</button></div></div>`;
-      if (state.openForm === "absent:" + d.id) return `<div class="job-form">
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. pas sur le parking à 9 h")}
-        <div class="job-form-actions">${cancel("absent")}<button type="button" class="primary" data-send="absent:${esc(d.id)}">Signaler le véhicule absent</button></div></div>`;
-      if (state.openForm === "refuse:" + d.id) return `<div class="job-form">
-        ${note("Pourquoi ? (facultatif)", "Ex. pièce indisponible")}
-        <div class="job-form-actions">${cancel("refuse")}<button type="button" class="primary" data-send="refuse:${esc(d.id)}">Confirmer : pas possible</button></div></div>`;
-      return "";
+    // ---------- actions in a sheet over the screen (done, postpone, missing vehicle, problem, not possible, take back) ----------
+    // Same sheet as « Signaler »: the card stays where it is, nothing unfolds inside the list.
+    const ACTS = {
+      done: { title: "Prestation réalisée ?", btn: "Confirmer : réalisée", noteLabel: "Un mot pour l'équipe", ph: "Ex. RAS, tout est propre" },
+      undo: { title: "Remettre à faire ?", text: "Ce véhicule revient dans ta liste à faire. L'équipe est prévenue.", btn: "Oui, remettre à faire", noteLabel: "Un mot pour l'équipe", ph: "Ex. c'était le véhicule d'à côté" },
+      date: { title: "Reporter", btn: "Proposer cette date", noteLabel: "Un mot pour l'équipe", ph: "Ex. complet jeudi matin" },
+      absent: { title: "Véhicule absent", text: "L'équipe City-Drop est prévenue tout de suite.", btn: "Signaler le véhicule absent", noteLabel: "Un mot pour l'équipe", ph: "Ex. pas sur le parking à 9 h" },
+      refuse: { title: "Pas possible", btn: "Confirmer : pas possible", noteLabel: "Pourquoi ?", ph: "Ex. pièce indisponible" },
+      problem: { title: "Problème sur le véhicule", btn: "Envoyer à l'équipe" },
+    };
+    const actOf = () => { const [kind, id] = (state.openForm || "").split(":"); return { kind, d: byId(id) }; };
+    const actTitle = (kind, d) => (kind === "date" && d && !D.isAccepted(d) ? "Proposer une autre date" : ACTS[kind]?.title || "");
+    const actBtn = (kind, id, label, ic = "") => `<button type="button" class="act-btn${kind === "problem" ? " warn" : ""}" data-act="${kind}" data-id="${esc(id)}">${ic ? icon(ic) : ""}<span>${label}</span></button>`;
+    // The next days as one-tap choices; any other day stays in the date field.
+    function nextDays(n) {
+      const out = []; const d0 = new Date(today() + "T12:00:00");
+      for (let i = 1; i <= n; i++) { const x = new Date(d0); x.setDate(d0.getDate() + i); out.push(D.toIsoDate(x)); }
+      return out;
+    }
+    const dayChip = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" }).replace(".", "");
+    function actBody() {
+      const { kind, d } = actOf();
+      const a = ACTS[kind];
+      if (!a || !d) return "";
+      const dr = state.draft;
+      const note = (rows) => `<label class="sheet-group"><span class="sheet-label">${a.noteLabel || "Un mot pour l'équipe"} <i>facultatif</i></span>${rows
+        ? `<textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="${a.ph}">${esc(dr.note || "")}</textarea>`
+        : `<input class="sheet-input" data-note value="${esc(dr.note || "")}" placeholder="${a.ph}" maxlength="${D.PROBLEM_TEXT_MAX}">`}</label>`;
+      const veh = `<div class="act-veh">${serviceTile(d, "svc-tile sm")}<span>${plateTag(d.plaque)}<small>${esc([D.vehicleLabel(d), D.jobLabel(d)].filter(Boolean).join(" · "))}</small></span></div>`;
+      let fields = "";
+      if (kind === "problem") fields = `<label class="sheet-group"><span class="sheet-label">Qu'est-ce qui ne va pas ?</span><textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(dr.note || "")}</textarea></label>${photoPicker()}`;
+      else if (kind === "date") fields = `<fieldset class="sheet-group day-set"><legend class="sheet-label">Nouvelle date</legend>
+          <div class="day-chips">${nextDays(4).map((iso) => `<button type="button" class="day-chip" data-day="${iso}" aria-pressed="${dr.date === iso}">${esc(dayChip(iso))}</button>`).join("")}</div>
+          <div class="day-row"><label><span>Autre jour</span><input type="date" class="sheet-input" data-date data-keep="adate" min="${today()}" value="${esc(dr.date || "")}"></label>
+          <label><span>Heure <i>facultatif</i></span><input type="time" class="sheet-input" data-time data-keep="atime" step="900" value="${esc(dr.time || "")}"></label></div></fieldset>${note(false)}`;
+      else fields = (a.text ? `<p class="sheet-sub">${a.text}</p>` : "") + note(false);
+      return `<div class="act-sheet" data-asheet>${veh}${fields}
+        ${state.busy.has(d.id) ? busyLine : `<button type="button" class="primary big field-send${kind === "done" ? " ok" : ""}" data-asend>${kind === "done" ? icon("check") : ""}${a.btn}</button>`}</div>`;
     }
     function photoPicker() {
       const ph = state.draft.photo;
       if (state.draft.photoBusy) return `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`;
-      if (ph) return `<div class="problem-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer la photo</button></div>`;
-      return `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
+      if (ph) return `<div class="sheet-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer</button></div>`;
+      return `<label class="sheet-photo-add">${icon("camera")}<span>Ajouter une photo</span><small>facultatif</small><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
     }
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
-    const formOpen = (d) => state.openForm?.endsWith(":" + d.id);
 
     // ---------- cards per tab ----------
     function validateCard(d) {
-      return `<article class="job">${jobHead(d)}${jobMeta(d)}${photosStrip(d)}${answerLine(d)}
-        ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
-          <button type="button" class="primary" data-take="${esc(d.id)}">${icon("check")}Accepter</button>
-          <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Autre date</button>
-          <button type="button" class="ghost" data-form="refuse:${esc(d.id)}">Pas possible</button></div>`}
+      return `<article class="job" data-job="${esc(d.id)}">${jobHead(d)}${jobMeta(d)}${photosStrip(d)}${answerLine(d)}
+        ${state.busy.has(d.id) ? busyLine : `<div class="job-actions">
+          <button type="button" class="primary big" data-take="${esc(d.id)}">${icon("check")}Accepter</button>
+          <div class="act-row two">${actBtn("date", d.id, "Autre date", "cal")}${actBtn("refuse", d.id, "Pas possible", "x")}</div></div>`}
       </article>`;
     }
+    // early: a vehicle of « À venir » done ahead of time (date and site shown, the section does not give them).
     function doCard(d, { early = false } = {}) {
-      return `<article class="job">${jobHead(d)}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
-        ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
-          <button type="button" class="primary big" data-form="done:${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
-          <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Reporter</button>
-          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button>
-          <button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button></div>`}
-      ${problemLines(d)}</article>`;
+      const leaving = state.leaving === d.id;
+      return `<article class="job${leaving ? " leaving" : ""}" data-job="${esc(d.id)}">${jobHead(d, { withTime: !early })}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
+        ${state.busy.has(d.id) && !leaving ? busyLine : `<div class="job-actions">
+          <button type="button" class="primary big" data-act="done" data-id="${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
+          <div class="act-row">${actBtn("date", d.id, "Reporter", "cal")}${actBtn("absent", d.id, "Véhicule absent", "pin")}${actBtn("problem", d.id, "Problème", "alert")}</div></div>`}
+      ${problemLines(d)}${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
     }
     const doneDayOf = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
     function doneRow(d) {
@@ -138,9 +153,9 @@
       // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
       const undo = D.canUndoDone(d, email, Date.now());
-      const more = recent || undo ? (state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d)
-        : (undo ? `<button type="button" class="undo-done" data-form="undo:${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : "") +
-          (recent ? `<button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button>` : "")) : "";
+      const more = recent || undo ? (state.busy.has(d.id) ? busyLine
+        : (undo ? `<button type="button" class="undo-done" data-act="undo" data-id="${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : "") +
+          (recent ? `<button type="button" class="report" data-act="problem" data-id="${esc(d.id)}">${icon("alert")}Signaler un problème</button>` : "")) : "";
       const lines = problemLines(d);
       return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
         ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}
@@ -149,7 +164,7 @@
     // Today's vehicles grouped by site: the provider goes site by site.
     function todayHtml(list) {
       return [...D.groupBy(list, D.siteOf).entries()].map(([site, rows]) => `<section class="spot">
-        <header class="spot-head">${icon("pin")}<span><b>${esc(site)}</b>${rows[0].adresse ? `<small>${esc(rows[0].adresse)}</small>` : ""}</span><em>${rows.length}</em></header>
+        <header class="spot-head"><span class="spot-pin">${icon("pin")}</span><span><b>${esc(site)}</b>${rows[0].adresse ? `<small>${esc(rows[0].adresse)}</small>` : ""}</span><em aria-label="${rows.length} véhicule${rows.length > 1 ? "s" : ""}">${rows.length}</em></header>
         ${rows.map((d) => doCard(d)).join("")}</section>`).join("");
     }
     const searchBox = () => `<label class="job-search">${icon("search")}<input type="search" data-search value="${esc(state.query)}" placeholder="Chercher une plaque, un site…" aria-label="Chercher"></label>`;
@@ -171,8 +186,18 @@
         ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${list.map(validateCard).join("")}`
         : empty("Aucune demande à valider", "Les nouvelles demandes de City-Drop arrivent ici.");
     }
+    // The day at a glance: what is left, what is already done today (green bar = done only).
+    function daySummary(left) {
+      const doneToday = state.demandes.filter((d) => D.isForProvider(d) && (d.retour?.etat === "fait" || d.statut === "realisee") && doneDayOf(d) === today()).length;
+      const total = left + doneToday;
+      if (!total) return "";
+      const pct = Math.round((doneToday / total) * 100);
+      const text = left ? `<b>${left}</b> véhicule${left > 1 ? "s" : ""} à faire${doneToday ? `<span> · ${doneToday} fait${doneToday > 1 ? "s" : ""}</span>` : ""}`
+        : `<b class="all-done">${icon("check")}Tout est fait</b><span> · ${doneToday} véhicule${doneToday > 1 ? "s" : ""}</span>`;
+      return `<div class="day-sum"><p>${text}</p><div class="day-bar" role="progressbar" aria-label="Avancement de la journée" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${doneToday}"><i style="width:${pct}%"></i></div></div>`;
+    }
     function todayTab(list) {
-      return list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site.");
+      return daySummary(list.length) + (list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site."));
     }
     function upcomingTab(all) {
       const list = filtered(all);
@@ -315,9 +340,10 @@
     const main = view.querySelector(".presta-main");
     const sheetEl = view.querySelector(".presta-sheet");
     let lastFocus = null;
-    function openSheet() {
+    // mode: "report" (« Signaler ») or "act" (an action on one vehicle, state.openForm = "kind:id").
+    function openSheet(mode = "report") {
       if (state.sheetOpen) return;
-      state.sheetOpen = true; lastFocus = document.activeElement; render();
+      state.sheetMode = mode; state.sheetOpen = true; lastFocus = document.activeElement; render();
       sheetEl.style.transform = "";
       document.body.classList.add("sheet-open"); sheetEl.setAttribute("aria-hidden", "false");
       requestAnimationFrame(() => sheetEl.classList.add("on"));
@@ -326,6 +352,7 @@
     function closeSheet() {
       if (!state.sheetOpen) return;
       state.sheetOpen = false; state.pdelArmed = null;
+      if (state.sheetMode === "act") { state.openForm = null; state.draft = {}; }
       if (state.fd?.editId) state.fd = null; // an edit left half-way is dropped; a new report being typed is kept
       sheetEl.style.transform = ""; sheetEl.classList.remove("on");
       document.body.classList.remove("sheet-open"); sheetEl.setAttribute("aria-hidden", "true");
@@ -362,18 +389,20 @@
       const a = document.activeElement;
       const typing = a?.matches?.("[data-keep]") ? `[data-keep="${a.dataset.keep}"]` : a?.matches?.("[data-search], [data-note]") ? (a.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
       main.innerHTML = `<header class="presta-top">
-          <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
-          <h1>${esc(cap(D.dayLabel(today())))}</h1>
+          <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}<span> · ${esc(cap(D.dayLabel(today())))}</span></p>
+          <h1>${esc(TABS.find((t) => t.id === state.tab)?.label || "Mes demandes")}</h1>
         </header>
         ${alertCard()}
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
-      sheetEl.querySelector("#sheetTitle").textContent = sheetTitle();
-      sheetEl.querySelector(".sheet-b").innerHTML = sheetBody();
+      const acting = state.sheetMode === "act";
+      if (acting && state.sheetOpen && !actOf().d) closeSheet(); // the vehicle left the list meanwhile (done from another phone)
+      sheetEl.querySelector("#sheetTitle").textContent = acting ? actTitle(actOf().kind, actOf().d) : sheetTitle();
+      sheetEl.querySelector(".sheet-b").innerHTML = acting ? (state.openForm ? actBody() : "") : sheetBody();
       scheduleUndoEnd();
       const input = typing && view.querySelector(typing);
-      if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+      if (input) { input.focus(); try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* date / time fields */ } }
     }
 
     // The « Corriger » button disappears by itself when its 10 minutes are over.
@@ -393,23 +422,23 @@
       catch (err) { toast(err?.code === "permission-denied" ? "Plus de 10 minutes : appelle l'équipe pour corriger" : "Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
-    async function send(d, retour, message) {
+    async function send(d, retour, message, action) {
       state.busy.add(d.id); state.openForm = null; render();
-      try { await store.answer(d, { ...retour, par: email }); toast(message); }
+      try { await store.answer(d, { ...retour, par: email }); toast(message, action); }
       catch { toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
 
     // A problem report; the photo is optional. Nothing is lost if it fails: the form stays open with what was typed.
-    async function sendProblem(d, note) {
+    async function sendProblem(d, note, typed = state.draft) {
       const check = D.problemReport(d, { texte: note }, email, "");
-      if (check.error) return toast(check.error);
-      const draft = { ...state.draft, note };
+      if (check.error) { state.openForm = "problem:" + d.id; state.draft = typed; openSheet("act"); return toast(check.error); }
+      const draft = { ...typed, note };
       state.busy.add(d.id); state.openForm = null; render();
       try {
         await store.reportProblem(d, { texte: note, par: email }, draft.photo?.full);
         state.draft = {}; toast("Problème envoyé à l'équipe, merci !");
-      } catch { state.openForm = "problem:" + d.id; state.draft = draft; toast("Envoi impossible : vérifie ta connexion et réessaie"); }
+      } catch { state.openForm = "problem:" + d.id; state.draft = draft; openSheet("act"); toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
     async function addPhoto(file) {
@@ -434,6 +463,8 @@
     }
     view.addEventListener("input", (e) => {
       if (e.target.matches("[data-note]")) state.draft.note = e.target.value;
+      else if (e.target.matches("[data-date]")) { state.draft.date = e.target.value; sheetEl.querySelectorAll("[data-day]").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.day === e.target.value))); }
+      else if (e.target.matches("[data-time]")) state.draft.time = e.target.value;
       else if (e.target.matches("[data-fplate]")) { fd().plaque = e.target.value; syncSend(); }
       else if (e.target.matches("[data-ftext]")) { fd().texte = e.target.value; syncSend(); }
       else if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); }
@@ -460,33 +491,39 @@
       else if ((b = el("[data-pdel]"))) deleteReport(b.dataset.pdel);
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
-      else if ((b = el("[data-form]"))) {
-        state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; state.draft = {}; render();
-        const form = state.openForm && view.querySelector(".job-form");
-        if (form) {
-          form.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-          if (state.openForm.startsWith("problem:")) form.querySelector("textarea")?.focus({ preventScroll: true });
-        }
+      else if ((b = el("[data-act]"))) {
+        state.openForm = `${b.dataset.act}:${b.dataset.id}`; state.draft = {};
+        openSheet("act");
+        if (b.dataset.act === "problem") setTimeout(() => sheetEl.querySelector("textarea[data-note]")?.focus({ preventScroll: true }), 380);
       }
+      else if ((b = el("[data-day]"))) { state.draft.date = b.dataset.day; render(); }
       else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
-      else if ((b = el("[data-send]"))) {
-        const [kind, id] = b.dataset.send.split(":");
-        const form = b.closest(".job-form");
-        const note = form.querySelector("[data-note]").value.trim();
-        const withNote = note ? { note } : {};
-        if (kind === "problem") sendProblem(byId(id), note);
-        else if (kind === "undo") undoDone(byId(id), note);
-        else if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
-        else if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
-        else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");
-        else {
-          const date = form.querySelector("[data-date]").value;
-          if (!date) return toast("Choisis la date que tu proposes");
-          const debut = form.querySelector("[data-time]").value;
-          send(byId(id), { etat: "autre-date", date, ...(debut ? { debut } : {}), ...withNote }, "Date proposée à l'équipe");
-        }
-      }
+      else if ((b = el("[data-asend]"))) sendAct();
     });
+    // The sheet's main button. « OK prestation réalisée »: the card shows a green tick, then leaves the list.
+    function sendAct() {
+      const { kind, d } = actOf();
+      if (!d) return closeSheet();
+      const dr = state.draft;
+      const note = (dr.note || "").trim();
+      const withNote = note ? { note } : {};
+      if (kind === "date" && !dr.date) return toast("Choisis la date que tu proposes");
+      if (kind === "problem") { const typed = { ...dr }; closeSheet(); return sendProblem(d, note, typed); }
+      if (kind === "undo") { closeSheet(); return undoDone(d, note); }
+      closeSheet();
+      if (kind === "done") return finishDone(d, withNote);
+      if (kind === "absent") send(d, { etat: "absent", ...withNote }, "L'équipe est prévenue");
+      else if (kind === "refuse") send(d, { etat: "refuse", ...withNote }, "L'équipe est prévenue");
+      else if (kind === "date") send(d, { etat: "autre-date", date: dr.date, ...(dr.time ? { debut: dr.time } : {}), ...withNote }, "Date proposée à l'équipe");
+    }
+    const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+    async function finishDone(d, withNote) {
+      if (!reduceMotion()) { state.leaving = d.id; render(); navigator.vibrate?.([10, 60, 14]); await new Promise((r) => setTimeout(r, 720)); }
+      state.leaving = null;
+      // The bubble offers « Corriger » for a slip of the finger (same 10 minutes as in « Faits »).
+      await send(d, { etat: "fait", ...withNote }, `${d.plaque} réalisé, merci !`,
+        { label: "Corriger", run: () => { if (byId(d.id) && D.canUndoDone(byId(d.id), email, Date.now())) { state.openForm = "undo:" + d.id; state.draft = {}; openSheet("act"); } } });
+    }
 
     alerts?.listen(() => render());
     render();

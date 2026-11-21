@@ -73,10 +73,17 @@
   }
 
   let toastTimer;
-  function toast(text) {
+  // action (optional): { label, run } adds one button to the bubble, e.g. « Corriger » just after « OK prestation réalisée ».
+  function toast(text, action) {
     const el = $("#toast");
-    el.textContent = text; el.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 3200);
+    el.textContent = text; el.hidden = false; el.classList.toggle("with-action", !!action);
+    if (action) {
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.className = "toast-action"; btn.textContent = action.label;
+      btn.addEventListener("click", () => { el.hidden = true; action.run(); });
+      el.append(btn);
+    }
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), action ? 6000 : 3200);
   }
   function banner(text) { const el = $("#banner"); el.textContent = text || ""; el.hidden = !text; }
   function reportWriteError(err) {

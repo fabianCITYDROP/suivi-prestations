@@ -30,6 +30,9 @@ ${rad("amber", [[0, "#ffe2a0"], [0.5, "#ffb53d"], [1, "#e87b00"]], 0.45, 0.35, 0
 ${rad("ground", [[0, "#0a141c", 0.34], [1, "#0a141c", 0]], 0.5, 0.5, 0.5)}
 ${rad("dent", [[0, "#7f8d98"], [0.6, "#b9c4cc", 0.6], [1, "#e4e9ed", 0]], 0.42, 0.4, 0.6)}
 ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
+${lin("steel", [[0, "#fbfcfd"], [0.5, "#c3ccd3"], [1, "#7d8a95"]])}
+${lin("grip", [[0, "#3a9cc0"], [0.5, "#0f6f8f"], [1, "#0a4a60"]])}
+<mask id="i3-jaw" maskUnits="userSpaceOnUse" x="0" y="0" width="48" height="48"><rect width="48" height="48" fill="#fff"/><path d="M37 21.3h12v5.4H37Z" fill="#000"/><circle cx="37" cy="24" r="2.7" fill="#000"/></mask>
 <filter id="i3-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.6"/></filter>
 </defs></svg>`;
   const S = `stroke="${O}" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"`;
@@ -43,7 +46,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     `<circle cx="${cx}" cy="${cy}" r="2.7" fill="url(#i3-rim)" stroke="#5d6a74" stroke-width=".5"/>` +
     [0, 72, 144, 216, 288].map((a) => { const r = (a - 90) * Math.PI / 180; return `<circle cx="${(cx + 1.6 * Math.cos(r)).toFixed(2)}" cy="${(cy + 1.6 * Math.sin(r)).toFixed(2)}" r=".42" fill="#6b7883"/>`; }).join("") +
     `<circle cx="${cx}" cy="${cy}" r=".7" fill="#3d4952"/><path d="M${cx - 3.6} ${cy - 2.2}a4.2 4.2 0 0 1 3-2" stroke="#fff" stroke-opacity=".35" stroke-width=".7" fill="none" stroke-linecap="round"/>`;
-  const van = (front) => ground(24, 41.6, 22, 2.1) +
+  const van = (front, mark = true) => ground(24, 41.6, 22, 2.1) +
     // caisse : volume, nervures, logo City-Drop, poignée de porte arrière
     solid("M3.5 11a2.5 2.5 0 0 1 2.5-2.5h22a2.5 2.5 0 0 1 2.5 2.5v22h-27Z") +
     `<path d="M5 9.9h23" stroke="url(#i3-shine)" stroke-width="1.2" stroke-linecap="round"/><path d="M5.2 10.2h22.6" stroke="#fff" stroke-width=".8" stroke-linecap="round"/>` +
@@ -61,7 +64,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     // bas de caisse et passages de roue
     `<path d="M3 32.6h42.2v1.9c0 .6-.5 1.1-1.1 1.1H4.1A1.1 1.1 0 0 1 3 34.5Z" fill="url(#i3-dark)" ${S}/><path d="M4 33.2h40" stroke="#7d8a95" stroke-width=".5"/>` +
     `<path d="M6.4 33a6 6 0 0 1 12 0M30.7 33a6 6 0 0 1 12 0" fill="#151c21"/>` +
-    wheel(12.4, 35.4, !front) + wheel(36.7, 35.4, front);
+    wheel(12.4, 35.4, mark && !front) + wheel(36.7, 35.4, mark && front);
   const ENG = "M7 8h8.5l2 2.2H19V8.6h2v7.8h-2v-1.6h-1.5l-2.6 3.2H9.6L7 15.6Z";
   const PIPES = "M9.5 5.5h5M12 5.5v2.5M7 12.2H4.6M4.6 9.7v5";
   const CAR = "M4 16.5H2.6a.8.8 0 0 1-.8-.8v-2.3c0-.9.6-1.6 1.5-1.8l3.5-.8 2.9-3a2.4 2.4 0 0 1 1.7-.8h5.1c.8 0 1.5.4 2 1l2.3 2.9 1.7.4c.9.2 1.6 1 1.6 2v2.4a.8.8 0 0 1-.8.8H20a2.5 2.5 0 0 0-5 0H9a2.5 2.5 0 0 0-5 0Z";
@@ -147,6 +150,23 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       `<g fill="#2a3945"><circle cx="16.5" cy="23.6" r="2.5"/><circle cx="24" cy="23.6" r="2.5"/><circle cx="31.5" cy="23.6" r="2.5"/></g>` +
       `<g fill="#fff" opacity=".55"><circle cx="15.8" cy="22.8" r=".7"/><circle cx="23.3" cy="22.8" r=".7"/><circle cx="30.8" cy="22.8" r=".7"/></g>`,
   };
+  // Types de prestation (cartes de l'écran prestataire) : clé d'intervention et hayon élévateur.
+  ICONS["svc-intervention"] = ground(24, 42.4, 15, 2.1) +
+    `<g transform="rotate(-40 24 24)">` +
+    // clé plate : tête ouverte à droite (masque), anneau à gauche, manche avec poignée bleue City-Drop
+    `<g mask="url(#i3-jaw)">${solid("M29.5 24a7.5 7.5 0 1 1 15 0a7.5 7.5 0 1 1-15 0Z", "steel")}</g>` +
+    solid("M8 21.2h24v5.6H8Z", "steel") +
+    solid("M13.5 20.6h13.4a1.6 1.6 0 0 1 1.6 1.6v3.6a1.6 1.6 0 0 1-1.6 1.6H13.5a1.6 1.6 0 0 1-1.6-1.6v-3.6a1.6 1.6 0 0 1 1.6-1.6Z", "grip") +
+    `<path d="M14 21.6h12.4" stroke="#fff" stroke-opacity=".45" stroke-width=".8" stroke-linecap="round"/><path d="M16 22.6v2.8M18.6 22.6v2.8M21.2 22.6v2.8M23.8 22.6v2.8" stroke="#0a3a4c" stroke-opacity=".45" stroke-width=".7" stroke-linecap="round"/>` +
+    solid("M3.6 24a6 6 0 1 1 12 0a6 6 0 1 1-12 0Z", "steel") +
+    `<path d="M9.6 20.6l2.95 1.7v3.4L9.6 27.4l-2.95-1.7v-3.4Z" fill="#33414c" stroke="${O}" stroke-width=".8" stroke-linejoin="round"/><path d="M6.65 22.3l2.95-1.7 2.95 1.7" stroke="#0a141c" stroke-width=".7" fill="none" opacity=".6"/>` +
+    `<path d="M31.4 20.2a6.4 6.4 0 0 1 8.8-2.4" stroke="#fff" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M5 21.4a4.8 4.8 0 0 1 4-2.6" stroke="#fff" stroke-width=".9" fill="none" stroke-linecap="round"/>` +
+    `</g>`;
+  ICONS["svc-hayon"] = `<g transform="translate(6.4 2.6) scale(.86)">${van(true, false)}</g>` +
+    // hayon : bras, plateau baissé, flèche monte / descend
+    `<path d="M9.6 30.2l-.4 7.6" stroke="${O}" stroke-width="1.6" stroke-linecap="round"/><path d="M9.6 30.2l-.4 7.6" stroke="#9aa7b2" stroke-width=".7" stroke-linecap="round"/>` +
+    solid("M1.4 37.4h9.4v2.6H1.4Z", "steel") + `<path d="M2 37.9h8.2" stroke="#fff" stroke-width=".6" stroke-linecap="round"/>` +
+    `<g stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M5.2 23.6v9.6M2.8 26l2.4-2.4 2.4 2.4M2.8 30.8l2.4 2.4 2.4-2.4" stroke="#fff" stroke-width="2.6" stroke-opacity=".7"/><path d="M5.2 23.6v9.6M2.8 26l2.4-2.4 2.4 2.4M2.8 30.8l2.4 2.4 2.4-2.4" stroke="#0f6f8f" stroke-width="1.5"/></g>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };

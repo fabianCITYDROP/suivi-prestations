@@ -810,6 +810,102 @@ body.sheet-open .sheet-scrim { opacity: 1; pointer-events: auto; }
   .issue-tile.pop .issue-ico, .issue-tile.pop .issue-check, .sent-flash-card, .sent-flash-card path { animation: none; }
 }
 .sheet-b > * { flex-shrink: 0; }
+
+/* ===== Écran prestataire « façon iPhone » (2026-11-21) : même famille que la feuille « Signaler ».
+   Cartes en relief, type de prestation en icône en volume, actions dans une feuille par-dessus l'écran.
+   Bleu City-Drop = actions ; vert / orange / rouge = statuts seulement. Une seule lumière, en haut à gauche. */
+#view-presta { max-width: 600px; }
+.presta-top { padding: 6px 4px 16px; }
+.presta-who { margin: 0 0 2px; font: 600 14px var(--f-body); color: var(--accent); }
+.presta-who span { color: var(--ink-2); font-weight: 500; }
+.presta-top h1 { margin: 0; font: 700 34px/1.1 var(--f-body); letter-spacing: -.025em; color: var(--ink); }
+.presta-body { gap: 14px; }
+/* La journée d'un coup d'œil */
+.day-sum { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 18px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+.day-sum p { margin: 0; font-size: 15px; color: var(--ink-2); }
+.day-sum b { color: var(--ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.day-sum .all-done { display: inline-flex; align-items: center; gap: 6px; color: var(--st-done); }
+.day-sum .all-done .icon { width: 18px; height: 18px; }
+.day-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.day-bar i { display: block; height: 100%; border-radius: 3px; background: var(--st-done); transition: width 600ms var(--ease-out); }
+/* Un site = un groupe */
+.spot { gap: 10px; }
+.spot + .spot { margin-top: 10px; }
+.spot-head { gap: 12px; padding: 4px 4px 0; }
+.spot-head .spot-pin { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); }
+.spot-pin .icon { width: 17px; height: 17px; color: var(--accent); }
+.spot-head b { font: 700 17px/1.25 var(--f-body); letter-spacing: -.01em; }
+.spot-head small { font-size: 13px; line-height: 1.3; }
+.spot-head em { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 13px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); font: 700 13px var(--f-body); }
+/* La carte d'un véhicule */
+.job { position: relative; border: 0; border-radius: 20px; padding: 14px; gap: 12px;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 12px 26px -18px rgba(10, 20, 28, .4); }
+.job-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; }
+.job-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.svc-tile { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 15px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.svc-tile.sm { width: 42px; height: 42px; border-radius: 12px; }
+.svc-art { width: 42px; height: 42px; overflow: visible; }
+.svc-tile.sm .svc-art { width: 32px; height: 32px; }
+.job-id { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; padding-top: 1px; }
+.job-id .job-model { display: block; flex: none; font-weight: 600; font-size: 15px; line-height: 1.3; }
+.job-id .job-kind { padding: 0; background: none; color: var(--ink-2); font-size: 13.5px; font-weight: 500; line-height: 1.2; }
+.job-time { font: 600 15px var(--f-body); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+.job-meta { gap: 6px; font-size: 14px; }
+.job-meta li.late { font-weight: 600; }
+.job-task, .job-note { border-radius: 12px; }
+.job-actions { display: flex; flex-direction: column; gap: 8px; }
+.job-actions .primary.big { min-height: 52px; border-radius: 14px; font-size: 16px; letter-spacing: -.005em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), 0 6px 14px -8px color-mix(in srgb, var(--accent) 80%, transparent); }
+.act-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.act-row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.job-actions .act-btn, .act-btn { flex-direction: column; justify-content: flex-start; gap: 5px; min-height: 62px; padding: 9px 4px 8px; border: 0; border-radius: 14px; background: var(--surface-2); color: var(--ink); font: 600 12.5px/1.2 var(--f-body); text-align: center; -webkit-tap-highlight-color: transparent; transition: transform 140ms var(--ease-out), background-color .15s ease; }
+.act-btn .icon { width: 21px; height: 21px; color: var(--accent); }
+.act-btn.warn .icon { color: var(--danger); }
+.job-actions .act-btn:hover { background: color-mix(in srgb, var(--surface-2) 88%, var(--ink)); }
+.job-actions .act-btn:active { transform: scale(.95); }
+/* « OK » : grande coche verte sur la carte, puis la carte s'en va. */
+.job-done-flash { position: absolute; inset: 0; z-index: 2; border-radius: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: fade-in 160ms var(--ease-out); }
+.job-done-flash svg { width: 60px; height: 60px; fill: none; stroke: var(--st-done); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; animation: flash-in 240ms var(--ease-out); }
+.job-done-flash circle { fill: var(--st-done-bg); stroke: none; }
+.job-done-flash path { stroke-dasharray: 36; animation: draw-check 320ms 80ms var(--ease-out) backwards; }
+.job-done-flash b { color: var(--st-done); font-size: 16px; }
+.job.leaving { animation: job-out 220ms 500ms ease-in forwards; }
+@keyframes job-out { to { opacity: 0; transform: scale(.96); } }
+/* La feuille d'action */
+.act-sheet { display: flex; flex-direction: column; gap: 18px; }
+.act-veh { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 1px var(--line) inset; }
+.act-veh > span { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
+.act-veh small { color: var(--ink-2); font-size: 13.5px; line-height: 1.3; }
+.sheet-label i { font-style: normal; font-weight: 500; text-transform: none; letter-spacing: 0; opacity: .75; }
+textarea.sheet-input { display: block; padding: 14px 16px; min-height: 96px; line-height: 1.4; resize: none; font: 16px var(--f-body); }
+.day-set { border: 0; margin: 0; padding: 0; min-width: 0; }
+.day-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.day-chip { min-height: 50px; padding: 0 4px; border: 0; border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line) inset, 0 1px 2px rgba(10, 20, 28, .05); font: 600 14.5px var(--f-body); text-transform: capitalize; transition: transform 140ms var(--ease-out); }
+.day-chip:active { transform: scale(.95); }
+.day-chip[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 13%, var(--surface)); color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.day-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; margin-top: 12px; }
+.day-row label > span { display: block; margin: 0 4px 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.day-row label i { font-style: normal; font-weight: 500; opacity: .75; }
+.day-row .sheet-input { min-height: 50px; padding: 0 12px; }
+.field-send .icon { width: 20px; height: 20px; }
+/* Bulle avec « Corriger » */
+.toast.with-action { display: flex; align-items: center; gap: 14px; padding: 7px 7px 7px 18px; }
+.toast-action { min-height: 36px; padding: 0 14px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--bg) 20%, transparent); color: var(--bg); font-weight: 700; }
+@media (max-width: 720px) {
+  .presta-top h1 { font-size: 32px; }
+  /* Barre du bas translucide : la liste défile dessous. */
+  .presta-tabs { background: color-mix(in srgb, var(--surface) 80%, transparent); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-top: .5px solid var(--line); box-shadow: none; }
+}
+@media (prefers-reduced-transparency: reduce) { .presta-tabs { background: var(--surface) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .job.leaving, .job-done-flash, .job-done-flash svg, .job-done-flash path { animation: none; }
+  .job-actions .act-btn:active, .day-chip:active { transform: none; }
+  .day-bar i { transition: none; }
+}
 </style>
 </head>
 <body>
@@ -2979,6 +3075,9 @@ ${rad("amber", [[0, "#ffe2a0"], [0.5, "#ffb53d"], [1, "#e87b00"]], 0.45, 0.35, 0
 ${rad("ground", [[0, "#0a141c", 0.34], [1, "#0a141c", 0]], 0.5, 0.5, 0.5)}
 ${rad("dent", [[0, "#7f8d98"], [0.6, "#b9c4cc", 0.6], [1, "#e4e9ed", 0]], 0.42, 0.4, 0.6)}
 ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
+${lin("steel", [[0, "#fbfcfd"], [0.5, "#c3ccd3"], [1, "#7d8a95"]])}
+${lin("grip", [[0, "#3a9cc0"], [0.5, "#0f6f8f"], [1, "#0a4a60"]])}
+<mask id="i3-jaw" maskUnits="userSpaceOnUse" x="0" y="0" width="48" height="48"><rect width="48" height="48" fill="#fff"/><path d="M37 21.3h12v5.4H37Z" fill="#000"/><circle cx="37" cy="24" r="2.7" fill="#000"/></mask>
 <filter id="i3-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.6"/></filter>
 </defs></svg>`;
   const S = `stroke="${O}" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"`;
@@ -2992,7 +3091,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     `<circle cx="${cx}" cy="${cy}" r="2.7" fill="url(#i3-rim)" stroke="#5d6a74" stroke-width=".5"/>` +
     [0, 72, 144, 216, 288].map((a) => { const r = (a - 90) * Math.PI / 180; return `<circle cx="${(cx + 1.6 * Math.cos(r)).toFixed(2)}" cy="${(cy + 1.6 * Math.sin(r)).toFixed(2)}" r=".42" fill="#6b7883"/>`; }).join("") +
     `<circle cx="${cx}" cy="${cy}" r=".7" fill="#3d4952"/><path d="M${cx - 3.6} ${cy - 2.2}a4.2 4.2 0 0 1 3-2" stroke="#fff" stroke-opacity=".35" stroke-width=".7" fill="none" stroke-linecap="round"/>`;
-  const van = (front) => ground(24, 41.6, 22, 2.1) +
+  const van = (front, mark = true) => ground(24, 41.6, 22, 2.1) +
     // caisse : volume, nervures, logo City-Drop, poignée de porte arrière
     solid("M3.5 11a2.5 2.5 0 0 1 2.5-2.5h22a2.5 2.5 0 0 1 2.5 2.5v22h-27Z") +
     `<path d="M5 9.9h23" stroke="url(#i3-shine)" stroke-width="1.2" stroke-linecap="round"/><path d="M5.2 10.2h22.6" stroke="#fff" stroke-width=".8" stroke-linecap="round"/>` +
@@ -3010,7 +3109,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     // bas de caisse et passages de roue
     `<path d="M3 32.6h42.2v1.9c0 .6-.5 1.1-1.1 1.1H4.1A1.1 1.1 0 0 1 3 34.5Z" fill="url(#i3-dark)" ${S}/><path d="M4 33.2h40" stroke="#7d8a95" stroke-width=".5"/>` +
     `<path d="M6.4 33a6 6 0 0 1 12 0M30.7 33a6 6 0 0 1 12 0" fill="#151c21"/>` +
-    wheel(12.4, 35.4, !front) + wheel(36.7, 35.4, front);
+    wheel(12.4, 35.4, mark && !front) + wheel(36.7, 35.4, mark && front);
   const ENG = "M7 8h8.5l2 2.2H19V8.6h2v7.8h-2v-1.6h-1.5l-2.6 3.2H9.6L7 15.6Z";
   const PIPES = "M9.5 5.5h5M12 5.5v2.5M7 12.2H4.6M4.6 9.7v5";
   const CAR = "M4 16.5H2.6a.8.8 0 0 1-.8-.8v-2.3c0-.9.6-1.6 1.5-1.8l3.5-.8 2.9-3a2.4 2.4 0 0 1 1.7-.8h5.1c.8 0 1.5.4 2 1l2.3 2.9 1.7.4c.9.2 1.6 1 1.6 2v2.4a.8.8 0 0 1-.8.8H20a2.5 2.5 0 0 0-5 0H9a2.5 2.5 0 0 0-5 0Z";
@@ -3096,6 +3195,23 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       `<g fill="#2a3945"><circle cx="16.5" cy="23.6" r="2.5"/><circle cx="24" cy="23.6" r="2.5"/><circle cx="31.5" cy="23.6" r="2.5"/></g>` +
       `<g fill="#fff" opacity=".55"><circle cx="15.8" cy="22.8" r=".7"/><circle cx="23.3" cy="22.8" r=".7"/><circle cx="30.8" cy="22.8" r=".7"/></g>`,
   };
+  // Types de prestation (cartes de l'écran prestataire) : clé d'intervention et hayon élévateur.
+  ICONS["svc-intervention"] = ground(24, 42.4, 15, 2.1) +
+    `<g transform="rotate(-40 24 24)">` +
+    // clé plate : tête ouverte à droite (masque), anneau à gauche, manche avec poignée bleue City-Drop
+    `<g mask="url(#i3-jaw)">${solid("M29.5 24a7.5 7.5 0 1 1 15 0a7.5 7.5 0 1 1-15 0Z", "steel")}</g>` +
+    solid("M8 21.2h24v5.6H8Z", "steel") +
+    solid("M13.5 20.6h13.4a1.6 1.6 0 0 1 1.6 1.6v3.6a1.6 1.6 0 0 1-1.6 1.6H13.5a1.6 1.6 0 0 1-1.6-1.6v-3.6a1.6 1.6 0 0 1 1.6-1.6Z", "grip") +
+    `<path d="M14 21.6h12.4" stroke="#fff" stroke-opacity=".45" stroke-width=".8" stroke-linecap="round"/><path d="M16 22.6v2.8M18.6 22.6v2.8M21.2 22.6v2.8M23.8 22.6v2.8" stroke="#0a3a4c" stroke-opacity=".45" stroke-width=".7" stroke-linecap="round"/>` +
+    solid("M3.6 24a6 6 0 1 1 12 0a6 6 0 1 1-12 0Z", "steel") +
+    `<path d="M9.6 20.6l2.95 1.7v3.4L9.6 27.4l-2.95-1.7v-3.4Z" fill="#33414c" stroke="${O}" stroke-width=".8" stroke-linejoin="round"/><path d="M6.65 22.3l2.95-1.7 2.95 1.7" stroke="#0a141c" stroke-width=".7" fill="none" opacity=".6"/>` +
+    `<path d="M31.4 20.2a6.4 6.4 0 0 1 8.8-2.4" stroke="#fff" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M5 21.4a4.8 4.8 0 0 1 4-2.6" stroke="#fff" stroke-width=".9" fill="none" stroke-linecap="round"/>` +
+    `</g>`;
+  ICONS["svc-hayon"] = `<g transform="translate(6.4 2.6) scale(.86)">${van(true, false)}</g>` +
+    // hayon : bras, plateau baissé, flèche monte / descend
+    `<path d="M9.6 30.2l-.4 7.6" stroke="${O}" stroke-width="1.6" stroke-linecap="round"/><path d="M9.6 30.2l-.4 7.6" stroke="#9aa7b2" stroke-width=".7" stroke-linecap="round"/>` +
+    solid("M1.4 37.4h9.4v2.6H1.4Z", "steel") + `<path d="M2 37.9h8.2" stroke="#fff" stroke-width=".6" stroke-linecap="round"/>` +
+    `<g stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M5.2 23.6v9.6M2.8 26l2.4-2.4 2.4 2.4M2.8 30.8l2.4 2.4 2.4-2.4" stroke="#fff" stroke-width="2.6" stroke-opacity=".7"/><path d="M5.2 23.6v9.6M2.8 26l2.4-2.4 2.4 2.4M2.8 30.8l2.4 2.4 2.4-2.4" stroke="#0f6f8f" stroke-width="1.5"/></g>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
@@ -3145,21 +3261,28 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
 
     function modelHtml(d) {
       const [name, size] = (D.vehicleLabel(d) || "").split(" – ");
-      return `<span class="job-model">${esc(name || "Modèle non précisé")}${size ? `<small>${esc(size)}</small>` : ""}</span>`;
+      return `<span class="job-model">${esc(name || "Modèle non précisé")}${size ? ` · ${esc(size)}` : ""}</span>`;
     }
-    function jobHead(d) {
-      return `<div class="job-head">${plateTag(d.plaque)}
-        ${modelHtml(d)}
-        <span class="job-kind">${esc(D.jobLabel(d))}</span></div>`;
+    // Le type de prestation en icône en volume (même famille que « Signaler »), dans une tuile en relief.
+    const SERVICE_ART = { lavage: "Véhicule sale", "pare-brise": "Pare-brise", intervention: "svc-intervention", hayon: "svc-hayon" };
+    const serviceTile = (d, cls = "svc-tile") => `<span class="${cls}" aria-hidden="true">${self.IssueArt?.art(SERVICE_ART[d.service] || "svc-intervention", "svc-art") || ""}</span>`;
+    // withTime: the slot on the right (« Aujourd'hui », where date and site are already given by the section).
+    function jobHead(d, { withTime = false } = {}) {
+      return `<div class="job-head">${serviceTile(d)}
+        <div class="job-id"><div class="job-line">${plateTag(d.plaque)}${withTime ? `<span class="job-time">${esc(slot(d))}</span>` : ""}</div>${modelHtml(d)}<span class="job-kind">${esc(D.jobLabel(d))}</span></div></div>`;
     }
     function jobMeta(d, { withDate = true, withSite = true } = {}) {
       const late = D.isLate(d, today());
-      return `<ul class="job-meta">
-        ${withDate ? `<li>${icon("cal")}<span>${esc(cap(when(d)))}</span></li>` : ""}
-        <li>${icon("clock")}<span>${esc(cap(slot(d)))}${!withDate && D.isMultiDay(d) ? ` · sur site jusqu'au ${esc(D.shortDate(D.lastDay(d)))}` : ""}</span></li>
-        ${withSite ? `<li>${icon("pin")}<span>${esc([d.site, d.adresse].filter(Boolean).join(" · ") || "Site à préciser")}</span></li>` : ""}
-        ${late ? `<li class="late">${icon("alert")}<span>En retard : prévu jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>` : ""}
-      </ul>${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}`;
+      const items = [
+        withDate && `<li>${icon("cal")}<span>${esc(cap(when(d)))}</span></li>`,
+        withDate ? `<li>${icon("clock")}<span>${esc(cap(slot(d)))}</span></li>`
+          : D.isMultiDay(d) && !late && `<li>${icon("cal")}<span>Sur site jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>`,
+        withSite && `<li>${icon("pin")}<span>${esc([d.site, d.adresse].filter(Boolean).join(" · ") || "Site à préciser")}</span></li>`,
+        late && `<li class="late">${icon("alert")}<span>En retard · prévu jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>`,
+      ].filter(Boolean);
+      return (items.length ? `<ul class="job-meta">${items.join("")}</ul>` : "") +
+        (d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : "") +
+        (d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : "");
     }
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
@@ -3181,61 +3304,69 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       return `<p class="job-answer">${icon("alert")}<span>${esc(D.answerSummary(r))}${r.vu ? "" : " · en attente de l'équipe"}</span></p>`;
     }
 
-    // ---------- inline forms (done, another date, missing vehicle, not possible) ----------
-    function formHtml(d) {
-      const cancel = (kind) => `<button type="button" class="ghost" data-form="${kind}:${esc(d.id)}">Annuler</button>`;
-      const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note value="${esc(state.draft.note || "")}" placeholder="${placeholder}" maxlength="${D.PROBLEM_TEXT_MAX}"></label>`;
-      // "Done": one confirmation step so a slip of the finger does not close a job. No photo: providers are trusted.
-      if (state.openForm === "done:" + d.id) return `<div class="job-form">
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. RAS, tout est propre")}
-        <div class="job-form-actions">${cancel("done")}<button type="button" class="primary" data-send="done:${esc(d.id)}">${icon("check")}Confirmer : réalisée</button></div></div>`;
-      if (state.openForm === "undo:" + d.id) return `<div class="job-form">
-        <p class="job-form-text">Ce véhicule revient dans ta liste à faire. L'équipe est prévenue.</p>
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. c'était le véhicule d'à côté")}
-        <div class="job-form-actions">${cancel("undo")}<button type="button" class="primary" data-send="undo:${esc(d.id)}">Oui, remettre à faire</button></div></div>`;
-      if (state.openForm === "problem:" + d.id) return `<div class="job-form">
-        <label class="field"><span>Qu'est-ce qui ne va pas sur le véhicule ?</span><textarea data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(state.draft.note || "")}</textarea></label>
-        ${photoPicker()}
-        <div class="job-form-actions">${cancel("problem")}<button type="button" class="primary" data-send="problem:${esc(d.id)}">${icon("alert")}Envoyer à l'équipe</button></div></div>`;
-      if (state.openForm === "date:" + d.id) return `<div class="job-form">
-        <div class="job-form-row"><label class="field"><span>Date proposée</span><input type="date" data-date min="${today()}"></label>
-        <label class="field"><span>Heure</span><input type="time" data-time step="900"></label></div>
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. complet jeudi matin")}
-        <div class="job-form-actions">${cancel("date")}<button type="button" class="primary" data-send="date:${esc(d.id)}">Proposer cette date</button></div></div>`;
-      if (state.openForm === "absent:" + d.id) return `<div class="job-form">
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. pas sur le parking à 9 h")}
-        <div class="job-form-actions">${cancel("absent")}<button type="button" class="primary" data-send="absent:${esc(d.id)}">Signaler le véhicule absent</button></div></div>`;
-      if (state.openForm === "refuse:" + d.id) return `<div class="job-form">
-        ${note("Pourquoi ? (facultatif)", "Ex. pièce indisponible")}
-        <div class="job-form-actions">${cancel("refuse")}<button type="button" class="primary" data-send="refuse:${esc(d.id)}">Confirmer : pas possible</button></div></div>`;
-      return "";
+    // ---------- actions in a sheet over the screen (done, postpone, missing vehicle, problem, not possible, take back) ----------
+    // Same sheet as « Signaler »: the card stays where it is, nothing unfolds inside the list.
+    const ACTS = {
+      done: { title: "Prestation réalisée ?", btn: "Confirmer : réalisée", noteLabel: "Un mot pour l'équipe", ph: "Ex. RAS, tout est propre" },
+      undo: { title: "Remettre à faire ?", text: "Ce véhicule revient dans ta liste à faire. L'équipe est prévenue.", btn: "Oui, remettre à faire", noteLabel: "Un mot pour l'équipe", ph: "Ex. c'était le véhicule d'à côté" },
+      date: { title: "Reporter", btn: "Proposer cette date", noteLabel: "Un mot pour l'équipe", ph: "Ex. complet jeudi matin" },
+      absent: { title: "Véhicule absent", text: "L'équipe City-Drop est prévenue tout de suite.", btn: "Signaler le véhicule absent", noteLabel: "Un mot pour l'équipe", ph: "Ex. pas sur le parking à 9 h" },
+      refuse: { title: "Pas possible", btn: "Confirmer : pas possible", noteLabel: "Pourquoi ?", ph: "Ex. pièce indisponible" },
+      problem: { title: "Problème sur le véhicule", btn: "Envoyer à l'équipe" },
+    };
+    const actOf = () => { const [kind, id] = (state.openForm || "").split(":"); return { kind, d: byId(id) }; };
+    const actTitle = (kind, d) => (kind === "date" && d && !D.isAccepted(d) ? "Proposer une autre date" : ACTS[kind]?.title || "");
+    const actBtn = (kind, id, label, ic = "") => `<button type="button" class="act-btn${kind === "problem" ? " warn" : ""}" data-act="${kind}" data-id="${esc(id)}">${ic ? icon(ic) : ""}<span>${label}</span></button>`;
+    // The next days as one-tap choices; any other day stays in the date field.
+    function nextDays(n) {
+      const out = []; const d0 = new Date(today() + "T12:00:00");
+      for (let i = 1; i <= n; i++) { const x = new Date(d0); x.setDate(d0.getDate() + i); out.push(D.toIsoDate(x)); }
+      return out;
+    }
+    const dayChip = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" }).replace(".", "");
+    function actBody() {
+      const { kind, d } = actOf();
+      const a = ACTS[kind];
+      if (!a || !d) return "";
+      const dr = state.draft;
+      const note = (rows) => `<label class="sheet-group"><span class="sheet-label">${a.noteLabel || "Un mot pour l'équipe"} <i>facultatif</i></span>${rows
+        ? `<textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="${a.ph}">${esc(dr.note || "")}</textarea>`
+        : `<input class="sheet-input" data-note value="${esc(dr.note || "")}" placeholder="${a.ph}" maxlength="${D.PROBLEM_TEXT_MAX}">`}</label>`;
+      const veh = `<div class="act-veh">${serviceTile(d, "svc-tile sm")}<span>${plateTag(d.plaque)}<small>${esc([D.vehicleLabel(d), D.jobLabel(d)].filter(Boolean).join(" · "))}</small></span></div>`;
+      let fields = "";
+      if (kind === "problem") fields = `<label class="sheet-group"><span class="sheet-label">Qu'est-ce qui ne va pas ?</span><textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(dr.note || "")}</textarea></label>${photoPicker()}`;
+      else if (kind === "date") fields = `<fieldset class="sheet-group day-set"><legend class="sheet-label">Nouvelle date</legend>
+          <div class="day-chips">${nextDays(4).map((iso) => `<button type="button" class="day-chip" data-day="${iso}" aria-pressed="${dr.date === iso}">${esc(dayChip(iso))}</button>`).join("")}</div>
+          <div class="day-row"><label><span>Autre jour</span><input type="date" class="sheet-input" data-date data-keep="adate" min="${today()}" value="${esc(dr.date || "")}"></label>
+          <label><span>Heure <i>facultatif</i></span><input type="time" class="sheet-input" data-time data-keep="atime" step="900" value="${esc(dr.time || "")}"></label></div></fieldset>${note(false)}`;
+      else fields = (a.text ? `<p class="sheet-sub">${a.text}</p>` : "") + note(false);
+      return `<div class="act-sheet" data-asheet>${veh}${fields}
+        ${state.busy.has(d.id) ? busyLine : `<button type="button" class="primary big field-send${kind === "done" ? " ok" : ""}" data-asend>${kind === "done" ? icon("check") : ""}${a.btn}</button>`}</div>`;
     }
     function photoPicker() {
       const ph = state.draft.photo;
       if (state.draft.photoBusy) return `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`;
-      if (ph) return `<div class="problem-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer la photo</button></div>`;
-      return `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
+      if (ph) return `<div class="sheet-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer</button></div>`;
+      return `<label class="sheet-photo-add">${icon("camera")}<span>Ajouter une photo</span><small>facultatif</small><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
     }
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
-    const formOpen = (d) => state.openForm?.endsWith(":" + d.id);
 
     // ---------- cards per tab ----------
     function validateCard(d) {
-      return `<article class="job">${jobHead(d)}${jobMeta(d)}${photosStrip(d)}${answerLine(d)}
-        ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
-          <button type="button" class="primary" data-take="${esc(d.id)}">${icon("check")}Accepter</button>
-          <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Autre date</button>
-          <button type="button" class="ghost" data-form="refuse:${esc(d.id)}">Pas possible</button></div>`}
+      return `<article class="job" data-job="${esc(d.id)}">${jobHead(d)}${jobMeta(d)}${photosStrip(d)}${answerLine(d)}
+        ${state.busy.has(d.id) ? busyLine : `<div class="job-actions">
+          <button type="button" class="primary big" data-take="${esc(d.id)}">${icon("check")}Accepter</button>
+          <div class="act-row two">${actBtn("date", d.id, "Autre date", "cal")}${actBtn("refuse", d.id, "Pas possible", "x")}</div></div>`}
       </article>`;
     }
+    // early: a vehicle of « À venir » done ahead of time (date and site shown, the section does not give them).
     function doCard(d, { early = false } = {}) {
-      return `<article class="job">${jobHead(d)}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
-        ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
-          <button type="button" class="primary big" data-form="done:${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
-          <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Reporter</button>
-          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button>
-          <button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button></div>`}
-      ${problemLines(d)}</article>`;
+      const leaving = state.leaving === d.id;
+      return `<article class="job${leaving ? " leaving" : ""}" data-job="${esc(d.id)}">${jobHead(d, { withTime: !early })}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
+        ${state.busy.has(d.id) && !leaving ? busyLine : `<div class="job-actions">
+          <button type="button" class="primary big" data-act="done" data-id="${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
+          <div class="act-row">${actBtn("date", d.id, "Reporter", "cal")}${actBtn("absent", d.id, "Véhicule absent", "pin")}${actBtn("problem", d.id, "Problème", "alert")}</div></div>`}
+      ${problemLines(d)}${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
     }
     const doneDayOf = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
     function doneRow(d) {
@@ -3243,9 +3374,9 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
       const undo = D.canUndoDone(d, email, Date.now());
-      const more = recent || undo ? (state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d)
-        : (undo ? `<button type="button" class="undo-done" data-form="undo:${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : "") +
-          (recent ? `<button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button>` : "")) : "";
+      const more = recent || undo ? (state.busy.has(d.id) ? busyLine
+        : (undo ? `<button type="button" class="undo-done" data-act="undo" data-id="${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : "") +
+          (recent ? `<button type="button" class="report" data-act="problem" data-id="${esc(d.id)}">${icon("alert")}Signaler un problème</button>` : "")) : "";
       const lines = problemLines(d);
       return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
         ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}
@@ -3254,7 +3385,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     // Today's vehicles grouped by site: the provider goes site by site.
     function todayHtml(list) {
       return [...D.groupBy(list, D.siteOf).entries()].map(([site, rows]) => `<section class="spot">
-        <header class="spot-head">${icon("pin")}<span><b>${esc(site)}</b>${rows[0].adresse ? `<small>${esc(rows[0].adresse)}</small>` : ""}</span><em>${rows.length}</em></header>
+        <header class="spot-head"><span class="spot-pin">${icon("pin")}</span><span><b>${esc(site)}</b>${rows[0].adresse ? `<small>${esc(rows[0].adresse)}</small>` : ""}</span><em aria-label="${rows.length} véhicule${rows.length > 1 ? "s" : ""}">${rows.length}</em></header>
         ${rows.map((d) => doCard(d)).join("")}</section>`).join("");
     }
     const searchBox = () => `<label class="job-search">${icon("search")}<input type="search" data-search value="${esc(state.query)}" placeholder="Chercher une plaque, un site…" aria-label="Chercher"></label>`;
@@ -3276,8 +3407,18 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
         ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${list.map(validateCard).join("")}`
         : empty("Aucune demande à valider", "Les nouvelles demandes de City-Drop arrivent ici.");
     }
+    // The day at a glance: what is left, what is already done today (green bar = done only).
+    function daySummary(left) {
+      const doneToday = state.demandes.filter((d) => D.isForProvider(d) && (d.retour?.etat === "fait" || d.statut === "realisee") && doneDayOf(d) === today()).length;
+      const total = left + doneToday;
+      if (!total) return "";
+      const pct = Math.round((doneToday / total) * 100);
+      const text = left ? `<b>${left}</b> véhicule${left > 1 ? "s" : ""} à faire${doneToday ? `<span> · ${doneToday} fait${doneToday > 1 ? "s" : ""}</span>` : ""}`
+        : `<b class="all-done">${icon("check")}Tout est fait</b><span> · ${doneToday} véhicule${doneToday > 1 ? "s" : ""}</span>`;
+      return `<div class="day-sum"><p>${text}</p><div class="day-bar" role="progressbar" aria-label="Avancement de la journée" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${doneToday}"><i style="width:${pct}%"></i></div></div>`;
+    }
     function todayTab(list) {
-      return list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site.");
+      return daySummary(list.length) + (list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site."));
     }
     function upcomingTab(all) {
       const list = filtered(all);
@@ -3420,9 +3561,10 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     const main = view.querySelector(".presta-main");
     const sheetEl = view.querySelector(".presta-sheet");
     let lastFocus = null;
-    function openSheet() {
+    // mode: "report" (« Signaler ») or "act" (an action on one vehicle, state.openForm = "kind:id").
+    function openSheet(mode = "report") {
       if (state.sheetOpen) return;
-      state.sheetOpen = true; lastFocus = document.activeElement; render();
+      state.sheetMode = mode; state.sheetOpen = true; lastFocus = document.activeElement; render();
       sheetEl.style.transform = "";
       document.body.classList.add("sheet-open"); sheetEl.setAttribute("aria-hidden", "false");
       requestAnimationFrame(() => sheetEl.classList.add("on"));
@@ -3431,6 +3573,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     function closeSheet() {
       if (!state.sheetOpen) return;
       state.sheetOpen = false; state.pdelArmed = null;
+      if (state.sheetMode === "act") { state.openForm = null; state.draft = {}; }
       if (state.fd?.editId) state.fd = null; // an edit left half-way is dropped; a new report being typed is kept
       sheetEl.style.transform = ""; sheetEl.classList.remove("on");
       document.body.classList.remove("sheet-open"); sheetEl.setAttribute("aria-hidden", "true");
@@ -3467,18 +3610,20 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       const a = document.activeElement;
       const typing = a?.matches?.("[data-keep]") ? `[data-keep="${a.dataset.keep}"]` : a?.matches?.("[data-search], [data-note]") ? (a.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
       main.innerHTML = `<header class="presta-top">
-          <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
-          <h1>${esc(cap(D.dayLabel(today())))}</h1>
+          <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}<span> · ${esc(cap(D.dayLabel(today())))}</span></p>
+          <h1>${esc(TABS.find((t) => t.id === state.tab)?.label || "Mes demandes")}</h1>
         </header>
         ${alertCard()}
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
-      sheetEl.querySelector("#sheetTitle").textContent = sheetTitle();
-      sheetEl.querySelector(".sheet-b").innerHTML = sheetBody();
+      const acting = state.sheetMode === "act";
+      if (acting && state.sheetOpen && !actOf().d) closeSheet(); // the vehicle left the list meanwhile (done from another phone)
+      sheetEl.querySelector("#sheetTitle").textContent = acting ? actTitle(actOf().kind, actOf().d) : sheetTitle();
+      sheetEl.querySelector(".sheet-b").innerHTML = acting ? (state.openForm ? actBody() : "") : sheetBody();
       scheduleUndoEnd();
       const input = typing && view.querySelector(typing);
-      if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+      if (input) { input.focus(); try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* date / time fields */ } }
     }
 
     // The « Corriger » button disappears by itself when its 10 minutes are over.
@@ -3498,23 +3643,23 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       catch (err) { toast(err?.code === "permission-denied" ? "Plus de 10 minutes : appelle l'équipe pour corriger" : "Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
-    async function send(d, retour, message) {
+    async function send(d, retour, message, action) {
       state.busy.add(d.id); state.openForm = null; render();
-      try { await store.answer(d, { ...retour, par: email }); toast(message); }
+      try { await store.answer(d, { ...retour, par: email }); toast(message, action); }
       catch { toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
 
     // A problem report; the photo is optional. Nothing is lost if it fails: the form stays open with what was typed.
-    async function sendProblem(d, note) {
+    async function sendProblem(d, note, typed = state.draft) {
       const check = D.problemReport(d, { texte: note }, email, "");
-      if (check.error) return toast(check.error);
-      const draft = { ...state.draft, note };
+      if (check.error) { state.openForm = "problem:" + d.id; state.draft = typed; openSheet("act"); return toast(check.error); }
+      const draft = { ...typed, note };
       state.busy.add(d.id); state.openForm = null; render();
       try {
         await store.reportProblem(d, { texte: note, par: email }, draft.photo?.full);
         state.draft = {}; toast("Problème envoyé à l'équipe, merci !");
-      } catch { state.openForm = "problem:" + d.id; state.draft = draft; toast("Envoi impossible : vérifie ta connexion et réessaie"); }
+      } catch { state.openForm = "problem:" + d.id; state.draft = draft; openSheet("act"); toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
     async function addPhoto(file) {
@@ -3539,6 +3684,8 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     }
     view.addEventListener("input", (e) => {
       if (e.target.matches("[data-note]")) state.draft.note = e.target.value;
+      else if (e.target.matches("[data-date]")) { state.draft.date = e.target.value; sheetEl.querySelectorAll("[data-day]").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.day === e.target.value))); }
+      else if (e.target.matches("[data-time]")) state.draft.time = e.target.value;
       else if (e.target.matches("[data-fplate]")) { fd().plaque = e.target.value; syncSend(); }
       else if (e.target.matches("[data-ftext]")) { fd().texte = e.target.value; syncSend(); }
       else if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); }
@@ -3565,33 +3712,39 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       else if ((b = el("[data-pdel]"))) deleteReport(b.dataset.pdel);
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
-      else if ((b = el("[data-form]"))) {
-        state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; state.draft = {}; render();
-        const form = state.openForm && view.querySelector(".job-form");
-        if (form) {
-          form.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-          if (state.openForm.startsWith("problem:")) form.querySelector("textarea")?.focus({ preventScroll: true });
-        }
+      else if ((b = el("[data-act]"))) {
+        state.openForm = `${b.dataset.act}:${b.dataset.id}`; state.draft = {};
+        openSheet("act");
+        if (b.dataset.act === "problem") setTimeout(() => sheetEl.querySelector("textarea[data-note]")?.focus({ preventScroll: true }), 380);
       }
+      else if ((b = el("[data-day]"))) { state.draft.date = b.dataset.day; render(); }
       else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
-      else if ((b = el("[data-send]"))) {
-        const [kind, id] = b.dataset.send.split(":");
-        const form = b.closest(".job-form");
-        const note = form.querySelector("[data-note]").value.trim();
-        const withNote = note ? { note } : {};
-        if (kind === "problem") sendProblem(byId(id), note);
-        else if (kind === "undo") undoDone(byId(id), note);
-        else if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
-        else if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
-        else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");
-        else {
-          const date = form.querySelector("[data-date]").value;
-          if (!date) return toast("Choisis la date que tu proposes");
-          const debut = form.querySelector("[data-time]").value;
-          send(byId(id), { etat: "autre-date", date, ...(debut ? { debut } : {}), ...withNote }, "Date proposée à l'équipe");
-        }
-      }
+      else if ((b = el("[data-asend]"))) sendAct();
     });
+    // The sheet's main button. « OK prestation réalisée »: the card shows a green tick, then leaves the list.
+    function sendAct() {
+      const { kind, d } = actOf();
+      if (!d) return closeSheet();
+      const dr = state.draft;
+      const note = (dr.note || "").trim();
+      const withNote = note ? { note } : {};
+      if (kind === "date" && !dr.date) return toast("Choisis la date que tu proposes");
+      if (kind === "problem") { const typed = { ...dr }; closeSheet(); return sendProblem(d, note, typed); }
+      if (kind === "undo") { closeSheet(); return undoDone(d, note); }
+      closeSheet();
+      if (kind === "done") return finishDone(d, withNote);
+      if (kind === "absent") send(d, { etat: "absent", ...withNote }, "L'équipe est prévenue");
+      else if (kind === "refuse") send(d, { etat: "refuse", ...withNote }, "L'équipe est prévenue");
+      else if (kind === "date") send(d, { etat: "autre-date", date: dr.date, ...(dr.time ? { debut: dr.time } : {}), ...withNote }, "Date proposée à l'équipe");
+    }
+    const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+    async function finishDone(d, withNote) {
+      if (!reduceMotion()) { state.leaving = d.id; render(); navigator.vibrate?.([10, 60, 14]); await new Promise((r) => setTimeout(r, 720)); }
+      state.leaving = null;
+      // The bubble offers « Corriger » for a slip of the finger (same 10 minutes as in « Faits »).
+      await send(d, { etat: "fait", ...withNote }, `${d.plaque} réalisé, merci !`,
+        { label: "Corriger", run: () => { if (byId(d.id) && D.canUndoDone(byId(d.id), email, Date.now())) { state.openForm = "undo:" + d.id; state.draft = {}; openSheet("act"); } } });
+    }
 
     alerts?.listen(() => render());
     render();
@@ -3719,10 +3872,17 @@ function page(texte) {
   }
 
   let toastTimer;
-  function toast(text) {
+  // action (optional): { label, run } adds one button to the bubble, e.g. « Corriger » just after « OK prestation réalisée ».
+  function toast(text, action) {
     const el = $("#toast");
-    el.textContent = text; el.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 3200);
+    el.textContent = text; el.hidden = false; el.classList.toggle("with-action", !!action);
+    if (action) {
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.className = "toast-action"; btn.textContent = action.label;
+      btn.addEventListener("click", () => { el.hidden = true; action.run(); });
+      el.append(btn);
+    }
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), action ? 6000 : 3200);
   }
   function banner(text) { const el = $("#banner"); el.textContent = text || ""; el.hidden = !text; }
   function reportWriteError(err) {

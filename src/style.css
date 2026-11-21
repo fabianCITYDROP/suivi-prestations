@@ -784,4 +784,100 @@ body.sheet-open .sheet-scrim { opacity: 1; pointer-events: auto; }
   .issue-tile.pop .issue-ico, .issue-tile.pop .issue-check, .sent-flash-card, .sent-flash-card path { animation: none; }
 }
 .sheet-b > * { flex-shrink: 0; }
+
+/* ===== Écran prestataire « façon iPhone » (2026-11-21) : même famille que la feuille « Signaler ».
+   Cartes en relief, type de prestation en icône en volume, actions dans une feuille par-dessus l'écran.
+   Bleu City-Drop = actions ; vert / orange / rouge = statuts seulement. Une seule lumière, en haut à gauche. */
+#view-presta { max-width: 600px; }
+.presta-top { padding: 6px 4px 16px; }
+.presta-who { margin: 0 0 2px; font: 600 14px var(--f-body); color: var(--accent); }
+.presta-who span { color: var(--ink-2); font-weight: 500; }
+.presta-top h1 { margin: 0; font: 700 34px/1.1 var(--f-body); letter-spacing: -.025em; color: var(--ink); }
+.presta-body { gap: 14px; }
+/* La journée d'un coup d'œil */
+.day-sum { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 18px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+.day-sum p { margin: 0; font-size: 15px; color: var(--ink-2); }
+.day-sum b { color: var(--ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.day-sum .all-done { display: inline-flex; align-items: center; gap: 6px; color: var(--st-done); }
+.day-sum .all-done .icon { width: 18px; height: 18px; }
+.day-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.day-bar i { display: block; height: 100%; border-radius: 3px; background: var(--st-done); transition: width 600ms var(--ease-out); }
+/* Un site = un groupe */
+.spot { gap: 10px; }
+.spot + .spot { margin-top: 10px; }
+.spot-head { gap: 12px; padding: 4px 4px 0; }
+.spot-head .spot-pin { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); }
+.spot-pin .icon { width: 17px; height: 17px; color: var(--accent); }
+.spot-head b { font: 700 17px/1.25 var(--f-body); letter-spacing: -.01em; }
+.spot-head small { font-size: 13px; line-height: 1.3; }
+.spot-head em { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 13px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); font: 700 13px var(--f-body); }
+/* La carte d'un véhicule */
+.job { position: relative; border: 0; border-radius: 20px; padding: 14px; gap: 12px;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 12px 26px -18px rgba(10, 20, 28, .4); }
+.job-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; }
+.job-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.svc-tile { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 15px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.svc-tile.sm { width: 42px; height: 42px; border-radius: 12px; }
+.svc-art { width: 42px; height: 42px; overflow: visible; }
+.svc-tile.sm .svc-art { width: 32px; height: 32px; }
+.job-id { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; padding-top: 1px; }
+.job-id .job-model { display: block; flex: none; font-weight: 600; font-size: 15px; line-height: 1.3; }
+.job-id .job-kind { padding: 0; background: none; color: var(--ink-2); font-size: 13.5px; font-weight: 500; line-height: 1.2; }
+.job-time { font: 600 15px var(--f-body); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+.job-meta { gap: 6px; font-size: 14px; }
+.job-meta li.late { font-weight: 600; }
+.job-task, .job-note { border-radius: 12px; }
+.job-actions { display: flex; flex-direction: column; gap: 8px; }
+.job-actions .primary.big { min-height: 52px; border-radius: 14px; font-size: 16px; letter-spacing: -.005em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), 0 6px 14px -8px color-mix(in srgb, var(--accent) 80%, transparent); }
+.act-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.act-row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.job-actions .act-btn, .act-btn { flex-direction: column; justify-content: flex-start; gap: 5px; min-height: 62px; padding: 9px 4px 8px; border: 0; border-radius: 14px; background: var(--surface-2); color: var(--ink); font: 600 12.5px/1.2 var(--f-body); text-align: center; -webkit-tap-highlight-color: transparent; transition: transform 140ms var(--ease-out), background-color .15s ease; }
+.act-btn .icon { width: 21px; height: 21px; color: var(--accent); }
+.act-btn.warn .icon { color: var(--danger); }
+.job-actions .act-btn:hover { background: color-mix(in srgb, var(--surface-2) 88%, var(--ink)); }
+.job-actions .act-btn:active { transform: scale(.95); }
+/* « OK » : grande coche verte sur la carte, puis la carte s'en va. */
+.job-done-flash { position: absolute; inset: 0; z-index: 2; border-radius: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: fade-in 160ms var(--ease-out); }
+.job-done-flash svg { width: 60px; height: 60px; fill: none; stroke: var(--st-done); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; animation: flash-in 240ms var(--ease-out); }
+.job-done-flash circle { fill: var(--st-done-bg); stroke: none; }
+.job-done-flash path { stroke-dasharray: 36; animation: draw-check 320ms 80ms var(--ease-out) backwards; }
+.job-done-flash b { color: var(--st-done); font-size: 16px; }
+.job.leaving { animation: job-out 220ms 500ms ease-in forwards; }
+@keyframes job-out { to { opacity: 0; transform: scale(.96); } }
+/* La feuille d'action */
+.act-sheet { display: flex; flex-direction: column; gap: 18px; }
+.act-veh { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 1px var(--line) inset; }
+.act-veh > span { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
+.act-veh small { color: var(--ink-2); font-size: 13.5px; line-height: 1.3; }
+.sheet-label i { font-style: normal; font-weight: 500; text-transform: none; letter-spacing: 0; opacity: .75; }
+textarea.sheet-input { display: block; padding: 14px 16px; min-height: 96px; line-height: 1.4; resize: none; font: 16px var(--f-body); }
+.day-set { border: 0; margin: 0; padding: 0; min-width: 0; }
+.day-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.day-chip { min-height: 50px; padding: 0 4px; border: 0; border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line) inset, 0 1px 2px rgba(10, 20, 28, .05); font: 600 14.5px var(--f-body); text-transform: capitalize; transition: transform 140ms var(--ease-out); }
+.day-chip:active { transform: scale(.95); }
+.day-chip[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 13%, var(--surface)); color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.day-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; margin-top: 12px; }
+.day-row label > span { display: block; margin: 0 4px 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.day-row label i { font-style: normal; font-weight: 500; opacity: .75; }
+.day-row .sheet-input { min-height: 50px; padding: 0 12px; }
+.field-send .icon { width: 20px; height: 20px; }
+/* Bulle avec « Corriger » */
+.toast.with-action { display: flex; align-items: center; gap: 14px; padding: 7px 7px 7px 18px; }
+.toast-action { min-height: 36px; padding: 0 14px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--bg) 20%, transparent); color: var(--bg); font-weight: 700; }
+@media (max-width: 720px) {
+  .presta-top h1 { font-size: 32px; }
+  /* Barre du bas translucide : la liste défile dessous. */
+  .presta-tabs { background: color-mix(in srgb, var(--surface) 80%, transparent); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-top: .5px solid var(--line); box-shadow: none; }
+}
+@media (prefers-reduced-transparency: reduce) { .presta-tabs { background: var(--surface) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .job.leaving, .job-done-flash, .job-done-flash svg, .job-done-flash path { animation: none; }
+  .job-actions .act-btn:active, .day-chip:active { transform: none; }
+  .day-bar i { transition: none; }
+}
 </style>
