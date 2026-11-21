@@ -110,6 +110,27 @@
     return copied;
   }
 
+  // Appui sur une plaque : on la copie, sans ouvrir la carte en dessous. Petite bulle « Copié » au-dessus de la plaque.
+  let copiedBubble, copiedTimer;
+  function showCopied(plateEl) {
+    if (!copiedBubble) { copiedBubble = document.createElement("div"); copiedBubble.className = "plate-copied"; copiedBubble.setAttribute("role", "status"); copiedBubble.textContent = "Copié"; document.body.append(copiedBubble); }
+    const r = plateEl.getBoundingClientRect();
+    copiedBubble.style.left = `${Math.round(r.left + r.width / 2)}px`;
+    copiedBubble.style.top = `${Math.round(r.top)}px`;
+    copiedBubble.classList.remove("on"); void copiedBubble.offsetWidth; copiedBubble.classList.add("on");
+    plateEl.classList.remove("copied"); void plateEl.offsetWidth; plateEl.classList.add("copied");
+    clearTimeout(copiedTimer);
+    copiedTimer = setTimeout(() => { copiedBubble.classList.remove("on"); plateEl.classList.remove("copied"); }, 1100);
+  }
+  window.addEventListener("click", (e) => {
+    const plateEl = e.target.closest?.(".plate");
+    if (!plateEl) return;
+    const text = plateEl.textContent.trim();
+    if (!text || text === "—") return;
+    e.preventDefault(); e.stopPropagation();
+    copyText(text).then((ok) => { if (ok) showCopied(plateEl); });
+  }, true);
+
   const loadImage = (src) => new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = src; });
   const canvasToBlob = (canvas, type, quality) => new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("blob"))), type, quality));
   const dataUrlToBlob = (dataUrl) => fetch(dataUrl).then((r) => r.blob());

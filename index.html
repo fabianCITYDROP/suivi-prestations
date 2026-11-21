@@ -2959,6 +2959,13 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
   .ret-card.side .ret-line { flex-wrap: wrap; row-gap: 2px; }
   .ret-card.side .ret-what { flex-basis: 100%; white-space: normal; }
 }
+
+/* Plaque copiée d'un appui (Fabian, 21/11) : la plaque s'enfonce un instant, une petite bulle « Copié » apparaît au-dessus. */
+.plate { cursor: pointer; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; transition: transform .16s cubic-bezier(.2, .8, .2, 1); }
+.plate:active, .plate.copied { transform: scale(.95); }
+.plate-copied { position: fixed; z-index: 90; transform: translate(-50%, calc(-100% - 4px)) scale(.9); padding: 4px 9px; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: 12px; font-weight: 600; letter-spacing: .01em; pointer-events: none; opacity: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, .18); transition: opacity .18s ease, transform .22s cubic-bezier(.2, .8, .2, 1); }
+.plate-copied.on { opacity: 1; transform: translate(-50%, calc(-100% - 8px)) scale(1); }
+@media (prefers-reduced-motion: reduce) { .plate:active, .plate.copied { transform: none; } .plate-copied, .plate-copied.on { transform: translate(-50%, calc(-100% - 8px)); } }
 </style>
 </head>
 <body>
@@ -6519,6 +6526,27 @@ function page(texte) {
     if (!copied) toast("Copie bloquée par le navigateur : sélectionne le texte et copie-le à la main");
     return copied;
   }
+
+  // Appui sur une plaque : on la copie, sans ouvrir la carte en dessous. Petite bulle « Copié » au-dessus de la plaque.
+  let copiedBubble, copiedTimer;
+  function showCopied(plateEl) {
+    if (!copiedBubble) { copiedBubble = document.createElement("div"); copiedBubble.className = "plate-copied"; copiedBubble.setAttribute("role", "status"); copiedBubble.textContent = "Copié"; document.body.append(copiedBubble); }
+    const r = plateEl.getBoundingClientRect();
+    copiedBubble.style.left = `${Math.round(r.left + r.width / 2)}px`;
+    copiedBubble.style.top = `${Math.round(r.top)}px`;
+    copiedBubble.classList.remove("on"); void copiedBubble.offsetWidth; copiedBubble.classList.add("on");
+    plateEl.classList.remove("copied"); void plateEl.offsetWidth; plateEl.classList.add("copied");
+    clearTimeout(copiedTimer);
+    copiedTimer = setTimeout(() => { copiedBubble.classList.remove("on"); plateEl.classList.remove("copied"); }, 1100);
+  }
+  window.addEventListener("click", (e) => {
+    const plateEl = e.target.closest?.(".plate");
+    if (!plateEl) return;
+    const text = plateEl.textContent.trim();
+    if (!text || text === "—") return;
+    e.preventDefault(); e.stopPropagation();
+    copyText(text).then((ok) => { if (ok) showCopied(plateEl); });
+  }, true);
 
   const loadImage = (src) => new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = src; });
   const canvasToBlob = (canvas, type, quality) => new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("blob"))), type, quality));
