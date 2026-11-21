@@ -14,6 +14,33 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Nunito:wght@800;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script>
+// Mode clair / sombre choisi sur cet appareil (bouton soleil/lune de la barre du haut). Sans choix, on suit le téléphone.
+(function () {
+  var KEY = "presta-theme", root = document.documentElement, dark = matchMedia("(prefers-color-scheme: dark)");
+  try { var saved = localStorage.getItem(KEY); if (saved === "light" || saved === "dark") root.dataset.theme = saved; } catch (e) {}
+  var current = function () { return root.dataset.theme || (dark.matches ? "dark" : "light"); };
+  var label = function () {
+    var b = document.getElementById("themeBtn"); if (!b) return;
+    var next = current() === "dark" ? "clair" : "sombre";
+    b.setAttribute("aria-label", "Passer en mode " + next); b.title = "Passer en mode " + next;
+  };
+  var apply = function () {
+    var next = current() === "dark" ? "light" : "dark";
+    // Si le choix revient au mode du téléphone, on oublie le choix : l'appli suit de nouveau le téléphone.
+    if (next === (dark.matches ? "dark" : "light")) { delete root.dataset.theme; try { localStorage.removeItem(KEY); } catch (e) {} }
+    else { root.dataset.theme = next; try { localStorage.setItem(KEY, next); } catch (e) {} }
+    label();
+  };
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest || !e.target.closest("#themeBtn")) return;
+    var calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (document.startViewTransition && !calm) document.startViewTransition(apply); else apply();
+  });
+  document.addEventListener("DOMContentLoaded", label);
+  dark.addEventListener && dark.addEventListener("change", label);
+})();
+</script>
 <style>
 [hidden]{display:none!important}
 .account{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:14px;color:var(--ink-2)}
@@ -2585,6 +2612,28 @@ body.team-sheet-open .toast { z-index: 60; }
   .bil-row { padding-left: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .bil-progress i, .bil-bar > i, .bil-export, .bil-month { transition: none; } .bil-export:active, .bil-month:active { transform: none; } }
+/* ----- Bouton mode clair / sombre (21/11) : même rond en relief que « Se déconnecter », juste à sa gauche.
+   Lune en mode clair (passer en sombre), soleil en mode sombre (passer en clair). Le choix reste sur l'appareil. ----- */
+.theme-btn { position: relative; display: grid; place-items: center; margin: auto 0 auto auto; flex: none; width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; border-radius: 999px; color: var(--ink-2);
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 1px rgba(10, 20, 28, .06), 0 4px 10px -6px rgba(10, 20, 28, .35);
+  transition: color .15s ease, transform 160ms var(--ease-out); -webkit-tap-highlight-color: transparent; }
+body.presta-mode .theme-btn { width: 38px; height: 38px; }
+.theme-btn:hover { color: var(--ink); }
+.theme-btn:active { transform: scale(.95); }
+.theme-btn .icon { grid-area: 1 / 1; width: 19px; height: 19px; transition: opacity .2s ease, transform .3s var(--ease-out); }
+.theme-btn .t-sun { opacity: 0; transform: rotate(-60deg) scale(.6); }
+:root[data-theme="dark"] .theme-btn .t-moon { opacity: 0; transform: rotate(60deg) scale(.6); }
+:root[data-theme="dark"] .theme-btn .t-sun { opacity: 1; transform: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-btn .t-moon { opacity: 0; transform: rotate(60deg) scale(.6); }
+  :root:not([data-theme="light"]) .theme-btn .t-sun { opacity: 1; transform: none; } }
+/* 10 px entre les deux ronds, quel que soit l'écart de la barre (24 px équipe, 12 px prestataire). */
+.theme-btn + .power-btn { margin-left: -14px; }
+body.presta-mode .theme-btn + .power-btn { margin-left: -2px; }
+.theme-btn:has(+ .power-btn.armed) { display: none; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .25s; }
+@media (prefers-reduced-motion: reduce) { .theme-btn, .theme-btn .icon { transition: none; } }
 /* ===== Connexion et navigation façon iPhone (2026-11-21). Fichier à part (ajouté à la fin de style.css par build.js) :
    écran de connexion (#login, .login-*), menu « Plus » (.nav-menu, .more-*), onglets sur ordinateur, passage d'une page à l'autre.
    Bleu City-Drop pour les actions ; vert / orange / rouge seulement pour les statuts ; ni bande de couleur, ni dégradé multicolore. ===== */
@@ -2756,6 +2805,8 @@ main > section.view-enter { animation: view-enter 240ms var(--ease-out); }
   <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
   <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16v-5M12 16V7M17 16v-8"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
   <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3.5v8"/><path d="M7.1 6.6a7.5 7.5 0 1 0 9.8 0"/></symbol>
   <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></symbol>
@@ -2785,6 +2836,7 @@ main > section.view-enter { animation: view-enter 240ms var(--ease-out); }
       <button type="button" class="primary nav-new" id="newOnDay"><svg class="icon"><use href="#i-plus"/></svg><span>Nouvelle demande</span></button>
     </nav>
     <div class="sync off" id="sync">Connexion…</div>
+    <button type="button" class="theme-btn" id="themeBtn" aria-label="Passer en mode sombre"><svg class="icon t-moon" aria-hidden="true"><use href="#i-moon"/></svg><svg class="icon t-sun" aria-hidden="true"><use href="#i-sun"/></svg></button>
     <button type="button" class="power-btn" id="signOutBtn" hidden aria-label="Se déconnecter"><svg class="icon"><use href="#i-power"/></svg><span>Se déconnecter ?</span></button>
   </div>
 </header>
