@@ -666,8 +666,7 @@
     section.classList.remove("view-enter"); void section.offsetWidth; section.classList.add("view-enter");
     section.addEventListener("animationend", () => section.classList.remove("view-enter"), { once: true });
   }
-  // « Plus »: each page has its icon in volume. On a phone the menu opens as a sheet from the bottom, on a computer as a popover.
-  document.querySelectorAll("#navMore .more-art").forEach((s) => { s.innerHTML = window.IssueArt?.art(s.dataset.art, "more-ico") || ""; });
+  // « Plus »: each page has a line icon, same style as the bottom bar (2026-11-21). On a phone the menu opens as a sheet from the bottom, on a computer as a popover.
   const phoneNav = () => matchMedia("(max-width: 720px)").matches;
   function openMoreSheet() {
     const rows = [...document.querySelectorAll("#navMore .nav-menu [data-view]")].map((b) => {

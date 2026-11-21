@@ -108,3 +108,25 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
 .login-row { min-height: 46px; }
 .login-row input { min-height: 44px; }
 .login-btn { min-height: 48px; }
+
+/* ===== Menu « Plus » au trait (2026-11-21) : même style que la barre du bas (Planning, Retours, Historique). ===== */
+.more-art, .more-tile { width: 24px; height: 24px; border-radius: 0; background: none; box-shadow: none; color: var(--ink-2); }
+.more-art .icon, .more-tile .icon { width: 22px; height: 22px; stroke-width: 1.9; }
+.nav-menu button[aria-current] .more-art { color: var(--accent); }
+.more-row + .more-row::before { left: 52px; }
+.more-row { min-height: 52px; }
+
+/* ===== Icônes de l'équipe plus petites (2026-11-21) : mêmes icônes, tuiles réduites (Retours › Déjà traités, Bilan, Réglages). ===== */
+.ret-card.done .ret-ico { width: 28px; height: 28px; border-radius: 8px; }
+.ret-card.done .ret-ico .ret-art { width: 21px; height: 21px; }
+.bil-tile .ret-ico.sm { width: 28px; height: 28px; border-radius: 8px; }
+.bil-tile .ret-ico.sm .ret-art { width: 21px; height: 21px; }
+.bil-tile { padding: 10px 12px; column-gap: 10px; } .bil-tile b { font-size: 19px; }
+.bil-hero-top .ret-ico.lg, .bil-sh-hero .ret-ico.lg { width: 36px; height: 36px; border-radius: 10px; }
+.bil-hero-top .ret-ico.lg .ret-art, .bil-sh-hero .ret-ico.lg .ret-art { width: 27px; height: 27px; }
+.bil-check .ret-ico.xs { width: 22px; height: 22px; border-radius: 6px; } .bil-check .ret-ico.xs .ret-art { width: 17px; height: 17px; }
+.rg-ico, .rg-ico.sm { width: 28px; height: 28px; border-radius: 8px; }
+.rg-ico .rg-art { width: 21px; height: 21px; } .rg-ico.sm .rg-art { width: 21px; height: 21px; }
+.rg-ico.lg { width: 44px; height: 44px; border-radius: 12px; } .rg-ico.lg .rg-art { width: 33px; height: 33px; }
+.rg-ico.plus .icon { width: 17px; height: 17px; }
+.rg-row + .rg-row::before, #s-provs + .rg-row::before, .rg-list > div > .rg-row + .rg-row::before { left: 54px; }
