@@ -45,7 +45,7 @@
           <button type="button" data-view="hayon"><svg class="icon"><use href="#i-hayon"/></svg><span class="menu-label">Contrôles hayon</span><span class="menu-badge" id="hayonBadge" hidden></span></button>
           <button type="button" data-view="bilan"><svg class="icon"><use href="#i-chart"/></svg>Bilan du mois</button>
           <button type="button" data-view="verif"><svg class="icon"><use href="#i-check"/></svg>Vérification</button>
-          <button type="button" data-view="photos"><svg class="icon"><use href="#i-image"/></svg>Photos des modèles</button>
+          <button type="button" data-view="photos"><svg class="icon"><use href="#i-image"/></svg>Photos</button>
           <button type="button" data-view="corbeille"><svg class="icon"><use href="#i-trash"/></svg>Corbeille</button>
           <button type="button" data-view="reglages"><svg class="icon"><use href="#i-gear"/></svg>Réglages</button>
         </div>
@@ -189,10 +189,15 @@
 
   <!-- PHOTO LIBRARY -->
   <section id="view-photos" hidden>
-    <div class="tools">
-      <input type="search" id="p-q" placeholder="Rechercher un modèle (ex. Movano, 20 m³)…" aria-label="Rechercher un modèle">
+    <header class="pho-head">
+      <div class="pho-titles"><p class="pho-kicker" id="phoKicker"></p><h1 class="pho-title">Photos</h1></div>
+      <label class="pho-find"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="p-q" placeholder="Chercher un modèle" aria-label="Chercher un modèle (ex. Movano, 20 m³)" autocomplete="off" enterkeyhint="search"></label>
+    </header>
+    <div class="pho-seg" role="tablist" aria-label="Modèles">
+      <button type="button" role="tab" data-pho-filter="all" aria-selected="true">Tous<span class="pho-seg-n" id="phoAllN"></span></button>
+      <button type="button" role="tab" data-pho-filter="missing" aria-selected="false">Sans photo<span class="pho-seg-n warn" id="phoMissN" hidden></span></button>
     </div>
-    <div id="p-detail"></div>
+    <div id="p-alert"></div>
     <div id="p-list"></div>
   </section>
 
@@ -408,6 +413,5 @@
 
 <input type="file" id="photoInput" accept="image/*" multiple hidden>
 <div class="toast" id="toast" role="status" hidden></div>
-<div class="lightbox" id="lightbox" hidden><img id="lightImg" alt="Photo du pare-brise"></div>
 
 <!--@scripts-->
