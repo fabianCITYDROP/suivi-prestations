@@ -282,8 +282,11 @@
 
   <!-- TRASH -->
   <section id="view-corbeille" hidden>
-    <div class="daybar"><h1>Corbeille</h1></div>
-    <p class="hint">Les demandes supprimées restent ici 20 jours, puis elles sont effacées pour de bon.</p>
+    <header class="ret-head">
+      <div class="ret-titles"><p class="ret-kicker">Demandes supprimées · 20 jours</p><h1 class="ret-title">Corbeille</h1></div>
+    </header>
+    <div id="trashSum"></div>
+    <label class="tr-search" id="trashSearchWrap" hidden><svg class="icon"><use href="#i-search"/></svg><input id="trashSearch" type="search" placeholder="Chercher une plaque" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Chercher une plaque dans la corbeille"></label>
     <div id="trashList"></div>
   </section>
 

@@ -80,9 +80,9 @@ const check = (ok, what) => { if (!ok) { console.error('ÉCHEC : ' + what); proc
   check(ids(await list('corbeille')) === 'bientot,g1,g2,r9', 'le lavage groupé part entier à la corbeille (' + ids(await list('corbeille')) + ')');
   // 4. The Corbeille page.
   await openTrash(f);
-  const cards = await f.locator('.trash-card').count();
+  const cards = await f.locator('.tr-card').count();
   check(cards === 3, '3 cartes : le groupe, le pare-brise, la plus ancienne (' + cards + ')');
-  check(await f.locator('.trash-days.soon').count() === 1, 'la plus ancienne a la pastille orange');
+  check(await f.locator('.tr-card .tr-days.soon').count() === 1, 'la plus ancienne a la pastille orange');
   await f.screenshot({ path: `${OUT}/corbeille-ordi.png` });
   const m = await open('fabian@city-drop.com', { width: 390, height: 844 });
   await openTrash(m);
@@ -91,7 +91,7 @@ const check = (ok, what) => { if (!ok) { console.error('ÉCHEC : ' + what); proc
   // 5. Read-only account: sees the list, no « Restaurer ».
   const j = await open('jerome@city-drop.com', { width: 1440, height: 900 });
   await openTrash(j);
-  check(await j.locator('.trash-card').count() === 3 && await j.locator('[data-trash-restore]').count() === 0, 'Jérôme (lecture) voit la corbeille sans bouton Restaurer');
+  check(await j.locator('.tr-card').count() === 3 && await j.locator('[data-trash-restore]').count() === 0, 'Jérôme (lecture) voit la corbeille sans bouton Restaurer');
   await j.close();
   // 6. Restore the group and the windscreen.
   await f.locator('[data-trash-restore="g1,g2"], [data-trash-restore="g2,g1"]').click(); await f.waitForTimeout(1500);
