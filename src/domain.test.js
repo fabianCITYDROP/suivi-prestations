@@ -813,3 +813,47 @@ test("Nouvelle demande : seulement les sites donnés au prestataire, tous s'il n
   assert.deepEqual(D.providerSites(garages, "", names), []);
   assert.deepEqual(D.providerSites(null, "ALLO", names), []);
 });
+
+// ---------- véhicules de l'export Metabase ----------
+const MB = D.parseMetabase({ donnees: JSON.stringify({
+  AB123CD: ["MOV - 17", "17M3", "La Def", "2026-11-21"], EF456GH: ["MOV - 12", "12M3", "Saint-Cloud", "2026-11-21"],
+  GS487PR: ["M20H-DVL", "20HM3", "Nice - Carros", "2026-11-21"], MB000AA: ["MINIBUS", "MINIBUS-9P", "Aulnay", "2026-11-21"] }) });
+
+test("Metabase : code + catégorie donnent le modèle de la flotte, ou seulement le cubage quand l'année manque", () => {
+  const f = D.DEFAULT_FLEET;
+  assert.deepEqual(D.metabaseModel("MOV - 17", "17M3", f), { modele: "Opel Movano 2023", cubage: 17, base: "Opel Movano", code: "MOV - 17", hayon: false });
+  assert.deepEqual(D.metabaseModel("MOV - 12", "12M3", f), { modele: "", cubage: 12, base: "Opel Movano", code: "MOV - 12", hayon: false }); // 2023 ou 2025
+  assert.equal(D.metabaseModel("*MAX - 12", "12M3", f).modele, "Maxus");
+  assert.deepEqual(D.metabaseCubage("20HM3"), { cubage: 20, hayon: true });
+  assert.deepEqual(D.metabaseCubage("MINIBUS-9P"), { cubage: null, hayon: false });
+  assert.equal(D.metabaseModel("M20H-DVL", "20HM3", f).cubage, 20);
+});
+
+test("Metabase : le site de l'export retrouve celui des Réglages (La Def = La Défense)", () => {
+  assert.equal(D.metabaseSite("La Def", SITES).nom, "La Défense");
+  assert.equal(D.metabaseSite("Saint-Cloud", SITES).nom, "Saint-Cloud");
+  assert.equal(D.metabaseSite("Nice - Carros", SITES), null);
+  assert.equal(D.parseMetabase({ donnees: "pas du json" }).size, 0);
+});
+
+test("Metabase : la fiche véhicule choisie par l'équipe passe avant l'export", () => {
+  const own = new Map([["AB123CD", { plaque: "AB-123-CD", modele: "Citroën Jumper", cubage: 17, photos: [] }]]);
+  assert.equal(D.knownVehicle("AB-123-CD", own, MB, D.DEFAULT_FLEET, SITES).modele, "Citroën Jumper");
+  const v = D.knownVehicle("ef-456-gh", new Map(), MB, D.DEFAULT_FLEET, SITES);
+  assert.equal(v.cubage, 12); assert.equal(v.siteMetabase, "Saint-Cloud"); assert.equal(v.metabase, true);
+  assert.equal(D.metabaseHint(v), "Metabase : Opel Movano · 12 m³ · Saint-Cloud");
+  assert.equal(D.knownVehicle("ZZ-999-ZZ", new Map(), MB, D.DEFAULT_FLEET, SITES), null);
+});
+
+test("Metabase : une demande reçue par mail prend modèle, cubage, prix et site de l'export", () => {
+  const prices = { "allo-pare-brise-78": [{ service: "pare-brise", cubageMin: 3, cubageMax: 6, prixHT: 320 }, { service: "pare-brise", cubageMin: 12, cubageMax: 20, prixHT: 360 }] };
+  const ctx = { demandes: [], vehicleOf: (p) => D.knownVehicle(p, new Map(), MB, D.DEFAULT_FLEET, SITES), providerNames: ["ALLO pare-brise 78"],
+    pricesOf: (id) => prices[id] || [], garages: [], sites: SITES };
+  const mail = { id: "mail-AB123CD", source: "mail", statut: "envoyee", service: "pare-brise", plaque: "AB-123-CD", garageMail: "Allo pare-brise", date: "2026-11-25" };
+  const patch = D.mailCompletion(mail, ctx);
+  assert.equal(patch.modele, "Opel Movano 2023"); assert.equal(patch.cubage, 17); assert.equal(patch.prixHT, 360);
+  assert.equal(patch.site, "La Défense"); assert.equal(patch.siteAuto, "metabase");
+  const sansAnnee = D.mailCompletion({ ...mail, id: "m2", plaque: "EF-456-GH" }, ctx);
+  assert.equal(sansAnnee.modele, undefined); assert.equal(sansAnnee.cubage, 12); assert.equal(sansAnnee.prixHT, 360);
+  assert.equal(D.mailCompletion({ ...mail, id: "m2", plaque: "EF-456-GH", ...sansAnnee }, ctx), null, "rien de plus une fois complétée");
+});
