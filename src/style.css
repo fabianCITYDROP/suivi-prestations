@@ -626,16 +626,6 @@ button.pf-line:hover { background: var(--accent-soft); }
 }
 /* History: older requests are read only on demand */
 .older-note { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-/* Corbeille: deleted requests kept 20 days */
-#view-corbeille .hint { margin-bottom: 14px; }
-.trash-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
-.trash-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
-.trash-plates { display: flex; flex-wrap: wrap; gap: 6px; }
-.trash-body { display: flex; flex-direction: column; gap: 2px; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
-.trash-body .small { font-size: 13px; }
-.trash-days { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; color: var(--ink-2); background: var(--surface-2); font-variant-numeric: tabular-nums; }
-.trash-days.soon { color: var(--lv-soon); background: var(--lv-soon-bg); }
-@media (max-width: 560px) { .trash-card { grid-template-columns: minmax(0, 1fr); } .trash-card > button { width: 100%; justify-content: center; } }
 /* ===== Prestataire « Faits » façon iPhone (2026-11-21) : compteur en grand, mois en pastilles, liste groupée par jour.
    Tout est préfixé .done- / .month- pour ne rien changer aux autres onglets. Vert = fait, orange = Corriger (statuts). */
 .done-sum { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; border-radius: 20px; background: var(--surface);
@@ -1546,4 +1536,62 @@ body.team-sheet-open .lightbox { z-index: 50; }
   body:not(.presta-mode) .toast { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-transparency: reduce) and (max-width: 720px) { body:not(.presta-mode) nav.tabs { background: var(--surface) !important; } }
+/* ===== Équipe « Corbeille » (2026-11-21, façon iPhone). Tout est préfixé .tr- ou #view-corbeille ; reprend les tuiles,
+   titres et feuille de « Retours » (.ret-ico, .ret-title, .ret-sh-*). Jours restants : gris, orange à 3 jours, rouge le dernier. ===== */
+#view-corbeille { max-width: 1120px; }
+.tr-sum { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 14px; border-radius: 18px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+.tr-sum-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tr-sum-txt b { font: 700 22px/1.1 -apple-system, BlinkMacSystemFont, var(--f-body); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.tr-sum-txt .tr-days { align-self: flex-start; margin-top: 4px; }
+.tr-sum-txt > span:not(.tr-days) { font-size: 13.5px; line-height: 1.35; color: var(--ink-2); }
+.tr-search { display: flex; align-items: center; gap: 8px; max-width: 420px; min-height: 40px; padding: 0 12px; margin-bottom: 6px; border-radius: 12px; color: var(--ink-2);
+  background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); }
+.tr-search[hidden] { display: none; }
+.tr-search .icon { width: 17px; height: 17px; flex: none; }
+.tr-search input { flex: 1; min-width: 0; min-height: 38px; padding: 0; border: 0; background: none; color: var(--ink); font: 500 16px var(--f-body); box-shadow: none; outline: none; }
+.tr-group { margin-top: 20px; }
+.tr-cards { display: grid; gap: 10px; }
+@media (min-width: 900px) { .tr-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+.tr-card { display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); overflow: hidden;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35);
+  transition: opacity 220ms ease, transform 260ms var(--ease-out); }
+.tr-card.tr-leave { opacity: 0; transform: translateY(-8px) scale(.98); }
+.tr-open { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; width: 100%; min-height: 0; padding: 14px 14px 10px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.tr-open:active { background: color-mix(in srgb, var(--surface) 92%, var(--ink)); }
+.tr-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tr-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
+.tr-plates { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.tr-plates .plate { font-size: 13.5px; }
+.tr-plates .plate span { padding: 4px 6px; }
+.tr-more { align-self: center; font: 600 13px var(--f-body); color: var(--ink-2); }
+.tr-what { font: 650 15.5px/1.3 var(--f-body); letter-spacing: -.01em; }
+.tr-meta { font-size: 13px; line-height: 1.35; color: var(--ink-2); overflow-wrap: anywhere; }
+.tr-days { flex: none; padding: 3px 10px; border-radius: 999px; font: 600 12.5px var(--f-body); white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink-2); background: var(--surface-2); }
+.tr-days.soon { color: var(--st-todo); background: var(--st-todo-bg); }
+.tr-days.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 13%, var(--surface)); }
+.tr-acts { display: flex; justify-content: flex-end; padding: 0 14px 14px; }
+.tr-restore { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font: 600 14px var(--f-body); white-space: nowrap;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px color-mix(in srgb, var(--accent) 18%, transparent); transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
+.tr-restore .icon { width: 16px; height: 16px; stroke-width: 2.4; }
+.tr-restore:hover { filter: brightness(1.03); }
+.tr-restore:active { transform: scale(.96); }
+.tr-restore:disabled { opacity: .55; }
+/* Feuille du détail */
+.tr-sheet .svc-tile.lg { width: 60px; height: 60px; border-radius: 17px; }
+.tr-sheet .svc-tile.lg .svc-art { width: 46px; height: 46px; }
+.tr-sheet .ret-sh-hero .tr-plates { margin-top: 6px; }
+.tr-sheet .ret-sh-info dt .plate { font-size: 14px; }
+.tr-count { display: flex; flex-direction: column; gap: 3px; padding: 12px 16px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.tr-count b { font: 700 16px var(--f-body); color: var(--ink); }
+.tr-count span { font-size: 13.5px; color: var(--ink-2); }
+.tr-count.soon b { color: var(--st-todo); }
+.tr-count.bad b { color: var(--danger); }
+@media (max-width: 640px) {
+  .tr-sum { padding: 12px 14px; gap: 12px; }
+  .tr-search { max-width: none; }
+  .tr-acts .tr-restore { min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .tr-card, .tr-restore { transition: none; } .tr-restore:active { transform: none; } }
 </style>

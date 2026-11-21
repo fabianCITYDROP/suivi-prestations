@@ -652,16 +652,6 @@ button.pf-line:hover { background: var(--accent-soft); }
 }
 /* History: older requests are read only on demand */
 .older-note { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-/* Corbeille: deleted requests kept 20 days */
-#view-corbeille .hint { margin-bottom: 14px; }
-.trash-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
-.trash-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
-.trash-plates { display: flex; flex-wrap: wrap; gap: 6px; }
-.trash-body { display: flex; flex-direction: column; gap: 2px; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
-.trash-body .small { font-size: 13px; }
-.trash-days { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; color: var(--ink-2); background: var(--surface-2); font-variant-numeric: tabular-nums; }
-.trash-days.soon { color: var(--lv-soon); background: var(--lv-soon-bg); }
-@media (max-width: 560px) { .trash-card { grid-template-columns: minmax(0, 1fr); } .trash-card > button { width: 100%; justify-content: center; } }
 /* ===== Prestataire « Faits » façon iPhone (2026-11-21) : compteur en grand, mois en pastilles, liste groupée par jour.
    Tout est préfixé .done- / .month- pour ne rien changer aux autres onglets. Vert = fait, orange = Corriger (statuts). */
 .done-sum { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; border-radius: 20px; background: var(--surface);
@@ -1572,6 +1562,64 @@ body.team-sheet-open .lightbox { z-index: 50; }
   body:not(.presta-mode) .toast { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-transparency: reduce) and (max-width: 720px) { body:not(.presta-mode) nav.tabs { background: var(--surface) !important; } }
+/* ===== Équipe « Corbeille » (2026-11-21, façon iPhone). Tout est préfixé .tr- ou #view-corbeille ; reprend les tuiles,
+   titres et feuille de « Retours » (.ret-ico, .ret-title, .ret-sh-*). Jours restants : gris, orange à 3 jours, rouge le dernier. ===== */
+#view-corbeille { max-width: 1120px; }
+.tr-sum { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 14px; border-radius: 18px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+.tr-sum-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tr-sum-txt b { font: 700 22px/1.1 -apple-system, BlinkMacSystemFont, var(--f-body); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.tr-sum-txt .tr-days { align-self: flex-start; margin-top: 4px; }
+.tr-sum-txt > span:not(.tr-days) { font-size: 13.5px; line-height: 1.35; color: var(--ink-2); }
+.tr-search { display: flex; align-items: center; gap: 8px; max-width: 420px; min-height: 40px; padding: 0 12px; margin-bottom: 6px; border-radius: 12px; color: var(--ink-2);
+  background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); }
+.tr-search[hidden] { display: none; }
+.tr-search .icon { width: 17px; height: 17px; flex: none; }
+.tr-search input { flex: 1; min-width: 0; min-height: 38px; padding: 0; border: 0; background: none; color: var(--ink); font: 500 16px var(--f-body); box-shadow: none; outline: none; }
+.tr-group { margin-top: 20px; }
+.tr-cards { display: grid; gap: 10px; }
+@media (min-width: 900px) { .tr-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+.tr-card { display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); overflow: hidden;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35);
+  transition: opacity 220ms ease, transform 260ms var(--ease-out); }
+.tr-card.tr-leave { opacity: 0; transform: translateY(-8px) scale(.98); }
+.tr-open { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; width: 100%; min-height: 0; padding: 14px 14px 10px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.tr-open:active { background: color-mix(in srgb, var(--surface) 92%, var(--ink)); }
+.tr-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tr-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
+.tr-plates { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.tr-plates .plate { font-size: 13.5px; }
+.tr-plates .plate span { padding: 4px 6px; }
+.tr-more { align-self: center; font: 600 13px var(--f-body); color: var(--ink-2); }
+.tr-what { font: 650 15.5px/1.3 var(--f-body); letter-spacing: -.01em; }
+.tr-meta { font-size: 13px; line-height: 1.35; color: var(--ink-2); overflow-wrap: anywhere; }
+.tr-days { flex: none; padding: 3px 10px; border-radius: 999px; font: 600 12.5px var(--f-body); white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink-2); background: var(--surface-2); }
+.tr-days.soon { color: var(--st-todo); background: var(--st-todo-bg); }
+.tr-days.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 13%, var(--surface)); }
+.tr-acts { display: flex; justify-content: flex-end; padding: 0 14px 14px; }
+.tr-restore { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font: 600 14px var(--f-body); white-space: nowrap;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px color-mix(in srgb, var(--accent) 18%, transparent); transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
+.tr-restore .icon { width: 16px; height: 16px; stroke-width: 2.4; }
+.tr-restore:hover { filter: brightness(1.03); }
+.tr-restore:active { transform: scale(.96); }
+.tr-restore:disabled { opacity: .55; }
+/* Feuille du détail */
+.tr-sheet .svc-tile.lg { width: 60px; height: 60px; border-radius: 17px; }
+.tr-sheet .svc-tile.lg .svc-art { width: 46px; height: 46px; }
+.tr-sheet .ret-sh-hero .tr-plates { margin-top: 6px; }
+.tr-sheet .ret-sh-info dt .plate { font-size: 14px; }
+.tr-count { display: flex; flex-direction: column; gap: 3px; padding: 12px 16px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.tr-count b { font: 700 16px var(--f-body); color: var(--ink); }
+.tr-count span { font-size: 13.5px; color: var(--ink-2); }
+.tr-count.soon b { color: var(--st-todo); }
+.tr-count.bad b { color: var(--danger); }
+@media (max-width: 640px) {
+  .tr-sum { padding: 12px 14px; gap: 12px; }
+  .tr-search { max-width: none; }
+  .tr-acts .tr-restore { min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .tr-card, .tr-restore { transition: none; } .tr-restore:active { transform: none; } }
 </style>
 </head>
 <body>
@@ -1854,8 +1902,11 @@ body.team-sheet-open .lightbox { z-index: 50; }
 
   <!-- TRASH -->
   <section id="view-corbeille" hidden>
-    <div class="daybar"><h1>Corbeille</h1></div>
-    <p class="hint">Les demandes supprimées restent ici 20 jours, puis elles sont effacées pour de bon.</p>
+    <header class="ret-head">
+      <div class="ret-titles"><p class="ret-kicker">Demandes supprimées · 20 jours</p><h1 class="ret-title">Corbeille</h1></div>
+    </header>
+    <div id="trashSum"></div>
+    <label class="tr-search" id="trashSearchWrap" hidden><svg class="icon"><use href="#i-search"/></svg><input id="trashSearch" type="search" placeholder="Chercher une plaque" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Chercher une plaque dans la corbeille"></label>
     <div id="trashList"></div>
   </section>
 
@@ -3942,6 +3993,21 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
   ICONS["ret-confirme"] = badge("grip", TICK);
   ICONS["ret-erreur"] = badge("ora",
     `<path d="M30.4 30.2a9 9 0 1 0-12.6-.6" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/><path d="M13.4 25.8l4.6 5.2 5-4.6" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>`);
+  // Corbeille de l'équipe : poubelle en acier (couvercle, poignée, nervures) ; vide = pastille verte ; restaurer = flèche bleue qui remonte.
+  const BIN = solid("M11.2 15.6h25.6l-2.4 22.6a3 3 0 0 1-3 2.7H16.6a3 3 0 0 1-3-2.7Z", "steel") +
+    `<g stroke="#8794a0" stroke-width="1.5" stroke-linecap="round"><path d="M18.4 20.4l.9 15.2"/><path d="M24 20.4v15.2"/><path d="M29.6 20.4l-.9 15.2"/></g>` +
+    `<g stroke="#fff" stroke-opacity=".7" stroke-width=".7" stroke-linecap="round"><path d="M19.4 20.4l.9 15.2"/><path d="M25 20.4v15.2"/></g>` +
+    solid("M8.6 11.6a2 2 0 0 1 2-2h26.8a2 2 0 0 1 2 2v2.6a1.4 1.4 0 0 1-1.4 1.4H10a1.4 1.4 0 0 1-1.4-1.4Z", "steel") +
+    `<path d="M10.4 10.8h27" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".9"/>` +
+    `<path d="M19.4 9.6V7.4a1.6 1.6 0 0 1 1.6-1.6h6a1.6 1.6 0 0 1 1.6 1.6v2.2" fill="none" stroke="${O}" stroke-width="3.2" stroke-linecap="round"/>` +
+    `<path d="M19.4 9.6V7.4a1.6 1.6 0 0 1 1.6-1.6h6a1.6 1.6 0 0 1 1.6 1.6v2.2" fill="none" stroke="url(#i3-steel)" stroke-width="1.6" stroke-linecap="round"/>`;
+  ICONS["corbeille"] = ground(24, 42.6, 15, 2.1) + BIN;
+  ICONS["corbeille-vide"] = ground(24, 42.6, 15, 2.1) + BIN +
+    `<circle cx="35.4" cy="31.8" r="8.4" fill="url(#i3-spg)" ${S}/><ellipse cx="33.2" cy="28" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".65"/>` +
+    `<path d="M31.4 32l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  ICONS["act-restore"] = ground(24, 42.6, 15, 2.1) + BIN +
+    `<circle cx="35.4" cy="31.8" r="8.4" fill="url(#i3-grip)" ${S}/><ellipse cx="33.2" cy="28" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".55"/>` +
+    `<path d="M35.4 36.6v-8.4M31.8 31.6l3.6-3.6 3.6 3.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
@@ -5052,7 +5118,10 @@ function page(texte) {
   $("#lightbox").onclick = () => ($("#lightbox").hidden = true);
 
   // ================= Corbeille: deleted requests, kept 20 days, restorable =================
-  const trash = { groups: [], error: false, loading: false };
+  // Façon iPhone (2026-11-21) : résumé en haut, recherche de plaque, cartes groupées par jour de suppression avec les jours
+  // restants (gris, orange à 3 jours, rouge le dernier jour), « Restaurer » en bouton clair + bulle « Voir au planning »,
+  // fiche complète dans la feuille de l'équipe (teamSheet). Rien n'est effacé avant 20 jours : les règles l'interdisent.
+  const trash = { groups: [], error: false, loading: false, query: "" };
   async function openTrash() {
     trash.loading = true; trash.error = false; renderTrash();
     if (!state.store) return; // page opened from its link before sign-in: listed once connected
@@ -5062,43 +5131,138 @@ function page(texte) {
     } catch { trash.groups = []; trash.error = true; }
     trash.loading = false; renderTrash();
   }
+  const trashKey = (group) => group.ids.join(",");
+  const trashLeft = (group) => D.trashDaysLeft(group.supprimeLe, new Date().toISOString());
+  const trashTone = (left) => (left <= 1 ? "bad" : left <= 3 ? "soon" : "");
+  const trashLeftLabel = (left) => (left <= 0 ? "Effacée aujourd'hui" : left === 1 ? "Effacée demain" : `Effacée dans ${left} j`);
+  const trashWho = (email) => { const name = String(email || "").split("@")[0].split(/[._-]/)[0]; return name ? capFirst(name) : ""; };
+  const trashHour = (iso) => (iso ? iso.slice(11, 16).replace(":", "h") : "");
+  const trashLocalIso = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString(); };
+  function trashDayHeading(iso) {
+    const day = iso.slice(0, 10);
+    if (day === today()) return "Aujourd'hui";
+    if (day === D.addDays(today(), -1)) return "Hier";
+    return capFirst(D.dayLabel(day));
+  }
+  function trashTitle(group) {
+    const first = group.rows[0].demande;
+    return group.rows.length > 1 ? `${D.jobLabel(first)} · ${plural(group.rows.length, "véhicule")}` : D.jobLabel(first);
+  }
+  const trashWhen = (d) => (d.date ? D.numericDate(d.date).slice(0, 5) + (d.dateFin && d.dateFin !== d.date ? " au " + D.numericDate(d.dateFin).slice(0, 5) : "") : "");
+  const trashMatches = (group) => !trash.query || group.rows.some((r) => D.plateKey(r.demande.plaque || "").includes(D.plateKey(trash.query)));
   function trashCard(group) {
     const first = group.rows[0].demande;
-    const many = group.rows.length > 1;
-    const left = D.trashDaysLeft(group.supprimeLe, new Date().toISOString());
-    const plates = group.rows.map((r) => plateTag(r.demande.plaque)).join(" ");
-    const title = many ? `Lavage groupé · ${group.rows.length} véhicules` : esc(D.jobLabel(first));
-    const job = many ? D.jobLabel(first) : "";
-    const when = first.date ? D.numericDate(first.date) + (first.dateFin && first.dateFin !== first.date ? " au " + D.numericDate(first.dateFin) : "") : "";
-    const deleted = `Supprimée le ${D.numericDate(group.supprimeLe.slice(0, 10)).slice(0, 5)}${group.supprimePar ? " par " + group.supprimePar : ""}`;
-    return `<div class="trash-card">
-      <div class="trash-head"><div class="trash-plates">${plates}</div><span class="trash-days${left <= 3 ? " soon" : ""}">Effacée dans ${left} j</span></div>
-      <div class="trash-body"><b>${title}</b><span class="muted">${esc([job, when, first.prestataire].filter(Boolean).join(" · "))}</span><span class="muted small">${esc(deleted)}</span></div>
-      ${state.canWrite ? `<button type="button" data-trash-restore="${esc(group.ids.join(","))}">${icon("check")}Restaurer</button>` : ""}
-    </div>`;
+    const left = trashLeft(group);
+    const local = trashLocalIso(group.supprimeLe);
+    const plates = group.rows.slice(0, 3).map((r) => plateTag(r.demande.plaque)).join("") + (group.rows.length > 3 ? `<span class="tr-more">+${group.rows.length - 3}</span>` : "");
+    const meta = [trashWhen(first) ? "Prévue le " + trashWhen(first) : "", first.prestataire].filter(Boolean).join(" · ");
+    const by = `Supprimée à ${trashHour(local)}${group.supprimePar ? " par " + trashWho(group.supprimePar) : ""}`;
+    return `<article class="tr-card" data-trash-key="${esc(trashKey(group))}">
+      <button type="button" class="tr-open" data-trash-open="${esc(trashKey(group))}" aria-label="${esc(trashTitle(group))} : voir le détail">
+        ${serviceTile(first, "sm")}
+        <span class="tr-main">
+          <span class="tr-line"><span class="tr-plates">${plates}</span><span class="tr-days ${trashTone(left)}">${trashLeftLabel(left)}</span></span>
+          <span class="tr-what">${esc(trashTitle(group))}</span>
+          <span class="tr-meta">${esc(meta)}</span>
+          <span class="tr-meta">${esc(by)}</span>
+        </span>
+      </button>
+      ${state.canWrite ? `<div class="tr-acts"><button type="button" class="tr-restore" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer</button></div>` : ""}
+    </article>`;
   }
   function renderTrash() {
     const box = $("#trashList");
-    box.innerHTML = trash.loading && !trash.groups.length ? `<p class="hint">Chargement…</p>`
-      : trash.error ? `<div class="empty"><b>La corbeille n'est pas encore active.</b></div>`
-      : !trash.groups.length ? `<div class="empty"><b>La corbeille est vide.</b></div>`
-      : trash.groups.map(trashCard).join("");
+    const groups = trash.groups;
+    const soon = groups.filter((g) => trashLeft(g) <= 3).length;
+    const count = groups.reduce((n, g) => n + g.rows.length, 0);
+    $("#trashSearchWrap").hidden = trash.loading || trash.error || groups.length < 2;
+    $("#trashSum").innerHTML = trash.loading || trash.error || !groups.length ? "" : `<div class="tr-sum">
+        <span class="ret-ico lg" aria-hidden="true">${self.IssueArt?.art("corbeille", "ret-art") || ""}</span>
+        <div class="tr-sum-txt"><b>${plural(count, "demande")}</b><span>Restaurables pendant 20 jours après la suppression, puis effacées pour de bon.</span>
+        ${soon ? `<span class="tr-days soon">${soon} bientôt effacée${soon > 1 ? "s" : ""}</span>` : ""}</div>
+      </div>`;
+    if (trash.loading && !groups.length) { box.innerHTML = `<p class="hint">Chargement…</p>`; return; }
+    if (trash.error || !groups.length) {
+      box.innerHTML = `<div class="ret-empty"><span class="ret-ico xl" aria-hidden="true">${self.IssueArt?.art("corbeille-vide", "ret-art") || ""}</span>
+        <b>${trash.error ? "La corbeille n'est pas encore active" : "La corbeille est vide"}</b>
+        <span>Une demande supprimée reste ici 20 jours : tu peux la remettre dans le planning telle qu'elle était.</span></div>`;
+      return;
+    }
+    const shown = groups.filter(trashMatches);
+    if (!shown.length) { box.innerHTML = `<div class="ret-empty"><b>Aucune plaque ne correspond</b><span>La corbeille contient seulement les demandes supprimées ces 20 derniers jours.</span></div>`; return; }
+    const days = [];
+    for (const g of shown) {
+      const day = trashLocalIso(g.supprimeLe).slice(0, 10);
+      const last = days[days.length - 1];
+      if (last && last.day === day) last.groups.push(g); else days.push({ day, groups: [g] });
+    }
+    box.innerHTML = days.map(({ day, groups: list }) => `<section class="tr-group">
+        <h2 class="ret-gh">${esc(trashDayHeading(day))}<em>· ${list.reduce((n, g) => n + g.rows.length, 0)}</em></h2>
+        <div class="tr-cards">${list.map(trashCard).join("")}</div>
+      </section>`).join("")
+      + (state.canWrite ? "" : `<p class="ret-foot">Seuls les administrateurs peuvent restaurer une demande.</p>`);
   }
-  $("#trashList").addEventListener("click", async (e) => {
-    const button = e.target.closest("[data-trash-restore]");
-    if (!button || !requireStore()) return;
-    const ids = button.dataset.trashRestore.split(",");
-    button.disabled = true;
+  function trashSheetBody(group) {
+    const first = group.rows[0].demande;
+    const many = group.rows.length > 1;
+    const left = trashLeft(group);
+    const local = trashLocalIso(group.supprimeLe);
+    const line = (label, value, small = "") => (value ? `<div><dt>${label}</dt><dd>${esc(value)}${small ? `<small>${esc(small)}</small>` : ""}</dd></div>` : "");
+    const total = group.rows.reduce((n, r) => n + (Number(r.demande.prixHT) || 0), 0);
+    const when = first.date ? capFirst(D.isMultiDay(first) ? D.availabilityLabel(first) : D.dayLabel(first.date)) : "";
+    const vehicles = many ? `<section><p class="sheet-label">Véhicules</p><dl class="ret-sh-info">${group.rows.map((r) => `<div><dt>${plateTag(r.demande.plaque)}</dt><dd>${esc(D.timeSlotLabel(r.demande))}</dd></div>`).join("")}</dl></section>` : "";
+    return `<div class="ret-sheet tr-sheet">
+      <div class="ret-sh-hero">${serviceTile(first, "lg")}<div><p class="ret-sh-kind">Dans la corbeille</p><span class="ret-sh-what">${esc(trashTitle(group))}</span>
+        <div class="tr-plates">${many ? "" : plateTag(first.plaque)}</div></div></div>
+      <div class="tr-count ${trashTone(left)}"><b>${left > 1 ? `Encore ${left} jours dans la corbeille` : trashLeftLabel(left)}</b><span>Effacée pour de bon le ${esc(D.dayLabel(D.trashPurgeDate(group.supprimeLe).slice(0, 10)))}.</span></div>
+      ${vehicles}
+      <dl class="ret-sh-info">
+        ${line("Prévue", when, many ? "" : D.timeSlotLabel(first))}
+        ${line("Site", D.siteOf(first), first.adresse || "")}
+        ${line("Prestataire", first.prestataire || "")}
+        ${line(first.service === "intervention" ? "À faire" : "", first.tache || "")}
+        ${line("Prix", total ? D.euros(total) + " HT" : "", many ? "pour les " + group.rows.length + " véhicules" : "")}
+        ${line("Statut", first.statut ? D.statusOf(first.statut).label : "", "au moment de la suppression")}
+        ${line("Supprimée", capFirst(D.dayLabel(local.slice(0, 10))) + " à " + trashHour(local), group.supprimePar ? "par " + group.supprimePar : "")}
+      </dl>
+      ${first.notes ? `<p class="ret-sh-note">${esc(first.notes)}</p>` : ""}
+      <div class="ret-sh-acts">${state.canWrite
+        ? `<button type="button" class="ret-btn primary" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer dans le planning</button>`
+        : `<p class="ret-foot">Seuls les administrateurs peuvent restaurer une demande.</p>`}</div>
+    </div>`;
+  }
+  async function restoreTrash(key, button) {
+    if (!requireStore()) return;
+    const group = trash.groups.find((g) => trashKey(g) === key);
+    if (!group) return;
+    const ids = key.split(",");
+    const date = group.rows[0].demande.date;
+    document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = true));
     try {
       await state.store.restoreDemandes(ids);
-      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : "Demande restaurée");
-      trash.groups = trash.groups.filter((g) => g.ids.join(",") !== button.dataset.trashRestore);
-      renderTrash();
+      if (teamSheet.isOpen) teamSheet.close();
+      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : "Demande restaurée",
+        date ? { label: "Voir au planning", run: () => { state.day = date; show("planning"); renderPlanning(); } } : undefined);
+      const card = document.querySelector(`.tr-card[data-trash-key="${CSS.escape(key)}"]`);
+      const drop = () => { trash.groups = trash.groups.filter((g) => trashKey(g) !== key); renderTrash(); };
+      if (card && !matchMedia("(prefers-reduced-motion: reduce)").matches) { card.classList.add("tr-leave"); setTimeout(drop, 260); } else drop();
     } catch (err) {
-      button.disabled = false;
+      document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = false));
       if (err?.code === "already_exists") toast("Cette demande existe déjà dans le planning"); else reportWriteError(err);
     }
+  }
+  $("#trashList").addEventListener("click", (e) => {
+    const button = e.target.closest("[data-trash-restore]");
+    if (button) { restoreTrash(button.dataset.trashRestore, button); return; }
+    const open = e.target.closest("[data-trash-open]");
+    const group = open && trash.groups.find((g) => trashKey(g) === open.dataset.trashOpen);
+    if (group) teamSheet.open("Demande supprimée", trashSheetBody(group), { cls: "tr-sheet-wrap" });
   });
+  document.addEventListener("click", (e) => {
+    const button = e.target.closest(".tr-sheet [data-trash-restore]");
+    if (button) restoreTrash(button.dataset.trashRestore, button);
+  });
+  $("#trashSearch").addEventListener("input", (e) => { trash.query = e.target.value; renderTrash(); });
 
   // ================= Google Sheet link =================
   function sheetLink(plates) {

@@ -305,7 +305,10 @@
   $("#lightbox").onclick = () => ($("#lightbox").hidden = true);
 
   // ================= Corbeille: deleted requests, kept 20 days, restorable =================
-  const trash = { groups: [], error: false, loading: false };
+  // Façon iPhone (2026-11-21) : résumé en haut, recherche de plaque, cartes groupées par jour de suppression avec les jours
+  // restants (gris, orange à 3 jours, rouge le dernier jour), « Restaurer » en bouton clair + bulle « Voir au planning »,
+  // fiche complète dans la feuille de l'équipe (teamSheet). Rien n'est effacé avant 20 jours : les règles l'interdisent.
+  const trash = { groups: [], error: false, loading: false, query: "" };
   async function openTrash() {
     trash.loading = true; trash.error = false; renderTrash();
     if (!state.store) return; // page opened from its link before sign-in: listed once connected
@@ -315,43 +318,138 @@
     } catch { trash.groups = []; trash.error = true; }
     trash.loading = false; renderTrash();
   }
+  const trashKey = (group) => group.ids.join(",");
+  const trashLeft = (group) => D.trashDaysLeft(group.supprimeLe, new Date().toISOString());
+  const trashTone = (left) => (left <= 1 ? "bad" : left <= 3 ? "soon" : "");
+  const trashLeftLabel = (left) => (left <= 0 ? "Effacée aujourd'hui" : left === 1 ? "Effacée demain" : `Effacée dans ${left} j`);
+  const trashWho = (email) => { const name = String(email || "").split("@")[0].split(/[._-]/)[0]; return name ? capFirst(name) : ""; };
+  const trashHour = (iso) => (iso ? iso.slice(11, 16).replace(":", "h") : "");
+  const trashLocalIso = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString(); };
+  function trashDayHeading(iso) {
+    const day = iso.slice(0, 10);
+    if (day === today()) return "Aujourd'hui";
+    if (day === D.addDays(today(), -1)) return "Hier";
+    return capFirst(D.dayLabel(day));
+  }
+  function trashTitle(group) {
+    const first = group.rows[0].demande;
+    return group.rows.length > 1 ? `${D.jobLabel(first)} · ${plural(group.rows.length, "véhicule")}` : D.jobLabel(first);
+  }
+  const trashWhen = (d) => (d.date ? D.numericDate(d.date).slice(0, 5) + (d.dateFin && d.dateFin !== d.date ? " au " + D.numericDate(d.dateFin).slice(0, 5) : "") : "");
+  const trashMatches = (group) => !trash.query || group.rows.some((r) => D.plateKey(r.demande.plaque || "").includes(D.plateKey(trash.query)));
   function trashCard(group) {
     const first = group.rows[0].demande;
-    const many = group.rows.length > 1;
-    const left = D.trashDaysLeft(group.supprimeLe, new Date().toISOString());
-    const plates = group.rows.map((r) => plateTag(r.demande.plaque)).join(" ");
-    const title = many ? `Lavage groupé · ${group.rows.length} véhicules` : esc(D.jobLabel(first));
-    const job = many ? D.jobLabel(first) : "";
-    const when = first.date ? D.numericDate(first.date) + (first.dateFin && first.dateFin !== first.date ? " au " + D.numericDate(first.dateFin) : "") : "";
-    const deleted = `Supprimée le ${D.numericDate(group.supprimeLe.slice(0, 10)).slice(0, 5)}${group.supprimePar ? " par " + group.supprimePar : ""}`;
-    return `<div class="trash-card">
-      <div class="trash-head"><div class="trash-plates">${plates}</div><span class="trash-days${left <= 3 ? " soon" : ""}">Effacée dans ${left} j</span></div>
-      <div class="trash-body"><b>${title}</b><span class="muted">${esc([job, when, first.prestataire].filter(Boolean).join(" · "))}</span><span class="muted small">${esc(deleted)}</span></div>
-      ${state.canWrite ? `<button type="button" data-trash-restore="${esc(group.ids.join(","))}">${icon("check")}Restaurer</button>` : ""}
-    </div>`;
+    const left = trashLeft(group);
+    const local = trashLocalIso(group.supprimeLe);
+    const plates = group.rows.slice(0, 3).map((r) => plateTag(r.demande.plaque)).join("") + (group.rows.length > 3 ? `<span class="tr-more">+${group.rows.length - 3}</span>` : "");
+    const meta = [trashWhen(first) ? "Prévue le " + trashWhen(first) : "", first.prestataire].filter(Boolean).join(" · ");
+    const by = `Supprimée à ${trashHour(local)}${group.supprimePar ? " par " + trashWho(group.supprimePar) : ""}`;
+    return `<article class="tr-card" data-trash-key="${esc(trashKey(group))}">
+      <button type="button" class="tr-open" data-trash-open="${esc(trashKey(group))}" aria-label="${esc(trashTitle(group))} : voir le détail">
+        ${serviceTile(first, "sm")}
+        <span class="tr-main">
+          <span class="tr-line"><span class="tr-plates">${plates}</span><span class="tr-days ${trashTone(left)}">${trashLeftLabel(left)}</span></span>
+          <span class="tr-what">${esc(trashTitle(group))}</span>
+          <span class="tr-meta">${esc(meta)}</span>
+          <span class="tr-meta">${esc(by)}</span>
+        </span>
+      </button>
+      ${state.canWrite ? `<div class="tr-acts"><button type="button" class="tr-restore" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer</button></div>` : ""}
+    </article>`;
   }
   function renderTrash() {
     const box = $("#trashList");
-    box.innerHTML = trash.loading && !trash.groups.length ? `<p class="hint">Chargement…</p>`
-      : trash.error ? `<div class="empty"><b>La corbeille n'est pas encore active.</b></div>`
-      : !trash.groups.length ? `<div class="empty"><b>La corbeille est vide.</b></div>`
-      : trash.groups.map(trashCard).join("");
+    const groups = trash.groups;
+    const soon = groups.filter((g) => trashLeft(g) <= 3).length;
+    const count = groups.reduce((n, g) => n + g.rows.length, 0);
+    $("#trashSearchWrap").hidden = trash.loading || trash.error || groups.length < 2;
+    $("#trashSum").innerHTML = trash.loading || trash.error || !groups.length ? "" : `<div class="tr-sum">
+        <span class="ret-ico lg" aria-hidden="true">${self.IssueArt?.art("corbeille", "ret-art") || ""}</span>
+        <div class="tr-sum-txt"><b>${plural(count, "demande")}</b><span>Restaurables pendant 20 jours après la suppression, puis effacées pour de bon.</span>
+        ${soon ? `<span class="tr-days soon">${soon} bientôt effacée${soon > 1 ? "s" : ""}</span>` : ""}</div>
+      </div>`;
+    if (trash.loading && !groups.length) { box.innerHTML = `<p class="hint">Chargement…</p>`; return; }
+    if (trash.error || !groups.length) {
+      box.innerHTML = `<div class="ret-empty"><span class="ret-ico xl" aria-hidden="true">${self.IssueArt?.art("corbeille-vide", "ret-art") || ""}</span>
+        <b>${trash.error ? "La corbeille n'est pas encore active" : "La corbeille est vide"}</b>
+        <span>Une demande supprimée reste ici 20 jours : tu peux la remettre dans le planning telle qu'elle était.</span></div>`;
+      return;
+    }
+    const shown = groups.filter(trashMatches);
+    if (!shown.length) { box.innerHTML = `<div class="ret-empty"><b>Aucune plaque ne correspond</b><span>La corbeille contient seulement les demandes supprimées ces 20 derniers jours.</span></div>`; return; }
+    const days = [];
+    for (const g of shown) {
+      const day = trashLocalIso(g.supprimeLe).slice(0, 10);
+      const last = days[days.length - 1];
+      if (last && last.day === day) last.groups.push(g); else days.push({ day, groups: [g] });
+    }
+    box.innerHTML = days.map(({ day, groups: list }) => `<section class="tr-group">
+        <h2 class="ret-gh">${esc(trashDayHeading(day))}<em>· ${list.reduce((n, g) => n + g.rows.length, 0)}</em></h2>
+        <div class="tr-cards">${list.map(trashCard).join("")}</div>
+      </section>`).join("")
+      + (state.canWrite ? "" : `<p class="ret-foot">Seuls les administrateurs peuvent restaurer une demande.</p>`);
   }
-  $("#trashList").addEventListener("click", async (e) => {
-    const button = e.target.closest("[data-trash-restore]");
-    if (!button || !requireStore()) return;
-    const ids = button.dataset.trashRestore.split(",");
-    button.disabled = true;
+  function trashSheetBody(group) {
+    const first = group.rows[0].demande;
+    const many = group.rows.length > 1;
+    const left = trashLeft(group);
+    const local = trashLocalIso(group.supprimeLe);
+    const line = (label, value, small = "") => (value ? `<div><dt>${label}</dt><dd>${esc(value)}${small ? `<small>${esc(small)}</small>` : ""}</dd></div>` : "");
+    const total = group.rows.reduce((n, r) => n + (Number(r.demande.prixHT) || 0), 0);
+    const when = first.date ? capFirst(D.isMultiDay(first) ? D.availabilityLabel(first) : D.dayLabel(first.date)) : "";
+    const vehicles = many ? `<section><p class="sheet-label">Véhicules</p><dl class="ret-sh-info">${group.rows.map((r) => `<div><dt>${plateTag(r.demande.plaque)}</dt><dd>${esc(D.timeSlotLabel(r.demande))}</dd></div>`).join("")}</dl></section>` : "";
+    return `<div class="ret-sheet tr-sheet">
+      <div class="ret-sh-hero">${serviceTile(first, "lg")}<div><p class="ret-sh-kind">Dans la corbeille</p><span class="ret-sh-what">${esc(trashTitle(group))}</span>
+        <div class="tr-plates">${many ? "" : plateTag(first.plaque)}</div></div></div>
+      <div class="tr-count ${trashTone(left)}"><b>${left > 1 ? `Encore ${left} jours dans la corbeille` : trashLeftLabel(left)}</b><span>Effacée pour de bon le ${esc(D.dayLabel(D.trashPurgeDate(group.supprimeLe).slice(0, 10)))}.</span></div>
+      ${vehicles}
+      <dl class="ret-sh-info">
+        ${line("Prévue", when, many ? "" : D.timeSlotLabel(first))}
+        ${line("Site", D.siteOf(first), first.adresse || "")}
+        ${line("Prestataire", first.prestataire || "")}
+        ${line(first.service === "intervention" ? "À faire" : "", first.tache || "")}
+        ${line("Prix", total ? D.euros(total) + " HT" : "", many ? "pour les " + group.rows.length + " véhicules" : "")}
+        ${line("Statut", first.statut ? D.statusOf(first.statut).label : "", "au moment de la suppression")}
+        ${line("Supprimée", capFirst(D.dayLabel(local.slice(0, 10))) + " à " + trashHour(local), group.supprimePar ? "par " + group.supprimePar : "")}
+      </dl>
+      ${first.notes ? `<p class="ret-sh-note">${esc(first.notes)}</p>` : ""}
+      <div class="ret-sh-acts">${state.canWrite
+        ? `<button type="button" class="ret-btn primary" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer dans le planning</button>`
+        : `<p class="ret-foot">Seuls les administrateurs peuvent restaurer une demande.</p>`}</div>
+    </div>`;
+  }
+  async function restoreTrash(key, button) {
+    if (!requireStore()) return;
+    const group = trash.groups.find((g) => trashKey(g) === key);
+    if (!group) return;
+    const ids = key.split(",");
+    const date = group.rows[0].demande.date;
+    document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = true));
     try {
       await state.store.restoreDemandes(ids);
-      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : "Demande restaurée");
-      trash.groups = trash.groups.filter((g) => g.ids.join(",") !== button.dataset.trashRestore);
-      renderTrash();
+      if (teamSheet.isOpen) teamSheet.close();
+      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : "Demande restaurée",
+        date ? { label: "Voir au planning", run: () => { state.day = date; show("planning"); renderPlanning(); } } : undefined);
+      const card = document.querySelector(`.tr-card[data-trash-key="${CSS.escape(key)}"]`);
+      const drop = () => { trash.groups = trash.groups.filter((g) => trashKey(g) !== key); renderTrash(); };
+      if (card && !matchMedia("(prefers-reduced-motion: reduce)").matches) { card.classList.add("tr-leave"); setTimeout(drop, 260); } else drop();
     } catch (err) {
-      button.disabled = false;
+      document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = false));
       if (err?.code === "already_exists") toast("Cette demande existe déjà dans le planning"); else reportWriteError(err);
     }
+  }
+  $("#trashList").addEventListener("click", (e) => {
+    const button = e.target.closest("[data-trash-restore]");
+    if (button) { restoreTrash(button.dataset.trashRestore, button); return; }
+    const open = e.target.closest("[data-trash-open]");
+    const group = open && trash.groups.find((g) => trashKey(g) === open.dataset.trashOpen);
+    if (group) teamSheet.open("Demande supprimée", trashSheetBody(group), { cls: "tr-sheet-wrap" });
   });
+  document.addEventListener("click", (e) => {
+    const button = e.target.closest(".tr-sheet [data-trash-restore]");
+    if (button) restoreTrash(button.dataset.trashRestore, button);
+  });
+  $("#trashSearch").addEventListener("input", (e) => { trash.query = e.target.value; renderTrash(); });
 
   // ================= Google Sheet link =================
   function sheetLink(plates) {
