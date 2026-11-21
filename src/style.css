@@ -2374,6 +2374,9 @@ input[type=checkbox].rg-switch, .rg-switch { flex: none; position: relative; wid
 .rg-site .rg-txt input { width: 100%; min-height: 36px; margin-top: 4px; padding: 6px 10px; border: 0; border-radius: 9px; background: color-mix(in srgb, var(--ink) 5%, transparent); box-shadow: none; font-size: 14.5px; color: var(--ink); }
 .rg-site .rg-txt input:focus { outline: none; background: var(--surface); box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 1px var(--accent); }
 .rg-site .rg-x { margin-top: 4px; }
+.rg-garage .rg-txt b .rg-dot { margin: 0 7px 2px 0; vertical-align: middle; }
+.rg-garage .rg-form-line { margin-top: 6px; }
+.rg-garage select { width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 9px; background: color-mix(in srgb, var(--ink) 5%, transparent); box-shadow: none; font-size: 14.5px; color: var(--ink); }
 /* Formulaire d'ajout sous une liste */
 .rg-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .rg-form-line { display: flex; gap: 8px; }

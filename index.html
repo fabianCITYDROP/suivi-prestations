@@ -2420,6 +2420,9 @@ input[type=checkbox].rg-switch, .rg-switch { flex: none; position: relative; wid
 .rg-site .rg-txt input { width: 100%; min-height: 36px; margin-top: 4px; padding: 6px 10px; border: 0; border-radius: 9px; background: color-mix(in srgb, var(--ink) 5%, transparent); box-shadow: none; font-size: 14.5px; color: var(--ink); }
 .rg-site .rg-txt input:focus { outline: none; background: var(--surface); box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 1px var(--accent); }
 .rg-site .rg-x { margin-top: 4px; }
+.rg-garage .rg-txt b .rg-dot { margin: 0 7px 2px 0; vertical-align: middle; }
+.rg-garage .rg-form-line { margin-top: 6px; }
+.rg-garage select { width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 9px; background: color-mix(in srgb, var(--ink) 5%, transparent); box-shadow: none; font-size: 14.5px; color: var(--ink); }
 /* Formulaire d'ajout sous une liste */
 .rg-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .rg-form-line { display: flex; gap: 8px; }
@@ -3879,20 +3882,65 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (!scored.length || (scored[1] && scored[1].score === scored[0].score)) return "";
     return scored[0].name;
   }
+  // City-Drop has one « garage » per provider AND site (« Du sol au toit » = La Défense, « Du sol au toit <ville> » = the
+  // other site), because its mails carry no address. Réglages › Garages des mails says, per garage name, which provider
+  // of the app and which site it is: config/reglages.garages [{garage, prestataire, site}]. Never a new provider.
+  const garageKey = (name) => providerId(name);
+  function normalizeGarages(list) {
+    const seen = new Set();
+    return (Array.isArray(list) ? list : []).map((g) => ({ garage: String(g?.garage || "").trim(), prestataire: String(g?.prestataire || ""), site: String(g?.site || "") }))
+      .filter((g) => g.garage && !seen.has(garageKey(g.garage)) && seen.add(garageKey(g.garage)));
+  }
+  const garageRuleOf = (garage, garages) => { const k = garageKey(garage); return (k && (garages || []).find((g) => garageKey(g.garage) === k)) || null; };
+  // Without a rule: the words of the garage name that are not the provider's (« lille » in « Du sol au toit Lille »)
+  // name the site when they fit exactly one site of the app.
+  function siteFromGarage(garage, provider, sites) {
+    const own = new Set(nameWords(provider));
+    const words = nameWords(garage).filter((w) => !own.has(w));
+    if (!words.length) return null;
+    const hits = (sites || []).filter((s) => { const sw = new Set(nameWords(s.nom)); return words.some((w) => sw.has(w)); });
+    return hits.length === 1 ? hits[0] : null;
+  }
+  // The garages seen in mails (and those already set up), with what the app makes of each one.
+  function garageList(demandes, garages, { providerNames, sites }) {
+    const rows = normalizeGarages(garages).map((g) => ({ ...g, saved: true, count: 0 }));
+    demandes.forEach((d) => {
+      if (d.source !== "mail" || !garageKey(d.garageMail)) return;
+      let row = rows.find((r) => garageKey(r.garage) === garageKey(d.garageMail));
+      if (!row) rows.push(row = { garage: String(d.garageMail).trim(), prestataire: "", site: "", saved: false, count: 0 });
+      row.count++;
+    });
+    return rows.map((r) => {
+      const prov = providerNames.includes(r.prestataire) ? r.prestataire : providerFromGarage(r.garage, providerNames);
+      const site = r.site && sites.some((s) => s.nom === r.site) ? r.site : siteFromGarage(r.garage, prov, sites)?.nom || "";
+      return { ...r, guessProvider: prov, guessSite: site, missing: !prov || !site };
+    }).sort((a, b) => b.missing - a.missing || a.garage.localeCompare(b.garage, "fr"));
+  }
   const MAIL_MARKERS = ["source", "mailId", "garageMail", "modeleMail", "km"];
   const mailMarkers = (d) => Object.fromEntries(MAIL_MARKERS.filter((k) => d[k] !== undefined).map((k) => [k, d[k]]));
   // What the team app adds to a mail request: the provider (so the provider sees it), the fleet model known for the
-  // plate, the site of the plate's last request, and the price. Returns null when there is nothing (more) to add.
-  function mailCompletion(d, { demandes, vehicleOf, providerNames, pricesOf }) {
+  // plate, the site (from the garage, else the plate's last request) and the price. Returns null when there is nothing (more) to add.
+  // siteAuto says the site was filled in by the app: a later garage rule may still correct it while the request is open.
+  // A team edit saves the request without it (not a mail marker), so a site chosen by hand is never overwritten.
+  function mailCompletion(d, { demandes, vehicleOf, providerNames, pricesOf, garages = [], sites = [] }) {
     if (d.source !== "mail") return null;
     const patch = {};
-    if (!d.prestataire) { const p = providerFromGarage(d.garageMail, providerNames); if (p) patch.prestataire = p; }
+    const rule = garageRuleOf(d.garageMail, garages);
+    if (!d.prestataire) {
+      const p = rule && providerNames.includes(rule.prestataire) ? rule.prestataire : providerFromGarage(d.garageMail, providerNames);
+      if (p) patch.prestataire = p;
+    }
     const vehicle = vehicleOf(d.plaque);
     if (!d.modele && vehicle?.modele) { patch.modele = vehicle.modele; patch.cubage = vehicle.cubage ?? null; }
-    if (!d.site && !d.adresse) {
+    const provider = d.prestataire || patch.prestataire || "";
+    const bySite = rule?.site ? sites.find((s) => s.nom === rule.site) || null : siteFromGarage(d.garageMail, provider, sites);
+    const empty = !d.site && !d.adresse;
+    if (bySite && (empty || (d.siteAuto && !CLOSED_STATUSES.includes(d.statut)))) {
+      if (empty || d.site !== bySite.nom || (d.adresse || "") !== (bySite.adresse || "")) Object.assign(patch, { site: bySite.nom, adresse: bySite.adresse || "", siteAuto: "garage" });
+    } else if (empty) {
       const last = demandes.filter((o) => o.id !== d.id && plateKey(o.plaque) === plateKey(d.plaque) && (o.site || o.adresse))
         .sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
-      if (last) { patch.site = last.site || ""; patch.adresse = last.adresse || ""; }
+      if (last) { patch.site = last.site || ""; patch.adresse = last.adresse || ""; patch.siteAuto = "plaque"; }
     }
     const merged = { ...d, ...patch };
     if (merged.prestataire && (!d.prestataireId || d.prixHT == null)) {
@@ -4494,7 +4542,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     monthlyReport, invoiceLines, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_DAYS, TEAM_RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
-    providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
+    providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
@@ -4593,7 +4641,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     const OPEN_STATUSES = ["a_envoyer", "envoyee", "confirmee"];
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onError, recentFrom, hayonFrom, problemsFrom }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onGarages, onError, recentFrom, hayonFrom, problemsFrom }) {
       const requests = db.collection("demandes");
       demandesFeed = createFeed(onDemandes, onError);
       const canQuery = typeof requests.where === "function" && recentFrom;
@@ -4634,6 +4682,9 @@ window.SUIVI_FIREBASE_CONFIG = {
         (s) => onDevices(toRows(s).map(({ email, role, prestataireId, appareil, createdAt, updatedAt }) => ({ email, role, prestataireId, appareil, createdAt, updatedAt }))),
         () => onDevices(null)));
       // Trace left by the mail robot: refused until the new rules are published, then simply "not installed".
+      // City-Drop garage → provider + site (Réglages › Garages des mails). Its own document, so that an older copy of the
+      // app saving config/reglages can never erase it.
+      if (onGarages) unsubs.push(db.doc("config/garages").onSnapshot((s) => onGarages((s.exists && s.data().liste) || []), () => onGarages([])));
       if (onRobot) unsubs.push(db.doc("robot/etat").onSnapshot((s) => onRobot(s.exists ? s.data() : null), () => onRobot(null)));
       return () => unsubs.forEach((u) => u());
     }
@@ -4915,6 +4966,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
 
     const saveSettings = (settings) => db.doc("config/reglages").set(settings);
+    const saveGarages = (liste) => db.doc("config/garages").set({ liste: D.normalizeGarages(liste), updatedAt: new Date().toISOString() });
 
     // Vehicle sheet: fleet model from the latest request, plus its windshield photos.
     async function saveVehicle(vehicle, identity) {
@@ -4977,7 +5029,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -6297,6 +6349,7 @@ function page(texte) {
     fleet: D.DEFAULT_FLEET.slice(), // [{modele, cubage}]
     contacts: {},                 // provider -> WhatsApp number
     sheetUrl: "",
+    garages: [],                  // [{garage, prestataire, site}] City-Drop garage names of the mails (config/garages)
     day: D.toIsoDate(new Date()),
     providerFilter: "",
     editingId: null,
@@ -8631,6 +8684,9 @@ function page(texte) {
     const health = D.robotHealth(state.robot);
     if (health.level === "alert" || health.level === "warn")
       items.push(`<button type="button" class="rg-todo-row" data-rg-open="robot"><i class="rg-dot ${RG_TONE[health.level]}" aria-hidden="true"></i><span><b>Robot des mails : ${esc(ROBOT_SHORT[health.level].toLowerCase())}</b><small>${esc(health.text)}</small></span><span class="rg-chev" aria-hidden="true">${icon("chev-r")}</span></button>`);
+    const unlinked = garageRows().filter((r) => r.missing && r.count);
+    if (unlinked.length)
+      items.push(`<button type="button" class="rg-todo-row" data-rg-open="garages"><i class="rg-dot todo" aria-hidden="true"></i><span><b>Garages des mails à rattacher</b><small>${esc(unlinked.map((r) => r.garage).join(", "))}</small></span><span class="rg-chev" aria-hidden="true">${icon("chev-r")}</span></button>`);
     if (state.canWrite) {
       const missing = D.missingKnownPrices(state.providers, pricesOf);
       const count = missing.reduce((n, m) => n + m.add.length, 0);
@@ -8668,6 +8724,7 @@ function page(texte) {
       </div><div class="rg-col">
         ${rgSection("Terrain",
           rgRow({ open: "sites", art: "rg-pin", title: "Sites et adresses", value: noAddress ? rgVal("todo", `${noAddress} sans adresse`) : rgVal("", plural(state.sites.length, "site")) }) +
+          rgRow({ open: "garages", art: "rg-mail", title: "Garages des mails", sub: "Prestataire et site de chaque garage", value: garagesMissing() ? rgVal("todo", `${garagesMissing()} à rattacher`) : rgVal("", plural(garageRows().length, "garage")) }) +
           rgRow({ open: "fleet", art: "rg-van", title: "Flotte", sub: "Modèles proposés dans la demande", value: rgVal("", plural(state.fleet.length, "modèle")) }))}
         ${rgSection("Accès",
           rgRow({ open: "accounts", art: "rg-key", title: "Accès à l'appli", sub: "Qui peut se connecter, et à quoi", value: rgVal("", plural(state.accounts.length, "compte")) }) +
@@ -8678,6 +8735,30 @@ function page(texte) {
         ${signOut && !signOut.hidden ? rgSection("", `<button type="button" class="rg-row rg-danger" data-rg-open="logout"><span class="rg-ico" aria-hidden="true">${rgArt("rg-power")}</span><span class="rg-txt"><b>Se déconnecter</b>${state.userEmail ? `<small>${esc(state.userEmail)}</small>` : ""}</span></button>`) : ""}
       </div></div>`;
     refreshRgSheet();
+  }
+
+  // ----- garages des mails : chaque garage City-Drop = un prestataire de l'appli + un site -----
+  const garageRows = () => D.garageList(state.demandes, state.garages, { providerNames: state.providers, sites: state.sites });
+  const garagesMissing = () => garageRows().filter((r) => r.missing).length;
+  const pickOptions = (values, chosen, empty) => `<option value="">${esc(empty)}</option>` + values.map((v) => `<option value="${esc(v)}" ${v === chosen ? "selected" : ""}>${esc(v)}</option>`).join("");
+  function garagesSheet() {
+    const w = state.canWrite, rows = garageRows();
+    const list = rows.map((r, i) => `<div class="rg-row rg-static rg-site rg-garage" data-garage="${esc(r.garage)}"><span class="rg-txt">
+        <b>${r.missing ? `<i class="rg-dot todo" aria-hidden="true"></i>` : ""}${esc(r.garage)}</b>${r.count ? `<small>${esc(plural(r.count, "demande"))}</small>` : ""}
+        <span class="rg-form-line"><select data-garage-prov="${i}" aria-label="Prestataire de ${esc(r.garage)}" ${w ? "" : "disabled"}>${pickOptions(state.providers, r.guessProvider, "Prestataire ?")}</select>
+        <select data-garage-site="${i}" aria-label="Site de ${esc(r.garage)}" ${w ? "" : "disabled"}>${pickOptions(siteNames(), r.guessSite, "Site ?")}</select></span></span>
+        ${w && r.saved ? rgRemove("remove-garage", r.garage, r.garage) : ""}</div>`).join("");
+    return `<div class="rg-sheet">
+      ${rgSection(plural(rows.length, "garage"), `<div id="s-garages">${list || `<p class="rg-empty">Aucun garage reçu par mail pour l'instant.</p>`}</div>`)}
+      ${rgForm(`<input id="g-new" placeholder="Nom du garage, comme dans le mail" aria-label="Nom du garage" autocomplete="off">
+        <div class="rg-form-line"><select id="g-prov" aria-label="Prestataire">${pickOptions(state.providers, "", "Prestataire ?")}</select><select id="g-site" aria-label="Site">${pickOptions(siteNames(), "", "Site ?")}</select></div>
+        ${rgAddBtn("g-add", "add-garage")}`)}</div>`;
+  }
+  async function saveGarage(garage, prestataire, site, message) {
+    if (!requireStore()) return;
+    const key = D.providerId(garage);
+    const next = state.garages.filter((g) => D.providerId(g.garage) !== key).concat([{ garage, prestataire, site }]);
+    try { await state.store.saveGarages(next); toast(message); } catch (err) { reportWriteError(err); }
   }
 
   // ----- feuilles -----
@@ -8731,6 +8812,7 @@ function page(texte) {
         <p class="rg-foot">Copie les deux colonnes (nom, adresse) depuis ton tableau et colle-les ici. Les sites déjà présents gardent leur nom, leur adresse est mise à jour.</p>
         <textarea id="s-paste" rows="6" placeholder="Paris - Centre&#9;Parking Indigo, 75007 Paris" aria-label="Liste des sites à coller"></textarea>
         <button type="button" class="rg-btn primary" id="s-importsites" data-rg-act="import-sites">Importer</button></details>` : ""}</div>`];
+    if (key === "garages") return ["Garages des mails", garagesSheet()];
     if (key === "fleet") return ["Flotte", `<div class="rg-sheet">
       <p class="rg-intro">Modèles proposés dans la demande. Choisir un modèle remplit le cubage.</p>
       ${rgSection(plural(state.fleet.length, "modèle"), `<div id="s-fleet">${state.fleet.map((f, i) => `<div class="rg-row rg-static"><span class="rg-txt"><b>${esc(f.modele)}</b></span>${f.cubage ? rgVal("", f.cubage + " m³") : ""}${w ? rgRemove("remove-model", i, D.fleetLabel(f)) : ""}</div>`).join("") || `<p class="rg-empty">Aucun modèle.</p>`}</div>`)}
@@ -8932,6 +9014,21 @@ function page(texte) {
       $("#s-newsite").value = ""; state.sites.push({ nom, adresse: "" }); renderAll(); persistSettings("Site ajouté");
       return setTimeout(() => teamSheet.body.querySelector(`[data-site-address="${state.sites.length - 1}"]`)?.focus(), 50);
     }
+    if (act === "add-garage") {
+      const garage = rgValue("#g-new");
+      if (!garage) return toast("Indique le nom du garage, comme dans le mail");
+      if (!$("#g-prov").value || !$("#g-site").value) return toast("Choisis le prestataire et le site");
+      await saveGarage(garage, $("#g-prov").value, $("#g-site").value, "Garage ajouté");
+      if ($("#g-new")) $("#g-new").value = "";
+      return refreshRgSheet();
+    }
+    if (act === "remove-garage") {
+      const before = state.garages.slice(), key = D.providerId(b.dataset.i);
+      if (!requireStore()) return;
+      try { await state.store.saveGarages(before.filter((g) => D.providerId(g.garage) !== key)); undoable("Garage retiré", () => state.store.saveGarages(before)); }
+      catch (err) { reportWriteError(err); }
+      return;
+    }
     if (act === "remove-site") return removeWithUndo("sites", +b.dataset.i, "Site retiré");
     if (act === "import-sites") {
       const incoming = D.parseSiteList($("#s-paste").value);
@@ -8971,6 +9068,12 @@ function page(texte) {
   document.addEventListener("change", async (e) => {
     if (!inRg(e.target)) return;
     if (e.target.id === "a-role") return syncAccountRole();
+    const garageRow = e.target.closest("[data-garage]");
+    if (garageRow && e.target.matches("select")) {
+      if (!state.canWrite) return;
+      const prov = garageRow.querySelector("[data-garage-prov]").value, site = garageRow.querySelector("[data-garage-site]").value;
+      return saveGarage(garageRow.dataset.garage, prov, site, prov && site ? `${garageRow.dataset.garage} : ${prov}, ${site}` : "Enregistré");
+    }
     const box = e.target.closest("[data-prov-flag]");
     if (box) {
       if (!requireStore()) return;
@@ -9007,7 +9110,7 @@ function page(texte) {
   const completing = new Set();
   function completeMailRequests() {
     if (!state.canWrite || !state.store) return;
-    const ctx = { demandes: state.demandes, vehicleOf, providerNames: state.providers, pricesOf };
+    const ctx = { demandes: state.demandes, vehicleOf, providerNames: state.providers, pricesOf, garages: state.garages, sites: state.sites };
     state.demandes.forEach((d) => {
       const patch = D.mailCompletion(d, ctx);
       if (!patch || completing.has(d.id)) return;
@@ -9604,6 +9707,7 @@ function page(texte) {
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
       onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderPlanning(); renderFormSide(); },
       onRobot: (etat) => { state.robot = etat; renderRobot(); },
+      onGarages: (list) => { state.garages = D.normalizeGarages(list); completeMailRequests(); renderSettings(); },
       onDevices: (rows) => { state.alertDevices = rows; renderSettings(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
