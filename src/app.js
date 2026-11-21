@@ -1902,6 +1902,9 @@
   $("#b-month").value = today().slice(0, 7);
   const bil = { split: "service", all: new Set() };
   const currentReport = () => D.monthlyReport(state.demandes, { month: $("#b-month").value, provider: $("#b-prest").value, todayIso: today() });
+  // Tuiles du Bilan : une icône au trait, couleur seulement sur le trait (vert / orange / gris), sans pastille (2026-11-21).
+  const BIL_LINE = { "ret-fait": ["check", "ok"], "bil-attente": ["clock", "todo"], "act-date": ["cal", ""], "bil-annule": ["x", ""] };
+  const bilGlyph = (key) => `<span class="bil-gl ${BIL_LINE[key][1]}" aria-hidden="true">${icon(BIL_LINE[key][0])}</span>`;
   const bilArt = (key, size = "sm") => `<span class="ret-ico ${size}" aria-hidden="true">${self.IssueArt?.art(key, "ret-art") || ""}</span>`;
   const ht = (n) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
   const monthShift = (month, k) => { const d = new Date(+month.slice(0, 4), +month.slice(5, 7) - 1 + k, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
@@ -1996,10 +1999,10 @@
       t.flat ? `<span class="bil-note">${t.flat} contrôle${t.flat > 1 ? "s" : ""} hayon au forfait mensuel, hors total</span>` : "",
       t.unpriced ? `<span class="bil-note wait">${plural(t.unpriced, "prestation réalisée")} sans prix : à vérifier sur la facture</span>` : "",
     ].join("");
-    const tile = (art, n, label, jump, tone = "") => `<button type="button" class="ret-tile bil-tile ${tone}" data-bil-jump="${jump}"${n ? "" : " disabled"}>${bilArt(art)}<b>${n}</b><span>${label}</span></button>`;
+    const tile = (art, n, label, jump, tone = "") => `<button type="button" class="ret-tile bil-tile ${tone}" data-bil-jump="${jump}"${n ? "" : " disabled"}>${bilGlyph(art)}<b>${n}</b><span>${label}</span></button>`;
     $("#b-body").innerHTML = `
       <section class="bil-hero">
-        <div class="bil-hero-top">${bilArt("bil-facture", "lg")}
+        <div class="bil-hero-top">
           <div class="bil-hero-txt"><span class="bil-hero-k">Total réalisé${provider ? " · " + esc(provider) : ""}</span>
             <span class="bil-total"><b class="bil-total-n">${esc(ht(t.amountHT))}</b><small>HT</small></span>
             <span class="bil-hero-sub">soit ${esc(ht(D.withVat(t.amountHT)))} TTC · ${t.done} réalisée${t.done > 1 ? "s" : ""} sur ${t.requested - t.cancelled} à faire</span></div></div>
@@ -2027,8 +2030,8 @@
     const done = rows.filter((d) => d.statut === "realisee").sort(D.byDateThenTime);
     const lines = D.invoiceLines(done);
     const checks = [
-      t.overdue ? `<p class="bil-check wait">${bilArt("bil-attente", "xs")}<span><b>${plural(t.overdue, "véhicule")} encore à confirmer</b>Dispo passée sans « Réalisée » : vérifie avant de payer.</span></p>` : "",
-      t.unpriced ? `<p class="bil-check wait">${bilArt("bil-attente", "xs")}<span><b>${plural(t.unpriced, "prestation")} sans prix</b>Le tarif manquait à l'enregistrement : prends le prix de la facture.</span></p>` : "",
+      t.overdue ? `<p class="bil-check wait">${bilGlyph("bil-attente")}<span><b>${plural(t.overdue, "véhicule")} encore à confirmer</b>Dispo passée sans « Réalisée » : vérifie avant de payer.</span></p>` : "",
+      t.unpriced ? `<p class="bil-check wait">${bilGlyph("bil-attente")}<span><b>${plural(t.unpriced, "prestation")} sans prix</b>Le tarif manquait à l'enregistrement : prends le prix de la facture.</span></p>` : "",
     ].join("");
     return `<section class="bil-sec bil-invoice">${inSheet ? "" : `<h2 class="ret-gh"><span>Détail pour la facture</span></h2>`}
       <div class="bil-card bil-inv">
@@ -2047,7 +2050,7 @@
     const report = currentReport();
     const t = (report.byProvider.find(([k]) => k === name) || [, null])[1];
     if (!t) return;
-    teamSheet.open(name, `<div class="bil-sheet"><div class="bil-sh-hero">${bilArt("bil-facture", "lg")}<span><span class="bil-hero-k">${esc(D.monthLabel($("#b-month").value))}</span>
+    teamSheet.open(name, `<div class="bil-sheet"><div class="bil-sh-hero"><span><span class="bil-hero-k">${esc(D.monthLabel($("#b-month").value))}</span>
         <span class="bil-total"><b>${!t.amountHT && t.flat ? "Forfait" : esc(ht(t.amountHT))}</b><small>${!t.amountHT && t.flat ? "mensuel" : "HT"}</small></span>
         <span class="bil-hero-sub">${t.done} réalisée${t.done > 1 ? "s" : ""} sur ${t.requested} demandée${t.requested > 1 ? "s" : ""}</span></span></div>
       ${invoiceSection(name, report, true)}</div>`, { cls: "bil-sheet-wrap" });
@@ -2309,7 +2312,9 @@
   // Les écritures n'ont pas changé : config/reglages, prestataires/*, comptes/*, réglages des alertes. Aucune règle Firebase touchée.
   const rg = { open: null, armed: "" };
   const rgArt = (key) => self.IssueArt?.art(key, "rg-art") || "";
-  const rgIco = (key, size = "") => `<span class="rg-ico ${size}" aria-hidden="true">${rgArt(key)}</span>`;
+  // Icônes au trait, gris (2026-11-21) : plus d'éponge verte ni d'épingle en volume.
+  const RG_LINE = { "Véhicule sale": "drop", "Pare-brise": "wind", "svc-intervention": "wrench", "svc-hayon": "hayon", "rg-pin": "pin", "rg-van": "truck", "rg-key": "key", "rg-bell": "bell", "rg-mail": "mail", "rg-sheet": "table", "rg-power": "power" };
+  const rgIco = (key, size = "") => `<span class="rg-ico ${size}" aria-hidden="true">${RG_LINE[key] ? icon(RG_LINE[key]) : rgArt(key)}</span>`;
   const RG_FLAGS = [
     { flag: "lavage", label: "Lavage", sub: "Complet ou intérieur", art: "Véhicule sale", service: "lavage" },
     { flag: "pareBrise", label: "Pare-brise", sub: "Seulement ceux qui changent les pare-brise", art: "Pare-brise", service: "pare-brise" },
@@ -2392,7 +2397,7 @@
         ${rgSection("Connexions",
           rgRow({ open: "robot", art: "rg-mail", title: "Robot des mails", sub: "Ajoute les demandes reçues par mail", value: `<span class="rg-val" id="s-robot" data-level="${health.level}"><i class="rg-dot ${RG_TONE[health.level]}" aria-hidden="true"></i>${esc(ROBOT_SHORT[health.level])}</span>` }) +
           rgRow({ open: "gsheet", art: "rg-sheet", title: "Google Sheet pare-brise", sub: "Coche « OK confirmé » des plaques", value: state.sheetUrl ? rgVal("ok", "Branché") : rgVal("off", "Pas branché") }))}
-        ${signOut && !signOut.hidden ? rgSection("", `<button type="button" class="rg-row rg-danger" data-rg-open="logout"><span class="rg-ico" aria-hidden="true">${rgArt("rg-power")}</span><span class="rg-txt"><b>Se déconnecter</b>${state.userEmail ? `<small>${esc(state.userEmail)}</small>` : ""}</span></button>`) : ""}
+        ${signOut && !signOut.hidden ? rgSection("", `<button type="button" class="rg-row rg-danger" data-rg-open="logout">${rgIco("rg-power")}<span class="rg-txt"><b>Se déconnecter</b>${state.userEmail ? `<small>${esc(state.userEmail)}</small>` : ""}</span></button>`) : ""}
       </div></div>`;
     refreshRgSheet();
   }
@@ -3098,7 +3103,7 @@
     const acts = state.canWrite ? v.acts.filter((a) => !["open", "replan"].includes(a.act) || v.d) : [];
     return `<article class="ret-card${isRetDone(it) ? " done" : ""}" data-ret="${esc(it.key)}">
       <button type="button" class="ret-open" data-ret-open="${esc(it.key)}" aria-label="${esc(`${v.kind} : ${v.plate} – détail`)}">
-        <span class="ret-ico" aria-hidden="true">${retArt(v.art)}</span>
+        ${isRetDone(it) ? `<span class="ret-done-tick" aria-hidden="true">${icon("check")}</span>` : `<span class="ret-ico" aria-hidden="true">${retArt(v.art)}</span>`}
         <span class="ret-main">
           <span class="ret-line">${plateTag(v.plate)}<span class="ret-time">${esc(isRetDone(it) ? it.at.slice(11, 16).replace(":", "h") : timeOf(it.at))}</span></span>
           <span class="ret-what">${v.extraArts?.length ? `<span class="ret-minis">${v.extraArts.map((q) => retArt(q, "mini-art")).join("")}</span>` : ""}${esc(v.whatOverride || v.what)}</span>
