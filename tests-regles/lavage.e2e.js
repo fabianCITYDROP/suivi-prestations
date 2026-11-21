@@ -57,7 +57,7 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   await p.selectOption('#f-prest', 'Khalid Lavage'); await p.waitForTimeout(200);
   ok('Khalid unticked: nothing offered + message', (await shown()).length === 0 && await p.isVisible('#svcNone'));
   // Saving is refused with a clear reason.
-  await p.fill('#f-plaque', 'AB-123-CD'); await p.click('#form button[type=submit]'); await p.waitForTimeout(600);
+  await p.fill('#f-plaque', 'AB-123-CD'); await p.click('#saveBtn'); await p.waitForTimeout(600);
   ok('save refused', !(await list('demandes')).length);
   await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(300);
   await p.locator('#provRow').scrollIntoViewIfNeeded(); await p.screenshot({ path: shots + '/formulaire-telephone-rien.png' });

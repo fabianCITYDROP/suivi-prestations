@@ -90,7 +90,7 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   const provs = await list('prestataires');
   ok('interventions saved on Khalid', provs.find(x => x.id === 'khalid')?.interventions?.booleanValue === true);
   await p.goto('http://localhost:8765/#planning'); await p.click('#newOnDay'); await p.selectOption('#f-prest', 'Khalid'); await p.dispatchEvent('#f-prest', 'change');
-  await p.click('label:has(#svc-intervention)'); await p.waitForTimeout(100);
+  await p.click('[data-nd-svc="intervention"]'); await p.waitForTimeout(100);
   ok('task field shown for an intervention', await p.isVisible('#f-tache'));
   if (process.env.SHOTS) { await p.setViewportSize({ width: 1280, height: 900 }); await (await p.$('#form')).screenshot({ path: process.env.SHOTS + '/6-intervention-equipe.png' }); }
   await p.fill('#f-plaque', 'iv111aa'); await p.selectOption('#f-site', { index: 1 }); await p.click('[data-task="Déplacer le véhicule"]'); await p.click('[data-task="Vérifier les pneus"]'); await p.click('[data-task="Déplacer le véhicule"]'); await p.type('#f-tache', ' avant'); await p.click('#saveBtn'); await p.waitForTimeout(900);
