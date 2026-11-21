@@ -1028,6 +1028,48 @@ textarea.sheet-input { display: block; padding: 14px 16px; min-height: 96px; lin
 .sheet-back .icon { width: 20px; height: 20px; }
 @media (prefers-reduced-transparency: reduce) { .up-search { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 @media (prefers-reduced-motion: reduce) { .up-card.leaving, .up-row { animation: none; transition: none; } }
+/* ----- « À valider » (prestataire, 21/11) : la date et le site d'abord, le véhicule ensuite. Classes .ask* / .cal-tile seulement. ----- */
+.ask-sum { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 18px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+.ask-sum p { margin: 0; font-size: 15px; color: var(--ink-2); }
+.ask-sum b { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ask-sum b .icon { width: 18px; height: 18px; color: var(--st-done); }
+.ask-sum .ask-sum-wait { color: var(--st-todo); font-weight: 600; }
+.ask-sum .ask-sum-sub { font-size: 14px; }
+.job.ask { gap: 0; padding: 0; overflow: hidden; }
+.job.ask > * { margin-left: 14px; margin-right: 14px; }
+.job.ask > * + * { margin-top: 12px; }
+.job.ask > :last-child:not(.job-done-flash) { margin-bottom: 14px; }
+.ask-when { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: center; margin: 0 !important; padding: 14px; background: var(--surface-2); border-bottom: .5px solid var(--line); }
+.cal-tile { display: grid; grid-template-rows: 18px 1fr; width: 54px; height: 54px; border-radius: 15px; overflow: hidden; background: var(--surface); text-align: center;
+  box-shadow: inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.cal-tile small { display: block; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 82%, #fff), var(--accent)); color: #fff;
+  font: 700 10.5px/18px var(--f-body); letter-spacing: .06em; text-transform: uppercase; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3); }
+.cal-tile b { display: grid; place-items: center; font: 700 23px/1 var(--f-body); letter-spacing: -.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ask-when-txt { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ask-day { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 10px; }
+.ask-day b { white-space: nowrap; font: 700 17px/1.25 var(--f-body); letter-spacing: -.015em; color: var(--ink); }
+.ask-day .job-time { font-size: 14.5px; color: var(--ink-2); }
+.ask-site { margin: 0; display: flex; gap: 6px; align-items: flex-start; min-width: 0; }
+.ask-site .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent); }
+.ask-site span { display: flex; flex-direction: column; min-width: 0; }
+.ask-site b { font: 600 15px/1.3 var(--f-body); color: var(--ink); }
+.ask-site small { font-size: 13px; line-height: 1.3; color: var(--ink-2); }
+.ask-veh .job-head { gap: 12px; }
+.job.ask .ask-veh { margin-top: 14px; }
+.ask-answer { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--st-todo-bg); color: var(--st-todo); font-size: 13.5px; }
+.ask-answer .icon { flex: none; width: 17px; height: 17px; margin-top: 1px; }
+.ask-answer span { display: flex; flex-direction: column; gap: 1px; font-weight: 500; }
+.ask-answer b { font-size: 14px; font-weight: 650; }
+.job.ask .job-done-flash { margin: 0; }
+.ask-flash small { color: var(--ink-2); font-size: 13.5px; font-weight: 500; }
+.ask-empty { gap: 8px; padding: 36px 20px 40px; border: 0; border-radius: 20px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 12px 26px -18px rgba(10, 20, 28, .4); }
+.ask-empty .svc-tile.lg { width: 76px; height: 76px; border-radius: 22px; margin-bottom: 6px; }
+.ask-empty .svc-tile.lg .svc-art { width: 56px; height: 56px; }
+.ask-empty b { font-size: 17px; letter-spacing: -.01em; }
+.ask-empty span:last-child { max-width: 260px; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .job.ask .job-done-flash { animation: none; } }
 </style>
 </head>
 <body>
@@ -3361,6 +3403,19 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     `<path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="none" stroke="#7d1810" stroke-width="1" stroke-linejoin="round"/>` +
     `<path d="M22.4 9.6a1.8 1.8 0 0 1 3.1 0l3 5.4c-2.6 1.6-6.4 1.9-9.4.9Z" fill="#fff" opacity=".35"/>` +
     `<rect x="22" y="17" width="4" height="12.4" rx="2" fill="#fff"/><circle cx="24" cy="34" r="2.2" fill="#fff"/>`;
+  // « Pas possible » : panneau sens interdit en volume (refus d'une demande, à ne pas confondre avec « Problème »).
+  ICONS["act-refuse"] = ground(24, 42.6, 15, 2.1) +
+    `<circle cx="24" cy="23" r="16" fill="url(#i3-warn)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeR)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeB)"/>` +
+    `<circle cx="24" cy="23" r="16" fill="none" stroke="#7d1810" stroke-width="1"/><circle cx="24" cy="23" r="13.6" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width=".8"/>` +
+    `<ellipse cx="19.4" cy="13.6" rx="7.6" ry="3.4" fill="url(#i3-shine)" opacity=".55"/>` +
+    `<rect x="13.4" y="20" width="21.2" height="6" rx="3" fill="#fff"/><path d="M15 25.4h18" stroke="#0a141c" stroke-opacity=".12" stroke-width=".8" stroke-linecap="round"/>`;
+  // État vide de « À valider » : bac à courrier vide, coche verte en volume.
+  ICONS["empty-inbox"] = ground(24, 42.4, 19, 2.2) +
+    solid("M5.5 27.5l5.2-13.8a2.4 2.4 0 0 1 2.2-1.6h22.2a2.4 2.4 0 0 1 2.2 1.6l5.2 13.8V36a3 3 0 0 1-3 3H8.5a3 3 0 0 1-3-3Z") +
+    `<path d="M9.4 27.5l4.4-11.6h20.4l4.4 11.6Z" fill="#c9d4dc"/><path d="M9.4 27.5l4.4-11.6h20.4" fill="none" stroke="#9aa8b3" stroke-width=".7"/>` +
+    `<path d="M5.5 27.5h10.2l2.2 4.3h12.2l2.2-4.3h10.2" fill="none" ${S}/><path d="M7.2 29h7.6" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".9"/>` +
+    `<circle cx="35" cy="12.6" r="8.6" fill="url(#i3-spg)" ${S}/><ellipse cx="32.8" cy="8.8" rx="4.8" ry="2.4" fill="url(#i3-shine)" opacity=".6"/>` +
+    `<path d="M31 12.8l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
@@ -3467,7 +3522,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     const actTitle = (kind, d) => (kind === "veh" && d ? (d.date ? upDayTitle(d.date) : "Date à préciser")
       : kind === "date" && d && !D.isAccepted(d) ? "Proposer une autre date" : ACTS[kind]?.title || "");
     // Secondary actions: round raised buttons with an icon in volume (same family as « Signaler »), label underneath.
-    const ACT_ART = { date: "act-date", absent: "act-absent", problem: "act-problem", refuse: "act-problem" };
+    const ACT_ART = { date: "act-date", absent: "act-absent", problem: "act-problem", refuse: "act-refuse" };
     const actBtn = (kind, id, label) => `<button type="button" class="act-btn" data-act="${kind}" data-id="${esc(id)}"><span class="act-ico" aria-hidden="true">${self.IssueArt?.art(ACT_ART[kind], "act-art") || ""}</span><span class="act-lbl">${label}</span></button>`;
     // The next days as one-tap choices; any other day stays in the date field.
     function nextDays(n) {
@@ -3506,12 +3561,36 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
 
     // ---------- cards per tab ----------
+    // « À valider » : la date et le site d'abord (c'est ce qui décide), le véhicule ensuite.
+    const relDay = (iso) => { const n = Math.round((new Date(iso + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5); return n === 0 ? "Aujourd'hui" : n === 1 ? "Demain" : ""; };
+    function calTile(iso) {
+      const x = new Date((iso || today()) + "T12:00:00");
+      return `<span class="cal-tile" aria-hidden="true"><small>${esc(x.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", ""))}</small><b>${x.getDate()}</b></span>`;
+    }
+    function askWhen(d) {
+      const rel = !D.isMultiDay(d) && d.date ? relDay(d.date) : "";
+      const dm = (iso, month = true) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", month ? { day: "numeric", month: "short" } : { day: "numeric" });
+      const last = D.lastDay(d);
+      const day = !d.date ? "Date à préciser"
+        : D.isMultiDay(d) ? `Du ${dm(d.date, d.date.slice(0, 7) !== last.slice(0, 7))} au ${dm(last)}` // la tuile donne déjà le jour de la semaine
+        : rel ? `${rel} · ${dm(d.date)}` : cap(D.shortDate(d.date));
+      return `<header class="ask-when">${calTile(d.date)}
+        <div class="ask-when-txt"><p class="ask-day"><b>${esc(day)}</b><span class="job-time">${esc(slot(d))}</span></p>
+        <p class="ask-site">${icon("pin")}<span><b>${esc(d.site || "Site à préciser")}</b>${d.adresse ? `<small>${esc(d.adresse)}</small>` : ""}</span></p></div></header>`;
+    }
+    // Réponse déjà envoyée (autre date, pas possible…) : pastille orange en haut de la carte, l'équipe n'a pas encore tranché.
+    function askAnswer(d) {
+      const r = d.retour;
+      if (!r || ["fait", "confirme", "erreur"].includes(r.etat)) return "";
+      return `<p class="ask-answer">${icon("clock")}<span><b>${esc(D.answerSummary(r))}</b>${r.vu ? "Vu par l'équipe" : "En attente de l'équipe"}</span></p>`;
+    }
     function validateCard(d) {
-      return `<article class="job" data-job="${esc(d.id)}">${jobHead(d)}${jobMeta(d)}${photosStrip(d)}${answerLine(d)}
-        ${state.busy.has(d.id) ? busyLine : `<div class="job-actions">
+      const flying = state.accepting === d.id;
+      return `<article class="job ask${flying ? " accepting" : ""}" data-job="${esc(d.id)}">${askWhen(d)}<div class="ask-veh">${jobHead(d)}</div>${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}${photosStrip(d)}${askAnswer(d)}
+        ${state.busy.has(d.id) && !flying ? busyLine : `<div class="job-actions">
           <button type="button" class="primary big ok-btn" data-take="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Accepter</button>
           <div class="act-row two">${actBtn("date", d.id, "Autre date")}${actBtn("refuse", d.id, "Pas possible")}</div></div>`}
-      </article>`;
+      ${flying ? `<div class="job-done-flash ask-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Acceptée</b><small>Rangée dans ${esc(state.acceptTo === "today" ? "Aujourd'hui" : "À venir")}</small></div>` : ""}</article>`;
     }
     // early: a vehicle of « À venir » done ahead of time (date and site shown, the section does not give them).
     function doCard(d, { early = false } = {}) {
@@ -3556,10 +3635,15 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
         return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
     }
-    function validateTab(list) {
-      return list.length
-        ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${list.map(validateCard).join("")}`
-        : empty("Aucune demande à valider", "Les nouvelles demandes de City-Drop arrivent ici.");
+    // En tête : combien de demandes attendent une réponse, et combien attendent l'équipe (réponse déjà envoyée).
+    function validateTab(all) {
+      const list = all.filter((d) => d.id !== state.gone);
+      if (!list.length) return `<div class="job-empty ask-empty"><span class="svc-tile lg" aria-hidden="true">${self.IssueArt?.art("empty-inbox", "svc-art") || ""}</span><b>Aucune demande à valider</b><span>Les nouvelles demandes de City-Drop arrivent ici.</span></div>`;
+      const waiting = list.filter((d) => d.retour && !["fait", "confirme", "erreur"].includes(d.retour.etat)).length;
+      const todo = list.length - waiting;
+      const head = todo ? `<b>${todo}</b> demande${todo > 1 ? "s" : ""} à valider` : `<b>${icon("check")}Tu as répondu à tout</b>`;
+      return `<div class="ask-sum"><p>${head}${waiting ? `<span class="ask-sum-wait"> · ${waiting} en attente de l'équipe</span>` : ""}</p>
+        <p class="ask-sum-sub">${todo ? "Accepte chaque demande, ou propose une autre date." : "L'équipe City-Drop te répond ici."}</p></div>${list.map(validateCard).join("")}`;
     }
     // The day at a glance: what is left, what is already done today (green bar = done only).
     function daySummary(left) {
@@ -3913,7 +3997,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       else if ((b = el("[data-fcancel]"))) { state.fd = emptyField(); state.pdelArmed = null; render(); }
       else if ((b = el("[data-pdel]"))) deleteReport(b.dataset.pdel);
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
-      else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
+      else if ((b = el("[data-take]"))) acceptRequest(byId(b.dataset.take));
       else if ((b = el("[data-veh]"))) { // « À venir » : la feuille du véhicule (ou retour vers elle depuis une action)
         state.openForm = "veh:" + b.dataset.veh; state.actFrom = null; state.draft = {};
         if (state.sheetOpen) { render(); sheetEl.querySelector(".sheet-b").scrollTop = 0; } else openSheet("act");
@@ -3953,6 +4037,37 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       // The bubble offers « Corriger » for a slip of the finger (same 10 minutes as in « Faits »).
       await send(d, { etat: "fait", ...withNote }, `${d.plaque} réalisé, merci !`,
         { label: "Corriger", run: () => { if (byId(d.id) && D.canUndoDone(byId(d.id), email, Date.now())) { state.openForm = "undo:" + d.id; state.draft = {}; openSheet("act"); } } });
+    }
+
+    // « Accepter » : coche verte sur la carte, puis la carte part vers l'onglet où elle est rangée (Aujourd'hui ou À venir),
+    // les cartes du dessous remontent et le compteur de l'onglet rebondit. Sans animation si « réduire les animations ».
+    async function acceptRequest(d) {
+      if (!d || state.accepting) return;
+      const to = d.date && d.date <= today() ? "today" : "upcoming";
+      const label = to === "today" ? "Aujourd'hui" : "À venir";
+      if (!reduceMotion()) {
+        state.accepting = d.id; state.acceptTo = to; render(); navigator.vibrate?.(10);
+        await new Promise((r) => setTimeout(r, 560));
+        const card = main.querySelector(`[data-job="${CSS.escape(d.id)}"]`);
+        const tab = main.querySelector(`[data-tab="${to}"]`);
+        if (card && tab) {
+          const c = card.getBoundingClientRect(), t = tab.getBoundingClientRect();
+          const dx = t.left + t.width / 2 - (c.left + c.width / 2), dy = t.top + t.height / 2 - (c.top + c.height / 2);
+          const fly = card.animate([{ transform: "none", opacity: 1 }, { transform: `translate(${dx}px, ${dy}px) scale(.12)`, opacity: 0 }],
+            { duration: 420, easing: "cubic-bezier(.55, 0, .75, .2)", fill: "forwards" });
+          const gap = parseFloat(getComputedStyle(card.parentElement).rowGap) || 0;
+          card.style.height = c.height + "px";
+          const shut = card.animate([{ height: c.height + "px", marginBottom: "0px" }, { height: "0px", marginBottom: -gap + "px" }],
+            { duration: 300, delay: 260, easing: "cubic-bezier(.32, .72, 0, 1)", fill: "forwards" });
+          await Promise.all([fly.finished, shut.finished]).catch(() => {});
+        }
+        state.gone = d.id; // la carte reste cachée pendant l'envoi ; elle revient seulement si l'envoi échoue
+      }
+      state.accepting = null;
+      await send(d, { etat: "confirme" }, `${d.plaque} acceptée : dans ${label}`);
+      if (state.gone && !reduceMotion()) main.querySelector(`[data-tab="${to}"] .count`)?.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(1.45)" }, { transform: "scale(.92)" }, { transform: "scale(1)" }], { duration: 420, easing: "ease-out" });
+      state.gone = null; render();
     }
 
     alerts?.listen(() => render());

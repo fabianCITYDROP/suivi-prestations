@@ -1002,4 +1002,46 @@ textarea.sheet-input { display: block; padding: 14px 16px; min-height: 96px; lin
 .sheet-back .icon { width: 20px; height: 20px; }
 @media (prefers-reduced-transparency: reduce) { .up-search { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 @media (prefers-reduced-motion: reduce) { .up-card.leaving, .up-row { animation: none; transition: none; } }
+/* ----- « À valider » (prestataire, 21/11) : la date et le site d'abord, le véhicule ensuite. Classes .ask* / .cal-tile seulement. ----- */
+.ask-sum { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 18px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+.ask-sum p { margin: 0; font-size: 15px; color: var(--ink-2); }
+.ask-sum b { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ask-sum b .icon { width: 18px; height: 18px; color: var(--st-done); }
+.ask-sum .ask-sum-wait { color: var(--st-todo); font-weight: 600; }
+.ask-sum .ask-sum-sub { font-size: 14px; }
+.job.ask { gap: 0; padding: 0; overflow: hidden; }
+.job.ask > * { margin-left: 14px; margin-right: 14px; }
+.job.ask > * + * { margin-top: 12px; }
+.job.ask > :last-child:not(.job-done-flash) { margin-bottom: 14px; }
+.ask-when { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: center; margin: 0 !important; padding: 14px; background: var(--surface-2); border-bottom: .5px solid var(--line); }
+.cal-tile { display: grid; grid-template-rows: 18px 1fr; width: 54px; height: 54px; border-radius: 15px; overflow: hidden; background: var(--surface); text-align: center;
+  box-shadow: inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.cal-tile small { display: block; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 82%, #fff), var(--accent)); color: #fff;
+  font: 700 10.5px/18px var(--f-body); letter-spacing: .06em; text-transform: uppercase; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3); }
+.cal-tile b { display: grid; place-items: center; font: 700 23px/1 var(--f-body); letter-spacing: -.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ask-when-txt { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ask-day { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 10px; }
+.ask-day b { white-space: nowrap; font: 700 17px/1.25 var(--f-body); letter-spacing: -.015em; color: var(--ink); }
+.ask-day .job-time { font-size: 14.5px; color: var(--ink-2); }
+.ask-site { margin: 0; display: flex; gap: 6px; align-items: flex-start; min-width: 0; }
+.ask-site .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent); }
+.ask-site span { display: flex; flex-direction: column; min-width: 0; }
+.ask-site b { font: 600 15px/1.3 var(--f-body); color: var(--ink); }
+.ask-site small { font-size: 13px; line-height: 1.3; color: var(--ink-2); }
+.ask-veh .job-head { gap: 12px; }
+.job.ask .ask-veh { margin-top: 14px; }
+.ask-answer { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--st-todo-bg); color: var(--st-todo); font-size: 13.5px; }
+.ask-answer .icon { flex: none; width: 17px; height: 17px; margin-top: 1px; }
+.ask-answer span { display: flex; flex-direction: column; gap: 1px; font-weight: 500; }
+.ask-answer b { font-size: 14px; font-weight: 650; }
+.job.ask .job-done-flash { margin: 0; }
+.ask-flash small { color: var(--ink-2); font-size: 13.5px; font-weight: 500; }
+.ask-empty { gap: 8px; padding: 36px 20px 40px; border: 0; border-radius: 20px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 12px 26px -18px rgba(10, 20, 28, .4); }
+.ask-empty .svc-tile.lg { width: 76px; height: 76px; border-radius: 22px; margin-bottom: 6px; }
+.ask-empty .svc-tile.lg .svc-art { width: 56px; height: 56px; }
+.ask-empty b { font-size: 17px; letter-spacing: -.01em; }
+.ask-empty span:last-child { max-width: 260px; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .job.ask .job-done-flash { animation: none; } }
 </style>
