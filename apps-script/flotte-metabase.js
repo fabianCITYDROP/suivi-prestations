@@ -50,6 +50,30 @@ function vehiculesDeLExport(valeurs, aujourdhui) {
   return sortie;
 }
 
+// lignes = le CSV « Runners planning » joint au mail Metabase (Utilities.parseCsv), 1re ligne = titres.
+// Il a le modèle et la catégorie de CHAQUE véhicule, y compris les immobilisés que la feuille des Runners ne garde pas.
+// Renvoie { PLAQUE: [code, catégorie] } (les villes n'y sont que des numéros : le site vient de la feuille).
+function vehiculesDuCsv(lignes) {
+  const titres = (lignes[0] || []).map((t) => String(t).replace(/^\uFEFF/, '').trim());
+  const col = (fin) => titres.findIndex((t) => new RegExp('(^|→\\s*)' + fin + '$', 'i').test(t));
+  const c = { plaque: col('Immatriculation'), modele: col('Modele'), categorie: col('Categorie') };
+  if (Object.values(c).some((i) => i < 0)) throw new Error('CSV Metabase : colonnes Immatriculation/Modele/Categorie introuvables.');
+  const sortie = {};
+  lignes.slice(1).forEach((l) => {
+    const cle = clePlaque(l[c.plaque]);
+    const code = String(l[c.modele] || '').trim();
+    const categorie = String(l[c.categorie] || '').trim();
+    if (cle && code && categorie) sortie[cle] = [code, categorie];
+  });
+  return sortie;
+}
+// Le CSV fait foi pour le modèle et la catégorie ; la feuille donne le site quand elle le connaît.
+function completerAvecCsv(nouveau, csv) {
+  const sortie = { ...(nouveau || {}) };
+  Object.entries(csv || {}).forEach(([cle, [code, categorie]]) => { sortie[cle] = [code, categorie, (sortie[cle] || [])[2] || '']; });
+  return sortie;
+}
+
 const moinsJours = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 
 // ancien = { PLAQUE: [code, catégorie, site, vuLe] } déjà dans l'appli ; nouveau = vehiculesDeLExport(...).
@@ -70,7 +94,8 @@ function synchroFlotte() {
   if (!feuille) throw new Error('Propriété du script METABASE_FEUILLE manquante (identifiant de la feuille « Runners - données »).');
   const onglet = SpreadsheetApp.openById(feuille).getSheetByName(FLOTTE_ONGLET);
   if (!onglet) throw new Error('Onglet « ' + FLOTTE_ONGLET + ' » introuvable dans « Runners - données ».');
-  const nouveau = vehiculesDeLExport(onglet.getDataRange().getDisplayValues(), aujourdhui);
+  const csv = csvDuMail(props);
+  const nouveau = completerAvecCsv(vehiculesDeLExport(onglet.getDataRange().getDisplayValues(), aujourdhui), csv);
   if (Object.keys(nouveau).length < 20) throw new Error('Export Metabase presque vide (' + Object.keys(nouveau).length + ' véhicules) : rien changé dans l\'appli.');
   const jeton = seConnecter(props);
   const lu = UrlFetchApp.fetch(FIRESTORE + '/metabase/flotte', { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + jeton } });
@@ -82,7 +107,22 @@ function synchroFlotte() {
   const corps = versFirestore({ majLe: new Date().toISOString(), nb: Object.keys(fusion).length, donnees });
   const r = firestore('patch', '/metabase/flotte?' + masque(['majLe', 'nb', 'donnees']), jeton, corps);
   if (r.getResponseCode() !== 200) throw new Error('Écriture de metabase/flotte refusée (' + r.getResponseCode() + ') : ' + r.getContentText().slice(0, 200));
-  console.log('Flotte Metabase : ' + Object.keys(nouveau).length + ' véhicules dans l\'export, ' + Object.keys(fusion).length + ' gardés dans l\'appli.');
+  console.log('Flotte Metabase : ' + Object.keys(nouveau).length + ' véhicules dans l\'export (' + Object.keys(csv).length + ' lus dans le CSV du mail), ' + Object.keys(fusion).length + ' gardés dans l\'appli.');
+}
+
+// Le dernier mail Metabase « Runners planning » reçu par la boîte du robot (abonnement Metabase), s'il y en a un de moins de 2 jours.
+// METABASE_EXPEDITEUR (facultatif) : n'accepter que les mails de cette adresse. Sans mail : la feuille seule, comme avant.
+function csvDuMail(props) {
+  const de = props.getProperty('METABASE_EXPEDITEUR');
+  const fils = GmailApp.search((de ? 'from:' + de + ' ' : '') + 'has:attachment filename:csv subject:"Runners" newer_than:2d', 0, 5);
+  const messages = fils.flatMap((f) => f.getMessages()).sort((a, b) => b.getDate() - a.getDate());
+  for (const m of messages) {
+    if (de && !String(m.getFrom()).toLowerCase().includes(de.toLowerCase())) continue;
+    const pj = m.getAttachments().find((a) => /\.csv$/i.test(a.getName()));
+    if (pj) return vehiculesDuCsv(Utilities.parseCsv(pj.getDataAsString('UTF-8')));
+  }
+  console.warn('Pas de mail Metabase « Runners » récent dans la boîte du robot : feuille des Runners seule.');
+  return {};
 }
 
 // À lancer une seule fois (bouton ▶) : crée le déclencheur de chaque matin et fait une première synchro.
@@ -92,4 +132,4 @@ function installerFlotte() {
   synchroFlotte();
 }
 
-if (typeof module === 'object' && module.exports) module.exports = { vehiculesDeLExport, fusionnerFlotte, clePlaque };
+if (typeof module === 'object' && module.exports) module.exports = { vehiculesDeLExport, vehiculesDuCsv, completerAvecCsv, fusionnerFlotte, clePlaque };

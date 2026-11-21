@@ -16,6 +16,14 @@ Un export presque vide (moins de 20 véhicules) ne change rien.
 Coût Firestore : un seul document (`metabase/flotte`, ~25 Ko) écrit une fois par jour, lu une fois par ouverture de l'appli.
 Rien d'autre n'est copié : ni kilométrage, ni client, ni trajet. Les prestataires ne lisent pas ce document.
 
+## Le CSV du mail Metabase (immobilisés compris)
+
+La feuille des Runners ne garde pas le modèle des véhicules immobilisés (IMPRODUCTIF, sous-statut 4).
+Le CSV « Runners planning » joint au mail Metabase, lui, a le modèle et la catégorie de chaque véhicule (~570).
+Si la boîte du robot reçoit ce mail (abonnement Metabase), le robot le lit chaque matin : le CSV fait foi pour
+modèle et cubage, la feuille donne le site. Sans mail récent, il continue avec la feuille seule.
+Propriété facultative `METABASE_EXPEDITEUR` : n'accepter ce mail que de cette adresse (conseillé une fois connue).
+
 ## Mise en place (une seule fois, dans cet ordre)
 
 1. **Règles** : console Firebase › Firestore › Règles : coller `src/firestore.rules`, **Publier**.
