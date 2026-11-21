@@ -336,8 +336,6 @@ td.date { font-variant-numeric: tabular-nums; white-space: nowrap; }
 pre.code { background: var(--surface-2); border-radius: var(--r-sm); padding: 14px; font: 500 12.5px/1.5 var(--f-mono); overflow-x: auto; margin: 0; max-height: 340px; }
 ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 75ch; }
 
-.lightbox { position: fixed; inset: 0; background: rgba(6, 12, 16, .86); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; }
-.lightbox img { max-height: 100%; max-width: 100%; border-radius: var(--r-sm); }
 
 @media (max-width: 640px) {
   .strip { gap: 3px; }
@@ -582,33 +580,10 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 .lv-bientot { --lv: var(--lv-soon); --lv-bg: var(--lv-soon-bg); }
 .lv-ok { --lv: var(--lv-ok); --lv-bg: var(--lv-ok-bg); }
 .lv-inconnu { --lv: var(--ink-2); --lv-bg: var(--surface-2); }
-.hayon-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-bottom: 20px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
-.hy-kpi { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
-.hy-kpi b { font-family: var(--f-display); font-size: 38px; line-height: 1; color: var(--lv); font-variant-numeric: tabular-nums; }
-.hy-kpi span { font-size: 13px; color: var(--ink-2); }
-.hy-list { list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.hy-row { display: grid; grid-template-columns: 170px auto 1fr auto; gap: 8px 16px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; box-shadow: var(--shadow); }
-.hy-days { justify-self: start; font-weight: 700; font-size: 14px; color: var(--lv); background: var(--lv-bg); padding: 4px 10px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.hy-dates { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--ink-2); }
-.hy-dates b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-.hy-warn { flex-basis: 100%; display: inline-flex; align-items: center; gap: 6px; color: var(--lv-urgent); font-weight: 600; }
-.hy-warn .icon { width: 16px; height: 16px; }
-.hy-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
-.hy-rdv { font-weight: 600; }
-.hy-nordv { font-size: 13px; padding: 0 6px; }
 .small-btn { min-height: 32px; padding: 4px 10px; font-size: 13px; }
 .small-btn.confirm { color: var(--danger); border-color: var(--danger); }
-#hy-pastebox textarea { min-height: 120px; margin: 8px 0; }
 .hint.warn, #vehHint.warn { color: var(--lv-urgent); font-weight: 600; }
 .menu-badge { display: inline-block; min-width: 20px; height: 20px; margin-left: auto; padding: 0 6px; border-radius: 999px; background: var(--lv-urgent); color: #fff; font: 700 12px/20px var(--f-body); text-align: center; font-variant-numeric: tabular-nums; }
-@media (max-width: 720px) {
-  .hy-kpi { padding: 12px; }
-  .hy-kpi b { font-size: 32px; }
-  .hy-row { grid-template-columns: auto 1fr; }
-  .hy-row .plate { justify-self: end; }
-  .hy-dates, .hy-actions { grid-column: 1 / -1; }
-  .hy-actions { justify-content: flex-start; }
-}
 /* Change history of a request (who changed what, when) */
 details.history { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
 .history-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 0; }
@@ -648,16 +623,6 @@ button.pf-line:hover { background: var(--accent-soft); }
 }
 /* History: older requests are read only on demand */
 .older-note { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-/* Corbeille: deleted requests kept 20 days */
-#view-corbeille .hint { margin-bottom: 14px; }
-.trash-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
-.trash-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
-.trash-plates { display: flex; flex-wrap: wrap; gap: 6px; }
-.trash-body { display: flex; flex-direction: column; gap: 2px; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
-.trash-body .small { font-size: 13px; }
-.trash-days { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; color: var(--ink-2); background: var(--surface-2); font-variant-numeric: tabular-nums; }
-.trash-days.soon { color: var(--lv-soon); background: var(--lv-soon-bg); }
-@media (max-width: 560px) { .trash-card { grid-template-columns: minmax(0, 1fr); } .trash-card > button { width: 100%; justify-content: center; } }
 /* ===== Prestataire « Faits » façon iPhone (2026-11-21) : compteur en grand, mois en pastilles, liste groupée par jour.
    Tout est préfixé .done- / .month- pour ne rien changer aux autres onglets. Vert = fait, orange = Corriger (statuts). */
 .done-sum { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; border-radius: 20px; background: var(--surface);
@@ -1749,6 +1714,598 @@ body.team-sheet-open .lightbox { z-index: 50; }
   body:not(.presta-mode) .toast { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-transparency: reduce) and (max-width: 720px) { body:not(.presta-mode) nav.tabs { background: var(--surface) !important; } }
+/* ===== Équipe « Corbeille » (2026-11-21, façon iPhone). Tout est préfixé .tr- ou #view-corbeille ; reprend les tuiles,
+   titres et feuille de « Retours » (.ret-ico, .ret-title, .ret-sh-*). Jours restants : gris, orange à 3 jours, rouge le dernier. ===== */
+#view-corbeille { max-width: 1120px; }
+.tr-sum { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 14px; border-radius: 18px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+.tr-sum-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tr-sum-txt b { font: 700 22px/1.1 -apple-system, BlinkMacSystemFont, var(--f-body); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.tr-sum-txt .tr-days { align-self: flex-start; margin-top: 4px; }
+.tr-sum-txt > span:not(.tr-days) { font-size: 13.5px; line-height: 1.35; color: var(--ink-2); }
+.tr-search { display: flex; align-items: center; gap: 8px; max-width: 420px; min-height: 40px; padding: 0 12px; margin-bottom: 6px; border-radius: 12px; color: var(--ink-2);
+  background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); }
+.tr-search[hidden] { display: none; }
+.tr-search .icon { width: 17px; height: 17px; flex: none; }
+.tr-search input { flex: 1; min-width: 0; min-height: 38px; padding: 0; border: 0; background: none; color: var(--ink); font: 500 16px var(--f-body); box-shadow: none; outline: none; }
+.tr-group { margin-top: 20px; }
+.tr-cards { display: grid; gap: 10px; }
+@media (min-width: 900px) { .tr-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+.tr-card { display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); overflow: hidden;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35);
+  transition: opacity 220ms ease, transform 260ms var(--ease-out); }
+.tr-card.tr-leave { opacity: 0; transform: translateY(-8px) scale(.98); }
+.tr-open { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; width: 100%; min-height: 0; padding: 14px 14px 10px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.tr-open:active { background: color-mix(in srgb, var(--surface) 92%, var(--ink)); }
+.tr-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tr-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
+.tr-plates { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.tr-plates .plate { font-size: 13.5px; }
+.tr-plates .plate span { padding: 4px 6px; }
+.tr-more { align-self: center; font: 600 13px var(--f-body); color: var(--ink-2); }
+.tr-what { font: 650 15.5px/1.3 var(--f-body); letter-spacing: -.01em; }
+.tr-meta { font-size: 13px; line-height: 1.35; color: var(--ink-2); overflow-wrap: anywhere; }
+.tr-days { flex: none; padding: 3px 10px; border-radius: 999px; font: 600 12.5px var(--f-body); white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--ink-2); background: var(--surface-2); }
+.tr-days.soon { color: var(--st-todo); background: var(--st-todo-bg); }
+.tr-days.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 13%, var(--surface)); }
+.tr-acts { display: flex; justify-content: flex-end; padding: 0 14px 14px; }
+.tr-restore { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font: 600 14px var(--f-body); white-space: nowrap;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px color-mix(in srgb, var(--accent) 18%, transparent); transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
+.tr-restore .icon { width: 16px; height: 16px; stroke-width: 2.4; }
+.tr-restore:hover { filter: brightness(1.03); }
+.tr-restore:active { transform: scale(.96); }
+.tr-restore:disabled { opacity: .55; }
+/* Feuille du détail */
+.tr-sheet .svc-tile.lg { width: 60px; height: 60px; border-radius: 17px; }
+.tr-sheet .svc-tile.lg .svc-art { width: 46px; height: 46px; }
+.tr-sheet .ret-sh-hero .tr-plates { margin-top: 6px; }
+.tr-sheet .ret-sh-info dt .plate { font-size: 14px; }
+.tr-count { display: flex; flex-direction: column; gap: 3px; padding: 12px 16px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.tr-count b { font: 700 16px var(--f-body); color: var(--ink); }
+.tr-count span { font-size: 13.5px; color: var(--ink-2); }
+.tr-count.soon b { color: var(--st-todo); }
+.tr-count.bad b { color: var(--danger); }
+@media (max-width: 640px) {
+  .tr-sum { padding: 12px 14px; gap: 12px; }
+  .tr-search { max-width: none; }
+  .tr-acts .tr-restore { min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .tr-card, .tr-restore { transition: none; } .tr-restore:active { transform: none; } }
+/* ===== Équipe « Contrôles hayon » (2026-11-21, façon iPhone). Tout est préfixé .hy- (feuille partagée .team-sheet).
+   Compteurs qui filtrent, véhicules groupés (à programmer / rendez-vous posés / à jour), jauge des jours restants.
+   Vert / orange / rouge seulement pour l'échéance, bleu City-Drop pour les actions, pas de bande de couleur. ===== */
+:root[data-theme="dark"] { --lv-urgent: #f2867c; --lv-urgent-bg: #3d1b18; --lv-soon: #f0a54a; --lv-soon-bg: #382812; }
+.lv-rdv { --lv: var(--ink); --lv-bg: var(--surface-2); }
+#view-hayon { max-width: 1120px; }
+.hy-head { margin: 4px 0 14px; }
+.hy-kick-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; margin-bottom: 2px; }
+.hy-kicker { margin: 0; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.hy-title { margin: 0; font: 700 34px/1.1 -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--f-body); letter-spacing: -.025em; color: var(--ink); }
+.hy-paste-btn { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font: 600 14px var(--f-body); white-space: nowrap; transition: transform 140ms var(--ease-out); }
+.hy-paste-btn .icon { width: 17px; height: 17px; }
+.hy-paste-btn:active { transform: scale(.96); }
+/* Compteurs : chiffre coloré, touche = filtre */
+.hy-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.hy-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 0; padding: 12px 14px; border: 0; border-radius: 16px; background: var(--surface); color: var(--ink); text-align: left; font: inherit;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 8px 20px -16px rgba(10, 20, 28, .4); transition: transform 140ms var(--ease-out), box-shadow .2s ease; -webkit-tap-highlight-color: transparent; }
+.hy-tile b { font: 700 30px/1 -apple-system, BlinkMacSystemFont, var(--f-body); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--lv); }
+.hy-tile span { margin-top: 4px; font: 650 14.5px/1.2 var(--f-body); }
+.hy-tile small { font-size: 12.5px; color: var(--ink-2); }
+.hy-tile:active { transform: scale(.97); }
+.hy-tile[aria-pressed="true"] { box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 2px var(--accent), 0 8px 20px -16px rgba(10, 20, 28, .4); }
+.hy-tile:disabled { opacity: .55; cursor: default; }
+.hy-tile:disabled b { color: var(--ink-2); }
+/* Recherche grise façon iPhone */
+.hy-search { display: flex; align-items: center; gap: 8px; max-width: 420px; height: 40px; padding: 0 12px; margin-bottom: 6px; border-radius: 12px; background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); color: var(--ink-2); }
+.hy-search .icon { width: 17px; height: 17px; flex: none; }
+.hy-search input { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; background: none; box-shadow: none; outline: 0; font-size: 16px; color: var(--ink); }
+.hy-filter-on { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 6px 0; font-size: 14px; color: var(--ink-2); }
+.hy-filter-on b { color: var(--ink); }
+.hy-link { min-height: 30px; padding: 0 4px; border: 0; background: none; color: var(--accent); font: 600 14px var(--f-body); }
+/* Groupes */
+.hy-group { margin-top: 22px; }
+.hy-gh { display: flex; align-items: center; gap: 8px; margin: 0 6px 8px; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.hy-gh em { font-style: normal; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.hy-gsub { margin: -4px 6px 10px; font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+.hy-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+@media (min-width: 900px) { .hy-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+/* Carte d'un véhicule : toute la carte ouvre la fiche */
+.hy-card { border-radius: 18px; background: var(--surface); overflow: hidden;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); transition: box-shadow .2s ease; }
+.hy-card:hover { box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .12), 0 1px 2px rgba(10, 20, 28, .06), 0 14px 28px -18px rgba(10, 20, 28, .45); }
+.hy-open { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; min-height: 0; padding: 14px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.hy-open:active { background: color-mix(in srgb, var(--surface) 92%, var(--ink)); }
+.hy-open > .svc-tile { align-self: start; }
+.hy-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hy-line { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 8px; }
+.hy-line .plate { flex: none; }
+.hy-line .plate { font-size: 13.5px; }
+.hy-line .plate span { padding: 4px 6px; }
+.hy-pill { padding: 4px 10px; border-radius: 999px; background: var(--lv-bg); color: var(--lv); font: 700 13px var(--f-body); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hy-gauge { position: relative; display: block; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--surface-2) 80%, var(--ink) 8%); overflow: hidden; }
+.hy-gauge i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--lv); transition: width 500ms var(--ease-out); }
+.hy-gauge.big { height: 10px; border-radius: 5px; }
+.hy-meta { font-size: 13px; line-height: 1.35; color: var(--ink-2); }
+.hy-meta b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.hy-rdv-line { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 4px 10px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font: 600 13px var(--f-body); }
+.hy-rdv-line .icon, .hy-warn .icon { width: 15px; height: 15px; flex: none; }
+.hy-warn { display: inline-flex; align-items: center; gap: 6px; font: 600 13px var(--f-body); color: var(--lv-urgent); }
+.hy-chev { width: 18px; height: 18px; color: var(--ink-2); opacity: .6; }
+.hy-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 56px 16px; text-align: center; color: var(--ink-2); }
+.hy-empty .svc-tile.lg { width: 76px; height: 76px; border-radius: 22px; margin-bottom: 6px; }
+.hy-empty .svc-tile.lg .svc-art { width: 56px; height: 56px; }
+.hy-empty b { font-size: 18px; color: var(--ink); letter-spacing: -.01em; }
+.hy-empty > span:not(.svc-tile) { max-width: 340px; font-size: 14px; line-height: 1.4; }
+.hy-empty .hy-btn { margin-top: 10px; }
+.hy-empty.small { padding: 32px 16px; }
+.hy-foot { max-width: 640px; margin: 24px 6px 0; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+/* Boutons */
+.hy-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 50px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--surface-2); color: var(--ink); font: 600 16px var(--f-body); text-align: center;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 1px 1px rgba(10, 20, 28, .06), 0 0 0 .5px rgba(10, 20, 28, .06); transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
+.hy-btn .icon { width: 18px; height: 18px; stroke-width: 2.4; }
+.hy-btn.primary { color: var(--accent-ink); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(10, 20, 28, .12), 0 6px 14px -8px color-mix(in srgb, var(--accent) 85%, transparent); }
+.hy-btn.danger { background: none; box-shadow: none; color: var(--danger); min-height: 44px; }
+.hy-btn.danger.confirm { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.hy-btn:hover { filter: brightness(1.04); }
+.hy-btn:active { transform: scale(.97); }
+.hy-btn:disabled { opacity: .6; }
+/* Feuille : fiche du véhicule et liste à coller */
+.hy-sheet, .hy-paste { display: flex; flex-direction: column; gap: 16px; }
+.hy-sh-hero { display: flex; align-items: center; gap: 14px; padding: 4px 4px 0; }
+.hy-sh-hero .svc-tile.lg { width: 64px; height: 64px; border-radius: 18px; }
+.hy-sh-hero .svc-tile.lg .svc-art { width: 48px; height: 48px; }
+.hy-sh-hero .plate { font-size: 16px; }
+.hy-sh-kind { margin: 0 0 6px; font: 600 12.5px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.hy-sh-gauge { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.hy-sh-days { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.hy-sh-days b { font: 700 40px/1 -apple-system, BlinkMacSystemFont, var(--f-body); letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--lv); }
+.hy-sh-days span:not(.hy-pill) { flex: 1; font-size: 15px; color: var(--ink-2); }
+.hy-sh-note { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); font-size: 14.5px; line-height: 1.4; color: var(--ink); }
+.hy-sh-note.warn { color: var(--lv-urgent); background: var(--lv-urgent-bg); box-shadow: none; }
+.hy-sh-note .icon { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+.hy-sh-info { margin: 0; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.hy-sh-info div { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 46px; padding: 8px 16px; }
+.hy-sh-info div + div::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--line-strong); }
+.hy-sh-info dt { font-size: 15px; color: var(--ink-2); }
+.hy-sh-info dd { margin: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.hy-sh-info dd small { font-size: 13px; color: var(--ink-2); }
+.hy-sh-acts { display: flex; flex-direction: column; gap: 10px; }
+.hy-paste textarea { min-height: 180px; border-radius: 14px; font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.hy-paste .hy-gsub { margin: 0; font-size: 14px; }
+body.team-sheet-open .toast { z-index: 45; }
+.hy-preview { min-height: 20px; margin: -6px 4px 0; font: 600 14px var(--f-body); color: var(--st-done); }
+@media (max-width: 640px) {
+  .hy-title { font-size: 32px; }
+  .hy-paste-btn { min-height: 34px; padding: 0 12px; font-size: 13px; }
+  .hy-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .hy-tile { padding: 10px 12px; border-radius: 14px; }
+  .hy-tile b { font-size: 26px; }
+  .hy-search { max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) { .hy-tile, .hy-btn, .hy-paste-btn, .hy-gauge i { transition: none; } .hy-tile:active, .hy-btn:active { transform: none; } }
+/* ===== Équipe « Historique » façon iPhone (2026-11-21). Tout est préfixé .hist- (ou rangé sous #view-historique / .hist-sheet).
+   Reprend les briques du Planning (.plan-row, .plan-list, .plan-prov, feuille .team-sheet) sans les modifier.
+   Statut = point + mot : orange à envoyer, vert réalisée, gris le reste. Pas de bande de couleur. ===== */
+.hist-top { align-items: flex-end; flex-wrap: nowrap; }
+.hist-export { flex: none; min-height: 40px; padding: 0 16px 0 13px; gap: 7px; border: 0; border-radius: 999px; background: var(--surface); color: var(--accent); font: 600 14.5px var(--f-body);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 1px rgba(10, 20, 28, .06), 0 4px 10px -5px rgba(10, 20, 28, .3); transition: transform 140ms var(--ease-out); }
+.hist-export .icon { width: 17px; height: 17px; }
+.hist-export:active { transform: scale(.96); }
+.hist-export:disabled { color: var(--ink-2); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1); background: transparent; }
+#view-historique .hist-find { display: flex; margin-bottom: 12px; }
+#view-historique .hist-find input { width: 100%; min-height: 42px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--ink) 7%, transparent); box-shadow: none; }
+#view-historique .hist-find input:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
+.hist-periods, .hist-filters { display: flex; align-items: center; gap: 8px; overflow-x: auto; margin: 0 -16px 10px; padding: 2px 16px 4px; scrollbar-width: none; }
+.hist-periods::-webkit-scrollbar, .hist-filters::-webkit-scrollbar { display: none; }
+.hist-filters { margin-bottom: 16px; }
+.hist-periods .plan-prov { padding: 0 14px; }
+.hist-periods .plan-prov .icon { width: 14px; height: 14px; margin: 0 -4px 0 -2px; }
+.hist-st i { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); margin-right: -1px; }
+.hist-st.todo i { background: var(--st-todo); }
+.hist-st.ok i { background: var(--st-done); }
+.hist-st.off i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.hist-st[aria-pressed="true"] i { box-shadow: 0 0 0 1.5px var(--bg); }
+.hist-more, .hist-chip { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 999px; font: 600 14px var(--f-body); white-space: nowrap; cursor: pointer;
+  transition: transform 140ms var(--ease-out); -webkit-tap-highlight-color: transparent; }
+.hist-more { background: var(--surface); color: var(--accent); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .12), 0 1px 2px rgba(10, 20, 28, .06); }
+.hist-more .icon { width: 16px; height: 16px; }
+.hist-more em { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; display: grid; place-items: center; font: 700 12px var(--f-body); font-style: normal; background: var(--accent); color: #fff; }
+.hist-chip { background: var(--ink); color: var(--bg); padding-right: 9px; }
+.hist-chip .icon { width: 14px; height: 14px; opacity: .8; }
+.hist-more:active, .hist-chip:active { transform: scale(.95); }
+.hist-sep { flex: none; width: .5px; height: 22px; background: var(--line-strong); margin: 0 2px; }
+.hist-count { margin: 0 6px 10px; font: 500 13.5px var(--f-body); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hist-day + .hist-day { margin-top: 18px; }
+.hist-day-head { display: flex; align-items: center; gap: 8px; margin: 0 6px 8px; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.hist-day-head em { font-style: normal; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.hist-c, .hist-cols { display: none; }
+.hist-where { color: var(--ink-2); }
+.hist-older { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 18px 6px 0; font-size: 13px; color: var(--ink-2); }
+.hist-older .plan-link { padding: 4px 0; }
+/* Ordinateur : un tableau fin façon macOS (colonnes alignées, lignes séparées par un filet), toujours groupé par jour */
+@media (min-width: 900px) {
+  .hist-periods, .hist-filters { margin: 0 0 10px; padding: 2px 0 4px; flex-wrap: wrap; }
+  .hist-filters { margin-bottom: 18px; }
+  #view-historique .hist-find { max-width: 420px; }
+  .hist-cols, .hist-row { grid-template-columns: 38px minmax(220px, 2.2fr) minmax(110px, 1fr) minmax(120px, 1fr) 118px 92px 16px; gap: 14px; }
+  .hist-cols { display: grid; padding: 0 12px 10px 14px; margin-bottom: 8px; border-bottom: .5px solid var(--line-strong); font: 600 12px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+  .hist-cols span:last-child { grid-column: span 2; }
+  .hist-row { align-items: center; padding: 9px 12px 9px 14px; }
+  .hist-row + .hist-row::before { left: 66px; }
+  .hist-row .plan-row-main { gap: 1px; }
+  .hist-row .plan-row-line { margin: 0; }
+  .hist-where, .hist-end .plan-st { display: none; }
+  .hist-c { display: block; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-c-sent { color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: 13.5px; }
+  .hist-end { padding: 0; }
+  .hist-count { margin-bottom: 6px; }
+  .hist-day-head { margin-top: 0; }
+}
+.hist-slot-m { display: none; }
+@media (max-width: 640px) {
+  .hist-row .plan-row-line .plan-time { display: none; }
+  .hist-slot-m { display: block; font: 600 14px var(--f-body); font-variant-numeric: tabular-nums; margin-bottom: 1px; }
+  .hist-top h1 { font-size: 32px; }
+  .hist-export span { display: none; }
+  .hist-export { width: 40px; padding: 0; justify-content: center; }
+}
+/* La frise des modifications, dans la fiche de la demande */
+.hist-log { display: flex; flex-direction: column; gap: 8px; }
+.hist-log .sheet-label { margin: 0; }
+.hist-tl { list-style: none; margin: 0; padding: 14px 14px 4px; border-radius: 18px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.hist-tl > li { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 12px; padding-bottom: 14px; }
+.hist-tl > li::before { content: ""; position: absolute; left: 6px; top: 16px; bottom: 0; width: 1.5px; background: var(--line-strong); }
+.hist-tl > li:last-child::before { display: none; }
+.hist-tl > li > i { width: 13px; height: 13px; margin-top: 3px; border-radius: 50%; background: var(--surface); box-shadow: inset 0 0 0 2.5px var(--ink-2); z-index: 1; }
+.hist-tl > li.ok > i { box-shadow: inset 0 0 0 2.5px var(--st-done); background: var(--st-done-bg); }
+.hist-tl > li.bad > i { box-shadow: inset 0 0 0 2.5px var(--danger); }
+.hist-tl > li.start > i { background: var(--ink-2); }
+.hist-tl-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0; }
+.hist-tl-head b { font-size: 15px; }
+.hist-tl-head small { flex: none; font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hist-tl-who { margin: 1px 0 0; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.hist-tl ul { list-style: none; margin: 6px 0 0; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 4px; }
+.hist-tl ul li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 13.5px; }
+.hist-tl ul li > span { color: var(--ink-2); }
+.hist-tl ul li > span::after { content: " :"; }
+.hist-tl ul s { color: var(--ink-2); }
+.hist-tl ul .icon { width: 12px; height: 12px; color: var(--ink-2); }
+.hist-log-note { margin: 0 4px; font-size: 12.5px; color: var(--ink-2); }
+/* Feuilles « Filtres », « Choisir un mois », « Exporter » */
+.hist-sheet .sheet-b { gap: 16px; }
+.hist-sheet section { display: flex; flex-direction: column; gap: 8px; }
+.hist-sheet .sheet-label { margin: 0 4px; }
+.hist-opts { border-radius: 16px; background: var(--surface); overflow: hidden; box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.hist-opt { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 8px 14px; border: 0; border-radius: 0; background: none; color: var(--ink); font: 500 15.5px var(--f-body); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.hist-sheet > .sheet-b > .hist-opt { border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.hist-opt + .hist-opt::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--line-strong); }
+.hist-opt:active { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.hist-opt > span:not(.svc-tile) { flex: 1; }
+.hist-opt > .icon { width: 18px; height: 18px; color: var(--accent); opacity: 0; }
+.hist-opt[aria-pressed="true"] > .icon { opacity: 1; }
+.hist-opt[aria-pressed="true"] { font-weight: 650; }
+.hist-opt .svc-tile.xs { width: 32px; height: 32px; border-radius: 9px; }
+.hist-opt .svc-tile.xs .svc-art { width: 25px; height: 25px; }
+.hist-months { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.hist-month { min-height: 44px; padding: 0 4px; border: 0; border-radius: 12px; background: var(--surface); color: var(--ink); font: 600 14px var(--f-body); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1); transition: transform 140ms var(--ease-out); }
+.hist-month:active { transform: scale(.96); }
+.hist-month[aria-pressed="true"] { background: var(--ink); color: var(--bg); box-shadow: none; }
+.hist-export-head { grid-template-columns: auto minmax(0, 1fr); }
+.hist-export-head b { font-size: 18px; }
+.hist-export-head p { margin-top: 2px; }
+.hist-sheet .plan-cta .icon, .hist-sheet .plan-soft .icon { width: 18px; height: 18px; }
+@media (prefers-reduced-motion: reduce) { .hist-export:active, .hist-more:active, .hist-chip:active, .hist-month:active { transform: none; } }
+/* ===== Équipe « Photos » façon app Photos (2026-11-21). Tout est préfixé .pho- (et .pho-sheet-b pour la feuille partagée).
+   Albums carrés par modèle, feuille de l'album, plein écran avec gestes. Bleu City-Drop pour les actions,
+   orange seulement pour « sans photo », rouge seulement pour Supprimer. ===== */
+#view-photos { max-width: 1120px; }
+.pho-head { display: flex; align-items: flex-end; gap: 12px; margin: 4px 0 14px; }
+.pho-titles { flex: 1; min-width: 0; }
+.pho-kicker { margin: 0 0 2px; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.pho-title { margin: 0; font: 700 34px/1.1 -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--f-body); letter-spacing: -.025em; color: var(--ink); }
+.pho-find { position: relative; flex: 0 1 260px; display: block; }
+.pho-find .icon { position: absolute; left: 12px; top: 50%; width: 17px; height: 17px; transform: translateY(-50%); color: var(--ink-2); pointer-events: none; }
+.pho-find input { width: 100%; min-height: 40px; padding: 0 12px 0 36px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); color: var(--ink); font: 400 16px var(--f-body); box-shadow: none; }
+.pho-find input:focus { outline: none; box-shadow: 0 0 0 2px var(--accent) inset; }
+/* Contrôle segmenté (même dessin que Retours) */
+.pho-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; max-width: 340px; padding: 2px; margin-bottom: 16px; border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); }
+.pho-seg button { min-height: 34px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: 600 14px var(--f-body); display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background-color .2s ease, box-shadow .2s ease; }
+.pho-seg button[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 2px rgba(10, 20, 28, .1), 0 3px 8px -3px rgba(10, 20, 28, .18), 0 0 0 .5px rgba(10, 20, 28, .06); }
+.pho-seg-n { font: 600 13px var(--f-body); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pho-seg-n.warn { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--st-todo-bg); color: var(--st-todo); font: 700 12px/20px var(--f-body); }
+/* Tuile d'icône en relief (même famille que .ret-ico) */
+.pho-ico { display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 13px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.pho-ico .pho-art { width: 36px; height: 36px; overflow: visible; }
+.pho-ico.lg { width: 60px; height: 60px; border-radius: 17px; }
+.pho-ico.lg .pho-art { width: 46px; height: 46px; }
+.pho-ico.xl { width: 84px; height: 84px; border-radius: 22px; }
+.pho-ico.xl .pho-art { width: 62px; height: 62px; }
+.pho-pill { align-self: flex-start; padding: 2px 8px; border-radius: 999px; font: 700 11.5px/1.5 var(--f-body); letter-spacing: .02em; }
+.pho-pill.warn { background: var(--st-todo-bg); color: var(--st-todo); }
+/* Encadré « à compléter » : un pare-brise est prévu pour un modèle sans photo */
+.pho-alert { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 0; margin: 0 0 18px; padding: 12px 14px; border: 0; border-radius: 18px; background: var(--surface); color: var(--ink); text-align: left; font: inherit;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); transition: transform 140ms var(--ease-out); -webkit-tap-highlight-color: transparent; }
+.pho-alert:active { transform: scale(.98); }
+.pho-alert-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pho-alert-t b { font: 650 15.5px/1.3 var(--f-body); letter-spacing: -.01em; }
+.pho-alert-t span:last-child { font-size: 13.5px; color: var(--ink-2); }
+.pho-alert > .icon { color: var(--ink-2); width: 18px; height: 18px; }
+/* La grille d'albums : vignettes carrées, coins arrondis, nom et nombre dessous */
+.pho-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 20px 16px; }
+.pho-album { align-self: start; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; gap: 0; min-height: 0; padding: 0; border: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pho-cover { position: relative; display: grid; place-items: center; align-content: center; gap: 8px; width: 100%; aspect-ratio: 1; margin-bottom: 8px; border-radius: 16px; overflow: hidden; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 2px rgba(10, 20, 28, .06), 0 10px 22px -16px rgba(10, 20, 28, .45); transition: transform 160ms var(--ease-out), box-shadow .2s ease; }
+.pho-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pho-album.none .pho-cover { background: color-mix(in srgb, var(--surface-2) 70%, var(--surface)); }
+.pho-cover-add { display: inline-flex; align-items: center; gap: 4px; font: 600 13.5px var(--f-body); color: var(--accent); }
+.pho-cover-add .icon { width: 15px; height: 15px; stroke-width: 2.6; }
+.pho-count { position: absolute; right: 8px; bottom: 8px; min-width: 26px; height: 26px; padding: 0 8px; border-radius: 13px; background: rgba(10, 20, 28, .55); color: #fff; font: 700 13px/26px var(--f-body); text-align: center; font-variant-numeric: tabular-nums; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.pho-album:hover .pho-cover { box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .14), 0 2px 4px rgba(10, 20, 28, .08), 0 16px 30px -18px rgba(10, 20, 28, .55); }
+.pho-album:active .pho-cover { transform: scale(.97); }
+.pho-album:focus-visible { outline: none; } .pho-album:focus-visible .pho-cover { box-shadow: 0 0 0 3px var(--accent); }
+.pho-name { padding: 0 2px; font: 650 15px/1.25 var(--f-body); letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pho-sub { padding: 0 2px; font-size: 13.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pho-miss { font-style: normal; font-weight: 600; color: var(--st-todo); }
+.pho-next { padding: 2px 2px 0; font-size: 12.5px; color: var(--ink-2); }
+.pho-next.warn { color: var(--st-todo); font-weight: 600; }
+.pho-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 56px 16px; text-align: center; color: var(--ink-2); }
+.pho-empty .pho-ico { margin-bottom: 8px; }
+.pho-empty b { font-size: 18px; color: var(--ink); letter-spacing: -.01em; }
+.pho-empty span:last-child { max-width: 320px; font-size: 14px; }
+/* La feuille d'un album */
+body.team-sheet-open .toast, body.pho-viewing .toast { z-index: 70; }
+body.pho-viewing .toast { bottom: calc(104px + env(safe-area-inset-bottom, 0px)) !important; }
+.pho-sheet { display: flex; flex-direction: column; gap: 16px; border-radius: 18px; transition: box-shadow .15s ease, background-color .15s ease; }
+.pho-sheet.drop-on { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent); }
+.pho-sh-hero { display: flex; align-items: center; gap: 14px; padding: 4px 4px 0; }
+.pho-sh-hero > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pho-sh-kind { margin: 0; font: 600 12.5px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.pho-sh-hero b { font: 700 19px/1.25 var(--f-body); letter-spacing: -.015em; font-variant-numeric: tabular-nums; }
+.pho-sh-hero span { font-size: 14px; line-height: 1.35; color: var(--ink-2); }
+.pho-ph-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.pho-ph, .pho-add { position: relative; display: block; width: 100%; aspect-ratio: 1; min-height: 0; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: var(--surface-2); cursor: zoom-in; -webkit-tap-highlight-color: transparent; transition: transform 140ms var(--ease-out); }
+.pho-ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pho-ph:active, .pho-add:active { transform: scale(.96); }
+.pho-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: pointer; background: var(--surface); color: var(--accent); font: 600 14px var(--f-body);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 2px rgba(10, 20, 28, .05); }
+.pho-add-b { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: #fff;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 82%, #fff) 0%, var(--accent) 55%, color-mix(in srgb, var(--accent) 86%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 6px 14px -8px color-mix(in srgb, var(--accent) 85%, transparent); }
+.pho-add-b .icon { width: 22px; height: 22px; stroke-width: 2.6; }
+.pho-tip { margin: -6px 4px 0; font-size: 13px; color: var(--ink-2); }
+@media (pointer: coarse) { .pho-tip.desk { display: none; } }
+.pho-sh-acts { display: flex; flex-direction: column; gap: 10px; }
+.pho-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 16px var(--f-body); white-space: nowrap;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 1px 1px rgba(10, 20, 28, .06), 0 0 0 .5px rgba(10, 20, 28, .1); transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
+.pho-btn .icon { width: 18px; height: 18px; stroke-width: 2.2; }
+.pho-btn.primary { color: var(--accent-ink); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(10, 20, 28, .12), 0 6px 14px -8px color-mix(in srgb, var(--accent) 85%, transparent); }
+.pho-btn:hover { filter: brightness(1.04); }
+.pho-btn:active { transform: scale(.97); }
+.pho-next-list { border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); overflow: hidden; }
+.pho-next-row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 14px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; }
+.pho-next-row + .pho-next-row::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--line-strong); }
+.pho-next-row > span:not(.plate) { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pho-next-row b { font: 600 15px var(--f-body); }
+.pho-next-row small { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pho-next-row .plate { font-size: 13.5px; } .pho-next-row .plate span { padding: 4px 6px; }
+.pho-next-row > .icon { width: 16px; height: 16px; color: var(--ink-2); }
+.pho-next-row:active { background: color-mix(in srgb, var(--surface) 92%, var(--ink)); }
+/* Plein écran : fond noir, la photo suit le doigt, barres translucides */
+.pho-viewer { --pho-dim: 1; position: fixed; inset: 0; z-index: 60; display: grid; grid-template-rows: auto 1fr auto; background: rgba(0, 0, 0, var(--pho-dim)); color: #fff; opacity: 0; transition: opacity 200ms ease; overscroll-behavior: contain; }
+.pho-viewer.on { opacity: 1; }
+.pho-viewer[hidden] { display: none; }
+.pho-v-top { z-index: 2; display: flex; align-items: center; gap: 12px; padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px; transition: opacity .2s ease; }
+.pho-v-title { flex: 1; margin: 0; display: flex; flex-direction: column; align-items: center; text-align: center; line-height: 1.25; }
+.pho-v-title b { font: 600 15px var(--f-body); } .pho-v-title span { font-size: 13px; opacity: .7; font-variant-numeric: tabular-nums; }
+.pho-v-pad { width: 40px; flex: none; }
+.pho-v-round { display: grid; place-items: center; flex: none; width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .16); color: #fff; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.pho-v-round .icon { width: 18px; height: 18px; stroke-width: 2.4; }
+.pho-v-stage { position: relative; display: grid; place-items: center; min-height: 0; padding: 0 12px; overflow: hidden; touch-action: none; cursor: zoom-out; }
+.pho-v-stage img { max-width: 100%; max-height: 100%; border-radius: 6px; object-fit: contain; cursor: default; user-select: none; -webkit-user-select: none; transition: transform 320ms cubic-bezier(.32, .72, 0, 1); }
+.pho-viewer.dragging .pho-v-stage img { transition: none; }
+.pho-v-stage img.pho-v-in { animation: pho-v-in 240ms var(--ease-out); }
+@keyframes pho-v-in { from { opacity: .4; transform: scale(.97); } to { opacity: 1; transform: none; } }
+.pho-v-nav { position: absolute; top: 50%; z-index: 2; width: 46px; height: 46px; margin-top: -23px; }
+.pho-v-nav.prev { left: 16px; } .pho-v-nav.next { right: 16px; }
+.pho-v-nav[hidden] { display: none; }
+.pho-v-bar { z-index: 2; display: flex; justify-content: center; gap: 28px; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); transition: opacity .2s ease; }
+.pho-viewer:not(.with-bar) .pho-v-bar { padding-top: 0; }
+.pho-v-act { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 64px; min-height: 0; padding: 6px 4px; border: 0; border-radius: 12px; background: none; color: #fff; font: 600 12.5px var(--f-body); }
+.pho-v-act .icon { width: 24px; height: 24px; stroke-width: 2; }
+.pho-v-act.danger { color: #ff8a80; }
+.pho-v-act:active { background: rgba(255, 255, 255, .12); }
+.pho-viewer.bare .pho-v-top, .pho-viewer.bare .pho-v-bar, .pho-viewer.bare .pho-v-nav { opacity: 0; pointer-events: none; }
+@media (hover: none) { .pho-v-nav { display: none; } }
+@media (max-width: 640px) {
+  .pho-head { flex-wrap: wrap; }
+  .pho-title { font-size: 32px; }
+  .pho-find { flex: 1 0 100%; order: 2; }
+  .pho-seg { max-width: none; }
+  .pho-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; }
+  .pho-cover { border-radius: 14px; }
+  .pho-ph-grid { gap: 4px; }
+  .pho-ph, .pho-add { border-radius: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pho-album .pho-cover, .pho-alert, .pho-ph, .pho-add, .pho-btn, .pho-viewer, .pho-v-stage img { transition: none; animation: none; }
+  .pho-album:active .pho-cover, .pho-alert:active, .pho-ph:active, .pho-add:active, .pho-btn:active { transform: none; }
+}
+/* ===== Équipe « Vérification » façon iPhone (2026-11-21). Tout est préfixé .vf- (ou rangé sous #view-verif).
+   Bleu City-Drop = actions ; vert = reconnu / coché / réalisée, orange = pas dans la liste, rouge = annuler.
+   Une seule lumière, en haut à gauche ; pas de bande de couleur sur les cartes. ===== */
+#view-verif { max-width: 1180px; }
+.vf-hidden { display: none !important; }
+.vf-head { margin: 4px 2px 16px; }
+.vf-kicker { margin: 0 0 2px; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.vf-title { margin: 0; font: 700 34px/1.1 -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--f-body); letter-spacing: -.025em; color: var(--ink); }
+.vf-lead { margin: 6px 0 0; max-width: 62ch; font-size: 14.5px; color: var(--ink-2); }
+/* Prestataires en pastilles (même famille que le Planning) */
+.vf-provs { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 14px; padding: 2px 16px 4px; scrollbar-width: none; }
+.vf-provs::-webkit-scrollbar { display: none; }
+.vf-prov { flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 8px 0 14px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 14px var(--f-body); white-space: nowrap;
+  box-shadow: 0 0 0 .5px rgba(10, 20, 28, .12), 0 1px 2px rgba(10, 20, 28, .06); transition: transform 140ms var(--ease-out), background-color .15s ease, color .15s ease; -webkit-tap-highlight-color: transparent; }
+.vf-prov em { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; display: grid; place-items: center; font: 700 12px var(--f-body); font-style: normal; background: var(--surface-2); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.vf-prov:active { transform: scale(.95); }
+.vf-prov[aria-pressed="true"] { background: var(--ink); color: var(--bg); box-shadow: none; }
+.vf-prov[aria-pressed="true"] em { background: color-mix(in srgb, var(--bg) 22%, transparent); color: var(--bg); }
+@media (min-width: 721px) { .vf-provs { margin: 0 0 14px; padding: 2px 0 4px; flex-wrap: wrap; } }
+/* Période et statut : contrôles segmentés, pastille blanche sur l'option choisie */
+.vf-filters { display: flex; flex-wrap: wrap; gap: 12px 28px; margin-bottom: 20px; }
+.vf-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; min-width: 0; }
+.vf-label { width: 100%; font: 600 12px var(--f-body); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
+.vf-seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); }
+.vf-seg button { min-height: 34px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: 600 14px var(--f-body); white-space: nowrap; transition: background-color .2s ease, box-shadow .2s ease; -webkit-tap-highlight-color: transparent; }
+.vf-seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 2px rgba(10, 20, 28, .1), 0 3px 8px -3px rgba(10, 20, 28, .18), 0 0 0 .5px rgba(10, 20, 28, .06); }
+.vf-dates { display: inline-flex; align-items: center; gap: 6px; }
+.vf-date { display: inline-flex; align-items: center; gap: 6px; margin: 0; font: 500 14px var(--f-body); color: var(--ink-2); }
+.vf-date input { min-height: 36px; width: auto; padding: 0 10px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); font: 600 14px var(--f-body); box-shadow: none; }
+.vf-date input:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
+/* Deux colonnes sur ordinateur : la liste à gauche, message + réponse à droite (collés en haut) */
+.vf-work { display: flex; flex-direction: column; gap: 18px; }
+@media (min-width: 980px) {
+  .vf-work { display: grid; grid-template-columns: minmax(340px, 1fr) minmax(0, 1.25fr); grid-template-areas: "side main"; align-items: start; gap: 22px; }
+  .vf-main { grid-area: main; }
+  .vf-side { grid-area: side; }
+}
+.vf-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.vf-card, .vf-main { border-radius: 20px; background: var(--surface); padding: 16px 18px 18px;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 12px 26px -18px rgba(10, 20, 28, .4); }
+.vf-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.vf-card-head h2, .vf-list-head h2 { margin: 0; font: 700 19px/1.2 -apple-system, BlinkMacSystemFont, var(--f-body); letter-spacing: -.015em; }
+.vf-num { margin: 0 0 1px; font: 600 11.5px var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.vf-step { display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 13px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.vf-step .svc-art { width: 36px; height: 36px; }
+/* Question posée : contrôle segmenté sur les boutons radio */
+.vf-kind { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; margin-bottom: 12px; border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); }
+.vf-kind label { position: relative; margin: 0; }
+.vf-kind input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.vf-kind span { display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 8px; border-radius: 8px; font: 600 14px var(--f-body); color: var(--ink); transition: background-color .2s ease, box-shadow .2s ease; }
+.vf-kind input:checked + span { background: var(--surface); box-shadow: 0 1px 2px rgba(10, 20, 28, .1), 0 3px 8px -3px rgba(10, 20, 28, .18), 0 0 0 .5px rgba(10, 20, 28, .06); }
+.vf-kind input:focus-visible + span { box-shadow: 0 0 0 3px var(--accent-soft); }
+/* Le message : bulle grise façon conversation, puis « Copier » en capsule */
+.vf-msg { margin: 0; max-height: 260px; overflow: auto; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--ink) 5%, transparent); border: 0; font: 400 14px/1.5 var(--f-body); white-space: pre-wrap; color: var(--ink); }
+.vf-msg-actions { display: flex; gap: 10px; margin-top: 12px; }
+.vf-copy, .vf-ok { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 0 20px 0 16px; border: 0; border-radius: 999px; font: 650 15.5px var(--f-body); color: #fff; text-decoration: none; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(10, 20, 28, .12), 0 8px 18px -8px color-mix(in srgb, var(--accent) 85%, transparent);
+  transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
+.vf-copy { flex: 1; white-space: nowrap; }
+@media (min-width: 980px) { .vf-msg { max-height: 200px; } .vf-paste textarea { min-height: 92px; } }
+.vf-copy .icon { width: 19px; height: 19px; }
+.vf-copy:hover, .vf-ok:hover { filter: brightness(1.05); }
+.vf-copy:active, .vf-ok:active { transform: scale(.97); }
+.vf-wa, .vf-sec, .vf-pill-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 48px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 15px var(--f-body); text-decoration: none; cursor: pointer; white-space: nowrap;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .14), 0 1px 1px rgba(10, 20, 28, .06), 0 4px 10px -5px rgba(10, 20, 28, .3); transition: transform 140ms var(--ease-out); -webkit-tap-highlight-color: transparent; }
+.vf-wa .icon, .vf-pill-btn .icon { width: 18px; height: 18px; }
+.vf-wa:active, .vf-sec:active, .vf-pill-btn:active { transform: scale(.96); }
+:root[data-theme="dark"] :is(.vf-copy, .vf-ok) { color: #052029; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.vf-copy, .vf-ok) { color: #052029; } }
+/* La réponse collée */
+.vf-paste { position: relative; }
+.vf-paste textarea { display: block; width: 100%; min-height: 104px; padding: 12px 14px 56px; border: 0; border-radius: 14px; background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); font: 400 15px/1.45 var(--f-body); resize: vertical; box-shadow: none; }
+.vf-paste textarea:focus { outline: none; background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 .5px rgba(10, 20, 28, .14); }
+.vf-paste-actions { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 8px; }
+.vf-pill-btn { min-height: 36px; padding: 0 14px; font-size: 14px; color: var(--accent); }
+.vf-pill-btn.ghost { color: var(--ink-2); }
+.vf-match:empty { display: none; }
+.vf-match { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.vf-match-line { margin: 0; padding-left: 16px; text-indent: -16px; font: 600 14px/1.45 var(--f-body); }
+.vf-match-line.ok { color: var(--st-done); }
+.vf-match-line.todo { color: var(--st-todo); }
+.vf-match-line.none { color: var(--ink-2); font-weight: 500; }
+.vf-match-line b { font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+.vf-dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
+/* La liste, groupée par jour */
+.vf-list-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.vf-count { display: block; margin-top: 2px; font: 500 13.5px var(--f-body); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.vf-link { min-height: 36px; padding: 0 4px; border: 0; background: none; color: var(--accent); font: 600 14.5px var(--f-body); cursor: pointer; }
+.vf-day { margin-top: 14px; }
+.vf-day h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px 2px; font: 600 12.5px var(--f-body); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
+.vf-day h3 em { font-style: normal; font-variant-numeric: tabular-nums; color: var(--ink-2); opacity: .8; }
+.vf-list { border-radius: 14px; background: color-mix(in srgb, var(--ink) 3%, var(--surface)); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1); overflow: hidden; }
+.vf-row { display: flex; align-items: stretch; transition: background-color .18s ease; }
+.vf-row + .vf-row { box-shadow: inset 0 .5px 0 var(--line); }
+.vf-row.on { background: color-mix(in srgb, var(--st-done) 7%, transparent); }
+.vf-check { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 9px 4px 9px 12px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.vf-check:active { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.vf-check:focus-visible, .vf-more:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: -3px; }
+.vf-tick { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 1.6px var(--line-strong); transition: background-color .18s ease, box-shadow .18s ease, transform 160ms var(--ease-out); }
+.vf-tick svg { width: 17px; height: 17px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 20; stroke-dashoffset: 20; transition: stroke-dashoffset 220ms var(--ease-out) 40ms; }
+.vf-row.on .vf-tick { background: var(--st-done); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 2px 6px -2px color-mix(in srgb, var(--st-done) 80%, transparent); }
+.vf-row.on .vf-tick svg { stroke-dashoffset: 0; }
+.vf-check:active .vf-tick { transform: scale(.88); }
+:root[data-theme="dark"] .vf-row.on .vf-tick svg { stroke: #062512; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .vf-row.on .vf-tick svg { stroke: #062512; } }
+.vf-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.vf-row-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vf-row-top .plate { font-size: 13.5px; }
+.vf-row-sub { font: 500 13px/1.3 var(--f-body); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vf-said { display: inline-flex; align-items: center; min-height: 22px; padding: 0 9px; border-radius: 11px; font: 600 12px var(--f-body); white-space: nowrap; }
+.vf-said.ok { color: var(--st-done); background: color-mix(in srgb, var(--st-done) 13%, transparent); }
+.vf-said.todo { color: var(--st-todo); background: color-mix(in srgb, var(--st-todo) 14%, transparent); }
+.vf-check .plan-st { margin-left: auto; }
+.vf-more { flex: none; width: 44px; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.vf-more .icon { width: 17px; height: 17px; }
+.vf-more:hover { color: var(--accent); }
+@media (max-width: 520px) { .vf-check .plan-st { display: none; } .vf-check { gap: 10px; } }
+.vf-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 34px 16px 22px; text-align: center; }
+.vf-empty-art .svc-art { width: 64px; height: 64px; margin-bottom: 6px; }
+.vf-empty b { font: 650 16px var(--f-body); }
+.vf-empty span:last-child { max-width: 40ch; font-size: 14px; color: var(--ink-2); }
+/* Barre d'action en bas, dès qu'un véhicule est coché */
+.vf-bar { position: fixed; z-index: 15; left: 0; right: 0; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; padding: 0 12px; pointer-events: none; animation: vf-bar-in 260ms cubic-bezier(.32, .72, 0, 1); }
+.vf-bar[hidden] { display: none; }
+.vf-bar-in { pointer-events: auto; display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; justify-content: space-between; width: min(100%, 760px); padding: 10px 10px 10px 18px; border-radius: 26px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent); -webkit-backdrop-filter: saturate(180%) blur(22px); backdrop-filter: saturate(180%) blur(22px);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .14), 0 14px 34px -12px rgba(10, 20, 28, .4); }
+.vf-bar-n { display: flex; align-items: baseline; gap: 6px; margin: 0; font: 600 14.5px var(--f-body); }
+.vf-bar-n b { font: 700 22px/1 -apple-system, BlinkMacSystemFont, var(--f-body); font-variant-numeric: tabular-nums; }
+.vf-bar-n .vf-link { min-height: 0; margin-left: 6px; font-size: 14px; }
+.vf-bar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vf-ok { min-height: 46px; padding: 0 18px 0 8px; }
+.vf-ok-badge { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; color: var(--accent); box-shadow: 0 1px 2px rgba(0, 0, 0, .18); }
+.vf-ok-badge .icon { width: 17px; height: 17px; stroke-width: 2.8; }
+.vf-sec { min-height: 46px; padding: 0 16px; }
+.vf-sec.danger { color: var(--danger); }
+.vf-bar button:disabled { opacity: .55; pointer-events: none; }
+.vf-bar #v-sheet:empty { display: none; }
+body.vf-bar-on #view-verif { padding-bottom: 96px; }
+body.vf-bar-on:not(.presta-mode) .toast { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+@keyframes vf-bar-in { from { transform: translateY(24px); opacity: 0; } }
+@media (max-width: 720px) {
+  .vf-title { font-size: 32px; }
+  .vf-filters { gap: 14px; }
+  .vf-filter, .vf-seg { width: 100%; }
+  .vf-dates { width: 100%; }
+  .vf-date { flex: 1; }
+  .vf-date input { flex: 1; min-width: 0; width: 100%; }
+  .vf-row-top .plate { font-size: 12.5px; }
+  .vf-copy { padding: 0 16px 0 14px; font-size: 15px; }
+  .vf-wa { padding: 0 14px; }
+  .vf-card, .vf-main { padding: 14px 14px 16px; border-radius: 18px; }
+  .vf-main { padding: 14px 12px 14px; }
+  /* au-dessus de la barre du bas flottante */
+  .vf-bar { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); padding: 0 12px; }
+  .vf-bar-in { padding: 10px; border-radius: 22px; }
+  .vf-bar-n { width: 100%; padding: 0 6px; }
+  .vf-bar-actions { width: 100%; }
+  .vf-ok { flex: 1.3; }
+  .vf-sec { flex: 1; padding: 0 10px; }
+  body.vf-bar-on #view-verif { padding-bottom: 150px; }
+  body.vf-bar-on:not(.presta-mode) .toast { bottom: calc(196px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vf-bar { animation: none; }
+  .vf-tick, .vf-tick svg, .vf-row, .vf-prov, .vf-seg button, .vf-kind span { transition: none; }
+}
+@media (prefers-reduced-transparency: reduce) { .vf-bar-in { background: var(--surface); } }
 </style>
 </head>
 <body>
@@ -1794,7 +2351,7 @@ body.team-sheet-open .lightbox { z-index: 50; }
           <button type="button" data-view="hayon"><svg class="icon"><use href="#i-hayon"/></svg><span class="menu-label">Contrôles hayon</span><span class="menu-badge" id="hayonBadge" hidden></span></button>
           <button type="button" data-view="bilan"><svg class="icon"><use href="#i-chart"/></svg>Bilan du mois</button>
           <button type="button" data-view="verif"><svg class="icon"><use href="#i-check"/></svg>Vérification</button>
-          <button type="button" data-view="photos"><svg class="icon"><use href="#i-image"/></svg>Photos des modèles</button>
+          <button type="button" data-view="photos"><svg class="icon"><use href="#i-image"/></svg>Photos</button>
           <button type="button" data-view="corbeille"><svg class="icon"><use href="#i-trash"/></svg>Corbeille</button>
           <button type="button" data-view="reglages"><svg class="icon"><use href="#i-gear"/></svg>Réglages</button>
         </div>
@@ -1956,68 +2513,110 @@ body.team-sheet-open .lightbox { z-index: 50; }
 
   <!-- PHOTO LIBRARY -->
   <section id="view-photos" hidden>
-    <div class="tools">
-      <input type="search" id="p-q" placeholder="Rechercher un modèle (ex. Movano, 20 m³)…" aria-label="Rechercher un modèle">
+    <header class="pho-head">
+      <div class="pho-titles"><p class="pho-kicker" id="phoKicker"></p><h1 class="pho-title">Photos</h1></div>
+      <label class="pho-find"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="p-q" placeholder="Chercher un modèle" aria-label="Chercher un modèle (ex. Movano, 20 m³)" autocomplete="off" enterkeyhint="search"></label>
+    </header>
+    <div class="pho-seg" role="tablist" aria-label="Modèles">
+      <button type="button" role="tab" data-pho-filter="all" aria-selected="true">Tous<span class="pho-seg-n" id="phoAllN"></span></button>
+      <button type="button" role="tab" data-pho-filter="missing" aria-selected="false">Sans photo<span class="pho-seg-n warn" id="phoMissN" hidden></span></button>
     </div>
-    <div id="p-detail"></div>
+    <div id="p-alert"></div>
     <div id="p-list"></div>
   </section>
 
   <!-- VERIFICATION -->
-  <section id="view-verif" hidden>
-    <p class="intro">Pour relancer le prestataire : copie le message, envoie-le, puis colle sa réponse ici. Les plaques citées se cochent toutes seules et un clic les met à jour.</p>
-    <div class="tools">
-      <label class="field"><span>Prestataire</span><select id="v-prest"></select></label>
-      <label class="field"><span>Du</span><input type="date" id="v-from"></label>
-      <label class="field"><span>Au</span><input type="date" id="v-to"></label>
-      <label class="field"><span>Statuts</span><select id="v-st">
-        <option value="pending">Envoyées + confirmées</option>
-        <option value="envoyee">Envoyées seulement</option>
-        <option value="confirmee">Confirmées seulement</option>
-        <option value="all">Toutes sauf annulées</option>
-      </select></label>
+  <section id="view-verif" class="vf" hidden>
+    <header class="vf-head">
+      <p class="vf-kicker" id="vfKicker">Relance d'un prestataire</p>
+      <h1 class="vf-title">Vérification</h1>
+      <p class="vf-lead">Envoie le message, colle sa réponse : les plaques citées se cochent, puis tu mets tout à jour en un appui.</p>
+    </header>
+    <select id="v-prest" class="vf-hidden" tabindex="-1" aria-hidden="true"></select>
+    <select id="v-st" class="vf-hidden" tabindex="-1" aria-hidden="true">
+      <option value="pending">Envoyées + confirmées</option>
+      <option value="envoyee">Envoyées seulement</option>
+      <option value="confirmee">Confirmées seulement</option>
+      <option value="all">Toutes sauf annulées</option>
+    </select>
+    <div class="vf-provs" id="vfProvs" role="group" aria-label="Prestataire"></div>
+    <div class="vf-filters">
+      <div class="vf-filter">
+        <span class="vf-label">Période</span>
+        <div class="vf-seg" id="vfRange" role="group" aria-label="Période">
+          <button type="button" data-range="7">7 jours</button>
+          <button type="button" data-range="14">14 jours</button>
+          <button type="button" data-range="30">30 jours</button>
+        </div>
+        <div class="vf-dates">
+          <label class="vf-date"><span>Du</span><input type="date" id="v-from"></label>
+          <label class="vf-date"><span>au</span><input type="date" id="v-to"></label>
+        </div>
+      </div>
+      <div class="vf-filter">
+        <span class="vf-label">Statut</span>
+        <div class="vf-seg" id="vfStatus" role="group" aria-label="Statut">
+          <button type="button" data-st="pending">En attente</button>
+          <button type="button" data-st="envoyee">Envoyées</button>
+          <button type="button" data-st="confirmee">Confirmées</button>
+          <button type="button" data-st="all">Toutes</button>
+        </div>
+      </div>
     </div>
-    <div class="work">
-      <div class="panel">
-        <div class="panel-head"><h2>Véhicules à vérifier</h2><span class="muted small" id="v-count"></span></div>
+    <div class="vf-work">
+      <aside class="vf-side">
+        <section class="vf-card" aria-labelledby="vfMsgTitle">
+          <header class="vf-card-head"><span class="vf-step" aria-hidden="true" id="vfMsgArt"></span><div><p class="vf-num">Étape 1</p><h2 id="vfMsgTitle">Le message à envoyer</h2></div></header>
+          <div class="vf-kind" id="v-kind" role="radiogroup" aria-label="Question posée">
+            <label><input type="radio" name="vkind" value="faits" checked><span>Prestations faites ?</span></label>
+            <label><input type="radio" name="vkind" value="rdv"><span>RDV confirmés ?</span></label>
+          </div>
+          <div id="v-share"></div>
+        </section>
+        <section class="vf-card" aria-labelledby="vfReplyTitle">
+          <header class="vf-card-head"><span class="vf-step" aria-hidden="true" id="vfReplyArt"></span><div><p class="vf-num">Étape 2</p><h2 id="vfReplyTitle">Sa réponse</h2></div></header>
+          <div class="vf-paste">
+            <textarea id="v-paste" rows="4" placeholder="Colle ici sa réponse, ex. « AB-123-CD ok, EF-456-GH ok »" aria-label="Réponse du prestataire"></textarea>
+            <div class="vf-paste-actions">
+              <button type="button" class="vf-pill-btn" id="vfPasteBtn"><svg class="icon"><use href="#i-copy"/></svg>Coller</button>
+              <button type="button" class="vf-pill-btn ghost" id="vfClearBtn" hidden>Effacer</button>
+            </div>
+          </div>
+          <div class="vf-match" id="vfMatch" aria-live="polite"></div>
+        </section>
+      </aside>
+      <section class="vf-main" aria-labelledby="vfListTitle">
+        <header class="vf-list-head">
+          <div><p class="vf-num">Étape 3</p><h2 id="vfListTitle">Véhicules à vérifier</h2><span class="vf-count" id="v-count"></span></div>
+          <button type="button" class="vf-link" id="vfAll" hidden>Tout cocher</button>
+        </header>
         <div id="v-table"></div>
-        <label class="field"><span>Réponse du prestataire</span><textarea id="v-paste" placeholder="Colle ici sa réponse, ex. « AB-123-CD ok, EF-456-GH ok »"></textarea></label>
-        <div class="actions">
-          <button type="button" class="primary" data-bulk="realisee">Cochés → Réalisée</button>
-          <button type="button" data-bulk="confirmee">Cochés → Confirmée</button>
-          <button type="button" class="ghost" data-bulk="annulee">Cochés → Annulée</button>
+      </section>
+    </div>
+    <div class="vf-bar" id="vfBar" aria-live="polite" hidden>
+      <div class="vf-bar-in">
+        <p class="vf-bar-n"><b id="vfBarN">0</b><span id="vfBarLabel">coché</span><button type="button" class="vf-link" id="vfNone">Décocher</button></p>
+        <div class="vf-bar-actions">
+          <button type="button" class="vf-ok" data-bulk="realisee"><span class="vf-ok-badge" aria-hidden="true"><svg class="icon"><use href="#i-check"/></svg></span>Réalisée</button>
+          <button type="button" class="vf-sec" data-bulk="confirmee">Confirmée</button>
+          <button type="button" class="vf-sec danger" data-bulk="annulee">Annulée</button>
           <span id="v-sheet"></span>
         </div>
       </div>
-      <aside class="panel sticky">
-        <div class="panel-head"><h2>Message de rappel</h2></div>
-        <div class="seg" id="v-kind">
-          <label><input type="radio" name="vkind" value="faits" checked><span>Prestations faites ?</span></label>
-          <label><input type="radio" name="vkind" value="rdv"><span>RDV confirmés ?</span></label>
-        </div>
-        <div id="v-share"></div>
-      </aside>
     </div>
   </section>
 
   <!-- TAILGATE CONTROLS -->
   <section id="view-hayon" hidden>
-    <p class="intro">Un contrôle hayon tous les 180 jours. Les rendez-vous arrivent tout seuls avec les mails. Dès que le jour d'un rendez-vous est passé, le contrôle compte comme fait et le compteur repart pour 180 jours, sauf si tu le marques « Pas fait ».</p>
-    <div class="hayon-kpis" id="hy-kpis"></div>
-    <div class="tools">
-      <input type="search" id="hy-q" placeholder="Rechercher une plaque…" aria-label="Rechercher une plaque">
-      <select id="hy-filter" aria-label="Afficher">
-        <option value="">Tous les véhicules</option>
-        <option value="atraiter">À traiter (30 jours ou moins, sans RDV)</option>
-        <option value="rdv">Avec un rendez-vous posé</option>
-      </select>
-    </div>
+    <header class="hy-head">
+      <div class="hy-kick-row"><p class="hy-kicker" id="hyKicker">DHOLLIANDA · tous les 180 jours</p>
+        <button type="button" class="hy-paste-btn" id="hy-paste-open" hidden><svg class="icon"><use href="#i-list"/></svg>Coller la liste</button></div>
+      <h1 class="hy-title">Contrôles hayon</h1>
+    </header>
+    <div class="hy-tiles" id="hy-kpis"></div>
+    <label class="hy-search"><svg class="icon"><use href="#i-search"/></svg><input type="search" id="hy-q" placeholder="Rechercher une plaque" aria-label="Rechercher une plaque"></label>
     <div id="hy-list"></div>
-    <details class="more" id="hy-pastebox"><summary><svg class="icon"><use href="#i-list"/></svg>Coller la liste des véhicules à hayon</summary>
-      <p class="hint">Copie les colonnes « immatriculation » et « date du dernier contrôle » du tableau du prestataire, puis colle-les ici. Une plaque déjà connue prend la date collée.</p>
-      <textarea id="hy-paste" placeholder="AB-123-CD&#9;12/05/2026&#10;EF-456-GH&#9;03/04/2026"></textarea>
-      <div class="actions"><button type="button" class="primary" id="hy-import">Ajouter ces véhicules</button><span class="muted small" id="hy-preview"></span></div>
-    </details>
+    <p class="hy-foot">Les rendez-vous arrivent tout seuls avec les mails. Dès que le jour d'un rendez-vous est passé, le contrôle compte comme fait et le compteur repart pour 180 jours, sauf si tu le marques « Pas fait ».</p>
   </section>
 
   <!-- BILAN -->
@@ -2034,23 +2633,29 @@ body.team-sheet-open .lightbox { z-index: 50; }
   </section>
 
   <!-- HISTORY -->
-  <section id="view-historique" hidden>
-    <div class="tools">
-      <input type="search" id="q" placeholder="Rechercher une plaque, un site, un modèle…" aria-label="Rechercher">
-      <select id="h-prest" aria-label="Prestataire"></select>
-      <select id="h-site" aria-label="Site"></select>
-      <select id="h-statut" aria-label="Statut"></select>
-      <select id="h-svc" aria-label="Prestation"></select>
-      <select id="h-mois" aria-label="Période"></select>
+  <section id="view-historique" class="hist" hidden>
+    <header class="plan-top hist-top">
+      <div class="plan-title"><p class="plan-kicker" id="h-kicker">15 derniers jours et en cours</p><h1>Historique</h1></div>
+      <button type="button" class="hist-export" id="h-export"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span>Exporter</span></button>
+    </header>
+    <label class="plate-find hist-find"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="q" placeholder="Plaque, site, modèle, note…" aria-label="Rechercher une plaque, un site, un modèle" autocomplete="off" spellcheck="false" enterkeyhint="search"></label>
+    <div class="hist-periods" id="h-periods" role="group" aria-label="Période"></div>
+    <div class="hist-filters" id="h-filters" role="group" aria-label="Filtres"></div>
+    <div class="plan-hidden" aria-hidden="true">
+      <select id="h-prest" tabindex="-1"></select><select id="h-site" tabindex="-1"></select><select id="h-statut" tabindex="-1"></select>
+      <select id="h-svc" tabindex="-1"></select><select id="h-mois" tabindex="-1"></select>
     </div>
     <div id="histWrap"></div>
-    <p id="h-older" class="hint older-note" hidden></p>
+    <p id="h-older" class="hint older-note hist-older" hidden></p>
   </section>
 
   <!-- TRASH -->
   <section id="view-corbeille" hidden>
-    <div class="daybar"><h1>Corbeille</h1></div>
-    <p class="hint">Les demandes supprimées restent ici 20 jours, puis elles sont effacées pour de bon.</p>
+    <header class="ret-head">
+      <div class="ret-titles"><p class="ret-kicker">Demandes supprimées · 20 jours</p><h1 class="ret-title">Corbeille</h1></div>
+    </header>
+    <div id="trashSum"></div>
+    <label class="tr-search" id="trashSearchWrap" hidden><svg class="icon"><use href="#i-search"/></svg><input id="trashSearch" type="search" placeholder="Chercher une plaque" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Chercher une plaque dans la corbeille"></label>
     <div id="trashList"></div>
   </section>
 
@@ -2135,7 +2740,6 @@ body.team-sheet-open .lightbox { z-index: 50; }
 
 <input type="file" id="photoInput" accept="image/*" multiple hidden>
 <div class="toast" id="toast" role="status" hidden></div>
-<div class="lightbox" id="lightbox" hidden><img id="lightImg" alt="Photo du pare-brise"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -2385,8 +2989,23 @@ window.SUIVI_FIREBASE_CONFIG = {
     return siv ? `${siv[1]}-${siv[2]}-${siv[3]}` : String(plate || "").toUpperCase().trim();
   }
   // SIV plates (AB-123-CD) and old FNI plates (123 ABC 45) found in free text.
+  const PLATE_IN_TEXT_I = /\b[A-Z]{2}[\s-]?\d{3}[\s-]?[A-Z]{2}\b|\b\d{1,4}[\s-]?[A-Z]{2,3}[\s-]?\d{2}\b/gi;
   const PLATE_IN_TEXT = /\b[A-Z]{2}[\s-]?\d{3}[\s-]?[A-Z]{2}\b|\b\d{1,4}[\s-]?[A-Z]{2,3}[\s-]?\d{2}\b/g;
   const platesInText = (text) => (String(text || "").toUpperCase().match(PLATE_IN_TEXT) || []).map(plateKey);
+  // A provider reply read bit by bit (line, comma, semicolon, full stop): a plate next to « pas », « reste », « demain »…
+  // is not done, every other plate cited is. « pas de souci » / « pas de problème » stay positive.
+  const REPLY_NOT_DONE = /(?:^|[^\p{L}])(pas|non|rien|reste|restent|à faire|a faire|absente?s?|impossible|annul\p{L}*|report\p{L}*|demain|plus tard)(?=$|[^\p{L}])/iu;
+  const REPLY_FINE = /pas\s+(de|d')\s*(souci|soucis|problème|probleme|problèmes|problemes)/giu;
+  function replyPlates(text) {
+    const done = [], notDone = [];
+    String(text || "").split(/[\n,;.!]+|\s+et\s+/i).forEach((part) => {
+      const plates = platesInText(part);
+      if (!plates.length) return;
+      const target = REPLY_NOT_DONE.test(part.replace(PLATE_IN_TEXT_I, " ").replace(REPLY_FINE, " ")) ? notDone : done;
+      plates.forEach((k) => { if (!done.includes(k) && !notDone.includes(k)) target.push(k); });
+    });
+    return { done, notDone };
+  }
 
   // ---------- fleet & sites ----------
   const fleetLabel = ({ modele, cubage }) => [modele, cubage ? `${cubage} m³` : ""].filter(Boolean).join(" – ");
@@ -3297,7 +3916,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
-    plateKey, normalizePlate, platesInText, PLATE_SEARCH_MIN, plateLookup, isFullPlate,
+    plateKey, normalizePlate, platesInText, replyPlates, PLATE_SEARCH_MIN, plateLookup, isFullPlate,
     fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress, parseSiteList, mergeSites,
     serviceOf, WASH_KINDS, washKindOf, jobLabel, jobTitle, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
@@ -4137,6 +4756,40 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
   ICONS["ret-confirme"] = badge("grip", TICK);
   ICONS["ret-erreur"] = badge("ora",
     `<path d="M30.4 30.2a9 9 0 1 0-12.6-.6" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/><path d="M13.4 25.8l4.6 5.2 5-4.6" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>`);
+  // Corbeille de l'équipe : poubelle en acier (couvercle, poignée, nervures) ; vide = pastille verte ; restaurer = flèche bleue qui remonte.
+  const BIN = solid("M11.2 15.6h25.6l-2.4 22.6a3 3 0 0 1-3 2.7H16.6a3 3 0 0 1-3-2.7Z", "steel") +
+    `<g stroke="#8794a0" stroke-width="1.5" stroke-linecap="round"><path d="M18.4 20.4l.9 15.2"/><path d="M24 20.4v15.2"/><path d="M29.6 20.4l-.9 15.2"/></g>` +
+    `<g stroke="#fff" stroke-opacity=".7" stroke-width=".7" stroke-linecap="round"><path d="M19.4 20.4l.9 15.2"/><path d="M25 20.4v15.2"/></g>` +
+    solid("M8.6 11.6a2 2 0 0 1 2-2h26.8a2 2 0 0 1 2 2v2.6a1.4 1.4 0 0 1-1.4 1.4H10a1.4 1.4 0 0 1-1.4-1.4Z", "steel") +
+    `<path d="M10.4 10.8h27" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".9"/>` +
+    `<path d="M19.4 9.6V7.4a1.6 1.6 0 0 1 1.6-1.6h6a1.6 1.6 0 0 1 1.6 1.6v2.2" fill="none" stroke="${O}" stroke-width="3.2" stroke-linecap="round"/>` +
+    `<path d="M19.4 9.6V7.4a1.6 1.6 0 0 1 1.6-1.6h6a1.6 1.6 0 0 1 1.6 1.6v2.2" fill="none" stroke="url(#i3-steel)" stroke-width="1.6" stroke-linecap="round"/>`;
+  ICONS["corbeille"] = ground(24, 42.6, 15, 2.1) + BIN;
+  ICONS["corbeille-vide"] = ground(24, 42.6, 15, 2.1) + BIN +
+    `<circle cx="35.4" cy="31.8" r="8.4" fill="url(#i3-spg)" ${S}/><ellipse cx="33.2" cy="28" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".65"/>` +
+    `<path d="M31.4 32l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  ICONS["act-restore"] = ground(24, 42.6, 15, 2.1) + BIN +
+    `<circle cx="35.4" cy="31.8" r="8.4" fill="url(#i3-grip)" ${S}/><ellipse cx="33.2" cy="28" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".55"/>` +
+    `<path d="M35.4 36.6v-8.4M31.8 31.6l3.6-3.6 3.6 3.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // Historique vide : une fiche et une loupe en volume (verre bleuté, manche sombre).
+  ICONS["hist-vide"] = ground(24, 42.6, 17, 2.1) +
+    solid("M9 8.5a3 3 0 0 1 3-3h18a3 3 0 0 1 3 3v29a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3Z") +
+    `<path d="M11.4 7.6h19.6" stroke="#fff" stroke-opacity=".5" stroke-width="1" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="2" stroke-linecap="round"><path d="M14 13h14"/><path d="M14 18h10"/><path d="M14 23h8"/></g>` +
+    `<path d="M35.4 35.6l6.4 6.4" stroke="url(#i3-dark)" stroke-width="5" stroke-linecap="round"/>` +
+    `<circle cx="29" cy="29" r="9" fill="url(#i3-mglass)" stroke="url(#i3-steel)" stroke-width="2.8"/>` +
+    `<circle cx="29" cy="29" r="10.4" fill="none" stroke="${O}" stroke-opacity=".55" stroke-width=".8"/>` +
+    `<path d="M24.6 26.4a5 5 0 0 1 4.2-3" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.8" stroke-linecap="round"/>`;
+  // Vérification (équipe) : bulle de message avec un « ? » bleu City-Drop (la relance), bulle de réponse avec une coche verte.
+  const bubble = (d) => solid(d) + `<path d="M11.4 9.4h21" stroke="#fff" stroke-opacity=".55" stroke-width=".9" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="2.2" stroke-linecap="round"><path d="M11.6 16.6h18"/><path d="M11.6 22.2h12"/></g>`;
+  const corner = (grad, inner) => `<circle cx="34.8" cy="31.6" r="8.6" fill="url(#i3-${grad})" ${S}/><ellipse cx="32.8" cy="27.8" rx="4.8" ry="2.4" fill="url(#i3-shine)" opacity=".6"/>` + inner;
+  ICONS["vf-message"] = ground(23, 43, 17, 2.1) +
+    bubble("M10 7h26a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H19l-7.4 6.4V29H10a4 4 0 0 1-4-4V11a4 4 0 0 1 4-4Z") +
+    corner("grip", `<path d="M32.2 29.6a2.7 2.7 0 1 1 3.8 2.4c-.7.4-1.2.9-1.2 1.7v.4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="34.8" cy="36.6" r="1.25" fill="#fff"/>`);
+  ICONS["vf-reponse"] = ground(25, 43, 17, 2.1) +
+    bubble("M38 7H12a4 4 0 0 0-4 4v14a4 4 0 0 0 4 4h17l7.4 6.4V29H38a4 4 0 0 0 4-4V11a4 4 0 0 0-4-4Z") +
+    corner("spg", `<path d="M30.8 31.8l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`);
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
@@ -5203,13 +5856,6 @@ function page(texte) {
     const thumb = (vehicleOf(entry.plate)?.photos || []).find((p) => p.key === entry.key)?.thumb;
     return `<figure><img src="${safeImageSrc(thumb)}" data-zoom="${esc(entry.key)}" alt="Pare-brise ${esc(entry.plate)}"><figcaption>${esc(entry.plate)}</figcaption></figure>`;
   }
-  function photoTile(plate, photo, index) {
-    const name = photoFileName(plate, index);
-    return `<figure class="ph"><img src="${safeImageSrc(photo.thumb)}" data-zoom="${esc(photo.key)}" alt="Pare-brise ${esc(plate)} photo ${index + 1}">
-      <div class="actions"><button type="button" data-copy-photo="${esc(photo.key)}" data-name="${esc(name)}">${icon("copy")}Copier</button>
-      <button type="button" class="ghost" data-save-photo="${esc(photo.key)}" data-name="${esc(name)}" aria-label="Enregistrer">${icon("download")}</button>
-      ${state.canWrite ? `<button type="button" class="ghost danger" data-remove-photo="${esc(photo.key)}" aria-label="Supprimer">${icon("x")}</button>` : ""}</div></figure>`;
-  }
   // Each photo as its own full-size file: dropped together into WhatsApp they arrive as separate, sharp images.
   async function saveAllPhotos(entries) {
     if (!state.downloads) return toast("Téléchargement indisponible ici");
@@ -5230,24 +5876,124 @@ function page(texte) {
     if ((el = target("[data-save-sheet]"))) { saveBlob(buildPhotoSheet(photoEntries(shareRegistry.get(el.dataset.saveSheet) || []), "image/jpeg"), sheetName()); return; }
     if ((el = target("[data-copy-photo]"))) { const key = el.dataset.copyPhoto; copyImage(() => singlePhotoPng(key), el.dataset.name, () => singlePhotoJpeg(key)); return; }
     if ((el = target("[data-save-photo]"))) { saveBlob(singlePhotoJpeg(el.dataset.savePhoto), el.dataset.name); return; }
-    if ((el = target("[data-zoom]"))) openLightbox(el.dataset.zoom, el.src);
-    if ((el = target("[data-proof]"))) openProof(el.dataset.proof);
+    if ((el = target("[data-zoom]"))) { const all = [...(el.parentElement?.querySelectorAll("[data-zoom]") || [])]; const list = all.length ? all : [el];
+      viewer.open(list.map((x) => ({ key: x.dataset.zoom, thumb: x.getAttribute("src") || "" })), Math.max(0, list.indexOf(el))); }
+    if ((el = target("[data-proof]"))) viewer.open([{ key: el.dataset.proof, proof: true }], 0);
   }, true);
-  async function openLightbox(key, fallbackSrc) {
-    $("#lightImg").src = fallbackSrc; $("#lightbox").hidden = false;
-    const full = state.store ? await state.store.loadPhoto(key).catch(() => null) : null;
-    if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
-  }
-  async function openProof(key) {
-    $("#lightImg").removeAttribute("src"); $("#lightbox").hidden = false;
-    const full = state.store ? await state.store.loadProof(key).catch(() => null) : null;
-    if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
-    else if (!full) { $("#lightbox").hidden = true; toast("Photo introuvable"); }
-  }
-  $("#lightbox").onclick = () => ($("#lightbox").hidden = true);
+
+  // ================= photo en grand, plein écran (façon app Photos) =================
+  // Glisser à gauche / à droite = photo suivante, vers le bas = fermer ; Échap, flèches du clavier, ×.
+  // Avec un album (page Photos) : barre du bas Copier / Enregistrer / Supprimer.
+  const viewer = (() => {
+    let el = null, items = [], index = 0, album = null, lastFocus = null, token = 0;
+    const reduce = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function build() {
+      if (el) return;
+      document.body.insertAdjacentHTML("beforeend", `<div class="pho-viewer" role="dialog" aria-modal="true" aria-label="Photo en grand" hidden>
+        <div class="pho-v-top"><button type="button" class="pho-v-round" data-v-close aria-label="Fermer">${icon("x")}</button>
+          <p class="pho-v-title"><b></b><span></span></p><span class="pho-v-pad"></span></div>
+        <div class="pho-v-stage"><img alt="Photo du pare-brise" draggable="false"></div>
+        <button type="button" class="pho-v-round pho-v-nav prev" data-v-step="-1" aria-label="Photo précédente">${icon("chev-l")}</button>
+        <button type="button" class="pho-v-round pho-v-nav next" data-v-step="1" aria-label="Photo suivante">${icon("chev-r")}</button>
+        <div class="pho-v-bar"></div></div>`);
+      el = document.querySelector(".pho-viewer");
+      el.addEventListener("click", (e) => {
+        if (e.target.closest("[data-v-close]")) return close();
+        const st = e.target.closest("[data-v-step]"); if (st) return step(+st.dataset.vStep);
+        const del = e.target.closest("[data-v-remove]"); if (del) return removeCurrent();
+        if (moved) return;
+        if (e.target.matches(".pho-v-stage")) close();
+        else if (e.target.matches(".pho-v-stage img")) el.classList.toggle("bare");
+      });
+      document.addEventListener("keydown", (e) => {
+        if (el.hidden) return;
+        if (e.key === "Escape") { e.stopImmediatePropagation(); close(); }
+        else if (e.key === "ArrowRight") step(1); else if (e.key === "ArrowLeft") step(-1);
+      }, true);
+      // Le geste : on décide l'axe après quelques pixels, la photo suit le doigt, puis suivante / fermer / retour en place.
+      const stage = el.querySelector(".pho-v-stage"), img = stage.querySelector("img");
+      let x0 = 0, y0 = 0, axis = "", down = false, moved = false, lastT = 0, lastX = 0, lastY = 0, vx = 0, vy = 0;
+      stage.addEventListener("pointerdown", (e) => { if (e.button) return; down = true; moved = false; axis = ""; x0 = lastX = e.clientX; y0 = lastY = e.clientY; lastT = e.timeStamp; vx = vy = 0; });
+      stage.addEventListener("pointermove", (e) => {
+        if (!down) return;
+        const dx = e.clientX - x0, dy = e.clientY - y0;
+        if (!axis && Math.hypot(dx, dy) > 8) { axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y"; moved = true; stage.setPointerCapture(e.pointerId); el.classList.add("dragging"); }
+        const dt = Math.max(1, e.timeStamp - lastT); vx = (e.clientX - lastX) / dt; vy = (e.clientY - lastY) / dt; lastX = e.clientX; lastY = e.clientY; lastT = e.timeStamp;
+        if (axis === "x") { const edge = (index === 0 && dx > 0) || (index === items.length - 1 && dx < 0); img.style.transform = `translateX(${edge ? dx / 4 : dx}px)`; }
+        else if (axis === "y") { const d = Math.max(0, dy); img.style.transform = `translateY(${dy > 0 ? dy : dy / 6}px) scale(${1 - Math.min(d, 400) / 1600})`; el.style.setProperty("--pho-dim", String(Math.max(0.25, 1 - d / 500))); }
+      });
+      const end = (e) => {
+        if (!down) return; down = false; el.classList.remove("dragging");
+        const dx = e.clientX - x0, dy = e.clientY - y0;
+        if (axis === "y" && (dy > 110 || vy > 0.6)) { close(true); }
+        else if (axis === "x" && (Math.abs(dx) > 70 || Math.abs(vx) > 0.5) && items[index + (dx < 0 ? 1 : -1)]) { step(dx < 0 ? 1 : -1, true); }
+        else { img.style.transform = ""; el.style.removeProperty("--pho-dim"); }
+        setTimeout(() => (moved = false), 0);
+      };
+      stage.addEventListener("pointerup", end); stage.addEventListener("pointercancel", end);
+    }
+    async function show(fromSwipe) {
+      const it = items[index]; if (!it) return close();
+      const img = el.querySelector(".pho-v-stage img"), my = ++token;
+      img.style.transform = ""; el.style.removeProperty("--pho-dim");
+      if (fromSwipe && !reduce()) { img.classList.remove("pho-v-in"); void img.offsetWidth; img.classList.add("pho-v-in"); }
+      if (it.thumb) img.src = safeImageSrc(it.thumb); else img.removeAttribute("src");
+      el.querySelector(".pho-v-title b").textContent = album ? album.label : "Photo";
+      el.querySelector(".pho-v-title span").textContent = items.length > 1 ? `${index + 1} sur ${items.length}` : "";
+      el.querySelector(".prev").hidden = index === 0; el.querySelector(".next").hidden = index >= items.length - 1;
+      const name = album ? photoFileName(album.label, index) : "photo.jpg";
+      el.querySelector(".pho-v-bar").innerHTML = album ? `
+        <button type="button" class="pho-v-act" data-copy-photo="${esc(it.key)}" data-name="${esc(name)}">${icon("copy")}<span>Copier</span></button>
+        <button type="button" class="pho-v-act" data-save-photo="${esc(it.key)}" data-name="${esc(name)}">${icon("download")}<span>Enregistrer</span></button>
+        ${state.canWrite ? `<button type="button" class="pho-v-act danger" data-v-remove>${icon("trash")}<span>Supprimer</span></button>` : ""}` : "";
+      el.classList.toggle("with-bar", !!album);
+      const full = state.store ? await (it.proof ? state.store.loadProof(it.key) : state.store.loadPhoto(it.key)).catch(() => null) : null;
+      if (my !== token || el.hidden) return;
+      if (full) img.src = safeImageSrc(full);
+      else if (!it.thumb) { close(); toast("Photo introuvable"); }
+    }
+    function open(list, at = 0, withAlbum = null) {
+      build();
+      items = list.filter((x) => x.key); index = Math.min(Math.max(0, at), items.length - 1); album = withAlbum;
+      if (!items.length) return;
+      if (el.hidden) { lastFocus = document.activeElement; el.hidden = false; el.classList.remove("bare"); document.body.classList.add("pho-viewing"); requestAnimationFrame(() => el.classList.add("on")); }
+      show();
+      setTimeout(() => el.querySelector("[data-v-close]")?.focus({ preventScroll: true }), 30);
+    }
+    function close(fromSwipe) {
+      if (!el || el.hidden) return;
+      token++; el.classList.remove("on"); document.body.classList.remove("pho-viewing");
+      const img = el.querySelector(".pho-v-stage img");
+      if (fromSwipe && !reduce()) img.style.transform = `translateY(${innerHeight * 0.6}px) scale(.85)`;
+      setTimeout(() => { el.hidden = true; img.style.transform = ""; el.style.removeProperty("--pho-dim"); img.removeAttribute("src"); }, reduce() ? 0 : 220);
+      lastFocus?.focus?.({ preventScroll: true });
+    }
+    function step(d, fromSwipe) { if (!items[index + d]) return; index += d; show(fromSwipe); }
+    async function removeCurrent() {
+      const it = items[index]; if (!it || !album) return;
+      const ok = await removeAlbumPhoto(album.model, it.key);
+      if (!ok) return;
+      // La liste a peut-être déjà été mise à jour par refresh() pendant l'attente : on retire par la clé, pas par la position.
+      items = items.filter((x) => x.key !== it.key);
+      if (!items.length) close(); else { index = Math.min(index, items.length - 1); show(); }
+    }
+    // Les photos de l'album ont changé (ajout, suppression, autre appareil) : on suit, en restant sur la même photo.
+    function refresh() {
+      if (!el || el.hidden || !album) return;
+      const key = items[index]?.key;
+      items = modelPhotos(album.model).map((p) => ({ key: p.key, thumb: p.thumb }));
+      if (!items.length) return close();
+      const i = items.findIndex((p) => p.key === key); index = i >= 0 ? i : Math.min(index, items.length - 1);
+      show();
+    }
+    return { open, close, refresh, get isOpen() { return !!el && !el.hidden; } };
+  })();
 
   // ================= Corbeille: deleted requests, kept 20 days, restorable =================
-  const trash = { groups: [], error: false, loading: false };
+  // Façon iPhone (2026-11-21) : résumé en haut, recherche de plaque, cartes groupées par jour de suppression avec les jours
+  // restants (gris, orange à 3 jours, rouge le dernier jour), « Restaurer » en bouton clair + bulle « Voir au planning »,
+  // fiche complète dans la feuille de l'équipe (teamSheet). Rien n'est effacé avant 20 jours : les règles l'interdisent.
+  const trash = { groups: [], error: false, loading: false, query: "" };
   async function openTrash() {
     trash.loading = true; trash.error = false; renderTrash();
     if (!state.store) return; // page opened from its link before sign-in: listed once connected
@@ -5257,43 +6003,138 @@ function page(texte) {
     } catch { trash.groups = []; trash.error = true; }
     trash.loading = false; renderTrash();
   }
+  const trashKey = (group) => group.ids.join(",");
+  const trashLeft = (group) => D.trashDaysLeft(group.supprimeLe, new Date().toISOString());
+  const trashTone = (left) => (left <= 1 ? "bad" : left <= 3 ? "soon" : "");
+  const trashLeftLabel = (left) => (left <= 0 ? "Effacée aujourd'hui" : left === 1 ? "Effacée demain" : `Effacée dans ${left} j`);
+  const trashWho = (email) => { const name = String(email || "").split("@")[0].split(/[._-]/)[0]; return name ? capFirst(name) : ""; };
+  const trashHour = (iso) => (iso ? iso.slice(11, 16).replace(":", "h") : "");
+  const trashLocalIso = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString(); };
+  function trashDayHeading(iso) {
+    const day = iso.slice(0, 10);
+    if (day === today()) return "Aujourd'hui";
+    if (day === D.addDays(today(), -1)) return "Hier";
+    return capFirst(D.dayLabel(day));
+  }
+  function trashTitle(group) {
+    const first = group.rows[0].demande;
+    return group.rows.length > 1 ? `${D.jobLabel(first)} · ${plural(group.rows.length, "véhicule")}` : D.jobLabel(first);
+  }
+  const trashWhen = (d) => (d.date ? D.numericDate(d.date).slice(0, 5) + (d.dateFin && d.dateFin !== d.date ? " au " + D.numericDate(d.dateFin).slice(0, 5) : "") : "");
+  const trashMatches = (group) => !trash.query || group.rows.some((r) => D.plateKey(r.demande.plaque || "").includes(D.plateKey(trash.query)));
   function trashCard(group) {
     const first = group.rows[0].demande;
-    const many = group.rows.length > 1;
-    const left = D.trashDaysLeft(group.supprimeLe, new Date().toISOString());
-    const plates = group.rows.map((r) => plateTag(r.demande.plaque)).join(" ");
-    const title = many ? `Lavage groupé · ${group.rows.length} véhicules` : esc(D.jobLabel(first));
-    const job = many ? D.jobLabel(first) : "";
-    const when = first.date ? D.numericDate(first.date) + (first.dateFin && first.dateFin !== first.date ? " au " + D.numericDate(first.dateFin) : "") : "";
-    const deleted = `Supprimée le ${D.numericDate(group.supprimeLe.slice(0, 10)).slice(0, 5)}${group.supprimePar ? " par " + group.supprimePar : ""}`;
-    return `<div class="trash-card">
-      <div class="trash-head"><div class="trash-plates">${plates}</div><span class="trash-days${left <= 3 ? " soon" : ""}">Effacée dans ${left} j</span></div>
-      <div class="trash-body"><b>${title}</b><span class="muted">${esc([job, when, first.prestataire].filter(Boolean).join(" · "))}</span><span class="muted small">${esc(deleted)}</span></div>
-      ${state.canWrite ? `<button type="button" data-trash-restore="${esc(group.ids.join(","))}">${icon("check")}Restaurer</button>` : ""}
-    </div>`;
+    const left = trashLeft(group);
+    const local = trashLocalIso(group.supprimeLe);
+    const plates = group.rows.slice(0, 3).map((r) => plateTag(r.demande.plaque)).join("") + (group.rows.length > 3 ? `<span class="tr-more">+${group.rows.length - 3}</span>` : "");
+    const meta = [trashWhen(first) ? "Prévue le " + trashWhen(first) : "", first.prestataire].filter(Boolean).join(" · ");
+    const by = `Supprimée à ${trashHour(local)}${group.supprimePar ? " par " + trashWho(group.supprimePar) : ""}`;
+    return `<article class="tr-card" data-trash-key="${esc(trashKey(group))}">
+      <button type="button" class="tr-open" data-trash-open="${esc(trashKey(group))}" aria-label="${esc(trashTitle(group))} : voir le détail">
+        ${serviceTile(first, "sm")}
+        <span class="tr-main">
+          <span class="tr-line"><span class="tr-plates">${plates}</span><span class="tr-days ${trashTone(left)}">${trashLeftLabel(left)}</span></span>
+          <span class="tr-what">${esc(trashTitle(group))}</span>
+          <span class="tr-meta">${esc(meta)}</span>
+          <span class="tr-meta">${esc(by)}</span>
+        </span>
+      </button>
+      ${state.canWrite ? `<div class="tr-acts"><button type="button" class="tr-restore" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer</button></div>` : ""}
+    </article>`;
   }
   function renderTrash() {
     const box = $("#trashList");
-    box.innerHTML = trash.loading && !trash.groups.length ? `<p class="hint">Chargement…</p>`
-      : trash.error ? `<div class="empty"><b>La corbeille n'est pas encore active.</b></div>`
-      : !trash.groups.length ? `<div class="empty"><b>La corbeille est vide.</b></div>`
-      : trash.groups.map(trashCard).join("");
+    const groups = trash.groups;
+    const soon = groups.filter((g) => trashLeft(g) <= 3).length;
+    const count = groups.reduce((n, g) => n + g.rows.length, 0);
+    $("#trashSearchWrap").hidden = trash.loading || trash.error || groups.length < 2;
+    $("#trashSum").innerHTML = trash.loading || trash.error || !groups.length ? "" : `<div class="tr-sum">
+        <span class="ret-ico lg" aria-hidden="true">${self.IssueArt?.art("corbeille", "ret-art") || ""}</span>
+        <div class="tr-sum-txt"><b>${plural(count, "demande")}</b><span>Restaurables pendant 20 jours après la suppression, puis effacées pour de bon.</span>
+        ${soon ? `<span class="tr-days soon">${soon} bientôt effacée${soon > 1 ? "s" : ""}</span>` : ""}</div>
+      </div>`;
+    if (trash.loading && !groups.length) { box.innerHTML = `<p class="hint">Chargement…</p>`; return; }
+    if (trash.error || !groups.length) {
+      box.innerHTML = `<div class="ret-empty"><span class="ret-ico xl" aria-hidden="true">${self.IssueArt?.art("corbeille-vide", "ret-art") || ""}</span>
+        <b>${trash.error ? "La corbeille n'est pas encore active" : "La corbeille est vide"}</b>
+        <span>Une demande supprimée reste ici 20 jours : tu peux la remettre dans le planning telle qu'elle était.</span></div>`;
+      return;
+    }
+    const shown = groups.filter(trashMatches);
+    if (!shown.length) { box.innerHTML = `<div class="ret-empty"><b>Aucune plaque ne correspond</b><span>La corbeille contient seulement les demandes supprimées ces 20 derniers jours.</span></div>`; return; }
+    const days = [];
+    for (const g of shown) {
+      const day = trashLocalIso(g.supprimeLe).slice(0, 10);
+      const last = days[days.length - 1];
+      if (last && last.day === day) last.groups.push(g); else days.push({ day, groups: [g] });
+    }
+    box.innerHTML = days.map(({ day, groups: list }) => `<section class="tr-group">
+        <h2 class="ret-gh">${esc(trashDayHeading(day))}<em>· ${list.reduce((n, g) => n + g.rows.length, 0)}</em></h2>
+        <div class="tr-cards">${list.map(trashCard).join("")}</div>
+      </section>`).join("")
+      + (state.canWrite ? "" : `<p class="ret-foot">Seuls les administrateurs peuvent restaurer une demande.</p>`);
   }
-  $("#trashList").addEventListener("click", async (e) => {
-    const button = e.target.closest("[data-trash-restore]");
-    if (!button || !requireStore()) return;
-    const ids = button.dataset.trashRestore.split(",");
-    button.disabled = true;
+  function trashSheetBody(group) {
+    const first = group.rows[0].demande;
+    const many = group.rows.length > 1;
+    const left = trashLeft(group);
+    const local = trashLocalIso(group.supprimeLe);
+    const line = (label, value, small = "") => (value ? `<div><dt>${label}</dt><dd>${esc(value)}${small ? `<small>${esc(small)}</small>` : ""}</dd></div>` : "");
+    const total = group.rows.reduce((n, r) => n + (Number(r.demande.prixHT) || 0), 0);
+    const when = first.date ? capFirst(D.isMultiDay(first) ? D.availabilityLabel(first) : D.dayLabel(first.date)) : "";
+    const vehicles = many ? `<section><p class="sheet-label">Véhicules</p><dl class="ret-sh-info">${group.rows.map((r) => `<div><dt>${plateTag(r.demande.plaque)}</dt><dd>${esc(D.timeSlotLabel(r.demande))}</dd></div>`).join("")}</dl></section>` : "";
+    return `<div class="ret-sheet tr-sheet">
+      <div class="ret-sh-hero">${serviceTile(first, "lg")}<div><p class="ret-sh-kind">Dans la corbeille</p><span class="ret-sh-what">${esc(trashTitle(group))}</span>
+        <div class="tr-plates">${many ? "" : plateTag(first.plaque)}</div></div></div>
+      <div class="tr-count ${trashTone(left)}"><b>${left > 1 ? `Encore ${left} jours dans la corbeille` : trashLeftLabel(left)}</b><span>Effacée pour de bon le ${esc(D.dayLabel(D.trashPurgeDate(group.supprimeLe).slice(0, 10)))}.</span></div>
+      ${vehicles}
+      <dl class="ret-sh-info">
+        ${line("Prévue", when, many ? "" : D.timeSlotLabel(first))}
+        ${line("Site", D.siteOf(first), first.adresse || "")}
+        ${line("Prestataire", first.prestataire || "")}
+        ${line(first.service === "intervention" ? "À faire" : "", first.tache || "")}
+        ${line("Prix", total ? D.euros(total) + " HT" : "", many ? "pour les " + group.rows.length + " véhicules" : "")}
+        ${line("Statut", first.statut ? D.statusOf(first.statut).label : "", "au moment de la suppression")}
+        ${line("Supprimée", capFirst(D.dayLabel(local.slice(0, 10))) + " à " + trashHour(local), group.supprimePar ? "par " + group.supprimePar : "")}
+      </dl>
+      ${first.notes ? `<p class="ret-sh-note">${esc(first.notes)}</p>` : ""}
+      <div class="ret-sh-acts">${state.canWrite
+        ? `<button type="button" class="ret-btn primary" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer dans le planning</button>`
+        : `<p class="ret-foot">Seuls les administrateurs peuvent restaurer une demande.</p>`}</div>
+    </div>`;
+  }
+  async function restoreTrash(key, button) {
+    if (!requireStore()) return;
+    const group = trash.groups.find((g) => trashKey(g) === key);
+    if (!group) return;
+    const ids = key.split(",");
+    const date = group.rows[0].demande.date;
+    document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = true));
     try {
       await state.store.restoreDemandes(ids);
-      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : "Demande restaurée");
-      trash.groups = trash.groups.filter((g) => g.ids.join(",") !== button.dataset.trashRestore);
-      renderTrash();
+      if (teamSheet.isOpen) teamSheet.close();
+      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : "Demande restaurée",
+        date ? { label: "Voir au planning", run: () => { state.day = date; show("planning"); renderPlanning(); } } : undefined);
+      const card = document.querySelector(`.tr-card[data-trash-key="${CSS.escape(key)}"]`);
+      const drop = () => { trash.groups = trash.groups.filter((g) => trashKey(g) !== key); renderTrash(); };
+      if (card && !matchMedia("(prefers-reduced-motion: reduce)").matches) { card.classList.add("tr-leave"); setTimeout(drop, 260); } else drop();
     } catch (err) {
-      button.disabled = false;
+      document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = false));
       if (err?.code === "already_exists") toast("Cette demande existe déjà dans le planning"); else reportWriteError(err);
     }
+  }
+  $("#trashList").addEventListener("click", (e) => {
+    const button = e.target.closest("[data-trash-restore]");
+    if (button) { restoreTrash(button.dataset.trashRestore, button); return; }
+    const open = e.target.closest("[data-trash-open]");
+    const group = open && trash.groups.find((g) => trashKey(g) === open.dataset.trashOpen);
+    if (group) teamSheet.open("Demande supprimée", trashSheetBody(group), { cls: "tr-sheet-wrap" });
   });
+  document.addEventListener("click", (e) => {
+    const button = e.target.closest(".tr-sheet [data-trash-restore]");
+    if (button) restoreTrash(button.dataset.trashRestore, button);
+  });
+  $("#trashSearch").addEventListener("input", (e) => { trash.query = e.target.value; renderTrash(); });
 
   // ================= Google Sheet link =================
   function sheetLink(plates) {
@@ -5324,6 +6165,7 @@ function page(texte) {
     if (view === "corbeille") openTrash();
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
     if (view === "bilan") renderReport(); // its month is read only once the page is opened
+    document.body.classList.toggle("vf-bar-on", view === "verif" && !$("#vfBar").hidden);
   }
   // Rare pages live under « Plus »: its label names the open page so the menu never hides where you are.
   function markCurrentNav(view) {
@@ -5557,7 +6399,7 @@ function page(texte) {
   }
 
   // ---------- the request's card, in a sheet: details, provider answer, status in one tap, « Modifier » for the full form ----------
-  const planSheet = { kind: "", id: "" };
+  const planSheet = { kind: "", id: "", log: false }; // log: the Historique page adds the change timeline
   const PLAN_STEPS = ["a_envoyer", "envoyee", "confirmee", "realisee"];
   function ficheBody(d) {
     const answer = planAnswer(d);
@@ -5604,18 +6446,18 @@ function page(texte) {
       ${state.canWrite && toSend.length ? `<section class="plan-box mid"><p class="plan-box-text">Message envoyé ?<small>${plural(toSend.length, "véhicule")} encore « À envoyer ».</small></p>
         <div class="plan-box-actions"><button type="button" data-plan-mark-sent>${icon("check")}Passer en « Envoyée »</button></div></section>` : ""}`;
   }
-  function openPlanSheet(kind, id = "") {
-    planSheet.kind = kind; planSheet.id = id;
+  function openPlanSheet(kind, id = "", log = false) {
+    planSheet.kind = kind; planSheet.id = id; planSheet.log = log;
     refreshPlanSheet(true);
   }
   function refreshPlanSheet(opening = false) {
     if (!opening && !teamSheet.isOpen) return;
-    const closed = () => { planSheet.kind = ""; planSheet.id = ""; };
+    const closed = () => { planSheet.kind = ""; planSheet.id = ""; planSheet.log = false; };
     if (planSheet.kind === "fiche") {
       const d = demandeById(planSheet.id);
       if (!d) { teamSheet.close(); return; }
       if (!opening && teamSheet.body.contains(document.activeElement) && document.activeElement.matches("input, textarea")) return;
-      teamSheet.open(d.plaque ? `Demande ${d.plaque}` : "Demande", ficheBody(d), { cls: "plan-sheet side-sheet", closed });
+      teamSheet.open(d.plaque ? `Demande ${d.plaque}` : "Demande", ficheBody(d) + (planSheet.log ? histLogHtml() : ""), { cls: "plan-sheet side-sheet", closed });
     } else if (planSheet.kind === "send") {
       if (!opening) return; // the folded message stays as the user left it
       teamSheet.open("Liste du jour à envoyer", sendBody(), { cls: "plan-sheet side-sheet", closed });
@@ -5752,7 +6594,7 @@ function page(texte) {
       } else if (b.dataset.planAccept) { await state.store.acceptProposedDate(d); toast(`Date changée pour ${d.plaque}`); }
       else await state.store.markAnswerSeen(d);
     } catch (err) { reportWriteError(err); }
-    finally { b.disabled = false; refreshPlanSheet(); }
+    finally { b.disabled = false; refreshPlanSheet(); if (planSheet.log) setTimeout(() => planSheet.log && loadHistLog(planSheet.id), 900); }
   });
 
   // ================= request form =================
@@ -6265,113 +7107,284 @@ function page(texte) {
     }
   });
 
-  // ================= photo library (one album per fleet model) =================
+  // ================= photo library (one album per fleet model), façon app Photos =================
+  // Une grille d'albums (un par modèle de la flotte) ; toucher un album = feuille avec ses photos, ajout en tuile,
+  // prochains pare-brise du modèle ; toucher une photo = plein écran. « Sans photo » montre ce qu'il reste à compléter.
+  const lib = { filter: "all" };
   const openModel = () => state.fleet.find((f) => D.modelKey(f) === state.openModelKey) || state.models.get(state.openModelKey);
+  const WIND_ART = (cls) => self.IssueArt?.art("Pare-brise", cls) || "";
+  const relDay = (iso) => iso === today() ? "aujourd'hui" : iso === D.addDays(today(), 1) ? "demain" : D.dayLabel(iso);
+  // Pare-brise encore à faire pour ce modèle (dans les demandes chargées), le plus proche d'abord.
+  const upcomingWindshields = (key) => state.demandes
+    .filter((d) => D.isWindshield(d) && D.isActive(d) && D.isOpen(d) && (d.dateFin || d.date || "") >= today() && D.modelKey(d) === key)
+    .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  const libModels = () => D.uniqueModels(state.fleet).map((f) => { const key = D.modelKey(f); return { f, key, photos: modelPhotos(f), next: upcomingWindshields(key) }; });
   function renderPhotoLibrary() {
+    const all = libModels();
+    const missing = all.filter((m) => !m.photos.length);
+    const urgent = missing.filter((m) => m.next.length);
+    const total = all.reduce((n, m) => n + m.photos.length, 0);
+    $("#phoKicker").textContent = `Pare-brise · ${plural(all.length, "modèle")} · ${plural(total, "photo")}`;
+    $("#phoAllN").textContent = all.length;
+    $("#phoMissN").textContent = missing.length || "";
+    $("#phoMissN").hidden = !missing.length;
+    for (const b of document.querySelectorAll("[data-pho-filter]")) b.setAttribute("aria-selected", String(b.dataset.phoFilter === lib.filter));
     const query = $("#p-q").value;
-    const models = D.uniqueModels(state.fleet).filter((f) => D.matchesSearch([D.fleetLabel(f)], query));
-    $("#p-list").innerHTML = models.length
-      ? `<div class="veh-grid">${models.map(modelCard).join("")}</div>`
-      : `<div class="empty"><b>Aucun modèle ne correspond.</b><span>Les modèles viennent de la flotte, dans Réglages.</span></div>`;
-    renderModelDetail();
+    $("#p-alert").innerHTML = urgent.length && !query ? alertCard(urgent) : "";
+    const shown = all.filter((m) => (lib.filter === "all" || !m.photos.length) && D.matchesSearch([D.fleetLabel(m.f)], query));
+    $("#p-list").innerHTML = shown.length
+      ? `<div class="pho-grid">${shown.map(albumCard).join("")}</div>`
+      : !all.length ? emptyLib("Aucun modèle dans la flotte.", "Les modèles viennent de la flotte, dans Réglages.")
+      : lib.filter === "missing" && !query ? emptyLib("Tous les modèles ont leur photo.", "Chaque demande de pare-brise part avec les photos de son modèle.", "Pare-brise")
+      : emptyLib("Aucun modèle ne correspond.", "Essaie avec la marque ou le cubage, par exemple « Movano » ou « 20 m³ ».");
+    if (teamSheet.isOpen && state.openModelKey && teamSheet.body.querySelector(".pho-sheet")) {
+      const model = openModel();
+      if (model) { teamSheet.body.innerHTML = albumSheetHtml(model); } else teamSheet.close();
+    }
+    viewer.refresh();
   }
-  function modelCard(f) {
-    const key = D.modelKey(f);
-    const photos = modelPhotos(f);
-    const thumbs = Array.from({ length: 4 }, (_, i) => photos[i] ? `<img src="${safeImageSrc(photos[i].thumb)}" alt="">` : "<span></span>").join("");
-    return `<button class="veh-card" data-model="${esc(key)}" aria-current="${key === state.openModelKey}">
-      <span class="row"><b>${esc(f.modele)}</b><span class="muted small">${photos.length ? plural(photos.length, "photo") : "aucune photo"}</span></span>
-      <span>${f.cubage ? esc(f.cubage) + " m³" : ""}</span>
-      <span class="thumbs">${thumbs}</span></button>`;
+  const emptyLib = (title, text, art) => `<div class="pho-empty">${art ? `<span class="pho-ico xl" aria-hidden="true">${WIND_ART("pho-art")}</span>` : ""}<b>${esc(title)}</b><span>${esc(text)}</span></div>`;
+  function alertCard(urgent) {
+    const first = urgent[0], d = first.next[0];
+    const what = urgent.length > 1 ? `${urgent.length} modèles ont un pare-brise prévu sans photo` : "Pare-brise prévu, mais aucune photo";
+    const sub = urgent.length > 1 ? urgent.map((m) => D.fleetLabel(m.f)).join(", ")
+      : `${D.fleetLabel(first.f)}\n${[d.plaque, relDay(d.date)].filter(Boolean).join(", ")}`;
+    return `<button type="button" class="pho-alert" data-model="${esc(first.key)}">
+      <span class="pho-ico" aria-hidden="true">${WIND_ART("pho-art")}</span>
+      <span class="pho-alert-t"><span class="pho-pill warn">À compléter</span><b>${esc(what)}</b><span>${esc(sub).replace("\n", "<br>")}</span></span>
+      ${icon("chev-r")}</button>`;
   }
-  function renderModelDetail() {
-    const model = state.openModelKey ? openModel() : null;
-    if (!model) { $("#p-detail").innerHTML = ""; return; }
-    const photos = modelPhotos(model);
-    const label = D.fleetLabel(model);
-    $("#p-detail").innerHTML = `<div class="panel" style="margin-bottom:24px">
-      <div class="panel-head"><h2>${esc(label)}</h2><button type="button" class="ghost" data-close-model aria-label="Fermer">${icon("x")}</button></div>
-      <p class="hint">Ces photos partent avec chaque demande de pare-brise pour un ${esc(model.modele)}${model.cubage ? ` de ${esc(model.cubage)} m³` : ""}. Tu peux aussi coller une capture (Ctrl+V).</p>
-      <h3>Photos du pare-brise · ${photos.length}/${MAX_PHOTOS_PER_VEHICLE}</h3>
-      <div class="ph-grid">${photos.map((p, i) => photoTile(label, p, i)).join("")}<button type="button" class="drop" style="width:auto;height:auto;min-height:150px" data-add-model-photo>${icon("plus")}Ajouter des photos</button></div>
+  function albumCard({ f, key, photos, next }) {
+    const cover = photos[0]
+      ? `<img src="${safeImageSrc(photos[0].thumb)}" alt="" loading="lazy">${photos.length > 1 ? `<span class="pho-count">${photos.length}</span>` : ""}`
+      : `<span class="pho-ico lg" aria-hidden="true">${WIND_ART("pho-art")}</span>${state.canWrite ? `<span class="pho-cover-add">${icon("plus")}Ajouter</span>` : ""}`;
+    const sub = [f.cubage ? `${esc(f.cubage)} m³` : "", photos.length ? plural(photos.length, "photo") : `<em class="pho-miss">Aucune photo</em>`].filter(Boolean).join(" · ");
+    const nextLine = next.length ? `<span class="pho-next${photos.length ? "" : " warn"}">${next.length} pare-brise à venir</span>` : "";
+    return `<button type="button" class="pho-album${photos.length ? "" : " none"}" data-model="${esc(key)}" aria-label="${esc(D.fleetLabel(f))}, ${photos.length ? plural(photos.length, "photo") : "aucune photo"}">
+      <span class="pho-cover">${cover}</span><span class="pho-name">${esc(f.modele)}</span><span class="pho-sub">${sub}</span>${nextLine}</button>`;
+  }
+  function albumSheetHtml(model) {
+    const key = D.modelKey(model), photos = modelPhotos(model), next = upcomingWindshields(key), label = D.fleetLabel(model);
+    const canAdd = state.canWrite && photos.length < MAX_PHOTOS_PER_VEHICLE;
+    const tiles = photos.map((p, i) => `<button type="button" class="pho-ph" data-pho-view="${esc(p.key)}" aria-label="Voir la photo ${i + 1} en grand"><img src="${safeImageSrc(p.thumb)}" alt=""></button>`).join("")
+      + (canAdd ? `<button type="button" class="pho-add" data-pho-add><span class="pho-add-b">${icon("plus")}</span><span>Ajouter</span></button>` : "");
+    const many = photos.length > 1;
+    return `<div class="pho-sheet" data-pho-model="${esc(key)}">
+      <div class="pho-sh-hero"><span class="pho-ico lg" aria-hidden="true">${WIND_ART("pho-art")}</span>
+        <div><p class="pho-sh-kind">Photos du pare-brise</p><b>${esc(model.cubage ? `${model.cubage} m³` : model.modele)} · ${photos.length ? `${photos.length} sur ${MAX_PHOTOS_PER_VEHICLE}` : "aucune photo"}</b>
+        <span>Elles partent avec chaque demande de pare-brise de ce modèle, pour tous ses véhicules.</span></div></div>
+      ${photos.length || canAdd ? `<div class="pho-ph-grid">${tiles}</div>` : `<p class="sheet-sub">Aucune photo pour ce modèle.</p>`}
+      ${canAdd ? `<p class="pho-tip desk">Tu peux aussi glisser des images ici, ou coller une capture (Ctrl+V).</p>` : photos.length >= MAX_PHOTOS_PER_VEHICLE ? `<p class="pho-tip">${MAX_PHOTOS_PER_VEHICLE} photos au maximum : supprimes-en une pour en ajouter.</p>` : ""}
+      ${photos.length ? `<div class="pho-sh-acts">
+        <button type="button" class="pho-btn primary" data-pho-copy-all>${icon("copy")}${many ? `Copier les ${photos.length} photos` : "Copier la photo"}</button>
+        <button type="button" class="pho-btn" data-pho-save-all>${icon("download")}Télécharger en taille réelle</button></div>` : ""}
+      ${next.length ? `<section><h3 class="sheet-label">Prochains pare-brise de ce modèle</h3><div class="pho-next-list">${next.slice(0, 4).map((d) => `
+        <button type="button" class="pho-next-row" data-pho-demande="${esc(d.id)}">${plateTag(d.plaque)}<span><b>${esc(capFirst(relDay(d.date)))}</b><small>${esc([d.site, d.prestataire].filter(Boolean).join(" · "))}</small></span>${icon("chev-r")}</button>`).join("")}</div>
+        ${next.length > 4 ? `<p class="pho-tip">et ${next.length - 4} autre${next.length - 4 > 1 ? "s" : ""}</p>` : ""}</section>` : ""}
     </div>`;
   }
-  $("#p-q").addEventListener("input", renderPhotoLibrary);
-  $("#p-list").addEventListener("click", (e) => {
-    const card = e.target.closest("[data-model]");
-    if (card) { state.openModelKey = card.dataset.model; renderPhotoLibrary(); window.scrollTo({ top: 0 }); }
-  });
-  $("#p-detail").addEventListener("click", async (e) => {
-    const model = openModel();
-    if (!model) return;
-    if (e.target.closest("[data-close-model]")) { state.openModelKey = null; renderPhotoLibrary(); }
-    else if (e.target.closest("[data-add-model-photo]")) pickPhotosFor(model);
-    else if (e.target.closest("[data-remove-photo]")) confirmPhotoRemoval(e.target.closest("[data-remove-photo]"), albumOf(model));
-  });
-  async function confirmPhotoRemoval(button, album) {
-    if (!album) return;
-    if (button.dataset.armed !== "1") { button.dataset.armed = "1"; button.textContent = "Confirmer"; return; }
-    try { await state.store.removeModelPhoto(album, button.dataset.removePhoto); toast("Photo supprimée"); }
-    catch (err) { reportWriteError(err); }
+  function openAlbum(key) {
+    state.openModelKey = key;
+    const model = openModel(); if (!model) return;
+    teamSheet.open(model.modele, albumSheetHtml(model), { cls: "pho-sheet-b", closed: () => (state.openModelKey = null) });
   }
+  // Supprimer : tout de suite, avec « Annuler » dans la bulle (la photo est gardée en mémoire le temps de la bulle).
+  async function removeAlbumPhoto(model, key) {
+    const album = albumOf(model);
+    if (!album || !requireStore()) return false;
+    const entry = album.photos.find((p) => p.key === key);
+    if (!entry) return false;
+    const full = await state.store.loadPhoto(key).catch(() => null);
+    try { await state.store.removeModelPhoto(album, key); }
+    catch (err) { reportWriteError(err); return false; }
+    toast("Photo supprimée", full ? { label: "Annuler", run: async () => {
+      try { await state.store.addModelPhoto(albumOf(model), model, { full, thumb: entry.thumb }); toast("Photo remise"); }
+      catch (err) { reportWriteError(err); }
+    } } : undefined);
+    return true;
+  }
+  $("#p-q").addEventListener("input", renderPhotoLibrary);
+  document.querySelector(".pho-seg").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pho-filter]"); if (!b) return;
+    lib.filter = b.dataset.phoFilter; renderPhotoLibrary();
+  });
+  $("#view-photos").addEventListener("click", (e) => {
+    const card = e.target.closest("[data-model]");
+    if (card) openAlbum(card.dataset.model);
+  });
+  teamSheet.body.addEventListener("click", (e) => {
+    const sheet = e.target.closest(".pho-sheet"); if (!sheet) return;
+    const model = openModel(); if (!model) return;
+    const photos = modelPhotos(model), label = D.fleetLabel(model);
+    const entries = photos.map((p) => ({ key: p.key, plate: label, label: "" }));
+    let el;
+    if ((el = e.target.closest("[data-pho-view]"))) viewer.open(photos.map((p) => ({ key: p.key, thumb: p.thumb })), photos.findIndex((p) => p.key === el.dataset.phoView), { model, label });
+    else if (e.target.closest("[data-pho-add]")) pickPhotosFor(model);
+    else if (e.target.closest("[data-pho-copy-all]")) copyImage(() => buildPhotoSheet(entries), sheetName(), () => buildPhotoSheet(entries, "image/jpeg"));
+    else if (e.target.closest("[data-pho-save-all]")) saveAllPhotos(entries);
+    else if ((el = e.target.closest("[data-pho-demande]"))) { teamSheet.close(); openDemande(el.dataset.phoDemande); }
+  });
+  // Glisser-déposer des images sur la feuille d'un album (ordinateur).
+  document.addEventListener("dragover", (e) => { const s = e.target.closest?.(".pho-sheet"); if (s && state.canWrite) { e.preventDefault(); s.classList.add("drop-on"); } });
+  document.addEventListener("dragleave", (e) => { const s = e.target.closest?.(".pho-sheet"); if (s && !s.contains(e.relatedTarget)) s.classList.remove("drop-on"); });
+  document.addEventListener("drop", (e) => {
+    const s = e.target.closest?.(".pho-sheet"); if (!s) return;
+    e.preventDefault(); s.classList.remove("drop-on");
+    const files = [...(e.dataTransfer?.files || [])].filter((f) => f.type.startsWith("image/"));
+    const model = openModel();
+    if (files.length && model && state.canWrite) addPhotoFiles(model, files);
+  });
 
   // ================= verification =================
-  $("#v-from").value = D.addDays(today(), -14);
-  $("#v-to").value = D.addDays(today(), 7);
+  // Relance d'un prestataire (2026-11-21, façon iPhone) : qui et quand en pastilles, le message à copier, sa réponse collée
+  // qui coche les plaques citées, la liste groupée par jour, puis une barre en bas pour tout mettre à jour (bulle « Annuler »).
+  const VF_DEFAULT_RANGE = 14;
+  function setVerificationRange(days) {
+    $("#v-from").value = D.addDays(today(), -days);
+    $("#v-to").value = D.addDays(today(), 7);
+  }
+  setVerificationRange(VF_DEFAULT_RANGE);
+  $("#vfMsgArt").innerHTML = self.IssueArt?.art("vf-message", "svc-art") || "";
+  $("#vfReplyArt").innerHTML = self.IssueArt?.art("vf-reponse", "svc-art") || "";
   const VERIFICATION_FILTERS = {
     pending: (d) => ["envoyee", "confirmee"].includes(d.statut),
     envoyee: (d) => d.statut === "envoyee",
     confirmee: (d) => d.statut === "confirmee",
     all: D.isActive,
   };
-  function verificationRows() {
-    const provider = $("#v-prest").value, from = $("#v-from").value, to = $("#v-to").value;
+  function verificationRows(provider = $("#v-prest").value) {
+    const from = $("#v-from").value, to = $("#v-to").value;
     const statusFilter = VERIFICATION_FILTERS[$("#v-st").value];
     return state.demandes
       .filter((d) => (!provider || d.prestataire === provider) && (!from || D.lastDay(d) >= from) && (!to || d.date <= to) && statusFilter(d))
       .sort(D.byDateThenTime);
+  }
+  const vfReply = () => D.replyPlates($("#v-paste").value);
+  function vfRow(d, reply, showProvider) {
+    const on = state.checkedForVerification.has(d.id);
+    const hour = (t) => String(t || "").replace(/^0?(\d+):(\d\d)$/, (m, h, mn) => `${h}h${mn === "00" ? "" : mn}`);
+    const slot = d.debut && d.fin ? `${hour(d.debut)}–${hour(d.fin)}` : D.timeSlotLabel(d);
+    const sub = [D.siteOf(d), slot, showProvider ? d.prestataire : ""].filter(Boolean).map(esc).join(" · ");
+    const key = D.plateKey(d.plaque);
+    const said = reply.done.includes(key) ? `<span class="vf-said ok">Répondu : fait</span>` : reply.notDone.includes(key) ? `<span class="vf-said todo">Répondu : pas fait</span>` : "";
+    return `<div class="vf-row${on ? " on" : ""}">
+      <button type="button" class="vf-check" data-check="${esc(d.id)}" aria-pressed="${on}" aria-label="${on ? "Décocher" : "Cocher"} ${esc(d.plaque)}">
+        <span class="vf-tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg></span>
+        ${serviceTile(d)}
+        <span class="vf-row-text"><span class="vf-row-top">${plateTag(d.plaque)}${said}</span><span class="vf-row-sub">${sub}</span></span>
+        ${planStatus(d)}
+      </button>
+      <button type="button" class="vf-more" data-vf-open="${esc(d.id)}" aria-label="Voir la demande ${esc(d.plaque)}">${icon("chev-r")}</button>
+    </div>`;
+  }
+  function renderVerificationPills() {
+    const box = $("#vfProvs");
+    const pill = (value, label) => `<button type="button" class="vf-prov" data-vf-prov="${esc(value)}" aria-pressed="${$("#v-prest").value === value}">${esc(label)}<em>${verificationRows(value).length}</em></button>`;
+    box.innerHTML = pill("", "Tous") + state.providers.map((p) => pill(p, p)).join("");
+    const from = $("#v-from").value, to = $("#v-to").value;
+    $("#vfRange").querySelectorAll("[data-range]").forEach((b) => b.setAttribute("aria-pressed", String(to === D.addDays(today(), 7) && from === D.addDays(today(), -Number(b.dataset.range)))));
+    $("#vfStatus").querySelectorAll("[data-st]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.st === $("#v-st").value)));
   }
   function renderVerification() {
     if ($("#v-from").value) needOlder($("#v-from").value, $("#v-to").value ? D.addDays($("#v-to").value, 1) : null);
     const rows = verificationRows();
     const checked = state.checkedForVerification;
     [...checked].forEach((id) => { if (!rows.some((r) => r.id === id)) checked.delete(id); });
-    $("#v-count").textContent = `${plural(rows.length, "véhicule")} · ${plural(checked.size, "coché")}`;
-    $("#v-table").innerHTML = rows.length ? `<div class="tablewrap"><table><thead><tr>
-        <th><input type="checkbox" id="v-all" aria-label="Tout cocher" ${checked.size && checked.size === rows.length ? "checked" : ""}></th><th>Dispo</th><th>Plaque</th><th>Site</th><th>Statut</th></tr></thead><tbody>
-      ${rows.map((d) => `<tr><td><input type="checkbox" data-check="${esc(d.id)}" aria-label="Cocher ${esc(d.plaque)}" ${checked.has(d.id) ? "checked" : ""}></td>
-        <td class="date">${esc(D.shortDate(d.date))}</td><td>${plateTag(d.plaque)}</td><td>${esc(D.siteOf(d))}</td><td>${statusChip(d.statut)}</td></tr>`).join("")}
-      </tbody></table></div>` : `<div class="empty"><b>Rien à vérifier sur cette période.</b><span>Les demandes envoyées ou confirmées dont la disponibilité tombe entre les deux dates s'affichent ici.</span></div>`;
     const provider = $("#v-prest").value;
+    const reply = vfReply();
+    const cited = [...reply.done, ...reply.notDone];
+    renderVerificationPills();
+    $("#vfKicker").textContent = provider ? `Relance de ${provider}` : "Relance d'un prestataire";
+    $("#v-count").textContent = rows.length ? `${plural(rows.length, "véhicule")} · ${plural(checked.size, "coché")}` : "";
+    const allOn = rows.length && checked.size === rows.length;
+    $("#vfAll").hidden = !rows.length;
+    $("#vfAll").textContent = allOn ? "Tout décocher" : "Tout cocher";
+    $("#v-table").innerHTML = rows.length
+      ? [...D.groupBy(rows, (d) => d.date)].map(([date, items]) => `<section class="vf-day"><h3>${esc(capFirst(D.dayLabel(date)))}<em>${items.length}</em></h3>
+          <div class="vf-list">${items.map((d) => vfRow(d, reply, !provider)).join("")}</div></section>`).join("")
+      : `<div class="vf-empty"><span class="vf-empty-art" aria-hidden="true">${self.IssueArt?.art("faits-vide", "svc-art") || ""}</span><b>Rien à vérifier sur cette période</b><span>Les demandes envoyées ou confirmées dont la disponibilité tombe entre les deux dates s'affichent ici.</span></div>`;
+    // Message: the same text as before, in a card with a capsule « Copier » and a WhatsApp shortcut.
     const kind = document.querySelector('input[name="vkind"]:checked')?.value;
-    $("#v-share").innerHTML = shareBlock({ text: D.verificationMessage(rows, { provider, kind, siteNames: siteNames() }) });
+    const text = D.verificationMessage(rows, { provider, kind, siteNames: siteNames() });
+    $("#v-share").innerHTML = `<pre class="vf-msg" id="v-msg">${esc(text)}</pre>
+      ${rows.length ? `<div class="vf-msg-actions"><button type="button" class="vf-copy" data-copy="#v-msg">${icon("copy")}Copier le message</button>
+        <a class="vf-wa" href="${esc(D.whatsappLink(text))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a></div>` : ""}`;
+    // Reply: what was recognised (done = ticked, not done = left unticked), and the plates it cites that are not in the list.
+    const known = new Set(rows.map((r) => D.plateKey(r.plaque)));
+    const found = reply.done.filter((k) => known.has(k));
+    const notDone = reply.notDone.filter((k) => known.has(k));
+    const unknown = cited.filter((k) => !known.has(k));
+    const plateList = (keys) => keys.map((k) => `<b>${esc(D.normalizePlate(k))}</b>`).join(", ");
+    $("#vfClearBtn").hidden = !$("#v-paste").value;
+    $("#vfMatch").innerHTML = !cited.length ? (($("#v-paste").value.trim()) ? `<p class="vf-match-line none">Aucune plaque reconnue dans ce texte.</p>` : "")
+      : `${found.length ? `<p class="vf-match-line ok"><span class="vf-dot" aria-hidden="true"></span>${found.length > 1 ? `${found.length} faites, cochées` : "1 faite, cochée"} : ${plateList(found)}</p>` : ""}
+        ${notDone.length ? `<p class="vf-match-line todo"><span class="vf-dot" aria-hidden="true"></span>${notDone.length > 1 ? `${notDone.length} pas encore faites, non cochées` : "1 pas encore faite, non cochée"} : ${plateList(notDone)}</p>` : ""}
+        ${unknown.length ? `<p class="vf-match-line none"><span class="vf-dot" aria-hidden="true"></span>Pas dans la liste : ${plateList(unknown)}</p>` : ""}`;
+    // Bottom bar: only once something is ticked.
+    const n = checked.size;
+    $("#vfBar").hidden = !n || !state.canWrite;
+    $("#vfBarN").textContent = n;
+    $("#vfBarLabel").textContent = n > 1 ? "véhicules cochés" : "véhicule coché";
+    document.body.classList.toggle("vf-bar-on", !$("#vfBar").hidden && !$("#view-verif").hidden);
     $("#v-sheet").innerHTML = sheetLink(state.demandes.filter((d) => checked.has(d.id)).map((d) => d.plaque));
   }
-  ["#v-prest", "#v-from", "#v-to", "#v-st"].forEach((s) => $(s).addEventListener("change", renderVerification));
+  ["#v-from", "#v-to"].forEach((s) => $(s).addEventListener("change", renderVerification));
   $("#v-kind").addEventListener("change", renderVerification);
-  $("#v-table").addEventListener("change", (e) => {
-    const checked = state.checkedForVerification;
-    if (e.target.id === "v-all") { checked.clear(); if (e.target.checked) verificationRows().forEach((r) => checked.add(r.id)); }
-    else if (e.target.dataset.check) e.target.checked ? checked.add(e.target.dataset.check) : checked.delete(e.target.dataset.check);
+  $("#vfProvs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-vf-prov]"); if (!b) return;
+    $("#v-prest").value = b.dataset.vfProv; renderVerification();
+  });
+  $("#vfRange").addEventListener("click", (e) => { const b = e.target.closest("[data-range]"); if (b) { setVerificationRange(Number(b.dataset.range)); renderVerification(); } });
+  $("#vfStatus").addEventListener("click", (e) => { const b = e.target.closest("[data-st]"); if (b) { $("#v-st").value = b.dataset.st; renderVerification(); } });
+  $("#v-table").addEventListener("click", (e) => {
+    const open = e.target.closest("[data-vf-open]");
+    if (open) { openDemandeFromPlanning(open.dataset.vfOpen); return; }
+    const b = e.target.closest("[data-check]"); if (!b) return;
+    const checked = state.checkedForVerification, id = b.dataset.check;
+    checked.has(id) ? checked.delete(id) : checked.add(id);
     renderVerification();
   });
-  $("#v-paste").addEventListener("input", () => {
-    const cited = D.platesInText($("#v-paste").value);
-    const newlyChecked = verificationRows().filter((r) => cited.includes(D.plateKey(r.plaque)) && !state.checkedForVerification.has(r.id));
+  $("#vfAll").addEventListener("click", () => {
+    const rows = verificationRows(), checked = state.checkedForVerification;
+    if (rows.length && checked.size === rows.length) checked.clear(); else rows.forEach((r) => checked.add(r.id));
+    renderVerification();
+  });
+  $("#vfNone").addEventListener("click", () => { state.checkedForVerification.clear(); renderVerification(); });
+  function applyPastedReply() {
+    const { done } = vfReply();
+    const newlyChecked = verificationRows().filter((r) => done.includes(D.plateKey(r.plaque)) && !state.checkedForVerification.has(r.id));
     newlyChecked.forEach((r) => state.checkedForVerification.add(r.id));
-    if (newlyChecked.length) toast(`${plural(newlyChecked.length, "véhicule")} coché${newlyChecked.length > 1 ? "s" : ""}`);
-    renderVerification();
+    renderVerification(); // the « Sa réponse » card and the bottom bar say what was ticked
+  }
+  $("#v-paste").addEventListener("input", applyPastedReply);
+  $("#vfPasteBtn").addEventListener("click", async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) { toast("Le presse-papiers est vide"); return; }
+      $("#v-paste").value = text; applyPastedReply();
+    } catch { $("#v-paste").focus(); toast("Colle sa réponse dans la case (Ctrl+V ou appui long)"); }
   });
-  document.querySelectorAll("[data-bulk]").forEach((button) => button.addEventListener("click", async () => {
+  $("#vfClearBtn").addEventListener("click", () => { $("#v-paste").value = ""; renderVerification(); $("#v-paste").focus(); });
+  document.querySelectorAll("#view-verif [data-bulk]").forEach((button) => button.addEventListener("click", async () => {
     if (!requireStore()) return;
     const status = button.dataset.bulk;
-    const targets = state.demandes.filter((d) => state.checkedForVerification.has(d.id));
-    if (!targets.length) return toast("Coche d'abord des véhicules");
+    const targets = state.demandes.filter((d) => state.checkedForVerification.has(d.id) && d.statut !== status);
+    if (!targets.length) return toast(state.checkedForVerification.size ? `Déjà en « ${D.statusOf(status).label} »` : "Coche d'abord des véhicules");
+    const before = targets.map((d) => ({ id: d.id, statut: d.statut }));
+    const buttons = document.querySelectorAll("#view-verif [data-bulk]");
+    buttons.forEach((b) => (b.disabled = true));
     try {
       for (const d of targets) await state.store.setStatus(d, status);
-      toast(`${plural(targets.length, "véhicule")} passé${targets.length > 1 ? "s" : ""} en « ${D.statusOf(status).label} »`);
-      if (status === "annulee") state.checkedForVerification.clear();
+      state.checkedForVerification.clear();
+      renderVerification();
+      toast(`${plural(targets.length, "véhicule")} passé${targets.length > 1 ? "s" : ""} en « ${D.statusOf(status).label} »`, { label: "Annuler", run: async () => {
+        try {
+          for (const b of before) { const d = demandeById(b.id); if (d && d.statut === status) await state.store.setStatus(d, b.statut); }
+          toast("Statuts remis comme avant");
+        } catch (err) { reportWriteError(err); }
+      } });
     } catch (err) { reportWriteError(err); }
+    finally { buttons.forEach((b) => (b.disabled = false)); }
   }));
 
   // ================= monthly report =================
@@ -6431,48 +7444,198 @@ function page(texte) {
     saveBlob(Promise.resolve(new Blob([D.toCsv(exportRows())], { type: "text/csv" })), filename);
   };
 
-  // ================= history =================
+  // ================= history (façon iPhone, 2026-11-21) =================
+  // Big title, grey search field, period and status in pills, the other filters in a sheet; the list is grouped by day
+  // (a fine table on computer). A tap opens the request's card in a sheet, with its change history as a timeline.
+  // The hidden selects (#h-prest…#h-mois) stay the source of truth, so links from the Planning keep working.
   const HISTORY_STATUS_FILTERS = { "": () => true, ouvert: D.isOpen };
-  function renderHistory() {
-    const query = $("#q").value, provider = $("#h-prest").value, status = $("#h-statut").value, service = $("#h-svc").value, site = $("#h-site").value;
-    const statusFilter = HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
-    const month = $("#h-mois").value, from = month && month + "-01", to = month && D.nextMonthStart(from);
-    const loading = month && needOlder(from, to);
-    renderOlderNote();
-    const rows = state.demandes.filter((d) => (!month || (d.date && d.date < to && D.lastDay(d) >= from)) &&
+  const HIST_STATUS_PILLS = [["", "Toutes"], ["ouvert", "En cours"], ["a_envoyer", "À envoyer"], ["realisee", "Réalisées"], ["annulee", "Annulées"]];
+  const HIST_TONE = { a_envoyer: "todo", realisee: "ok", annulee: "off" };
+  const hv = (id) => $("#h-" + id).value;
+  const setHist = (id, value) => { $("#h-" + id).value = value; renderHistory(); };
+  const histMonthLabel = (m) => capFirst(D.monthLabel(m));
+  function historyRows({ ignoreStatus = false } = {}) {
+    const query = $("#q").value, provider = hv("prest"), status = hv("statut"), service = hv("svc"), site = hv("site");
+    const statusFilter = ignoreStatus ? () => true : HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
+    const month = hv("mois"), from = month && month + "-01", to = month && D.nextMonthStart(from);
+    return state.demandes.filter((d) => (!month || (d.date && d.date < to && D.lastDay(d) >= from)) &&
       (!provider || d.prestataire === provider) && (!service || d.service === service) && (!site || d.site === site) && statusFilter(d) &&
-      D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire], query)
+      D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire, d.tache], query)
     ).sort((a, b) => (b.date || "").localeCompare(a.date || "") || D.byStartTime(a, b));
+  }
+  function renderHistoryPills(all) {
+    const month = hv("mois"), now = today().slice(0, 7);
+    const prev = D.toIsoDate((() => { const d = D.parseIsoDate(now + "-01"); d.setMonth(d.getMonth() - 1); return d; })()).slice(0, 7);
+    const other = month && month !== now && month !== prev;
+    const per = (value, label) => `<button type="button" class="plan-prov" data-h-mois="${value}" aria-pressed="${month === value}">${esc(label)}</button>`;
+    $("#h-periods").innerHTML = per("", "Récentes") + per(now, histMonthLabel(now).replace(/ \d{4}$/, "")) + per(prev, histMonthLabel(prev).replace(/ \d{4}$/, ""))
+      + `<button type="button" class="plan-prov" data-h-other aria-pressed="${!!other}">${other ? esc(histMonthLabel(month)) : "Autre mois…"}${icon("chev-d")}</button>`;
+    const status = hv("statut");
+    const count = (value) => all.filter(HISTORY_STATUS_FILTERS[value] || ((d) => d.statut === value)).length;
+    const pills = HIST_STATUS_PILLS.slice();
+    if (status && !pills.some(([v]) => v === status)) pills.push([status, D.statusOf(status).label]);
+    const extra = [["prest", hv("prest")], ["site", hv("site")], ["svc", hv("svc") && D.SERVICES.find((s) => s.id === hv("svc"))?.label]].filter(([, v]) => v);
+    $("#h-filters").innerHTML = `<button type="button" class="hist-more${extra.length ? " on" : ""}" data-h-more aria-label="Filtres : prestataire, site, prestation">${icon("list")}<span>Filtres</span>${extra.length ? `<em>${extra.length}</em>` : ""}</button>`
+      + extra.map(([id, label]) => `<button type="button" class="hist-chip" data-h-clear="${id}" aria-label="Retirer le filtre ${esc(label)}">${esc(label)}${icon("x")}</button>`).join("")
+      + `<span class="hist-sep" aria-hidden="true"></span>`
+      + pills.map(([v, label]) => `<button type="button" class="plan-prov hist-st ${HIST_TONE[v] || ""}" data-h-statut="${v}" aria-pressed="${status === v}">${v && v !== "ouvert" ? `<i aria-hidden="true"></i>` : ""}${esc(label)}<em>${count(v)}</em></button>`).join("");
+  }
+  function renderHistory() {
+    const month = hv("mois"), from = month && month + "-01", to = month && D.nextMonthStart(from);
+    const loading = month && needOlder(from, to);
+    $("#h-kicker").textContent = month ? histMonthLabel(month) : "15 derniers jours et en cours";
+    renderOlderNote();
+    const all = historyRows({ ignoreStatus: true });
+    renderHistoryPills(all);
+    const rows = historyRows();
+    $("#h-export").disabled = !rows.length;
     if (loading && !rows.length) {
-      $("#histWrap").innerHTML = `<div class="empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les choisis.</span></div>`;
+      $("#histWrap").innerHTML = `<div class="plan-empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les choisis.</span></div>`;
       return;
     }
     if (!rows.length) {
-      $("#histWrap").innerHTML = `<div class="empty"><b>${state.demandes.length ? "Aucune demande ne correspond à ces filtres." : "Aucune demande enregistrée pour l'instant."}</b><span>Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée.</span></div>`;
+      const filtered = $("#q").value || hv("prest") || hv("site") || hv("svc") || hv("statut");
+      $("#histWrap").innerHTML = `<div class="plan-empty"><span class="svc-tile lg" aria-hidden="true">${self.IssueArt?.art("hist-vide", "svc-art") || ""}</span>
+        <b>${state.demandes.length ? (filtered ? "Aucune demande ne correspond" : "Aucune demande sur cette période") : "Aucune demande enregistrée pour l'instant"}</b>
+        <span>${filtered ? "Essaie une autre plaque, ou retire un filtre." : "Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée."}</span>
+        ${filtered ? `<button type="button" class="plan-link" data-h-reset>Effacer la recherche et les filtres</button>` : ""}</div>`;
       return;
     }
-    $("#histWrap").innerHTML = `<div class="tablewrap"><table class="wide hist"><thead><tr><th>Dispo</th><th>Créneau</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th><th>Envoyée le</th></tr></thead><tbody>${rows.map(historyLine).join("")}</tbody></table></div>`;
+    const groups = [];
+    rows.forEach((d) => { const key = d.date || ""; const g = groups[groups.length - 1]; g && g.key === key ? g.items.push(d) : groups.push({ key, items: [d] }); });
+    const year = today().slice(0, 4);
+    const dayName = (iso) => !iso ? "Sans date" : capFirst(D.dayLabel(iso)) + (iso.slice(0, 4) !== year ? " " + iso.slice(0, 4) : "");
+    $("#histWrap").innerHTML = `<p class="hist-count">${plural(rows.length, "demande")}${rows.length < all.length ? ` sur ${all.length}` : ""}</p>
+      <div class="hist-cols" aria-hidden="true"><span></span><span>Véhicule</span><span>Site</span><span>Prestataire</span><span>Statut</span><span>Envoyée le</span></div>`
+      + groups.map((g) => `<section class="hist-day"><h3 class="hist-day-head">${esc(dayName(g.key))}<em>${g.items.length}</em></h3>
+        <div class="plan-list hist-list">${g.items.map(historyLine).join("")}</div></section>`).join("");
   }
   // Below the history: older requests stay unread until asked for, to spare the free plan's daily reads.
   function renderOlderNote() {
     const note = $("#h-older");
     const loading = state.olderRanges.some((r) => !r.ready && r.from === D.OLDEST_DAY);
-    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded() || !!$("#h-mois").value;
+    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded() || !!hv("mois");
     if (note.hidden) return;
-    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours ou en retard, quel que soit leur âge, et les contrôles hayon des 8 derniers mois. Pour un mois plus ancien, choisis-le dans la liste des périodes en haut (une semaine : dans le Planning).
-      <button type="button" class="ghost small-btn" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
+    note.innerHTML = `<span>Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours ou en retard, et les contrôles hayon des 8 derniers mois. Pour un mois plus ancien, choisis-le dans « Autre mois ».</span>
+      <button type="button" class="plan-link" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
   }
   $("#h-older").addEventListener("click", (e) => { if (e.target.closest("#h-older-btn")) { needOlder(D.OLDEST_DAY, null); renderHistory(); } });
   function historyLine(d) {
-    const span = D.isMultiDay(d) ? `${D.shortDate(d.date)} → ${D.shortDate(D.lastDay(d))}` : D.shortDate(d.date);
-    const slot = esc(D.timeSlotLabel(d));
-    // data-slot / data-provider let the phone layout show a compact card without a second markup.
-    return `<tr class="click" data-open="${esc(d.id)}"><td class="date" data-slot="· ${slot}">${esc(span)}</td><td class="date">${slot}</td><td>${plateTag(d.plaque)}</td>
-      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
-      <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
+    const slot = D.timeSlotLabel(d).replace(/^de /, "");
+    const span = D.isMultiDay(d) ? ` → ${D.shortDate(D.lastDay(d))}` : "";
+    const what = [D.vehicleLabel(d) || "Modèle non précisé", D.jobLabel(d)].filter(Boolean).join(" · ");
+    return `<button type="button" class="plan-row hist-row${D.isActive(d) ? "" : " cancel"}" data-open="${esc(d.id)}">
+      ${serviceTile(d)}
+      <span class="plan-row-main hist-veh">
+        <span class="plan-row-line">${plateTag(d.plaque)}<span class="plan-time">${esc(slot + span)}</span></span>
+        <span class="plan-what"><b class="hist-slot-m">${esc(slot + span)}</b>${esc(what)}</span>
+        <span class="plan-sub hist-where">${esc(D.siteOf(d))}<span class="hist-who"> · ${esc(d.prestataire || "")}</span></span>
+      </span>
+      <span class="hist-c hist-c-site">${esc(D.siteOf(d))}</span>
+      <span class="hist-c hist-c-prov">${esc(d.prestataire || "")}</span>
+      <span class="hist-c hist-c-st">${planStatus(d)}</span>
+      <span class="hist-c hist-c-sent">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</span>
+      <span class="plan-row-end hist-end">${planStatus(d)}${icon("chev-r")}</span>
+    </button>`;
   }
-  ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site", "#h-mois"].forEach((s) => $(s).addEventListener("input", renderHistory));
-  $("#histWrap").addEventListener("click", (e) => { const r = e.target.closest("[data-open]"); if (r) openDemande(r.dataset.open); });
+  $("#q").addEventListener("input", renderHistory);
+  $("#q").addEventListener("keydown", (e) => { if (e.key === "Escape" && e.target.value) { e.target.value = ""; renderHistory(); } });
+  ["#h-prest", "#h-statut", "#h-svc", "#h-site", "#h-mois"].forEach((s) => $(s).addEventListener("input", renderHistory));
+  $("#histWrap").addEventListener("click", (e) => {
+    if (e.target.closest("[data-h-reset]")) { $("#q").value = ""; ["prest", "site", "svc", "statut"].forEach((id) => ($("#h-" + id).value = "")); renderHistory(); return; }
+    const r = e.target.closest("[data-open]"); if (r) openHistorySheet(r.dataset.open);
+  });
+  $("#view-historique").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-h-mois], [data-h-statut], [data-h-clear], [data-h-more], [data-h-other]");
+    if (!b) return;
+    if (b.dataset.hMois !== undefined) return setHist("mois", b.dataset.hMois);
+    if (b.dataset.hStatut !== undefined) return setHist("statut", hv("statut") === b.dataset.hStatut ? "" : b.dataset.hStatut);
+    if (b.dataset.hClear) return setHist(b.dataset.hClear, "");
+    if (b.dataset.hMore !== undefined) return openHistFilters();
+    if (b.dataset.hOther !== undefined) return openHistMonths();
+  });
+
+  // ---------- sheets: other month, filters, export ----------
+  const histChoice = (attr, value, label, on, art = "") => `<button type="button" class="hist-opt" ${attr}="${esc(value)}" aria-pressed="${on}">${art}<span>${esc(label)}</span>${icon("check")}</button>`;
+  function histMonthsBody() {
+    const months = Array.from($("#h-mois").options).map((o) => o.value).filter(Boolean);
+    const years = [...new Set(months.map((m) => m.slice(0, 4)))];
+    return `<p class="sheet-sub">Un mois ancien est lu seulement quand tu le choisis.</p>
+      ${histChoice("data-hs-mois", "", "15 derniers jours et en cours", !hv("mois"))}
+      ${years.map((y) => `<section><p class="sheet-label">${y}</p><div class="hist-months">${months.filter((m) => m.startsWith(y)).map((m) =>
+        `<button type="button" class="hist-month" data-hs-mois="${m}" aria-pressed="${hv("mois") === m}">${esc(capFirst(D.monthLabel(m).replace(/ \d{4}$/, "")))}</button>`).join("")}</div></section>`).join("")}`;
+  }
+  const histOpen = (title, html, cls) => { teamSheet.open(title, html, { cls }); teamSheet.body.scrollTop = 0; };
+  const openHistMonths = () => histOpen("Choisir un mois", histMonthsBody(), "hist-sheet");
+  function histFiltersBody() {
+    const group = (title, id, list) => `<section><p class="sheet-label">${title}</p><div class="hist-opts">${list.map(([v, label, art]) => histChoice("data-hs-" + id, v, label, hv(id) === v, art)).join("")}</div></section>`;
+    const n = historyRows().length;
+    return group("Prestataire", "prest", [["", "Tous les prestataires"], ...state.providers.map((p) => [p, p])])
+      + group("Prestation", "svc", [["", "Toutes les prestations"], ...D.SERVICES.map((s) => [s.id, s.label, serviceTile({ service: s.id })])])
+      + (siteNames().length ? group("Site", "site", [["", "Tous les sites"], ...siteNames().map((s) => [s, s])]) : "")
+      + group("Statut", "statut", [["", "Tous les statuts"], ["ouvert", "En cours (hors réalisées / annulées)"], ...D.STATUSES.map((s) => [s.id, s.label])])
+      + `<div class="plan-fiche-actions"><button type="button" class="primary plan-cta" data-team-sheet-close>Voir ${plural(n, "demande")}</button>
+        <button type="button" class="plan-soft" data-hs-reset>Tout effacer</button></div>`;
+  }
+  const openHistFilters = () => histOpen("Filtres", histFiltersBody(), "hist-sheet side-sheet");
+  function histExportBody() {
+    const rows = historyRows();
+    const what = [hv("mois") ? histMonthLabel(hv("mois")) : "15 derniers jours et en cours", hv("prest"), hv("site"), hv("svc") && D.SERVICES.find((s) => s.id === hv("svc"))?.label,
+      hv("statut") && (hv("statut") === "ouvert" ? "En cours" : D.statusOf(hv("statut")).label), $("#q").value && `« ${$("#q").value} »`].filter(Boolean).join(" · ");
+    return `<div class="plan-fiche-head hist-export-head"><span class="svc-tile sm" aria-hidden="true">${self.IssueArt?.art("ask-inbox", "svc-art") || ""}</span><div><b>${plural(rows.length, "demande")}</b><p>${esc(what)}</p></div></div>
+      <p class="sheet-sub">Exactement la liste affichée, avec les dates, la plaque, le modèle, le site, le prestataire, le statut et les dates d'envoi et de réalisation.</p>
+      <div class="plan-fiche-actions"><button type="button" class="primary plan-cta" data-hs-tsv>${icon("copy")}Copier pour Google Sheets</button>
+        <button type="button" class="plan-soft" data-hs-csv>${icon("download")}Télécharger le fichier (CSV)</button></div>`;
+  }
+  $("#h-export").addEventListener("click", () => histOpen("Exporter la liste", histExportBody(), "hist-sheet"));
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest(".hist-sheet [data-hs-mois], .hist-sheet [data-hs-prest], .hist-sheet [data-hs-svc], .hist-sheet [data-hs-site], .hist-sheet [data-hs-statut], .hist-sheet [data-hs-reset], .hist-sheet [data-hs-tsv], .hist-sheet [data-hs-csv]");
+    if (!b) return;
+    if (b.dataset.hsMois !== undefined) { teamSheet.close(); return setHist("mois", b.dataset.hsMois); }
+    const exportRows = () => [D.EXPORT_HEADER, ...historyRows().slice().reverse().map(D.exportRow)];
+    if (b.dataset.hsTsv !== undefined) {
+      const rows = exportRows();
+      if (await copyText(D.toTsv(rows))) { teamSheet.close(); toast(`${plural(rows.length - 1, "ligne")} copiée${rows.length > 2 ? "s" : ""} : colle-les dans une feuille Google Sheets`); }
+      return;
+    }
+    if (b.dataset.hsCsv !== undefined) {
+      const name = `historique-prestations-${hv("mois") || today()}${hv("prest") ? "-" + hv("prest").replace(/[^\w-]+/g, "-") : ""}.csv`;
+      saveBlob(Promise.resolve(new Blob([D.toCsv(exportRows())], { type: "text/csv" })), name); teamSheet.close(); return;
+    }
+    if (b.dataset.hsReset !== undefined) ["prest", "site", "svc", "statut"].forEach((id) => ($("#h-" + id).value = ""));
+    else for (const id of ["prest", "svc", "site", "statut"]) if (b.dataset["hs" + capFirst(id)] !== undefined) $("#h-" + id).value = b.dataset["hs" + capFirst(id)];
+    renderHistory();
+    teamSheet.body.innerHTML = histFiltersBody();
+  });
+
+  // ---------- the request's card + its change history as a timeline (read once per opening: free plan's reads) ----------
+  const histLog = { id: "", lines: null, failed: false };
+  function openHistorySheet(id) {
+    histLog.id = id; histLog.lines = null; histLog.failed = false;
+    openPlanSheet("fiche", id, true); teamSheet.body.scrollTop = 0;
+    loadHistLog(id);
+  }
+  function loadHistLog(id) {
+    if (!state.store?.loadHistory) return;
+    const d = demandeById(id);
+    state.store.loadHistory(id).then((entries) => { if (histLog.id === id) histLog.lines = D.historyLines(entries, d); })
+      .catch(() => { if (histLog.id === id) histLog.failed = true; })
+      .finally(() => { if (histLog.id === id && planSheet.log && planSheet.id === id) refreshPlanSheet(); });
+  }
+  function histLogHtml() {
+    const lines = histLog.lines;
+    const body = histLog.failed ? `<p class="sheet-sub">L'historique n'est pas encore lisible : les règles Firebase doivent être publiées.</p>`
+      : !lines ? `<p class="sheet-sub" aria-busy="true">Chargement…</p>`
+      : !lines.length ? `<p class="sheet-sub">Aucune modification notée pour l'instant.</p>`
+      : `<ol class="hist-tl">${lines.map((l) => {
+          const tone = /annul|suppr/i.test(l.action) ? "bad" : /Réalisée|fait/i.test(l.changes.map((c) => c.apres).join(" ")) ? "ok" : /Création/.test(l.action) ? "start" : "";
+          const changes = l.changes.map((c) => `<li><span>${esc(c.label)}</span>${c.avant != null ? `<s>${esc(c.avant)}</s>${icon("chev-r")}` : ""}<b>${esc(c.apres)}</b></li>`).join("");
+          return `<li class="${tone}"><i aria-hidden="true"></i><div><p class="hist-tl-head"><b>${esc(l.action)}</b><small>${esc(l.when)}</small></p>
+            <p class="hist-tl-who">${esc(l.who || "avant le suivi des modifications")}</p>${changes ? `<ul>${changes}</ul>` : ""}</div></li>`;
+        }).join("")}</ol>`;
+    return `<section class="hist-log"><p class="sheet-label">Modifications</p>${body}
+      <p class="hist-log-note">Chaque changement est noté avec son auteur et l'heure du serveur. Personne ne peut modifier ni effacer cette liste.</p></section>`;
+  }
 
   // ================= settings =================
   const currentSettings = () => ({ sites: state.sites, flotte: state.fleet, prestataires: state.providers, contacts: state.contacts, sheetUrl: state.sheetUrl });
@@ -6702,11 +7865,20 @@ function page(texte) {
       state.store.setStatus(d, "realisee", { auto: true }).catch(() => {}).finally(() => closingHayons.delete(d.id));
     });
   }
-  const HAYON_FILTERS = {
-    "": () => true,
-    atraiter: (r) => !r.booked && ["depasse", "urgent", "bientot", "inconnu"].includes(r.level),
-    rdv: (r) => !!r.booked,
-  };
+  // Page « Contrôles hayon » façon iPhone (2026-11-21) : compteurs qui filtrent, véhicules groupés par ce qu'il faut faire
+  // (à programmer, rendez-vous posés, à jour), jauge des jours restants, fiche du véhicule en feuille, liste à coller en feuille.
+  const hy = { filter: "", open: null, removing: "" };
+  const HY_GROUPS = [
+    { id: "todo", title: "À programmer", sub: "Pas de rendez-vous et échéance dans 30 jours ou moins.", test: (r) => !r.booked && ["depasse", "urgent", "bientot", "inconnu"].includes(r.level) },
+    { id: "rdv", title: "Rendez-vous posés", sub: "", test: (r) => !!r.booked },
+    { id: "ok", title: "À jour", sub: "", test: (r) => !r.booked && r.level === "ok" },
+  ];
+  const HY_TILES = [
+    { id: "red", label: "À faire vite", sub: "Dépassé ou 5 jours", lv: "urgent", test: (r) => ["depasse", "urgent"].includes(r.level) },
+    { id: "orange", label: "Bientôt", sub: "30 jours ou moins", lv: "bientot", test: (r) => r.level === "bientot" },
+    { id: "green", label: "À jour", sub: "Plus de 30 jours", lv: "ok", test: (r) => r.level === "ok" },
+    { id: "rdv", label: "RDV posés", sub: "Contrôle à venir", lv: "rdv", test: (r) => !!r.booked },
+  ];
   function hayonDaysLabel(r) {
     if (r.daysLeft == null) return "Date inconnue";
     if (r.daysLeft < 0) return `Dépassé de ${plural(-r.daysLeft, "jour")}`;
@@ -6714,71 +7886,168 @@ function page(texte) {
     return `Reste ${plural(r.daysLeft, "jour")}`;
   }
   const slotOf = (d) => `${D.shortDate(d.date)}${d.debut && d.debut !== D.DEFAULT_SLOT.debut ? " à " + d.debut.replace(":", "h") : ""}`;
-  function hayonRow(r) {
+  const hyArt = (key, size = "sm") => `<span class="svc-tile ${size}" aria-hidden="true">${self.IssueArt?.art(key, "svc-art") || ""}</span>`;
+  // Jauge : la part des 180 jours qu'il reste (pleine et rouge une fois dépassé).
+  const hyGauge = (r, big) => {
+    const pct = r.daysLeft == null ? 0 : r.daysLeft < 0 ? 100 : Math.max(3, Math.min(100, Math.round((r.daysLeft / D.HAYON_CYCLE_DAYS) * 100)));
+    return `<span class="hy-gauge${big ? " big" : ""}" role="img" aria-label="${esc(hayonDaysLabel(r))}"><i style="width:${pct}%"></i></span>`;
+  };
+  const hyPill = (r) => `<span class="hy-pill">${esc(hayonDaysLabel(r))}</span>`;
+  const hyRowByKey = (key) => D.hayonFollowUp(state.hayons, state.demandes, today()).find((r) => D.plateKey(r.plaque) === key);
+  function hayonCard(r) {
+    const key = D.plateKey(r.plaque);
+    const lines = [];
+    if (r.booked) lines.push(`<span class="hy-rdv-line">${icon("cal")}RDV ${esc(slotOf(r.booked))}${r.booked.site ? ` · ${esc(r.booked.site)}` : ""}</span>`);
+    if (r.tooSoon) lines.push(`<span class="hy-warn">${icon("alert")}Deux contrôles à ${plural(r.tooSoon.gap, "jour")} d'écart</span>`);
+    if (r.notDone) lines.push(`<span class="hy-meta">Pas fait le ${esc(D.shortDate(r.notDone.date))}</span>`);
+    return `<li class="hy-card lv-${r.level}"><button type="button" class="hy-open" data-hy-key="${esc(key)}">
+      ${hyArt("svc-hayon")}
+      <span class="hy-main">
+        <span class="hy-line">${plateTag(r.plaque)}${hyPill(r)}</span>
+        ${hyGauge(r)}
+        <span class="hy-meta">${r.nextDue ? `À refaire avant le <b>${esc(D.numericDate(r.nextDue))}</b>` : "Date du dernier contrôle inconnue"}</span>
+        ${lines.join("")}
+      </span>
+      <svg class="icon hy-chev" aria-hidden="true"><use href="#i-chev-r"/></svg></button></li>`;
+  }
+  function hayonSheetHtml(r) {
     const key = D.plateKey(r.plaque);
     const known = state.hayons.some((h) => D.plateKey(h.plaque) === key);
-    const notes = [];
-    if (r.tooSoon) notes.push(`<span class="hy-warn">${icon("alert")}Deux contrôles posés à ${plural(r.tooSoon.gap, "jour")} d'écart (${esc(D.shortDate(r.tooSoon.first.date))} et ${esc(D.shortDate(r.tooSoon.second.date))})</span>`);
-    if (r.notDone) notes.push(`<span class="muted">Pas fait le ${esc(D.shortDate(r.notDone.date))}</span>`);
     const recent = r.lastRequest && D.daysBetween(r.lastRequest.date, today()) <= 30;
-    const rdv = r.booked
-      ? `<button type="button" class="hy-rdv" data-open="${esc(r.booked.id)}">${icon("cal")}<span>RDV ${esc(slotOf(r.booked))}${r.booked.site ? ` · ${esc(r.booked.site)}` : ""}</span></button>`
-      : `<span class="muted hy-nordv">Pas de RDV</span>`;
-    return `<li class="hy-row lv-${r.level}">
-      <span class="hy-days">${esc(hayonDaysLabel(r))}</span>
-      ${plateTag(r.plaque)}
-      <span class="hy-dates"><span>Dernier contrôle <b>${r.lastControl ? esc(D.numericDate(r.lastControl)) : "—"}</b></span><span>À refaire avant <b>${r.nextDue ? esc(D.numericDate(r.nextDue)) : "—"}</b></span>${notes.join("")}</span>
-      <span class="hy-actions">${rdv}
-        ${state.canWrite && recent ? `<button type="button" class="ghost small-btn" data-hy-notdone="${esc(r.lastRequest.id)}" title="Le contrôle du ${esc(D.shortDate(r.lastRequest.date))} n'a pas eu lieu">Pas fait ?</button>` : ""}
-        ${state.canWrite && r.notDone && !r.booked ? `<button type="button" class="ghost small-btn" data-hy-done="${esc(r.notDone.id)}">Finalement fait</button>` : ""}
-        ${state.canWrite && known ? `<button type="button" class="ghost small-btn" data-hy-remove="${esc(key)}" aria-label="Retirer ${esc(r.plaque)} de la liste">${icon("x")}</button>` : ""}</span>
-    </li>`;
+    const info = [
+      ["Dernier contrôle", r.lastControl ? D.numericDate(r.lastControl) : "Inconnu", r.lastRequest ? `Rendez-vous du ${D.shortDate(r.lastRequest.date)}` : r.lastControl ? "Liste du prestataire" : ""],
+      ["À refaire avant", r.nextDue ? D.numericDate(r.nextDue) : "—", ""],
+      ["Rendez-vous", r.booked ? slotOf(r.booked) : "Aucun", r.booked?.site || ""],
+      ...(r.site && !r.booked ? [["Site", r.site, ""]] : []),
+    ];
+    const notes = [];
+    if (r.tooSoon) notes.push(`<p class="hy-sh-note warn">${icon("alert")}<span>Deux contrôles posés à ${plural(r.tooSoon.gap, "jour")} d'écart : le ${esc(D.shortDate(r.tooSoon.first.date))} et le ${esc(D.shortDate(r.tooSoon.second.date).replace(/\.$/, ""))}. L'un des deux est peut-être en trop.</span></p>`);
+    if (r.notDone) notes.push(`<p class="hy-sh-note"><span>Le contrôle du ${esc(D.shortDate(r.notDone.date))} est marqué « pas fait » : le compteur reprend le contrôle d'avant.</span></p>`);
+    const acts = [];
+    if (r.booked) acts.push(`<button type="button" class="hy-btn primary" data-hy-act="open" data-id="${esc(r.booked.id)}">${icon("cal")}Voir le rendez-vous</button>`);
+    else if (state.canWrite) acts.push(`<button type="button" class="hy-btn primary" data-hy-act="ask">${icon("plus")}Demander un contrôle</button>`);
+    if (state.canWrite && recent) acts.push(`<button type="button" class="hy-btn" data-hy-act="notdone" data-id="${esc(r.lastRequest.id)}">Le contrôle du ${esc(D.shortDate(r.lastRequest.date))} n'a pas eu lieu</button>`);
+    if (state.canWrite && r.notDone && !r.booked) acts.push(`<button type="button" class="hy-btn" data-hy-act="done" data-id="${esc(r.notDone.id)}">${icon("check")}Finalement fait</button>`);
+    acts.push(`<button type="button" class="hy-btn" data-hy-act="history">Historique de la plaque</button>`);
+    if (state.canWrite && known) acts.push(`<button type="button" class="hy-btn danger${hy.removing === key ? " confirm" : ""}" data-hy-act="remove">${icon("x")}${hy.removing === key ? "Retirer vraiment ?" : "Retirer de la liste des hayons"}</button>`);
+    return `<div class="hy-sheet lv-${r.level}">
+      <div class="hy-sh-hero">${hyArt("svc-hayon", "lg")}<div><p class="hy-sh-kind">DHOLLIANDA · tous les ${D.HAYON_CYCLE_DAYS} jours</p>${plateTag(r.plaque)}</div></div>
+      <div class="hy-sh-gauge"><div class="hy-sh-days"><b>${r.daysLeft == null ? "?" : Math.abs(r.daysLeft)}</b><span>${r.daysLeft == null ? "date du dernier contrôle inconnue" : r.daysLeft < 0 ? `jour${-r.daysLeft > 1 ? "s" : ""} de retard` : `jour${r.daysLeft > 1 ? "s" : ""} restant${r.daysLeft > 1 ? "s" : ""} sur ${D.HAYON_CYCLE_DAYS}`}</span></div>${hyGauge(r, true)}</div>
+      ${notes.join("")}
+      <dl class="hy-sh-info">${info.map(([k, v, small]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}${small ? `<small>${esc(small)}</small>` : ""}</dd></div>`).join("")}</dl>
+      <div class="hy-sh-acts">${acts.join("")}</div>
+    </div>`;
+  }
+  function openHayonSheet(key) {
+    const r = hyRowByKey(key);
+    if (!r) return teamSheet.close();
+    hy.open = key;
+    teamSheet.open("Contrôle hayon", hayonSheetHtml(r), { cls: "hy-sheet-b side-sheet", closed: () => { hy.open = null; hy.removing = ""; } });
+  }
+  function refreshHayonSheet() {
+    if (!teamSheet.isOpen || !hy.open) return;
+    if (hy.open === "paste" || !teamSheet.body.querySelector(".hy-sheet")) return;
+    const r = hyRowByKey(hy.open);
+    r ? (teamSheet.body.innerHTML = hayonSheetHtml(r)) : teamSheet.close();
   }
   function renderHayon() {
     const rows = D.hayonFollowUp(state.hayons, state.demandes, today());
-    const count = (...levels) => rows.filter((r) => levels.includes(r.level)).length;
     const urgent = rows.filter((r) => !r.booked && ["depasse", "urgent"].includes(r.level)).length;
     $("#hayonBadge").hidden = !urgent; $("#hayonBadge").textContent = urgent;
-    $("#hy-kpis").innerHTML = rows.length ? [[["depasse", "urgent"], "Dépassés ou 5 jours ou moins"], [["bientot"], "30 jours ou moins"], [["ok"], "À jour"]]
-      .map(([levels, label]) => `<div class="hy-kpi lv-${levels[levels.length - 1]}"><b>${count(...levels)}</b><span>${label}</span></div>`).join("") : "";
-    const query = $("#hy-q").value, filter = HAYON_FILTERS[$("#hy-filter").value] || HAYON_FILTERS[""];
-    const shown = rows.filter((r) => filter(r) && D.matchesSearch([r.plaque], query));
-    $("#hy-list").innerHTML = !rows.length
-      ? `<div class="empty"><b>Aucun véhicule à hayon pour l'instant.</b><span>Colle la liste du prestataire ci-dessous (plaque et date du dernier contrôle) : le compteur des 180 jours démarre tout de suite. Chaque contrôle hayon reçu par mail s'ajoute aussi ici.</span></div>`
-      : shown.length ? `<ul class="hy-list">${shown.map(hayonRow).join("")}</ul>` : `<div class="empty"><b>Aucun véhicule ne correspond.</b></div>`;
-    $("#hy-pastebox").hidden = !state.canWrite;
-    $("#hy-pastebox").open = state.canWrite && !rows.length ? true : $("#hy-pastebox").open;
+    $("#hyKicker").textContent = rows.length ? `${plural(rows.length, "véhicule")} · DHOLLIANDA` : "DHOLLIANDA · tous les 180 jours";
+    $("#hy-paste-open").hidden = !state.canWrite || !rows.length;
+    $("#hy-kpis").innerHTML = rows.length ? HY_TILES.map((t) => {
+      const n = rows.filter(t.test).length;
+      return `<button type="button" class="hy-tile lv-${t.lv}" data-hy-filter="${t.id}" aria-pressed="${hy.filter === t.id}" ${n || hy.filter === t.id ? "" : "disabled"}>
+        <b>${n}</b><span>${esc(t.label)}</span><small>${esc(t.sub)}</small></button>`;
+    }).join("") : "";
+    $("#hy-kpis").hidden = !rows.length; $(".hy-search").hidden = !rows.length;
+    const tile = HY_TILES.find((t) => t.id === hy.filter);
+    const query = $("#hy-q").value;
+    const shown = rows.filter((r) => (!tile || tile.test(r)) && D.matchesSearch([r.plaque], query));
+    let html;
+    if (!rows.length) {
+      html = `<div class="hy-empty">${hyArt("svc-hayon", "lg")}<b>Aucun véhicule à hayon pour l'instant</b><span>Colle la liste du prestataire (plaque et date du dernier contrôle) : le compteur des 180 jours démarre tout de suite. Chaque contrôle hayon reçu par mail s'ajoute aussi ici.</span>${state.canWrite ? `<button type="button" class="hy-btn primary" data-hy-paste>${icon("list")}Coller la liste</button>` : ""}</div>`;
+    } else if (!shown.length) {
+      html = `<div class="hy-empty small"><b>Aucun véhicule ne correspond</b>${tile ? `<button type="button" class="hy-link" data-hy-filter="${tile.id}">Voir tous les véhicules</button>` : ""}</div>`;
+    } else {
+      html = (tile ? `<div class="hy-filter-on"><span>Filtre : <b>${esc(tile.label)}</b></span><button type="button" class="hy-link" data-hy-filter="${tile.id}">Tout voir</button></div>` : "") +
+        HY_GROUPS.map((g) => {
+          const list = shown.filter(g.test);
+          if (!list.length) return "";
+          return `<section class="hy-group"><h2 class="hy-gh">${esc(g.title)} <em>${list.length}</em></h2>${g.sub && g.id === "todo" ? `<p class="hy-gsub">${esc(g.sub)}</p>` : ""}<ul class="hy-cards">${list.map(hayonCard).join("")}</ul></section>`;
+        }).join("");
+    }
+    $("#hy-list").innerHTML = html;
+    refreshHayonSheet();
   }
-  ["#hy-q", "#hy-filter"].forEach((sel) => $(sel).addEventListener("input", renderHayon));
-  $("#hy-paste").addEventListener("input", () => {
-    const list = D.parseHayonList($("#hy-paste").value);
+  $("#hy-q").addEventListener("input", renderHayon);
+  // Liste du prestataire à coller : dans une feuille.
+  function openHayonPaste() {
+    hy.open = "paste";
+    teamSheet.open("Coller la liste des hayons", `<div class="hy-paste">
+      <p class="hy-gsub">Copie les colonnes « immatriculation » et « date du dernier contrôle » du tableau du prestataire, puis colle-les ici. Une plaque déjà connue prend la date collée.</p>
+      <textarea id="hy-paste" placeholder="AB-123-CD&#9;12/05/2026&#10;EF-456-GH&#9;03/04/2026" aria-label="Liste des véhicules à hayon"></textarea>
+      <p class="hy-preview" id="hy-preview" aria-live="polite"></p>
+      <button type="button" class="hy-btn primary" id="hy-import">${icon("check")}Ajouter ces véhicules</button></div>`, { cls: "hy-sheet-b side-sheet", closed: () => (hy.open = null) });
+    setTimeout(() => $("#hy-paste")?.focus(), 80);
+  }
+  $("#hy-paste-open").onclick = openHayonPaste;
+  teamSheet.body.addEventListener("input", (e) => {
+    if (e.target.id !== "hy-paste") return;
+    const list = D.parseHayonList(e.target.value);
     const undated = list.filter((h) => !h.dernierControle).length;
     $("#hy-preview").textContent = list.length ? `${plural(list.length, "véhicule")} reconnu${list.length > 1 ? "s" : ""}${undated ? `, dont ${undated} sans date` : ""}` : "";
   });
-  $("#hy-import").onclick = async () => {
-    const list = D.parseHayonList($("#hy-paste").value);
-    if (!list.length) return toast("Aucune plaque reconnue : colle une plaque et sa date par ligne");
-    if (!requireStore()) return;
-    try { await state.store.saveHayons(list); $("#hy-paste").value = ""; $("#hy-preview").textContent = ""; $("#hy-pastebox").open = false; toast(`${plural(list.length, "véhicule")} enregistré${list.length > 1 ? "s" : ""}`); }
-    catch (err) { reportWriteError(err); }
-  };
-  $("#hy-list").addEventListener("click", async (e) => {
-    const open = e.target.closest("[data-open]");
-    if (open) return openDemande(open.dataset.open);
-    const notDone = e.target.closest("[data-hy-notdone], [data-hy-done]");
-    if (notDone && requireStore()) {
-      const missed = !!notDone.dataset.hyNotdone;
-      const d = demandeById(notDone.dataset.hyNotdone || notDone.dataset.hyDone);
-      try { await state.store.markHayonNotDone(d, missed); toast(missed ? `Contrôle du ${D.shortDate(d.date)} marqué « pas fait » : le compteur reprend l'ancien contrôle` : "Contrôle remis comme fait"); }
+  // Nouvelle demande déjà remplie : la plaque, le prestataire des hayons et « Contrôle hayon ».
+  function newHayonFor(plaque) {
+    newDemandeFor({ plaque });
+    const prov = [...field("prest").options].find((o) => D.servicesFor(state.providerDocs.get(D.providerId(o.value)), o.value).includes("hayon"));
+    if (prov) { field("prest").value = prov.value; field("prest").dispatchEvent(new Event("change", { bubbles: true })); }
+    const svc = $("#svc-hayon");
+    if (svc && !svc.closest("label").hidden) { svc.checked = true; svc.dispatchEvent(new Event("change", { bubbles: true })); }
+  }
+  async function hayonAction(b) {
+    const act = b.dataset.hyAct, key = hy.open, r = key && key !== "paste" ? hyRowByKey(key) : null;
+    if (act === "open") { teamSheet.close(); return openDemande(b.dataset.id); }
+    if (act === "ask" && r) { teamSheet.close(); return newHayonFor(r.plaque); }
+    if (act === "history" && r) { teamSheet.close(); $("#q").value = r.plaque; show("historique"); return renderHistory(); }
+    if ((act === "notdone" || act === "done") && requireStore()) {
+      const missed = act === "notdone", d = demandeById(b.dataset.id);
+      b.disabled = true;
+      try {
+        await state.store.markHayonNotDone(d, missed);
+        toast(missed ? `Contrôle du ${D.shortDate(d.date)} marqué « pas fait »` : "Contrôle remis comme fait",
+          { label: "Annuler", run: () => state.store.markHayonNotDone(d, !missed).catch(reportWriteError) });
+      } catch (err) { reportWriteError(err); }
+      finally { b.disabled = false; refreshHayonSheet(); }
+      return;
+    }
+    if (act === "remove" && r && requireStore()) {
+      if (hy.removing !== key) { hy.removing = key; return refreshHayonSheet(); }
+      try { await state.store.deleteHayon(key); hy.removing = ""; teamSheet.close(); toast(`${r.plaque} retiré de la liste des hayons`); }
+      catch (err) { reportWriteError(err); }
+    }
+  }
+  teamSheet.body.addEventListener("click", async (e) => {
+    if (!hy.open) return;
+    if (e.target.closest("#hy-import")) {
+      const list = D.parseHayonList($("#hy-paste").value);
+      if (!list.length) return toast("Aucune plaque reconnue : colle une plaque et sa date par ligne");
+      if (!requireStore()) return;
+      try { await state.store.saveHayons(list); teamSheet.close(); toast(`${plural(list.length, "véhicule")} enregistré${list.length > 1 ? "s" : ""}`); }
       catch (err) { reportWriteError(err); }
       return;
     }
-    const remove = e.target.closest("[data-hy-remove]");
-    if (remove && requireStore()) {
-      if (!remove.classList.contains("confirm")) { remove.classList.add("confirm"); remove.textContent = "Retirer ?"; return; }
-      try { await state.store.deleteHayon(remove.dataset.hyRemove); toast("Véhicule retiré de la liste des hayons"); }
-      catch (err) { reportWriteError(err); }
-    }
+    const b = e.target.closest("[data-hy-act]");
+    if (b) hayonAction(b);
+  });
+  $("#view-hayon").addEventListener("click", (e) => {
+    const f = e.target.closest("[data-hy-filter]");
+    if (f) { hy.filter = hy.filter === f.dataset.hyFilter ? "" : f.dataset.hyFilter; return renderHayon(); }
+    if (e.target.closest("[data-hy-paste]")) return openHayonPaste();
+    const o = e.target.closest("[data-hy-key]");
+    if (o) openHayonSheet(o.dataset.hyKey);
   });
 
   // ---------- answers from providers: Retours page, tab badge, window title, desktop notifications ----------

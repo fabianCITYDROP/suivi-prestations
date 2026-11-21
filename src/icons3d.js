@@ -233,6 +233,40 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
   ICONS["ret-confirme"] = badge("grip", TICK);
   ICONS["ret-erreur"] = badge("ora",
     `<path d="M30.4 30.2a9 9 0 1 0-12.6-.6" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/><path d="M13.4 25.8l4.6 5.2 5-4.6" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>`);
+  // Corbeille de l'équipe : poubelle en acier (couvercle, poignée, nervures) ; vide = pastille verte ; restaurer = flèche bleue qui remonte.
+  const BIN = solid("M11.2 15.6h25.6l-2.4 22.6a3 3 0 0 1-3 2.7H16.6a3 3 0 0 1-3-2.7Z", "steel") +
+    `<g stroke="#8794a0" stroke-width="1.5" stroke-linecap="round"><path d="M18.4 20.4l.9 15.2"/><path d="M24 20.4v15.2"/><path d="M29.6 20.4l-.9 15.2"/></g>` +
+    `<g stroke="#fff" stroke-opacity=".7" stroke-width=".7" stroke-linecap="round"><path d="M19.4 20.4l.9 15.2"/><path d="M25 20.4v15.2"/></g>` +
+    solid("M8.6 11.6a2 2 0 0 1 2-2h26.8a2 2 0 0 1 2 2v2.6a1.4 1.4 0 0 1-1.4 1.4H10a1.4 1.4 0 0 1-1.4-1.4Z", "steel") +
+    `<path d="M10.4 10.8h27" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".9"/>` +
+    `<path d="M19.4 9.6V7.4a1.6 1.6 0 0 1 1.6-1.6h6a1.6 1.6 0 0 1 1.6 1.6v2.2" fill="none" stroke="${O}" stroke-width="3.2" stroke-linecap="round"/>` +
+    `<path d="M19.4 9.6V7.4a1.6 1.6 0 0 1 1.6-1.6h6a1.6 1.6 0 0 1 1.6 1.6v2.2" fill="none" stroke="url(#i3-steel)" stroke-width="1.6" stroke-linecap="round"/>`;
+  ICONS["corbeille"] = ground(24, 42.6, 15, 2.1) + BIN;
+  ICONS["corbeille-vide"] = ground(24, 42.6, 15, 2.1) + BIN +
+    `<circle cx="35.4" cy="31.8" r="8.4" fill="url(#i3-spg)" ${S}/><ellipse cx="33.2" cy="28" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".65"/>` +
+    `<path d="M31.4 32l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  ICONS["act-restore"] = ground(24, 42.6, 15, 2.1) + BIN +
+    `<circle cx="35.4" cy="31.8" r="8.4" fill="url(#i3-grip)" ${S}/><ellipse cx="33.2" cy="28" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".55"/>` +
+    `<path d="M35.4 36.6v-8.4M31.8 31.6l3.6-3.6 3.6 3.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // Historique vide : une fiche et une loupe en volume (verre bleuté, manche sombre).
+  ICONS["hist-vide"] = ground(24, 42.6, 17, 2.1) +
+    solid("M9 8.5a3 3 0 0 1 3-3h18a3 3 0 0 1 3 3v29a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3Z") +
+    `<path d="M11.4 7.6h19.6" stroke="#fff" stroke-opacity=".5" stroke-width="1" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="2" stroke-linecap="round"><path d="M14 13h14"/><path d="M14 18h10"/><path d="M14 23h8"/></g>` +
+    `<path d="M35.4 35.6l6.4 6.4" stroke="url(#i3-dark)" stroke-width="5" stroke-linecap="round"/>` +
+    `<circle cx="29" cy="29" r="9" fill="url(#i3-mglass)" stroke="url(#i3-steel)" stroke-width="2.8"/>` +
+    `<circle cx="29" cy="29" r="10.4" fill="none" stroke="${O}" stroke-opacity=".55" stroke-width=".8"/>` +
+    `<path d="M24.6 26.4a5 5 0 0 1 4.2-3" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.8" stroke-linecap="round"/>`;
+  // Vérification (équipe) : bulle de message avec un « ? » bleu City-Drop (la relance), bulle de réponse avec une coche verte.
+  const bubble = (d) => solid(d) + `<path d="M11.4 9.4h21" stroke="#fff" stroke-opacity=".55" stroke-width=".9" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="2.2" stroke-linecap="round"><path d="M11.6 16.6h18"/><path d="M11.6 22.2h12"/></g>`;
+  const corner = (grad, inner) => `<circle cx="34.8" cy="31.6" r="8.6" fill="url(#i3-${grad})" ${S}/><ellipse cx="32.8" cy="27.8" rx="4.8" ry="2.4" fill="url(#i3-shine)" opacity=".6"/>` + inner;
+  ICONS["vf-message"] = ground(23, 43, 17, 2.1) +
+    bubble("M10 7h26a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H19l-7.4 6.4V29H10a4 4 0 0 1-4-4V11a4 4 0 0 1 4-4Z") +
+    corner("grip", `<path d="M32.2 29.6a2.7 2.7 0 1 1 3.8 2.4c-.7.4-1.2.9-1.2 1.7v.4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="34.8" cy="36.6" r="1.25" fill="#fff"/>`);
+  ICONS["vf-reponse"] = ground(25, 43, 17, 2.1) +
+    bubble("M38 7H12a4 4 0 0 0-4 4v14a4 4 0 0 0 4 4h17l7.4 6.4V29H38a4 4 0 0 0 4-4V11a4 4 0 0 0-4-4Z") +
+    corner("spg", `<path d="M30.8 31.8l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`);
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };

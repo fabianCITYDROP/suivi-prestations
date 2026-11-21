@@ -261,13 +261,6 @@
     const thumb = (vehicleOf(entry.plate)?.photos || []).find((p) => p.key === entry.key)?.thumb;
     return `<figure><img src="${safeImageSrc(thumb)}" data-zoom="${esc(entry.key)}" alt="Pare-brise ${esc(entry.plate)}"><figcaption>${esc(entry.plate)}</figcaption></figure>`;
   }
-  function photoTile(plate, photo, index) {
-    const name = photoFileName(plate, index);
-    return `<figure class="ph"><img src="${safeImageSrc(photo.thumb)}" data-zoom="${esc(photo.key)}" alt="Pare-brise ${esc(plate)} photo ${index + 1}">
-      <div class="actions"><button type="button" data-copy-photo="${esc(photo.key)}" data-name="${esc(name)}">${icon("copy")}Copier</button>
-      <button type="button" class="ghost" data-save-photo="${esc(photo.key)}" data-name="${esc(name)}" aria-label="Enregistrer">${icon("download")}</button>
-      ${state.canWrite ? `<button type="button" class="ghost danger" data-remove-photo="${esc(photo.key)}" aria-label="Supprimer">${icon("x")}</button>` : ""}</div></figure>`;
-  }
   // Each photo as its own full-size file: dropped together into WhatsApp they arrive as separate, sharp images.
   async function saveAllPhotos(entries) {
     if (!state.downloads) return toast("Téléchargement indisponible ici");
@@ -288,24 +281,124 @@
     if ((el = target("[data-save-sheet]"))) { saveBlob(buildPhotoSheet(photoEntries(shareRegistry.get(el.dataset.saveSheet) || []), "image/jpeg"), sheetName()); return; }
     if ((el = target("[data-copy-photo]"))) { const key = el.dataset.copyPhoto; copyImage(() => singlePhotoPng(key), el.dataset.name, () => singlePhotoJpeg(key)); return; }
     if ((el = target("[data-save-photo]"))) { saveBlob(singlePhotoJpeg(el.dataset.savePhoto), el.dataset.name); return; }
-    if ((el = target("[data-zoom]"))) openLightbox(el.dataset.zoom, el.src);
-    if ((el = target("[data-proof]"))) openProof(el.dataset.proof);
+    if ((el = target("[data-zoom]"))) { const all = [...(el.parentElement?.querySelectorAll("[data-zoom]") || [])]; const list = all.length ? all : [el];
+      viewer.open(list.map((x) => ({ key: x.dataset.zoom, thumb: x.getAttribute("src") || "" })), Math.max(0, list.indexOf(el))); }
+    if ((el = target("[data-proof]"))) viewer.open([{ key: el.dataset.proof, proof: true }], 0);
   }, true);
-  async function openLightbox(key, fallbackSrc) {
-    $("#lightImg").src = fallbackSrc; $("#lightbox").hidden = false;
-    const full = state.store ? await state.store.loadPhoto(key).catch(() => null) : null;
-    if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
-  }
-  async function openProof(key) {
-    $("#lightImg").removeAttribute("src"); $("#lightbox").hidden = false;
-    const full = state.store ? await state.store.loadProof(key).catch(() => null) : null;
-    if (full && !$("#lightbox").hidden) $("#lightImg").src = safeImageSrc(full);
-    else if (!full) { $("#lightbox").hidden = true; toast("Photo introuvable"); }
-  }
-  $("#lightbox").onclick = () => ($("#lightbox").hidden = true);
+
+  // ================= photo en grand, plein écran (façon app Photos) =================
+  // Glisser à gauche / à droite = photo suivante, vers le bas = fermer ; Échap, flèches du clavier, ×.
+  // Avec un album (page Photos) : barre du bas Copier / Enregistrer / Supprimer.
+  const viewer = (() => {
+    let el = null, items = [], index = 0, album = null, lastFocus = null, token = 0;
+    const reduce = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function build() {
+      if (el) return;
+      document.body.insertAdjacentHTML("beforeend", `<div class="pho-viewer" role="dialog" aria-modal="true" aria-label="Photo en grand" hidden>
+        <div class="pho-v-top"><button type="button" class="pho-v-round" data-v-close aria-label="Fermer">${icon("x")}</button>
+          <p class="pho-v-title"><b></b><span></span></p><span class="pho-v-pad"></span></div>
+        <div class="pho-v-stage"><img alt="Photo du pare-brise" draggable="false"></div>
+        <button type="button" class="pho-v-round pho-v-nav prev" data-v-step="-1" aria-label="Photo précédente">${icon("chev-l")}</button>
+        <button type="button" class="pho-v-round pho-v-nav next" data-v-step="1" aria-label="Photo suivante">${icon("chev-r")}</button>
+        <div class="pho-v-bar"></div></div>`);
+      el = document.querySelector(".pho-viewer");
+      el.addEventListener("click", (e) => {
+        if (e.target.closest("[data-v-close]")) return close();
+        const st = e.target.closest("[data-v-step]"); if (st) return step(+st.dataset.vStep);
+        const del = e.target.closest("[data-v-remove]"); if (del) return removeCurrent();
+        if (moved) return;
+        if (e.target.matches(".pho-v-stage")) close();
+        else if (e.target.matches(".pho-v-stage img")) el.classList.toggle("bare");
+      });
+      document.addEventListener("keydown", (e) => {
+        if (el.hidden) return;
+        if (e.key === "Escape") { e.stopImmediatePropagation(); close(); }
+        else if (e.key === "ArrowRight") step(1); else if (e.key === "ArrowLeft") step(-1);
+      }, true);
+      // Le geste : on décide l'axe après quelques pixels, la photo suit le doigt, puis suivante / fermer / retour en place.
+      const stage = el.querySelector(".pho-v-stage"), img = stage.querySelector("img");
+      let x0 = 0, y0 = 0, axis = "", down = false, moved = false, lastT = 0, lastX = 0, lastY = 0, vx = 0, vy = 0;
+      stage.addEventListener("pointerdown", (e) => { if (e.button) return; down = true; moved = false; axis = ""; x0 = lastX = e.clientX; y0 = lastY = e.clientY; lastT = e.timeStamp; vx = vy = 0; });
+      stage.addEventListener("pointermove", (e) => {
+        if (!down) return;
+        const dx = e.clientX - x0, dy = e.clientY - y0;
+        if (!axis && Math.hypot(dx, dy) > 8) { axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y"; moved = true; stage.setPointerCapture(e.pointerId); el.classList.add("dragging"); }
+        const dt = Math.max(1, e.timeStamp - lastT); vx = (e.clientX - lastX) / dt; vy = (e.clientY - lastY) / dt; lastX = e.clientX; lastY = e.clientY; lastT = e.timeStamp;
+        if (axis === "x") { const edge = (index === 0 && dx > 0) || (index === items.length - 1 && dx < 0); img.style.transform = `translateX(${edge ? dx / 4 : dx}px)`; }
+        else if (axis === "y") { const d = Math.max(0, dy); img.style.transform = `translateY(${dy > 0 ? dy : dy / 6}px) scale(${1 - Math.min(d, 400) / 1600})`; el.style.setProperty("--pho-dim", String(Math.max(0.25, 1 - d / 500))); }
+      });
+      const end = (e) => {
+        if (!down) return; down = false; el.classList.remove("dragging");
+        const dx = e.clientX - x0, dy = e.clientY - y0;
+        if (axis === "y" && (dy > 110 || vy > 0.6)) { close(true); }
+        else if (axis === "x" && (Math.abs(dx) > 70 || Math.abs(vx) > 0.5) && items[index + (dx < 0 ? 1 : -1)]) { step(dx < 0 ? 1 : -1, true); }
+        else { img.style.transform = ""; el.style.removeProperty("--pho-dim"); }
+        setTimeout(() => (moved = false), 0);
+      };
+      stage.addEventListener("pointerup", end); stage.addEventListener("pointercancel", end);
+    }
+    async function show(fromSwipe) {
+      const it = items[index]; if (!it) return close();
+      const img = el.querySelector(".pho-v-stage img"), my = ++token;
+      img.style.transform = ""; el.style.removeProperty("--pho-dim");
+      if (fromSwipe && !reduce()) { img.classList.remove("pho-v-in"); void img.offsetWidth; img.classList.add("pho-v-in"); }
+      if (it.thumb) img.src = safeImageSrc(it.thumb); else img.removeAttribute("src");
+      el.querySelector(".pho-v-title b").textContent = album ? album.label : "Photo";
+      el.querySelector(".pho-v-title span").textContent = items.length > 1 ? `${index + 1} sur ${items.length}` : "";
+      el.querySelector(".prev").hidden = index === 0; el.querySelector(".next").hidden = index >= items.length - 1;
+      const name = album ? photoFileName(album.label, index) : "photo.jpg";
+      el.querySelector(".pho-v-bar").innerHTML = album ? `
+        <button type="button" class="pho-v-act" data-copy-photo="${esc(it.key)}" data-name="${esc(name)}">${icon("copy")}<span>Copier</span></button>
+        <button type="button" class="pho-v-act" data-save-photo="${esc(it.key)}" data-name="${esc(name)}">${icon("download")}<span>Enregistrer</span></button>
+        ${state.canWrite ? `<button type="button" class="pho-v-act danger" data-v-remove>${icon("trash")}<span>Supprimer</span></button>` : ""}` : "";
+      el.classList.toggle("with-bar", !!album);
+      const full = state.store ? await (it.proof ? state.store.loadProof(it.key) : state.store.loadPhoto(it.key)).catch(() => null) : null;
+      if (my !== token || el.hidden) return;
+      if (full) img.src = safeImageSrc(full);
+      else if (!it.thumb) { close(); toast("Photo introuvable"); }
+    }
+    function open(list, at = 0, withAlbum = null) {
+      build();
+      items = list.filter((x) => x.key); index = Math.min(Math.max(0, at), items.length - 1); album = withAlbum;
+      if (!items.length) return;
+      if (el.hidden) { lastFocus = document.activeElement; el.hidden = false; el.classList.remove("bare"); document.body.classList.add("pho-viewing"); requestAnimationFrame(() => el.classList.add("on")); }
+      show();
+      setTimeout(() => el.querySelector("[data-v-close]")?.focus({ preventScroll: true }), 30);
+    }
+    function close(fromSwipe) {
+      if (!el || el.hidden) return;
+      token++; el.classList.remove("on"); document.body.classList.remove("pho-viewing");
+      const img = el.querySelector(".pho-v-stage img");
+      if (fromSwipe && !reduce()) img.style.transform = `translateY(${innerHeight * 0.6}px) scale(.85)`;
+      setTimeout(() => { el.hidden = true; img.style.transform = ""; el.style.removeProperty("--pho-dim"); img.removeAttribute("src"); }, reduce() ? 0 : 220);
+      lastFocus?.focus?.({ preventScroll: true });
+    }
+    function step(d, fromSwipe) { if (!items[index + d]) return; index += d; show(fromSwipe); }
+    async function removeCurrent() {
+      const it = items[index]; if (!it || !album) return;
+      const ok = await removeAlbumPhoto(album.model, it.key);
+      if (!ok) return;
+      // La liste a peut-être déjà été mise à jour par refresh() pendant l'attente : on retire par la clé, pas par la position.
+      items = items.filter((x) => x.key !== it.key);
+      if (!items.length) close(); else { index = Math.min(index, items.length - 1); show(); }
+    }
+    // Les photos de l'album ont changé (ajout, suppression, autre appareil) : on suit, en restant sur la même photo.
+    function refresh() {
+      if (!el || el.hidden || !album) return;
+      const key = items[index]?.key;
+      items = modelPhotos(album.model).map((p) => ({ key: p.key, thumb: p.thumb }));
+      if (!items.length) return close();
+      const i = items.findIndex((p) => p.key === key); index = i >= 0 ? i : Math.min(index, items.length - 1);
+      show();
+    }
+    return { open, close, refresh, get isOpen() { return !!el && !el.hidden; } };
+  })();
 
   // ================= Corbeille: deleted requests, kept 20 days, restorable =================
-  const trash = { groups: [], error: false, loading: false };
+  // Façon iPhone (2026-11-21) : résumé en haut, recherche de plaque, cartes groupées par jour de suppression avec les jours
+  // restants (gris, orange à 3 jours, rouge le dernier jour), « Restaurer » en bouton clair + bulle « Voir au planning »,
+  // fiche complète dans la feuille de l'équipe (teamSheet). Rien n'est effacé avant 20 jours : les règles l'interdisent.
+  const trash = { groups: [], error: false, loading: false, query: "" };
   async function openTrash() {
     trash.loading = true; trash.error = false; renderTrash();
     if (!state.store) return; // page opened from its link before sign-in: listed once connected
@@ -315,43 +408,138 @@
     } catch { trash.groups = []; trash.error = true; }
     trash.loading = false; renderTrash();
   }
+  const trashKey = (group) => group.ids.join(",");
+  const trashLeft = (group) => D.trashDaysLeft(group.supprimeLe, new Date().toISOString());
+  const trashTone = (left) => (left <= 1 ? "bad" : left <= 3 ? "soon" : "");
+  const trashLeftLabel = (left) => (left <= 0 ? "Effacée aujourd'hui" : left === 1 ? "Effacée demain" : `Effacée dans ${left} j`);
+  const trashWho = (email) => { const name = String(email || "").split("@")[0].split(/[._-]/)[0]; return name ? capFirst(name) : ""; };
+  const trashHour = (iso) => (iso ? iso.slice(11, 16).replace(":", "h") : "");
+  const trashLocalIso = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString(); };
+  function trashDayHeading(iso) {
+    const day = iso.slice(0, 10);
+    if (day === today()) return "Aujourd'hui";
+    if (day === D.addDays(today(), -1)) return "Hier";
+    return capFirst(D.dayLabel(day));
+  }
+  function trashTitle(group) {
+    const first = group.rows[0].demande;
+    return group.rows.length > 1 ? `${D.jobLabel(first)} · ${plural(group.rows.length, "véhicule")}` : D.jobLabel(first);
+  }
+  const trashWhen = (d) => (d.date ? D.numericDate(d.date).slice(0, 5) + (d.dateFin && d.dateFin !== d.date ? " au " + D.numericDate(d.dateFin).slice(0, 5) : "") : "");
+  const trashMatches = (group) => !trash.query || group.rows.some((r) => D.plateKey(r.demande.plaque || "").includes(D.plateKey(trash.query)));
   function trashCard(group) {
     const first = group.rows[0].demande;
-    const many = group.rows.length > 1;
-    const left = D.trashDaysLeft(group.supprimeLe, new Date().toISOString());
-    const plates = group.rows.map((r) => plateTag(r.demande.plaque)).join(" ");
-    const title = many ? `Lavage groupé · ${group.rows.length} véhicules` : esc(D.jobLabel(first));
-    const job = many ? D.jobLabel(first) : "";
-    const when = first.date ? D.numericDate(first.date) + (first.dateFin && first.dateFin !== first.date ? " au " + D.numericDate(first.dateFin) : "") : "";
-    const deleted = `Supprimée le ${D.numericDate(group.supprimeLe.slice(0, 10)).slice(0, 5)}${group.supprimePar ? " par " + group.supprimePar : ""}`;
-    return `<div class="trash-card">
-      <div class="trash-head"><div class="trash-plates">${plates}</div><span class="trash-days${left <= 3 ? " soon" : ""}">Effacée dans ${left} j</span></div>
-      <div class="trash-body"><b>${title}</b><span class="muted">${esc([job, when, first.prestataire].filter(Boolean).join(" · "))}</span><span class="muted small">${esc(deleted)}</span></div>
-      ${state.canWrite ? `<button type="button" data-trash-restore="${esc(group.ids.join(","))}">${icon("check")}Restaurer</button>` : ""}
-    </div>`;
+    const left = trashLeft(group);
+    const local = trashLocalIso(group.supprimeLe);
+    const plates = group.rows.slice(0, 3).map((r) => plateTag(r.demande.plaque)).join("") + (group.rows.length > 3 ? `<span class="tr-more">+${group.rows.length - 3}</span>` : "");
+    const meta = [trashWhen(first) ? "Prévue le " + trashWhen(first) : "", first.prestataire].filter(Boolean).join(" · ");
+    const by = `Supprimée à ${trashHour(local)}${group.supprimePar ? " par " + trashWho(group.supprimePar) : ""}`;
+    return `<article class="tr-card" data-trash-key="${esc(trashKey(group))}">
+      <button type="button" class="tr-open" data-trash-open="${esc(trashKey(group))}" aria-label="${esc(trashTitle(group))} : voir le détail">
+        ${serviceTile(first, "sm")}
+        <span class="tr-main">
+          <span class="tr-line"><span class="tr-plates">${plates}</span><span class="tr-days ${trashTone(left)}">${trashLeftLabel(left)}</span></span>
+          <span class="tr-what">${esc(trashTitle(group))}</span>
+          <span class="tr-meta">${esc(meta)}</span>
+          <span class="tr-meta">${esc(by)}</span>
+        </span>
+      </button>
+      ${state.canWrite ? `<div class="tr-acts"><button type="button" class="tr-restore" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer</button></div>` : ""}
+    </article>`;
   }
   function renderTrash() {
     const box = $("#trashList");
-    box.innerHTML = trash.loading && !trash.groups.length ? `<p class="hint">Chargement…</p>`
-      : trash.error ? `<div class="empty"><b>La corbeille n'est pas encore active.</b></div>`
-      : !trash.groups.length ? `<div class="empty"><b>La corbeille est vide.</b></div>`
-      : trash.groups.map(trashCard).join("");
+    const groups = trash.groups;
+    const soon = groups.filter((g) => trashLeft(g) <= 3).length;
+    const count = groups.reduce((n, g) => n + g.rows.length, 0);
+    $("#trashSearchWrap").hidden = trash.loading || trash.error || groups.length < 2;
+    $("#trashSum").innerHTML = trash.loading || trash.error || !groups.length ? "" : `<div class="tr-sum">
+        <span class="ret-ico lg" aria-hidden="true">${self.IssueArt?.art("corbeille", "ret-art") || ""}</span>
+        <div class="tr-sum-txt"><b>${plural(count, "demande")}</b><span>Restaurables pendant 20 jours après la suppression, puis effacées pour de bon.</span>
+        ${soon ? `<span class="tr-days soon">${soon} bientôt effacée${soon > 1 ? "s" : ""}</span>` : ""}</div>
+      </div>`;
+    if (trash.loading && !groups.length) { box.innerHTML = `<p class="hint">Chargement…</p>`; return; }
+    if (trash.error || !groups.length) {
+      box.innerHTML = `<div class="ret-empty"><span class="ret-ico xl" aria-hidden="true">${self.IssueArt?.art("corbeille-vide", "ret-art") || ""}</span>
+        <b>${trash.error ? "La corbeille n'est pas encore active" : "La corbeille est vide"}</b>
+        <span>Une demande supprimée reste ici 20 jours : tu peux la remettre dans le planning telle qu'elle était.</span></div>`;
+      return;
+    }
+    const shown = groups.filter(trashMatches);
+    if (!shown.length) { box.innerHTML = `<div class="ret-empty"><b>Aucune plaque ne correspond</b><span>La corbeille contient seulement les demandes supprimées ces 20 derniers jours.</span></div>`; return; }
+    const days = [];
+    for (const g of shown) {
+      const day = trashLocalIso(g.supprimeLe).slice(0, 10);
+      const last = days[days.length - 1];
+      if (last && last.day === day) last.groups.push(g); else days.push({ day, groups: [g] });
+    }
+    box.innerHTML = days.map(({ day, groups: list }) => `<section class="tr-group">
+        <h2 class="ret-gh">${esc(trashDayHeading(day))}<em>· ${list.reduce((n, g) => n + g.rows.length, 0)}</em></h2>
+        <div class="tr-cards">${list.map(trashCard).join("")}</div>
+      </section>`).join("")
+      + (state.canWrite ? "" : `<p class="ret-foot">Seuls les administrateurs peuvent restaurer une demande.</p>`);
   }
-  $("#trashList").addEventListener("click", async (e) => {
-    const button = e.target.closest("[data-trash-restore]");
-    if (!button || !requireStore()) return;
-    const ids = button.dataset.trashRestore.split(",");
-    button.disabled = true;
+  function trashSheetBody(group) {
+    const first = group.rows[0].demande;
+    const many = group.rows.length > 1;
+    const left = trashLeft(group);
+    const local = trashLocalIso(group.supprimeLe);
+    const line = (label, value, small = "") => (value ? `<div><dt>${label}</dt><dd>${esc(value)}${small ? `<small>${esc(small)}</small>` : ""}</dd></div>` : "");
+    const total = group.rows.reduce((n, r) => n + (Number(r.demande.prixHT) || 0), 0);
+    const when = first.date ? capFirst(D.isMultiDay(first) ? D.availabilityLabel(first) : D.dayLabel(first.date)) : "";
+    const vehicles = many ? `<section><p class="sheet-label">Véhicules</p><dl class="ret-sh-info">${group.rows.map((r) => `<div><dt>${plateTag(r.demande.plaque)}</dt><dd>${esc(D.timeSlotLabel(r.demande))}</dd></div>`).join("")}</dl></section>` : "";
+    return `<div class="ret-sheet tr-sheet">
+      <div class="ret-sh-hero">${serviceTile(first, "lg")}<div><p class="ret-sh-kind">Dans la corbeille</p><span class="ret-sh-what">${esc(trashTitle(group))}</span>
+        <div class="tr-plates">${many ? "" : plateTag(first.plaque)}</div></div></div>
+      <div class="tr-count ${trashTone(left)}"><b>${left > 1 ? `Encore ${left} jours dans la corbeille` : trashLeftLabel(left)}</b><span>Effacée pour de bon le ${esc(D.dayLabel(D.trashPurgeDate(group.supprimeLe).slice(0, 10)))}.</span></div>
+      ${vehicles}
+      <dl class="ret-sh-info">
+        ${line("Prévue", when, many ? "" : D.timeSlotLabel(first))}
+        ${line("Site", D.siteOf(first), first.adresse || "")}
+        ${line("Prestataire", first.prestataire || "")}
+        ${line(first.service === "intervention" ? "À faire" : "", first.tache || "")}
+        ${line("Prix", total ? D.euros(total) + " HT" : "", many ? "pour les " + group.rows.length + " véhicules" : "")}
+        ${line("Statut", first.statut ? D.statusOf(first.statut).label : "", "au moment de la suppression")}
+        ${line("Supprimée", capFirst(D.dayLabel(local.slice(0, 10))) + " à " + trashHour(local), group.supprimePar ? "par " + group.supprimePar : "")}
+      </dl>
+      ${first.notes ? `<p class="ret-sh-note">${esc(first.notes)}</p>` : ""}
+      <div class="ret-sh-acts">${state.canWrite
+        ? `<button type="button" class="ret-btn primary" data-trash-restore="${esc(trashKey(group))}">${icon("check")}Restaurer dans le planning</button>`
+        : `<p class="ret-foot">Seuls les administrateurs peuvent restaurer une demande.</p>`}</div>
+    </div>`;
+  }
+  async function restoreTrash(key, button) {
+    if (!requireStore()) return;
+    const group = trash.groups.find((g) => trashKey(g) === key);
+    if (!group) return;
+    const ids = key.split(",");
+    const date = group.rows[0].demande.date;
+    document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = true));
     try {
       await state.store.restoreDemandes(ids);
-      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : "Demande restaurée");
-      trash.groups = trash.groups.filter((g) => g.ids.join(",") !== button.dataset.trashRestore);
-      renderTrash();
+      if (teamSheet.isOpen) teamSheet.close();
+      toast(ids.length > 1 ? `${ids.length} demandes restaurées` : "Demande restaurée",
+        date ? { label: "Voir au planning", run: () => { state.day = date; show("planning"); renderPlanning(); } } : undefined);
+      const card = document.querySelector(`.tr-card[data-trash-key="${CSS.escape(key)}"]`);
+      const drop = () => { trash.groups = trash.groups.filter((g) => trashKey(g) !== key); renderTrash(); };
+      if (card && !matchMedia("(prefers-reduced-motion: reduce)").matches) { card.classList.add("tr-leave"); setTimeout(drop, 260); } else drop();
     } catch (err) {
-      button.disabled = false;
+      document.querySelectorAll(`[data-trash-restore="${CSS.escape(key)}"]`).forEach((b) => (b.disabled = false));
       if (err?.code === "already_exists") toast("Cette demande existe déjà dans le planning"); else reportWriteError(err);
     }
+  }
+  $("#trashList").addEventListener("click", (e) => {
+    const button = e.target.closest("[data-trash-restore]");
+    if (button) { restoreTrash(button.dataset.trashRestore, button); return; }
+    const open = e.target.closest("[data-trash-open]");
+    const group = open && trash.groups.find((g) => trashKey(g) === open.dataset.trashOpen);
+    if (group) teamSheet.open("Demande supprimée", trashSheetBody(group), { cls: "tr-sheet-wrap" });
   });
+  document.addEventListener("click", (e) => {
+    const button = e.target.closest(".tr-sheet [data-trash-restore]");
+    if (button) restoreTrash(button.dataset.trashRestore, button);
+  });
+  $("#trashSearch").addEventListener("input", (e) => { trash.query = e.target.value; renderTrash(); });
 
   // ================= Google Sheet link =================
   function sheetLink(plates) {
@@ -382,6 +570,7 @@
     if (view === "corbeille") openTrash();
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
     if (view === "bilan") renderReport(); // its month is read only once the page is opened
+    document.body.classList.toggle("vf-bar-on", view === "verif" && !$("#vfBar").hidden);
   }
   // Rare pages live under « Plus »: its label names the open page so the menu never hides where you are.
   function markCurrentNav(view) {
@@ -615,7 +804,7 @@
   }
 
   // ---------- the request's card, in a sheet: details, provider answer, status in one tap, « Modifier » for the full form ----------
-  const planSheet = { kind: "", id: "" };
+  const planSheet = { kind: "", id: "", log: false }; // log: the Historique page adds the change timeline
   const PLAN_STEPS = ["a_envoyer", "envoyee", "confirmee", "realisee"];
   function ficheBody(d) {
     const answer = planAnswer(d);
@@ -662,18 +851,18 @@
       ${state.canWrite && toSend.length ? `<section class="plan-box mid"><p class="plan-box-text">Message envoyé ?<small>${plural(toSend.length, "véhicule")} encore « À envoyer ».</small></p>
         <div class="plan-box-actions"><button type="button" data-plan-mark-sent>${icon("check")}Passer en « Envoyée »</button></div></section>` : ""}`;
   }
-  function openPlanSheet(kind, id = "") {
-    planSheet.kind = kind; planSheet.id = id;
+  function openPlanSheet(kind, id = "", log = false) {
+    planSheet.kind = kind; planSheet.id = id; planSheet.log = log;
     refreshPlanSheet(true);
   }
   function refreshPlanSheet(opening = false) {
     if (!opening && !teamSheet.isOpen) return;
-    const closed = () => { planSheet.kind = ""; planSheet.id = ""; };
+    const closed = () => { planSheet.kind = ""; planSheet.id = ""; planSheet.log = false; };
     if (planSheet.kind === "fiche") {
       const d = demandeById(planSheet.id);
       if (!d) { teamSheet.close(); return; }
       if (!opening && teamSheet.body.contains(document.activeElement) && document.activeElement.matches("input, textarea")) return;
-      teamSheet.open(d.plaque ? `Demande ${d.plaque}` : "Demande", ficheBody(d), { cls: "plan-sheet side-sheet", closed });
+      teamSheet.open(d.plaque ? `Demande ${d.plaque}` : "Demande", ficheBody(d) + (planSheet.log ? histLogHtml() : ""), { cls: "plan-sheet side-sheet", closed });
     } else if (planSheet.kind === "send") {
       if (!opening) return; // the folded message stays as the user left it
       teamSheet.open("Liste du jour à envoyer", sendBody(), { cls: "plan-sheet side-sheet", closed });
@@ -810,7 +999,7 @@
       } else if (b.dataset.planAccept) { await state.store.acceptProposedDate(d); toast(`Date changée pour ${d.plaque}`); }
       else await state.store.markAnswerSeen(d);
     } catch (err) { reportWriteError(err); }
-    finally { b.disabled = false; refreshPlanSheet(); }
+    finally { b.disabled = false; refreshPlanSheet(); if (planSheet.log) setTimeout(() => planSheet.log && loadHistLog(planSheet.id), 900); }
   });
 
   // ================= request form =================
@@ -1323,113 +1512,284 @@
     }
   });
 
-  // ================= photo library (one album per fleet model) =================
+  // ================= photo library (one album per fleet model), façon app Photos =================
+  // Une grille d'albums (un par modèle de la flotte) ; toucher un album = feuille avec ses photos, ajout en tuile,
+  // prochains pare-brise du modèle ; toucher une photo = plein écran. « Sans photo » montre ce qu'il reste à compléter.
+  const lib = { filter: "all" };
   const openModel = () => state.fleet.find((f) => D.modelKey(f) === state.openModelKey) || state.models.get(state.openModelKey);
+  const WIND_ART = (cls) => self.IssueArt?.art("Pare-brise", cls) || "";
+  const relDay = (iso) => iso === today() ? "aujourd'hui" : iso === D.addDays(today(), 1) ? "demain" : D.dayLabel(iso);
+  // Pare-brise encore à faire pour ce modèle (dans les demandes chargées), le plus proche d'abord.
+  const upcomingWindshields = (key) => state.demandes
+    .filter((d) => D.isWindshield(d) && D.isActive(d) && D.isOpen(d) && (d.dateFin || d.date || "") >= today() && D.modelKey(d) === key)
+    .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  const libModels = () => D.uniqueModels(state.fleet).map((f) => { const key = D.modelKey(f); return { f, key, photos: modelPhotos(f), next: upcomingWindshields(key) }; });
   function renderPhotoLibrary() {
+    const all = libModels();
+    const missing = all.filter((m) => !m.photos.length);
+    const urgent = missing.filter((m) => m.next.length);
+    const total = all.reduce((n, m) => n + m.photos.length, 0);
+    $("#phoKicker").textContent = `Pare-brise · ${plural(all.length, "modèle")} · ${plural(total, "photo")}`;
+    $("#phoAllN").textContent = all.length;
+    $("#phoMissN").textContent = missing.length || "";
+    $("#phoMissN").hidden = !missing.length;
+    for (const b of document.querySelectorAll("[data-pho-filter]")) b.setAttribute("aria-selected", String(b.dataset.phoFilter === lib.filter));
     const query = $("#p-q").value;
-    const models = D.uniqueModels(state.fleet).filter((f) => D.matchesSearch([D.fleetLabel(f)], query));
-    $("#p-list").innerHTML = models.length
-      ? `<div class="veh-grid">${models.map(modelCard).join("")}</div>`
-      : `<div class="empty"><b>Aucun modèle ne correspond.</b><span>Les modèles viennent de la flotte, dans Réglages.</span></div>`;
-    renderModelDetail();
+    $("#p-alert").innerHTML = urgent.length && !query ? alertCard(urgent) : "";
+    const shown = all.filter((m) => (lib.filter === "all" || !m.photos.length) && D.matchesSearch([D.fleetLabel(m.f)], query));
+    $("#p-list").innerHTML = shown.length
+      ? `<div class="pho-grid">${shown.map(albumCard).join("")}</div>`
+      : !all.length ? emptyLib("Aucun modèle dans la flotte.", "Les modèles viennent de la flotte, dans Réglages.")
+      : lib.filter === "missing" && !query ? emptyLib("Tous les modèles ont leur photo.", "Chaque demande de pare-brise part avec les photos de son modèle.", "Pare-brise")
+      : emptyLib("Aucun modèle ne correspond.", "Essaie avec la marque ou le cubage, par exemple « Movano » ou « 20 m³ ».");
+    if (teamSheet.isOpen && state.openModelKey && teamSheet.body.querySelector(".pho-sheet")) {
+      const model = openModel();
+      if (model) { teamSheet.body.innerHTML = albumSheetHtml(model); } else teamSheet.close();
+    }
+    viewer.refresh();
   }
-  function modelCard(f) {
-    const key = D.modelKey(f);
-    const photos = modelPhotos(f);
-    const thumbs = Array.from({ length: 4 }, (_, i) => photos[i] ? `<img src="${safeImageSrc(photos[i].thumb)}" alt="">` : "<span></span>").join("");
-    return `<button class="veh-card" data-model="${esc(key)}" aria-current="${key === state.openModelKey}">
-      <span class="row"><b>${esc(f.modele)}</b><span class="muted small">${photos.length ? plural(photos.length, "photo") : "aucune photo"}</span></span>
-      <span>${f.cubage ? esc(f.cubage) + " m³" : ""}</span>
-      <span class="thumbs">${thumbs}</span></button>`;
+  const emptyLib = (title, text, art) => `<div class="pho-empty">${art ? `<span class="pho-ico xl" aria-hidden="true">${WIND_ART("pho-art")}</span>` : ""}<b>${esc(title)}</b><span>${esc(text)}</span></div>`;
+  function alertCard(urgent) {
+    const first = urgent[0], d = first.next[0];
+    const what = urgent.length > 1 ? `${urgent.length} modèles ont un pare-brise prévu sans photo` : "Pare-brise prévu, mais aucune photo";
+    const sub = urgent.length > 1 ? urgent.map((m) => D.fleetLabel(m.f)).join(", ")
+      : `${D.fleetLabel(first.f)}\n${[d.plaque, relDay(d.date)].filter(Boolean).join(", ")}`;
+    return `<button type="button" class="pho-alert" data-model="${esc(first.key)}">
+      <span class="pho-ico" aria-hidden="true">${WIND_ART("pho-art")}</span>
+      <span class="pho-alert-t"><span class="pho-pill warn">À compléter</span><b>${esc(what)}</b><span>${esc(sub).replace("\n", "<br>")}</span></span>
+      ${icon("chev-r")}</button>`;
   }
-  function renderModelDetail() {
-    const model = state.openModelKey ? openModel() : null;
-    if (!model) { $("#p-detail").innerHTML = ""; return; }
-    const photos = modelPhotos(model);
-    const label = D.fleetLabel(model);
-    $("#p-detail").innerHTML = `<div class="panel" style="margin-bottom:24px">
-      <div class="panel-head"><h2>${esc(label)}</h2><button type="button" class="ghost" data-close-model aria-label="Fermer">${icon("x")}</button></div>
-      <p class="hint">Ces photos partent avec chaque demande de pare-brise pour un ${esc(model.modele)}${model.cubage ? ` de ${esc(model.cubage)} m³` : ""}. Tu peux aussi coller une capture (Ctrl+V).</p>
-      <h3>Photos du pare-brise · ${photos.length}/${MAX_PHOTOS_PER_VEHICLE}</h3>
-      <div class="ph-grid">${photos.map((p, i) => photoTile(label, p, i)).join("")}<button type="button" class="drop" style="width:auto;height:auto;min-height:150px" data-add-model-photo>${icon("plus")}Ajouter des photos</button></div>
+  function albumCard({ f, key, photos, next }) {
+    const cover = photos[0]
+      ? `<img src="${safeImageSrc(photos[0].thumb)}" alt="" loading="lazy">${photos.length > 1 ? `<span class="pho-count">${photos.length}</span>` : ""}`
+      : `<span class="pho-ico lg" aria-hidden="true">${WIND_ART("pho-art")}</span>${state.canWrite ? `<span class="pho-cover-add">${icon("plus")}Ajouter</span>` : ""}`;
+    const sub = [f.cubage ? `${esc(f.cubage)} m³` : "", photos.length ? plural(photos.length, "photo") : `<em class="pho-miss">Aucune photo</em>`].filter(Boolean).join(" · ");
+    const nextLine = next.length ? `<span class="pho-next${photos.length ? "" : " warn"}">${next.length} pare-brise à venir</span>` : "";
+    return `<button type="button" class="pho-album${photos.length ? "" : " none"}" data-model="${esc(key)}" aria-label="${esc(D.fleetLabel(f))}, ${photos.length ? plural(photos.length, "photo") : "aucune photo"}">
+      <span class="pho-cover">${cover}</span><span class="pho-name">${esc(f.modele)}</span><span class="pho-sub">${sub}</span>${nextLine}</button>`;
+  }
+  function albumSheetHtml(model) {
+    const key = D.modelKey(model), photos = modelPhotos(model), next = upcomingWindshields(key), label = D.fleetLabel(model);
+    const canAdd = state.canWrite && photos.length < MAX_PHOTOS_PER_VEHICLE;
+    const tiles = photos.map((p, i) => `<button type="button" class="pho-ph" data-pho-view="${esc(p.key)}" aria-label="Voir la photo ${i + 1} en grand"><img src="${safeImageSrc(p.thumb)}" alt=""></button>`).join("")
+      + (canAdd ? `<button type="button" class="pho-add" data-pho-add><span class="pho-add-b">${icon("plus")}</span><span>Ajouter</span></button>` : "");
+    const many = photos.length > 1;
+    return `<div class="pho-sheet" data-pho-model="${esc(key)}">
+      <div class="pho-sh-hero"><span class="pho-ico lg" aria-hidden="true">${WIND_ART("pho-art")}</span>
+        <div><p class="pho-sh-kind">Photos du pare-brise</p><b>${esc(model.cubage ? `${model.cubage} m³` : model.modele)} · ${photos.length ? `${photos.length} sur ${MAX_PHOTOS_PER_VEHICLE}` : "aucune photo"}</b>
+        <span>Elles partent avec chaque demande de pare-brise de ce modèle, pour tous ses véhicules.</span></div></div>
+      ${photos.length || canAdd ? `<div class="pho-ph-grid">${tiles}</div>` : `<p class="sheet-sub">Aucune photo pour ce modèle.</p>`}
+      ${canAdd ? `<p class="pho-tip desk">Tu peux aussi glisser des images ici, ou coller une capture (Ctrl+V).</p>` : photos.length >= MAX_PHOTOS_PER_VEHICLE ? `<p class="pho-tip">${MAX_PHOTOS_PER_VEHICLE} photos au maximum : supprimes-en une pour en ajouter.</p>` : ""}
+      ${photos.length ? `<div class="pho-sh-acts">
+        <button type="button" class="pho-btn primary" data-pho-copy-all>${icon("copy")}${many ? `Copier les ${photos.length} photos` : "Copier la photo"}</button>
+        <button type="button" class="pho-btn" data-pho-save-all>${icon("download")}Télécharger en taille réelle</button></div>` : ""}
+      ${next.length ? `<section><h3 class="sheet-label">Prochains pare-brise de ce modèle</h3><div class="pho-next-list">${next.slice(0, 4).map((d) => `
+        <button type="button" class="pho-next-row" data-pho-demande="${esc(d.id)}">${plateTag(d.plaque)}<span><b>${esc(capFirst(relDay(d.date)))}</b><small>${esc([d.site, d.prestataire].filter(Boolean).join(" · "))}</small></span>${icon("chev-r")}</button>`).join("")}</div>
+        ${next.length > 4 ? `<p class="pho-tip">et ${next.length - 4} autre${next.length - 4 > 1 ? "s" : ""}</p>` : ""}</section>` : ""}
     </div>`;
   }
-  $("#p-q").addEventListener("input", renderPhotoLibrary);
-  $("#p-list").addEventListener("click", (e) => {
-    const card = e.target.closest("[data-model]");
-    if (card) { state.openModelKey = card.dataset.model; renderPhotoLibrary(); window.scrollTo({ top: 0 }); }
-  });
-  $("#p-detail").addEventListener("click", async (e) => {
-    const model = openModel();
-    if (!model) return;
-    if (e.target.closest("[data-close-model]")) { state.openModelKey = null; renderPhotoLibrary(); }
-    else if (e.target.closest("[data-add-model-photo]")) pickPhotosFor(model);
-    else if (e.target.closest("[data-remove-photo]")) confirmPhotoRemoval(e.target.closest("[data-remove-photo]"), albumOf(model));
-  });
-  async function confirmPhotoRemoval(button, album) {
-    if (!album) return;
-    if (button.dataset.armed !== "1") { button.dataset.armed = "1"; button.textContent = "Confirmer"; return; }
-    try { await state.store.removeModelPhoto(album, button.dataset.removePhoto); toast("Photo supprimée"); }
-    catch (err) { reportWriteError(err); }
+  function openAlbum(key) {
+    state.openModelKey = key;
+    const model = openModel(); if (!model) return;
+    teamSheet.open(model.modele, albumSheetHtml(model), { cls: "pho-sheet-b", closed: () => (state.openModelKey = null) });
   }
+  // Supprimer : tout de suite, avec « Annuler » dans la bulle (la photo est gardée en mémoire le temps de la bulle).
+  async function removeAlbumPhoto(model, key) {
+    const album = albumOf(model);
+    if (!album || !requireStore()) return false;
+    const entry = album.photos.find((p) => p.key === key);
+    if (!entry) return false;
+    const full = await state.store.loadPhoto(key).catch(() => null);
+    try { await state.store.removeModelPhoto(album, key); }
+    catch (err) { reportWriteError(err); return false; }
+    toast("Photo supprimée", full ? { label: "Annuler", run: async () => {
+      try { await state.store.addModelPhoto(albumOf(model), model, { full, thumb: entry.thumb }); toast("Photo remise"); }
+      catch (err) { reportWriteError(err); }
+    } } : undefined);
+    return true;
+  }
+  $("#p-q").addEventListener("input", renderPhotoLibrary);
+  document.querySelector(".pho-seg").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pho-filter]"); if (!b) return;
+    lib.filter = b.dataset.phoFilter; renderPhotoLibrary();
+  });
+  $("#view-photos").addEventListener("click", (e) => {
+    const card = e.target.closest("[data-model]");
+    if (card) openAlbum(card.dataset.model);
+  });
+  teamSheet.body.addEventListener("click", (e) => {
+    const sheet = e.target.closest(".pho-sheet"); if (!sheet) return;
+    const model = openModel(); if (!model) return;
+    const photos = modelPhotos(model), label = D.fleetLabel(model);
+    const entries = photos.map((p) => ({ key: p.key, plate: label, label: "" }));
+    let el;
+    if ((el = e.target.closest("[data-pho-view]"))) viewer.open(photos.map((p) => ({ key: p.key, thumb: p.thumb })), photos.findIndex((p) => p.key === el.dataset.phoView), { model, label });
+    else if (e.target.closest("[data-pho-add]")) pickPhotosFor(model);
+    else if (e.target.closest("[data-pho-copy-all]")) copyImage(() => buildPhotoSheet(entries), sheetName(), () => buildPhotoSheet(entries, "image/jpeg"));
+    else if (e.target.closest("[data-pho-save-all]")) saveAllPhotos(entries);
+    else if ((el = e.target.closest("[data-pho-demande]"))) { teamSheet.close(); openDemande(el.dataset.phoDemande); }
+  });
+  // Glisser-déposer des images sur la feuille d'un album (ordinateur).
+  document.addEventListener("dragover", (e) => { const s = e.target.closest?.(".pho-sheet"); if (s && state.canWrite) { e.preventDefault(); s.classList.add("drop-on"); } });
+  document.addEventListener("dragleave", (e) => { const s = e.target.closest?.(".pho-sheet"); if (s && !s.contains(e.relatedTarget)) s.classList.remove("drop-on"); });
+  document.addEventListener("drop", (e) => {
+    const s = e.target.closest?.(".pho-sheet"); if (!s) return;
+    e.preventDefault(); s.classList.remove("drop-on");
+    const files = [...(e.dataTransfer?.files || [])].filter((f) => f.type.startsWith("image/"));
+    const model = openModel();
+    if (files.length && model && state.canWrite) addPhotoFiles(model, files);
+  });
 
   // ================= verification =================
-  $("#v-from").value = D.addDays(today(), -14);
-  $("#v-to").value = D.addDays(today(), 7);
+  // Relance d'un prestataire (2026-11-21, façon iPhone) : qui et quand en pastilles, le message à copier, sa réponse collée
+  // qui coche les plaques citées, la liste groupée par jour, puis une barre en bas pour tout mettre à jour (bulle « Annuler »).
+  const VF_DEFAULT_RANGE = 14;
+  function setVerificationRange(days) {
+    $("#v-from").value = D.addDays(today(), -days);
+    $("#v-to").value = D.addDays(today(), 7);
+  }
+  setVerificationRange(VF_DEFAULT_RANGE);
+  $("#vfMsgArt").innerHTML = self.IssueArt?.art("vf-message", "svc-art") || "";
+  $("#vfReplyArt").innerHTML = self.IssueArt?.art("vf-reponse", "svc-art") || "";
   const VERIFICATION_FILTERS = {
     pending: (d) => ["envoyee", "confirmee"].includes(d.statut),
     envoyee: (d) => d.statut === "envoyee",
     confirmee: (d) => d.statut === "confirmee",
     all: D.isActive,
   };
-  function verificationRows() {
-    const provider = $("#v-prest").value, from = $("#v-from").value, to = $("#v-to").value;
+  function verificationRows(provider = $("#v-prest").value) {
+    const from = $("#v-from").value, to = $("#v-to").value;
     const statusFilter = VERIFICATION_FILTERS[$("#v-st").value];
     return state.demandes
       .filter((d) => (!provider || d.prestataire === provider) && (!from || D.lastDay(d) >= from) && (!to || d.date <= to) && statusFilter(d))
       .sort(D.byDateThenTime);
+  }
+  const vfReply = () => D.replyPlates($("#v-paste").value);
+  function vfRow(d, reply, showProvider) {
+    const on = state.checkedForVerification.has(d.id);
+    const hour = (t) => String(t || "").replace(/^0?(\d+):(\d\d)$/, (m, h, mn) => `${h}h${mn === "00" ? "" : mn}`);
+    const slot = d.debut && d.fin ? `${hour(d.debut)}–${hour(d.fin)}` : D.timeSlotLabel(d);
+    const sub = [D.siteOf(d), slot, showProvider ? d.prestataire : ""].filter(Boolean).map(esc).join(" · ");
+    const key = D.plateKey(d.plaque);
+    const said = reply.done.includes(key) ? `<span class="vf-said ok">Répondu : fait</span>` : reply.notDone.includes(key) ? `<span class="vf-said todo">Répondu : pas fait</span>` : "";
+    return `<div class="vf-row${on ? " on" : ""}">
+      <button type="button" class="vf-check" data-check="${esc(d.id)}" aria-pressed="${on}" aria-label="${on ? "Décocher" : "Cocher"} ${esc(d.plaque)}">
+        <span class="vf-tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg></span>
+        ${serviceTile(d)}
+        <span class="vf-row-text"><span class="vf-row-top">${plateTag(d.plaque)}${said}</span><span class="vf-row-sub">${sub}</span></span>
+        ${planStatus(d)}
+      </button>
+      <button type="button" class="vf-more" data-vf-open="${esc(d.id)}" aria-label="Voir la demande ${esc(d.plaque)}">${icon("chev-r")}</button>
+    </div>`;
+  }
+  function renderVerificationPills() {
+    const box = $("#vfProvs");
+    const pill = (value, label) => `<button type="button" class="vf-prov" data-vf-prov="${esc(value)}" aria-pressed="${$("#v-prest").value === value}">${esc(label)}<em>${verificationRows(value).length}</em></button>`;
+    box.innerHTML = pill("", "Tous") + state.providers.map((p) => pill(p, p)).join("");
+    const from = $("#v-from").value, to = $("#v-to").value;
+    $("#vfRange").querySelectorAll("[data-range]").forEach((b) => b.setAttribute("aria-pressed", String(to === D.addDays(today(), 7) && from === D.addDays(today(), -Number(b.dataset.range)))));
+    $("#vfStatus").querySelectorAll("[data-st]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.st === $("#v-st").value)));
   }
   function renderVerification() {
     if ($("#v-from").value) needOlder($("#v-from").value, $("#v-to").value ? D.addDays($("#v-to").value, 1) : null);
     const rows = verificationRows();
     const checked = state.checkedForVerification;
     [...checked].forEach((id) => { if (!rows.some((r) => r.id === id)) checked.delete(id); });
-    $("#v-count").textContent = `${plural(rows.length, "véhicule")} · ${plural(checked.size, "coché")}`;
-    $("#v-table").innerHTML = rows.length ? `<div class="tablewrap"><table><thead><tr>
-        <th><input type="checkbox" id="v-all" aria-label="Tout cocher" ${checked.size && checked.size === rows.length ? "checked" : ""}></th><th>Dispo</th><th>Plaque</th><th>Site</th><th>Statut</th></tr></thead><tbody>
-      ${rows.map((d) => `<tr><td><input type="checkbox" data-check="${esc(d.id)}" aria-label="Cocher ${esc(d.plaque)}" ${checked.has(d.id) ? "checked" : ""}></td>
-        <td class="date">${esc(D.shortDate(d.date))}</td><td>${plateTag(d.plaque)}</td><td>${esc(D.siteOf(d))}</td><td>${statusChip(d.statut)}</td></tr>`).join("")}
-      </tbody></table></div>` : `<div class="empty"><b>Rien à vérifier sur cette période.</b><span>Les demandes envoyées ou confirmées dont la disponibilité tombe entre les deux dates s'affichent ici.</span></div>`;
     const provider = $("#v-prest").value;
+    const reply = vfReply();
+    const cited = [...reply.done, ...reply.notDone];
+    renderVerificationPills();
+    $("#vfKicker").textContent = provider ? `Relance de ${provider}` : "Relance d'un prestataire";
+    $("#v-count").textContent = rows.length ? `${plural(rows.length, "véhicule")} · ${plural(checked.size, "coché")}` : "";
+    const allOn = rows.length && checked.size === rows.length;
+    $("#vfAll").hidden = !rows.length;
+    $("#vfAll").textContent = allOn ? "Tout décocher" : "Tout cocher";
+    $("#v-table").innerHTML = rows.length
+      ? [...D.groupBy(rows, (d) => d.date)].map(([date, items]) => `<section class="vf-day"><h3>${esc(capFirst(D.dayLabel(date)))}<em>${items.length}</em></h3>
+          <div class="vf-list">${items.map((d) => vfRow(d, reply, !provider)).join("")}</div></section>`).join("")
+      : `<div class="vf-empty"><span class="vf-empty-art" aria-hidden="true">${self.IssueArt?.art("faits-vide", "svc-art") || ""}</span><b>Rien à vérifier sur cette période</b><span>Les demandes envoyées ou confirmées dont la disponibilité tombe entre les deux dates s'affichent ici.</span></div>`;
+    // Message: the same text as before, in a card with a capsule « Copier » and a WhatsApp shortcut.
     const kind = document.querySelector('input[name="vkind"]:checked')?.value;
-    $("#v-share").innerHTML = shareBlock({ text: D.verificationMessage(rows, { provider, kind, siteNames: siteNames() }) });
+    const text = D.verificationMessage(rows, { provider, kind, siteNames: siteNames() });
+    $("#v-share").innerHTML = `<pre class="vf-msg" id="v-msg">${esc(text)}</pre>
+      ${rows.length ? `<div class="vf-msg-actions"><button type="button" class="vf-copy" data-copy="#v-msg">${icon("copy")}Copier le message</button>
+        <a class="vf-wa" href="${esc(D.whatsappLink(text))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a></div>` : ""}`;
+    // Reply: what was recognised (done = ticked, not done = left unticked), and the plates it cites that are not in the list.
+    const known = new Set(rows.map((r) => D.plateKey(r.plaque)));
+    const found = reply.done.filter((k) => known.has(k));
+    const notDone = reply.notDone.filter((k) => known.has(k));
+    const unknown = cited.filter((k) => !known.has(k));
+    const plateList = (keys) => keys.map((k) => `<b>${esc(D.normalizePlate(k))}</b>`).join(", ");
+    $("#vfClearBtn").hidden = !$("#v-paste").value;
+    $("#vfMatch").innerHTML = !cited.length ? (($("#v-paste").value.trim()) ? `<p class="vf-match-line none">Aucune plaque reconnue dans ce texte.</p>` : "")
+      : `${found.length ? `<p class="vf-match-line ok"><span class="vf-dot" aria-hidden="true"></span>${found.length > 1 ? `${found.length} faites, cochées` : "1 faite, cochée"} : ${plateList(found)}</p>` : ""}
+        ${notDone.length ? `<p class="vf-match-line todo"><span class="vf-dot" aria-hidden="true"></span>${notDone.length > 1 ? `${notDone.length} pas encore faites, non cochées` : "1 pas encore faite, non cochée"} : ${plateList(notDone)}</p>` : ""}
+        ${unknown.length ? `<p class="vf-match-line none"><span class="vf-dot" aria-hidden="true"></span>Pas dans la liste : ${plateList(unknown)}</p>` : ""}`;
+    // Bottom bar: only once something is ticked.
+    const n = checked.size;
+    $("#vfBar").hidden = !n || !state.canWrite;
+    $("#vfBarN").textContent = n;
+    $("#vfBarLabel").textContent = n > 1 ? "véhicules cochés" : "véhicule coché";
+    document.body.classList.toggle("vf-bar-on", !$("#vfBar").hidden && !$("#view-verif").hidden);
     $("#v-sheet").innerHTML = sheetLink(state.demandes.filter((d) => checked.has(d.id)).map((d) => d.plaque));
   }
-  ["#v-prest", "#v-from", "#v-to", "#v-st"].forEach((s) => $(s).addEventListener("change", renderVerification));
+  ["#v-from", "#v-to"].forEach((s) => $(s).addEventListener("change", renderVerification));
   $("#v-kind").addEventListener("change", renderVerification);
-  $("#v-table").addEventListener("change", (e) => {
-    const checked = state.checkedForVerification;
-    if (e.target.id === "v-all") { checked.clear(); if (e.target.checked) verificationRows().forEach((r) => checked.add(r.id)); }
-    else if (e.target.dataset.check) e.target.checked ? checked.add(e.target.dataset.check) : checked.delete(e.target.dataset.check);
+  $("#vfProvs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-vf-prov]"); if (!b) return;
+    $("#v-prest").value = b.dataset.vfProv; renderVerification();
+  });
+  $("#vfRange").addEventListener("click", (e) => { const b = e.target.closest("[data-range]"); if (b) { setVerificationRange(Number(b.dataset.range)); renderVerification(); } });
+  $("#vfStatus").addEventListener("click", (e) => { const b = e.target.closest("[data-st]"); if (b) { $("#v-st").value = b.dataset.st; renderVerification(); } });
+  $("#v-table").addEventListener("click", (e) => {
+    const open = e.target.closest("[data-vf-open]");
+    if (open) { openDemandeFromPlanning(open.dataset.vfOpen); return; }
+    const b = e.target.closest("[data-check]"); if (!b) return;
+    const checked = state.checkedForVerification, id = b.dataset.check;
+    checked.has(id) ? checked.delete(id) : checked.add(id);
     renderVerification();
   });
-  $("#v-paste").addEventListener("input", () => {
-    const cited = D.platesInText($("#v-paste").value);
-    const newlyChecked = verificationRows().filter((r) => cited.includes(D.plateKey(r.plaque)) && !state.checkedForVerification.has(r.id));
+  $("#vfAll").addEventListener("click", () => {
+    const rows = verificationRows(), checked = state.checkedForVerification;
+    if (rows.length && checked.size === rows.length) checked.clear(); else rows.forEach((r) => checked.add(r.id));
+    renderVerification();
+  });
+  $("#vfNone").addEventListener("click", () => { state.checkedForVerification.clear(); renderVerification(); });
+  function applyPastedReply() {
+    const { done } = vfReply();
+    const newlyChecked = verificationRows().filter((r) => done.includes(D.plateKey(r.plaque)) && !state.checkedForVerification.has(r.id));
     newlyChecked.forEach((r) => state.checkedForVerification.add(r.id));
-    if (newlyChecked.length) toast(`${plural(newlyChecked.length, "véhicule")} coché${newlyChecked.length > 1 ? "s" : ""}`);
-    renderVerification();
+    renderVerification(); // the « Sa réponse » card and the bottom bar say what was ticked
+  }
+  $("#v-paste").addEventListener("input", applyPastedReply);
+  $("#vfPasteBtn").addEventListener("click", async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) { toast("Le presse-papiers est vide"); return; }
+      $("#v-paste").value = text; applyPastedReply();
+    } catch { $("#v-paste").focus(); toast("Colle sa réponse dans la case (Ctrl+V ou appui long)"); }
   });
-  document.querySelectorAll("[data-bulk]").forEach((button) => button.addEventListener("click", async () => {
+  $("#vfClearBtn").addEventListener("click", () => { $("#v-paste").value = ""; renderVerification(); $("#v-paste").focus(); });
+  document.querySelectorAll("#view-verif [data-bulk]").forEach((button) => button.addEventListener("click", async () => {
     if (!requireStore()) return;
     const status = button.dataset.bulk;
-    const targets = state.demandes.filter((d) => state.checkedForVerification.has(d.id));
-    if (!targets.length) return toast("Coche d'abord des véhicules");
+    const targets = state.demandes.filter((d) => state.checkedForVerification.has(d.id) && d.statut !== status);
+    if (!targets.length) return toast(state.checkedForVerification.size ? `Déjà en « ${D.statusOf(status).label} »` : "Coche d'abord des véhicules");
+    const before = targets.map((d) => ({ id: d.id, statut: d.statut }));
+    const buttons = document.querySelectorAll("#view-verif [data-bulk]");
+    buttons.forEach((b) => (b.disabled = true));
     try {
       for (const d of targets) await state.store.setStatus(d, status);
-      toast(`${plural(targets.length, "véhicule")} passé${targets.length > 1 ? "s" : ""} en « ${D.statusOf(status).label} »`);
-      if (status === "annulee") state.checkedForVerification.clear();
+      state.checkedForVerification.clear();
+      renderVerification();
+      toast(`${plural(targets.length, "véhicule")} passé${targets.length > 1 ? "s" : ""} en « ${D.statusOf(status).label} »`, { label: "Annuler", run: async () => {
+        try {
+          for (const b of before) { const d = demandeById(b.id); if (d && d.statut === status) await state.store.setStatus(d, b.statut); }
+          toast("Statuts remis comme avant");
+        } catch (err) { reportWriteError(err); }
+      } });
     } catch (err) { reportWriteError(err); }
+    finally { buttons.forEach((b) => (b.disabled = false)); }
   }));
 
   // ================= monthly report =================
@@ -1489,48 +1849,198 @@
     saveBlob(Promise.resolve(new Blob([D.toCsv(exportRows())], { type: "text/csv" })), filename);
   };
 
-  // ================= history =================
+  // ================= history (façon iPhone, 2026-11-21) =================
+  // Big title, grey search field, period and status in pills, the other filters in a sheet; the list is grouped by day
+  // (a fine table on computer). A tap opens the request's card in a sheet, with its change history as a timeline.
+  // The hidden selects (#h-prest…#h-mois) stay the source of truth, so links from the Planning keep working.
   const HISTORY_STATUS_FILTERS = { "": () => true, ouvert: D.isOpen };
-  function renderHistory() {
-    const query = $("#q").value, provider = $("#h-prest").value, status = $("#h-statut").value, service = $("#h-svc").value, site = $("#h-site").value;
-    const statusFilter = HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
-    const month = $("#h-mois").value, from = month && month + "-01", to = month && D.nextMonthStart(from);
-    const loading = month && needOlder(from, to);
-    renderOlderNote();
-    const rows = state.demandes.filter((d) => (!month || (d.date && d.date < to && D.lastDay(d) >= from)) &&
+  const HIST_STATUS_PILLS = [["", "Toutes"], ["ouvert", "En cours"], ["a_envoyer", "À envoyer"], ["realisee", "Réalisées"], ["annulee", "Annulées"]];
+  const HIST_TONE = { a_envoyer: "todo", realisee: "ok", annulee: "off" };
+  const hv = (id) => $("#h-" + id).value;
+  const setHist = (id, value) => { $("#h-" + id).value = value; renderHistory(); };
+  const histMonthLabel = (m) => capFirst(D.monthLabel(m));
+  function historyRows({ ignoreStatus = false } = {}) {
+    const query = $("#q").value, provider = hv("prest"), status = hv("statut"), service = hv("svc"), site = hv("site");
+    const statusFilter = ignoreStatus ? () => true : HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
+    const month = hv("mois"), from = month && month + "-01", to = month && D.nextMonthStart(from);
+    return state.demandes.filter((d) => (!month || (d.date && d.date < to && D.lastDay(d) >= from)) &&
       (!provider || d.prestataire === provider) && (!service || d.service === service) && (!site || d.site === site) && statusFilter(d) &&
-      D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire], query)
+      D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire, d.tache], query)
     ).sort((a, b) => (b.date || "").localeCompare(a.date || "") || D.byStartTime(a, b));
+  }
+  function renderHistoryPills(all) {
+    const month = hv("mois"), now = today().slice(0, 7);
+    const prev = D.toIsoDate((() => { const d = D.parseIsoDate(now + "-01"); d.setMonth(d.getMonth() - 1); return d; })()).slice(0, 7);
+    const other = month && month !== now && month !== prev;
+    const per = (value, label) => `<button type="button" class="plan-prov" data-h-mois="${value}" aria-pressed="${month === value}">${esc(label)}</button>`;
+    $("#h-periods").innerHTML = per("", "Récentes") + per(now, histMonthLabel(now).replace(/ \d{4}$/, "")) + per(prev, histMonthLabel(prev).replace(/ \d{4}$/, ""))
+      + `<button type="button" class="plan-prov" data-h-other aria-pressed="${!!other}">${other ? esc(histMonthLabel(month)) : "Autre mois…"}${icon("chev-d")}</button>`;
+    const status = hv("statut");
+    const count = (value) => all.filter(HISTORY_STATUS_FILTERS[value] || ((d) => d.statut === value)).length;
+    const pills = HIST_STATUS_PILLS.slice();
+    if (status && !pills.some(([v]) => v === status)) pills.push([status, D.statusOf(status).label]);
+    const extra = [["prest", hv("prest")], ["site", hv("site")], ["svc", hv("svc") && D.SERVICES.find((s) => s.id === hv("svc"))?.label]].filter(([, v]) => v);
+    $("#h-filters").innerHTML = `<button type="button" class="hist-more${extra.length ? " on" : ""}" data-h-more aria-label="Filtres : prestataire, site, prestation">${icon("list")}<span>Filtres</span>${extra.length ? `<em>${extra.length}</em>` : ""}</button>`
+      + extra.map(([id, label]) => `<button type="button" class="hist-chip" data-h-clear="${id}" aria-label="Retirer le filtre ${esc(label)}">${esc(label)}${icon("x")}</button>`).join("")
+      + `<span class="hist-sep" aria-hidden="true"></span>`
+      + pills.map(([v, label]) => `<button type="button" class="plan-prov hist-st ${HIST_TONE[v] || ""}" data-h-statut="${v}" aria-pressed="${status === v}">${v && v !== "ouvert" ? `<i aria-hidden="true"></i>` : ""}${esc(label)}<em>${count(v)}</em></button>`).join("");
+  }
+  function renderHistory() {
+    const month = hv("mois"), from = month && month + "-01", to = month && D.nextMonthStart(from);
+    const loading = month && needOlder(from, to);
+    $("#h-kicker").textContent = month ? histMonthLabel(month) : "15 derniers jours et en cours";
+    renderOlderNote();
+    const all = historyRows({ ignoreStatus: true });
+    renderHistoryPills(all);
+    const rows = historyRows();
+    $("#h-export").disabled = !rows.length;
     if (loading && !rows.length) {
-      $("#histWrap").innerHTML = `<div class="empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les choisis.</span></div>`;
+      $("#histWrap").innerHTML = `<div class="plan-empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les choisis.</span></div>`;
       return;
     }
     if (!rows.length) {
-      $("#histWrap").innerHTML = `<div class="empty"><b>${state.demandes.length ? "Aucune demande ne correspond à ces filtres." : "Aucune demande enregistrée pour l'instant."}</b><span>Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée.</span></div>`;
+      const filtered = $("#q").value || hv("prest") || hv("site") || hv("svc") || hv("statut");
+      $("#histWrap").innerHTML = `<div class="plan-empty"><span class="svc-tile lg" aria-hidden="true">${self.IssueArt?.art("hist-vide", "svc-art") || ""}</span>
+        <b>${state.demandes.length ? (filtered ? "Aucune demande ne correspond" : "Aucune demande sur cette période") : "Aucune demande enregistrée pour l'instant"}</b>
+        <span>${filtered ? "Essaie une autre plaque, ou retire un filtre." : "Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée."}</span>
+        ${filtered ? `<button type="button" class="plan-link" data-h-reset>Effacer la recherche et les filtres</button>` : ""}</div>`;
       return;
     }
-    $("#histWrap").innerHTML = `<div class="tablewrap"><table class="wide hist"><thead><tr><th>Dispo</th><th>Créneau</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th><th>Envoyée le</th></tr></thead><tbody>${rows.map(historyLine).join("")}</tbody></table></div>`;
+    const groups = [];
+    rows.forEach((d) => { const key = d.date || ""; const g = groups[groups.length - 1]; g && g.key === key ? g.items.push(d) : groups.push({ key, items: [d] }); });
+    const year = today().slice(0, 4);
+    const dayName = (iso) => !iso ? "Sans date" : capFirst(D.dayLabel(iso)) + (iso.slice(0, 4) !== year ? " " + iso.slice(0, 4) : "");
+    $("#histWrap").innerHTML = `<p class="hist-count">${plural(rows.length, "demande")}${rows.length < all.length ? ` sur ${all.length}` : ""}</p>
+      <div class="hist-cols" aria-hidden="true"><span></span><span>Véhicule</span><span>Site</span><span>Prestataire</span><span>Statut</span><span>Envoyée le</span></div>`
+      + groups.map((g) => `<section class="hist-day"><h3 class="hist-day-head">${esc(dayName(g.key))}<em>${g.items.length}</em></h3>
+        <div class="plan-list hist-list">${g.items.map(historyLine).join("")}</div></section>`).join("");
   }
   // Below the history: older requests stay unread until asked for, to spare the free plan's daily reads.
   function renderOlderNote() {
     const note = $("#h-older");
     const loading = state.olderRanges.some((r) => !r.ready && r.from === D.OLDEST_DAY);
-    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded() || !!$("#h-mois").value;
+    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded() || !!hv("mois");
     if (note.hidden) return;
-    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours ou en retard, quel que soit leur âge, et les contrôles hayon des 8 derniers mois. Pour un mois plus ancien, choisis-le dans la liste des périodes en haut (une semaine : dans le Planning).
-      <button type="button" class="ghost small-btn" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
+    note.innerHTML = `<span>Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours ou en retard, et les contrôles hayon des 8 derniers mois. Pour un mois plus ancien, choisis-le dans « Autre mois ».</span>
+      <button type="button" class="plan-link" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
   }
   $("#h-older").addEventListener("click", (e) => { if (e.target.closest("#h-older-btn")) { needOlder(D.OLDEST_DAY, null); renderHistory(); } });
   function historyLine(d) {
-    const span = D.isMultiDay(d) ? `${D.shortDate(d.date)} → ${D.shortDate(D.lastDay(d))}` : D.shortDate(d.date);
-    const slot = esc(D.timeSlotLabel(d));
-    // data-slot / data-provider let the phone layout show a compact card without a second markup.
-    return `<tr class="click" data-open="${esc(d.id)}"><td class="date" data-slot="· ${slot}">${esc(span)}</td><td class="date">${slot}</td><td>${plateTag(d.plaque)}</td>
-      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
-      <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
+    const slot = D.timeSlotLabel(d).replace(/^de /, "");
+    const span = D.isMultiDay(d) ? ` → ${D.shortDate(D.lastDay(d))}` : "";
+    const what = [D.vehicleLabel(d) || "Modèle non précisé", D.jobLabel(d)].filter(Boolean).join(" · ");
+    return `<button type="button" class="plan-row hist-row${D.isActive(d) ? "" : " cancel"}" data-open="${esc(d.id)}">
+      ${serviceTile(d)}
+      <span class="plan-row-main hist-veh">
+        <span class="plan-row-line">${plateTag(d.plaque)}<span class="plan-time">${esc(slot + span)}</span></span>
+        <span class="plan-what"><b class="hist-slot-m">${esc(slot + span)}</b>${esc(what)}</span>
+        <span class="plan-sub hist-where">${esc(D.siteOf(d))}<span class="hist-who"> · ${esc(d.prestataire || "")}</span></span>
+      </span>
+      <span class="hist-c hist-c-site">${esc(D.siteOf(d))}</span>
+      <span class="hist-c hist-c-prov">${esc(d.prestataire || "")}</span>
+      <span class="hist-c hist-c-st">${planStatus(d)}</span>
+      <span class="hist-c hist-c-sent">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</span>
+      <span class="plan-row-end hist-end">${planStatus(d)}${icon("chev-r")}</span>
+    </button>`;
   }
-  ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site", "#h-mois"].forEach((s) => $(s).addEventListener("input", renderHistory));
-  $("#histWrap").addEventListener("click", (e) => { const r = e.target.closest("[data-open]"); if (r) openDemande(r.dataset.open); });
+  $("#q").addEventListener("input", renderHistory);
+  $("#q").addEventListener("keydown", (e) => { if (e.key === "Escape" && e.target.value) { e.target.value = ""; renderHistory(); } });
+  ["#h-prest", "#h-statut", "#h-svc", "#h-site", "#h-mois"].forEach((s) => $(s).addEventListener("input", renderHistory));
+  $("#histWrap").addEventListener("click", (e) => {
+    if (e.target.closest("[data-h-reset]")) { $("#q").value = ""; ["prest", "site", "svc", "statut"].forEach((id) => ($("#h-" + id).value = "")); renderHistory(); return; }
+    const r = e.target.closest("[data-open]"); if (r) openHistorySheet(r.dataset.open);
+  });
+  $("#view-historique").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-h-mois], [data-h-statut], [data-h-clear], [data-h-more], [data-h-other]");
+    if (!b) return;
+    if (b.dataset.hMois !== undefined) return setHist("mois", b.dataset.hMois);
+    if (b.dataset.hStatut !== undefined) return setHist("statut", hv("statut") === b.dataset.hStatut ? "" : b.dataset.hStatut);
+    if (b.dataset.hClear) return setHist(b.dataset.hClear, "");
+    if (b.dataset.hMore !== undefined) return openHistFilters();
+    if (b.dataset.hOther !== undefined) return openHistMonths();
+  });
+
+  // ---------- sheets: other month, filters, export ----------
+  const histChoice = (attr, value, label, on, art = "") => `<button type="button" class="hist-opt" ${attr}="${esc(value)}" aria-pressed="${on}">${art}<span>${esc(label)}</span>${icon("check")}</button>`;
+  function histMonthsBody() {
+    const months = Array.from($("#h-mois").options).map((o) => o.value).filter(Boolean);
+    const years = [...new Set(months.map((m) => m.slice(0, 4)))];
+    return `<p class="sheet-sub">Un mois ancien est lu seulement quand tu le choisis.</p>
+      ${histChoice("data-hs-mois", "", "15 derniers jours et en cours", !hv("mois"))}
+      ${years.map((y) => `<section><p class="sheet-label">${y}</p><div class="hist-months">${months.filter((m) => m.startsWith(y)).map((m) =>
+        `<button type="button" class="hist-month" data-hs-mois="${m}" aria-pressed="${hv("mois") === m}">${esc(capFirst(D.monthLabel(m).replace(/ \d{4}$/, "")))}</button>`).join("")}</div></section>`).join("")}`;
+  }
+  const histOpen = (title, html, cls) => { teamSheet.open(title, html, { cls }); teamSheet.body.scrollTop = 0; };
+  const openHistMonths = () => histOpen("Choisir un mois", histMonthsBody(), "hist-sheet");
+  function histFiltersBody() {
+    const group = (title, id, list) => `<section><p class="sheet-label">${title}</p><div class="hist-opts">${list.map(([v, label, art]) => histChoice("data-hs-" + id, v, label, hv(id) === v, art)).join("")}</div></section>`;
+    const n = historyRows().length;
+    return group("Prestataire", "prest", [["", "Tous les prestataires"], ...state.providers.map((p) => [p, p])])
+      + group("Prestation", "svc", [["", "Toutes les prestations"], ...D.SERVICES.map((s) => [s.id, s.label, serviceTile({ service: s.id })])])
+      + (siteNames().length ? group("Site", "site", [["", "Tous les sites"], ...siteNames().map((s) => [s, s])]) : "")
+      + group("Statut", "statut", [["", "Tous les statuts"], ["ouvert", "En cours (hors réalisées / annulées)"], ...D.STATUSES.map((s) => [s.id, s.label])])
+      + `<div class="plan-fiche-actions"><button type="button" class="primary plan-cta" data-team-sheet-close>Voir ${plural(n, "demande")}</button>
+        <button type="button" class="plan-soft" data-hs-reset>Tout effacer</button></div>`;
+  }
+  const openHistFilters = () => histOpen("Filtres", histFiltersBody(), "hist-sheet side-sheet");
+  function histExportBody() {
+    const rows = historyRows();
+    const what = [hv("mois") ? histMonthLabel(hv("mois")) : "15 derniers jours et en cours", hv("prest"), hv("site"), hv("svc") && D.SERVICES.find((s) => s.id === hv("svc"))?.label,
+      hv("statut") && (hv("statut") === "ouvert" ? "En cours" : D.statusOf(hv("statut")).label), $("#q").value && `« ${$("#q").value} »`].filter(Boolean).join(" · ");
+    return `<div class="plan-fiche-head hist-export-head"><span class="svc-tile sm" aria-hidden="true">${self.IssueArt?.art("ask-inbox", "svc-art") || ""}</span><div><b>${plural(rows.length, "demande")}</b><p>${esc(what)}</p></div></div>
+      <p class="sheet-sub">Exactement la liste affichée, avec les dates, la plaque, le modèle, le site, le prestataire, le statut et les dates d'envoi et de réalisation.</p>
+      <div class="plan-fiche-actions"><button type="button" class="primary plan-cta" data-hs-tsv>${icon("copy")}Copier pour Google Sheets</button>
+        <button type="button" class="plan-soft" data-hs-csv>${icon("download")}Télécharger le fichier (CSV)</button></div>`;
+  }
+  $("#h-export").addEventListener("click", () => histOpen("Exporter la liste", histExportBody(), "hist-sheet"));
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest(".hist-sheet [data-hs-mois], .hist-sheet [data-hs-prest], .hist-sheet [data-hs-svc], .hist-sheet [data-hs-site], .hist-sheet [data-hs-statut], .hist-sheet [data-hs-reset], .hist-sheet [data-hs-tsv], .hist-sheet [data-hs-csv]");
+    if (!b) return;
+    if (b.dataset.hsMois !== undefined) { teamSheet.close(); return setHist("mois", b.dataset.hsMois); }
+    const exportRows = () => [D.EXPORT_HEADER, ...historyRows().slice().reverse().map(D.exportRow)];
+    if (b.dataset.hsTsv !== undefined) {
+      const rows = exportRows();
+      if (await copyText(D.toTsv(rows))) { teamSheet.close(); toast(`${plural(rows.length - 1, "ligne")} copiée${rows.length > 2 ? "s" : ""} : colle-les dans une feuille Google Sheets`); }
+      return;
+    }
+    if (b.dataset.hsCsv !== undefined) {
+      const name = `historique-prestations-${hv("mois") || today()}${hv("prest") ? "-" + hv("prest").replace(/[^\w-]+/g, "-") : ""}.csv`;
+      saveBlob(Promise.resolve(new Blob([D.toCsv(exportRows())], { type: "text/csv" })), name); teamSheet.close(); return;
+    }
+    if (b.dataset.hsReset !== undefined) ["prest", "site", "svc", "statut"].forEach((id) => ($("#h-" + id).value = ""));
+    else for (const id of ["prest", "svc", "site", "statut"]) if (b.dataset["hs" + capFirst(id)] !== undefined) $("#h-" + id).value = b.dataset["hs" + capFirst(id)];
+    renderHistory();
+    teamSheet.body.innerHTML = histFiltersBody();
+  });
+
+  // ---------- the request's card + its change history as a timeline (read once per opening: free plan's reads) ----------
+  const histLog = { id: "", lines: null, failed: false };
+  function openHistorySheet(id) {
+    histLog.id = id; histLog.lines = null; histLog.failed = false;
+    openPlanSheet("fiche", id, true); teamSheet.body.scrollTop = 0;
+    loadHistLog(id);
+  }
+  function loadHistLog(id) {
+    if (!state.store?.loadHistory) return;
+    const d = demandeById(id);
+    state.store.loadHistory(id).then((entries) => { if (histLog.id === id) histLog.lines = D.historyLines(entries, d); })
+      .catch(() => { if (histLog.id === id) histLog.failed = true; })
+      .finally(() => { if (histLog.id === id && planSheet.log && planSheet.id === id) refreshPlanSheet(); });
+  }
+  function histLogHtml() {
+    const lines = histLog.lines;
+    const body = histLog.failed ? `<p class="sheet-sub">L'historique n'est pas encore lisible : les règles Firebase doivent être publiées.</p>`
+      : !lines ? `<p class="sheet-sub" aria-busy="true">Chargement…</p>`
+      : !lines.length ? `<p class="sheet-sub">Aucune modification notée pour l'instant.</p>`
+      : `<ol class="hist-tl">${lines.map((l) => {
+          const tone = /annul|suppr/i.test(l.action) ? "bad" : /Réalisée|fait/i.test(l.changes.map((c) => c.apres).join(" ")) ? "ok" : /Création/.test(l.action) ? "start" : "";
+          const changes = l.changes.map((c) => `<li><span>${esc(c.label)}</span>${c.avant != null ? `<s>${esc(c.avant)}</s>${icon("chev-r")}` : ""}<b>${esc(c.apres)}</b></li>`).join("");
+          return `<li class="${tone}"><i aria-hidden="true"></i><div><p class="hist-tl-head"><b>${esc(l.action)}</b><small>${esc(l.when)}</small></p>
+            <p class="hist-tl-who">${esc(l.who || "avant le suivi des modifications")}</p>${changes ? `<ul>${changes}</ul>` : ""}</div></li>`;
+        }).join("")}</ol>`;
+    return `<section class="hist-log"><p class="sheet-label">Modifications</p>${body}
+      <p class="hist-log-note">Chaque changement est noté avec son auteur et l'heure du serveur. Personne ne peut modifier ni effacer cette liste.</p></section>`;
+  }
 
   // ================= settings =================
   const currentSettings = () => ({ sites: state.sites, flotte: state.fleet, prestataires: state.providers, contacts: state.contacts, sheetUrl: state.sheetUrl });
@@ -1760,11 +2270,20 @@
       state.store.setStatus(d, "realisee", { auto: true }).catch(() => {}).finally(() => closingHayons.delete(d.id));
     });
   }
-  const HAYON_FILTERS = {
-    "": () => true,
-    atraiter: (r) => !r.booked && ["depasse", "urgent", "bientot", "inconnu"].includes(r.level),
-    rdv: (r) => !!r.booked,
-  };
+  // Page « Contrôles hayon » façon iPhone (2026-11-21) : compteurs qui filtrent, véhicules groupés par ce qu'il faut faire
+  // (à programmer, rendez-vous posés, à jour), jauge des jours restants, fiche du véhicule en feuille, liste à coller en feuille.
+  const hy = { filter: "", open: null, removing: "" };
+  const HY_GROUPS = [
+    { id: "todo", title: "À programmer", sub: "Pas de rendez-vous et échéance dans 30 jours ou moins.", test: (r) => !r.booked && ["depasse", "urgent", "bientot", "inconnu"].includes(r.level) },
+    { id: "rdv", title: "Rendez-vous posés", sub: "", test: (r) => !!r.booked },
+    { id: "ok", title: "À jour", sub: "", test: (r) => !r.booked && r.level === "ok" },
+  ];
+  const HY_TILES = [
+    { id: "red", label: "À faire vite", sub: "Dépassé ou 5 jours", lv: "urgent", test: (r) => ["depasse", "urgent"].includes(r.level) },
+    { id: "orange", label: "Bientôt", sub: "30 jours ou moins", lv: "bientot", test: (r) => r.level === "bientot" },
+    { id: "green", label: "À jour", sub: "Plus de 30 jours", lv: "ok", test: (r) => r.level === "ok" },
+    { id: "rdv", label: "RDV posés", sub: "Contrôle à venir", lv: "rdv", test: (r) => !!r.booked },
+  ];
   function hayonDaysLabel(r) {
     if (r.daysLeft == null) return "Date inconnue";
     if (r.daysLeft < 0) return `Dépassé de ${plural(-r.daysLeft, "jour")}`;
@@ -1772,71 +2291,168 @@
     return `Reste ${plural(r.daysLeft, "jour")}`;
   }
   const slotOf = (d) => `${D.shortDate(d.date)}${d.debut && d.debut !== D.DEFAULT_SLOT.debut ? " à " + d.debut.replace(":", "h") : ""}`;
-  function hayonRow(r) {
+  const hyArt = (key, size = "sm") => `<span class="svc-tile ${size}" aria-hidden="true">${self.IssueArt?.art(key, "svc-art") || ""}</span>`;
+  // Jauge : la part des 180 jours qu'il reste (pleine et rouge une fois dépassé).
+  const hyGauge = (r, big) => {
+    const pct = r.daysLeft == null ? 0 : r.daysLeft < 0 ? 100 : Math.max(3, Math.min(100, Math.round((r.daysLeft / D.HAYON_CYCLE_DAYS) * 100)));
+    return `<span class="hy-gauge${big ? " big" : ""}" role="img" aria-label="${esc(hayonDaysLabel(r))}"><i style="width:${pct}%"></i></span>`;
+  };
+  const hyPill = (r) => `<span class="hy-pill">${esc(hayonDaysLabel(r))}</span>`;
+  const hyRowByKey = (key) => D.hayonFollowUp(state.hayons, state.demandes, today()).find((r) => D.plateKey(r.plaque) === key);
+  function hayonCard(r) {
+    const key = D.plateKey(r.plaque);
+    const lines = [];
+    if (r.booked) lines.push(`<span class="hy-rdv-line">${icon("cal")}RDV ${esc(slotOf(r.booked))}${r.booked.site ? ` · ${esc(r.booked.site)}` : ""}</span>`);
+    if (r.tooSoon) lines.push(`<span class="hy-warn">${icon("alert")}Deux contrôles à ${plural(r.tooSoon.gap, "jour")} d'écart</span>`);
+    if (r.notDone) lines.push(`<span class="hy-meta">Pas fait le ${esc(D.shortDate(r.notDone.date))}</span>`);
+    return `<li class="hy-card lv-${r.level}"><button type="button" class="hy-open" data-hy-key="${esc(key)}">
+      ${hyArt("svc-hayon")}
+      <span class="hy-main">
+        <span class="hy-line">${plateTag(r.plaque)}${hyPill(r)}</span>
+        ${hyGauge(r)}
+        <span class="hy-meta">${r.nextDue ? `À refaire avant le <b>${esc(D.numericDate(r.nextDue))}</b>` : "Date du dernier contrôle inconnue"}</span>
+        ${lines.join("")}
+      </span>
+      <svg class="icon hy-chev" aria-hidden="true"><use href="#i-chev-r"/></svg></button></li>`;
+  }
+  function hayonSheetHtml(r) {
     const key = D.plateKey(r.plaque);
     const known = state.hayons.some((h) => D.plateKey(h.plaque) === key);
-    const notes = [];
-    if (r.tooSoon) notes.push(`<span class="hy-warn">${icon("alert")}Deux contrôles posés à ${plural(r.tooSoon.gap, "jour")} d'écart (${esc(D.shortDate(r.tooSoon.first.date))} et ${esc(D.shortDate(r.tooSoon.second.date))})</span>`);
-    if (r.notDone) notes.push(`<span class="muted">Pas fait le ${esc(D.shortDate(r.notDone.date))}</span>`);
     const recent = r.lastRequest && D.daysBetween(r.lastRequest.date, today()) <= 30;
-    const rdv = r.booked
-      ? `<button type="button" class="hy-rdv" data-open="${esc(r.booked.id)}">${icon("cal")}<span>RDV ${esc(slotOf(r.booked))}${r.booked.site ? ` · ${esc(r.booked.site)}` : ""}</span></button>`
-      : `<span class="muted hy-nordv">Pas de RDV</span>`;
-    return `<li class="hy-row lv-${r.level}">
-      <span class="hy-days">${esc(hayonDaysLabel(r))}</span>
-      ${plateTag(r.plaque)}
-      <span class="hy-dates"><span>Dernier contrôle <b>${r.lastControl ? esc(D.numericDate(r.lastControl)) : "—"}</b></span><span>À refaire avant <b>${r.nextDue ? esc(D.numericDate(r.nextDue)) : "—"}</b></span>${notes.join("")}</span>
-      <span class="hy-actions">${rdv}
-        ${state.canWrite && recent ? `<button type="button" class="ghost small-btn" data-hy-notdone="${esc(r.lastRequest.id)}" title="Le contrôle du ${esc(D.shortDate(r.lastRequest.date))} n'a pas eu lieu">Pas fait ?</button>` : ""}
-        ${state.canWrite && r.notDone && !r.booked ? `<button type="button" class="ghost small-btn" data-hy-done="${esc(r.notDone.id)}">Finalement fait</button>` : ""}
-        ${state.canWrite && known ? `<button type="button" class="ghost small-btn" data-hy-remove="${esc(key)}" aria-label="Retirer ${esc(r.plaque)} de la liste">${icon("x")}</button>` : ""}</span>
-    </li>`;
+    const info = [
+      ["Dernier contrôle", r.lastControl ? D.numericDate(r.lastControl) : "Inconnu", r.lastRequest ? `Rendez-vous du ${D.shortDate(r.lastRequest.date)}` : r.lastControl ? "Liste du prestataire" : ""],
+      ["À refaire avant", r.nextDue ? D.numericDate(r.nextDue) : "—", ""],
+      ["Rendez-vous", r.booked ? slotOf(r.booked) : "Aucun", r.booked?.site || ""],
+      ...(r.site && !r.booked ? [["Site", r.site, ""]] : []),
+    ];
+    const notes = [];
+    if (r.tooSoon) notes.push(`<p class="hy-sh-note warn">${icon("alert")}<span>Deux contrôles posés à ${plural(r.tooSoon.gap, "jour")} d'écart : le ${esc(D.shortDate(r.tooSoon.first.date))} et le ${esc(D.shortDate(r.tooSoon.second.date).replace(/\.$/, ""))}. L'un des deux est peut-être en trop.</span></p>`);
+    if (r.notDone) notes.push(`<p class="hy-sh-note"><span>Le contrôle du ${esc(D.shortDate(r.notDone.date))} est marqué « pas fait » : le compteur reprend le contrôle d'avant.</span></p>`);
+    const acts = [];
+    if (r.booked) acts.push(`<button type="button" class="hy-btn primary" data-hy-act="open" data-id="${esc(r.booked.id)}">${icon("cal")}Voir le rendez-vous</button>`);
+    else if (state.canWrite) acts.push(`<button type="button" class="hy-btn primary" data-hy-act="ask">${icon("plus")}Demander un contrôle</button>`);
+    if (state.canWrite && recent) acts.push(`<button type="button" class="hy-btn" data-hy-act="notdone" data-id="${esc(r.lastRequest.id)}">Le contrôle du ${esc(D.shortDate(r.lastRequest.date))} n'a pas eu lieu</button>`);
+    if (state.canWrite && r.notDone && !r.booked) acts.push(`<button type="button" class="hy-btn" data-hy-act="done" data-id="${esc(r.notDone.id)}">${icon("check")}Finalement fait</button>`);
+    acts.push(`<button type="button" class="hy-btn" data-hy-act="history">Historique de la plaque</button>`);
+    if (state.canWrite && known) acts.push(`<button type="button" class="hy-btn danger${hy.removing === key ? " confirm" : ""}" data-hy-act="remove">${icon("x")}${hy.removing === key ? "Retirer vraiment ?" : "Retirer de la liste des hayons"}</button>`);
+    return `<div class="hy-sheet lv-${r.level}">
+      <div class="hy-sh-hero">${hyArt("svc-hayon", "lg")}<div><p class="hy-sh-kind">DHOLLIANDA · tous les ${D.HAYON_CYCLE_DAYS} jours</p>${plateTag(r.plaque)}</div></div>
+      <div class="hy-sh-gauge"><div class="hy-sh-days"><b>${r.daysLeft == null ? "?" : Math.abs(r.daysLeft)}</b><span>${r.daysLeft == null ? "date du dernier contrôle inconnue" : r.daysLeft < 0 ? `jour${-r.daysLeft > 1 ? "s" : ""} de retard` : `jour${r.daysLeft > 1 ? "s" : ""} restant${r.daysLeft > 1 ? "s" : ""} sur ${D.HAYON_CYCLE_DAYS}`}</span></div>${hyGauge(r, true)}</div>
+      ${notes.join("")}
+      <dl class="hy-sh-info">${info.map(([k, v, small]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}${small ? `<small>${esc(small)}</small>` : ""}</dd></div>`).join("")}</dl>
+      <div class="hy-sh-acts">${acts.join("")}</div>
+    </div>`;
+  }
+  function openHayonSheet(key) {
+    const r = hyRowByKey(key);
+    if (!r) return teamSheet.close();
+    hy.open = key;
+    teamSheet.open("Contrôle hayon", hayonSheetHtml(r), { cls: "hy-sheet-b side-sheet", closed: () => { hy.open = null; hy.removing = ""; } });
+  }
+  function refreshHayonSheet() {
+    if (!teamSheet.isOpen || !hy.open) return;
+    if (hy.open === "paste" || !teamSheet.body.querySelector(".hy-sheet")) return;
+    const r = hyRowByKey(hy.open);
+    r ? (teamSheet.body.innerHTML = hayonSheetHtml(r)) : teamSheet.close();
   }
   function renderHayon() {
     const rows = D.hayonFollowUp(state.hayons, state.demandes, today());
-    const count = (...levels) => rows.filter((r) => levels.includes(r.level)).length;
     const urgent = rows.filter((r) => !r.booked && ["depasse", "urgent"].includes(r.level)).length;
     $("#hayonBadge").hidden = !urgent; $("#hayonBadge").textContent = urgent;
-    $("#hy-kpis").innerHTML = rows.length ? [[["depasse", "urgent"], "Dépassés ou 5 jours ou moins"], [["bientot"], "30 jours ou moins"], [["ok"], "À jour"]]
-      .map(([levels, label]) => `<div class="hy-kpi lv-${levels[levels.length - 1]}"><b>${count(...levels)}</b><span>${label}</span></div>`).join("") : "";
-    const query = $("#hy-q").value, filter = HAYON_FILTERS[$("#hy-filter").value] || HAYON_FILTERS[""];
-    const shown = rows.filter((r) => filter(r) && D.matchesSearch([r.plaque], query));
-    $("#hy-list").innerHTML = !rows.length
-      ? `<div class="empty"><b>Aucun véhicule à hayon pour l'instant.</b><span>Colle la liste du prestataire ci-dessous (plaque et date du dernier contrôle) : le compteur des 180 jours démarre tout de suite. Chaque contrôle hayon reçu par mail s'ajoute aussi ici.</span></div>`
-      : shown.length ? `<ul class="hy-list">${shown.map(hayonRow).join("")}</ul>` : `<div class="empty"><b>Aucun véhicule ne correspond.</b></div>`;
-    $("#hy-pastebox").hidden = !state.canWrite;
-    $("#hy-pastebox").open = state.canWrite && !rows.length ? true : $("#hy-pastebox").open;
+    $("#hyKicker").textContent = rows.length ? `${plural(rows.length, "véhicule")} · DHOLLIANDA` : "DHOLLIANDA · tous les 180 jours";
+    $("#hy-paste-open").hidden = !state.canWrite || !rows.length;
+    $("#hy-kpis").innerHTML = rows.length ? HY_TILES.map((t) => {
+      const n = rows.filter(t.test).length;
+      return `<button type="button" class="hy-tile lv-${t.lv}" data-hy-filter="${t.id}" aria-pressed="${hy.filter === t.id}" ${n || hy.filter === t.id ? "" : "disabled"}>
+        <b>${n}</b><span>${esc(t.label)}</span><small>${esc(t.sub)}</small></button>`;
+    }).join("") : "";
+    $("#hy-kpis").hidden = !rows.length; $(".hy-search").hidden = !rows.length;
+    const tile = HY_TILES.find((t) => t.id === hy.filter);
+    const query = $("#hy-q").value;
+    const shown = rows.filter((r) => (!tile || tile.test(r)) && D.matchesSearch([r.plaque], query));
+    let html;
+    if (!rows.length) {
+      html = `<div class="hy-empty">${hyArt("svc-hayon", "lg")}<b>Aucun véhicule à hayon pour l'instant</b><span>Colle la liste du prestataire (plaque et date du dernier contrôle) : le compteur des 180 jours démarre tout de suite. Chaque contrôle hayon reçu par mail s'ajoute aussi ici.</span>${state.canWrite ? `<button type="button" class="hy-btn primary" data-hy-paste>${icon("list")}Coller la liste</button>` : ""}</div>`;
+    } else if (!shown.length) {
+      html = `<div class="hy-empty small"><b>Aucun véhicule ne correspond</b>${tile ? `<button type="button" class="hy-link" data-hy-filter="${tile.id}">Voir tous les véhicules</button>` : ""}</div>`;
+    } else {
+      html = (tile ? `<div class="hy-filter-on"><span>Filtre : <b>${esc(tile.label)}</b></span><button type="button" class="hy-link" data-hy-filter="${tile.id}">Tout voir</button></div>` : "") +
+        HY_GROUPS.map((g) => {
+          const list = shown.filter(g.test);
+          if (!list.length) return "";
+          return `<section class="hy-group"><h2 class="hy-gh">${esc(g.title)} <em>${list.length}</em></h2>${g.sub && g.id === "todo" ? `<p class="hy-gsub">${esc(g.sub)}</p>` : ""}<ul class="hy-cards">${list.map(hayonCard).join("")}</ul></section>`;
+        }).join("");
+    }
+    $("#hy-list").innerHTML = html;
+    refreshHayonSheet();
   }
-  ["#hy-q", "#hy-filter"].forEach((sel) => $(sel).addEventListener("input", renderHayon));
-  $("#hy-paste").addEventListener("input", () => {
-    const list = D.parseHayonList($("#hy-paste").value);
+  $("#hy-q").addEventListener("input", renderHayon);
+  // Liste du prestataire à coller : dans une feuille.
+  function openHayonPaste() {
+    hy.open = "paste";
+    teamSheet.open("Coller la liste des hayons", `<div class="hy-paste">
+      <p class="hy-gsub">Copie les colonnes « immatriculation » et « date du dernier contrôle » du tableau du prestataire, puis colle-les ici. Une plaque déjà connue prend la date collée.</p>
+      <textarea id="hy-paste" placeholder="AB-123-CD&#9;12/05/2026&#10;EF-456-GH&#9;03/04/2026" aria-label="Liste des véhicules à hayon"></textarea>
+      <p class="hy-preview" id="hy-preview" aria-live="polite"></p>
+      <button type="button" class="hy-btn primary" id="hy-import">${icon("check")}Ajouter ces véhicules</button></div>`, { cls: "hy-sheet-b side-sheet", closed: () => (hy.open = null) });
+    setTimeout(() => $("#hy-paste")?.focus(), 80);
+  }
+  $("#hy-paste-open").onclick = openHayonPaste;
+  teamSheet.body.addEventListener("input", (e) => {
+    if (e.target.id !== "hy-paste") return;
+    const list = D.parseHayonList(e.target.value);
     const undated = list.filter((h) => !h.dernierControle).length;
     $("#hy-preview").textContent = list.length ? `${plural(list.length, "véhicule")} reconnu${list.length > 1 ? "s" : ""}${undated ? `, dont ${undated} sans date` : ""}` : "";
   });
-  $("#hy-import").onclick = async () => {
-    const list = D.parseHayonList($("#hy-paste").value);
-    if (!list.length) return toast("Aucune plaque reconnue : colle une plaque et sa date par ligne");
-    if (!requireStore()) return;
-    try { await state.store.saveHayons(list); $("#hy-paste").value = ""; $("#hy-preview").textContent = ""; $("#hy-pastebox").open = false; toast(`${plural(list.length, "véhicule")} enregistré${list.length > 1 ? "s" : ""}`); }
-    catch (err) { reportWriteError(err); }
-  };
-  $("#hy-list").addEventListener("click", async (e) => {
-    const open = e.target.closest("[data-open]");
-    if (open) return openDemande(open.dataset.open);
-    const notDone = e.target.closest("[data-hy-notdone], [data-hy-done]");
-    if (notDone && requireStore()) {
-      const missed = !!notDone.dataset.hyNotdone;
-      const d = demandeById(notDone.dataset.hyNotdone || notDone.dataset.hyDone);
-      try { await state.store.markHayonNotDone(d, missed); toast(missed ? `Contrôle du ${D.shortDate(d.date)} marqué « pas fait » : le compteur reprend l'ancien contrôle` : "Contrôle remis comme fait"); }
+  // Nouvelle demande déjà remplie : la plaque, le prestataire des hayons et « Contrôle hayon ».
+  function newHayonFor(plaque) {
+    newDemandeFor({ plaque });
+    const prov = [...field("prest").options].find((o) => D.servicesFor(state.providerDocs.get(D.providerId(o.value)), o.value).includes("hayon"));
+    if (prov) { field("prest").value = prov.value; field("prest").dispatchEvent(new Event("change", { bubbles: true })); }
+    const svc = $("#svc-hayon");
+    if (svc && !svc.closest("label").hidden) { svc.checked = true; svc.dispatchEvent(new Event("change", { bubbles: true })); }
+  }
+  async function hayonAction(b) {
+    const act = b.dataset.hyAct, key = hy.open, r = key && key !== "paste" ? hyRowByKey(key) : null;
+    if (act === "open") { teamSheet.close(); return openDemande(b.dataset.id); }
+    if (act === "ask" && r) { teamSheet.close(); return newHayonFor(r.plaque); }
+    if (act === "history" && r) { teamSheet.close(); $("#q").value = r.plaque; show("historique"); return renderHistory(); }
+    if ((act === "notdone" || act === "done") && requireStore()) {
+      const missed = act === "notdone", d = demandeById(b.dataset.id);
+      b.disabled = true;
+      try {
+        await state.store.markHayonNotDone(d, missed);
+        toast(missed ? `Contrôle du ${D.shortDate(d.date)} marqué « pas fait »` : "Contrôle remis comme fait",
+          { label: "Annuler", run: () => state.store.markHayonNotDone(d, !missed).catch(reportWriteError) });
+      } catch (err) { reportWriteError(err); }
+      finally { b.disabled = false; refreshHayonSheet(); }
+      return;
+    }
+    if (act === "remove" && r && requireStore()) {
+      if (hy.removing !== key) { hy.removing = key; return refreshHayonSheet(); }
+      try { await state.store.deleteHayon(key); hy.removing = ""; teamSheet.close(); toast(`${r.plaque} retiré de la liste des hayons`); }
+      catch (err) { reportWriteError(err); }
+    }
+  }
+  teamSheet.body.addEventListener("click", async (e) => {
+    if (!hy.open) return;
+    if (e.target.closest("#hy-import")) {
+      const list = D.parseHayonList($("#hy-paste").value);
+      if (!list.length) return toast("Aucune plaque reconnue : colle une plaque et sa date par ligne");
+      if (!requireStore()) return;
+      try { await state.store.saveHayons(list); teamSheet.close(); toast(`${plural(list.length, "véhicule")} enregistré${list.length > 1 ? "s" : ""}`); }
       catch (err) { reportWriteError(err); }
       return;
     }
-    const remove = e.target.closest("[data-hy-remove]");
-    if (remove && requireStore()) {
-      if (!remove.classList.contains("confirm")) { remove.classList.add("confirm"); remove.textContent = "Retirer ?"; return; }
-      try { await state.store.deleteHayon(remove.dataset.hyRemove); toast("Véhicule retiré de la liste des hayons"); }
-      catch (err) { reportWriteError(err); }
-    }
+    const b = e.target.closest("[data-hy-act]");
+    if (b) hayonAction(b);
+  });
+  $("#view-hayon").addEventListener("click", (e) => {
+    const f = e.target.closest("[data-hy-filter]");
+    if (f) { hy.filter = hy.filter === f.dataset.hyFilter ? "" : f.dataset.hyFilter; return renderHayon(); }
+    if (e.target.closest("[data-hy-paste]")) return openHayonPaste();
+    const o = e.target.closest("[data-hy-key]");
+    if (o) openHayonSheet(o.dataset.hyKey);
   });
 
   // ---------- answers from providers: Retours page, tab badge, window title, desktop notifications ----------
