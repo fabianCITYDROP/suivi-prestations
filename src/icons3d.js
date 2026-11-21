@@ -30,6 +30,12 @@ ${rad("amber", [[0, "#ffe2a0"], [0.5, "#ffb53d"], [1, "#e87b00"]], 0.45, 0.35, 0
 ${rad("ground", [[0, "#0a141c", 0.34], [1, "#0a141c", 0]], 0.5, 0.5, 0.5)}
 ${rad("dent", [[0, "#7f8d98"], [0.6, "#b9c4cc", 0.6], [1, "#e4e9ed", 0]], 0.42, 0.4, 0.6)}
 ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
+${lin("steel", [[0, "#fbfcfd"], [0.5, "#c3ccd3"], [1, "#7d8a95"]])}
+${lin("grip", [[0, "#3a9cc0"], [0.5, "#0f6f8f"], [1, "#0a4a60"]])}
+${lin("cal-top", [[0, "#3a9cc0"], [0.55, "#0f6f8f"], [1, "#0a4e66"]])}
+${lin("warn", [[0, "#ff8a7a"], [0.5, "#e5412f"], [1, "#a8231a"]])}
+${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
+<mask id="i3-jaw" maskUnits="userSpaceOnUse" x="0" y="0" width="48" height="48"><rect width="48" height="48" fill="#fff"/><path d="M37 21.3h12v5.4H37Z" fill="#000"/><circle cx="37" cy="24" r="2.7" fill="#000"/></mask>
 <filter id="i3-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.6"/></filter>
 </defs></svg>`;
   const S = `stroke="${O}" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"`;
@@ -43,7 +49,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     `<circle cx="${cx}" cy="${cy}" r="2.7" fill="url(#i3-rim)" stroke="#5d6a74" stroke-width=".5"/>` +
     [0, 72, 144, 216, 288].map((a) => { const r = (a - 90) * Math.PI / 180; return `<circle cx="${(cx + 1.6 * Math.cos(r)).toFixed(2)}" cy="${(cy + 1.6 * Math.sin(r)).toFixed(2)}" r=".42" fill="#6b7883"/>`; }).join("") +
     `<circle cx="${cx}" cy="${cy}" r=".7" fill="#3d4952"/><path d="M${cx - 3.6} ${cy - 2.2}a4.2 4.2 0 0 1 3-2" stroke="#fff" stroke-opacity=".35" stroke-width=".7" fill="none" stroke-linecap="round"/>`;
-  const van = (front) => ground(24, 41.6, 22, 2.1) +
+  const van = (front, mark = true) => ground(24, 41.6, 22, 2.1) +
     // caisse : volume, nervures, logo City-Drop, poignée de porte arrière
     solid("M3.5 11a2.5 2.5 0 0 1 2.5-2.5h22a2.5 2.5 0 0 1 2.5 2.5v22h-27Z") +
     `<path d="M5 9.9h23" stroke="url(#i3-shine)" stroke-width="1.2" stroke-linecap="round"/><path d="M5.2 10.2h22.6" stroke="#fff" stroke-width=".8" stroke-linecap="round"/>` +
@@ -61,7 +67,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     // bas de caisse et passages de roue
     `<path d="M3 32.6h42.2v1.9c0 .6-.5 1.1-1.1 1.1H4.1A1.1 1.1 0 0 1 3 34.5Z" fill="url(#i3-dark)" ${S}/><path d="M4 33.2h40" stroke="#7d8a95" stroke-width=".5"/>` +
     `<path d="M6.4 33a6 6 0 0 1 12 0M30.7 33a6 6 0 0 1 12 0" fill="#151c21"/>` +
-    wheel(12.4, 35.4, !front) + wheel(36.7, 35.4, front);
+    wheel(12.4, 35.4, mark && !front) + wheel(36.7, 35.4, mark && front);
   const ENG = "M7 8h8.5l2 2.2H19V8.6h2v7.8h-2v-1.6h-1.5l-2.6 3.2H9.6L7 15.6Z";
   const PIPES = "M9.5 5.5h5M12 5.5v2.5M7 12.2H4.6M4.6 9.7v5";
   const CAR = "M4 16.5H2.6a.8.8 0 0 1-.8-.8v-2.3c0-.9.6-1.6 1.5-1.8l3.5-.8 2.9-3a2.4 2.4 0 0 1 1.7-.8h5.1c.8 0 1.5.4 2 1l2.3 2.9 1.7.4c.9.2 1.6 1 1.6 2v2.4a.8.8 0 0 1-.8.8H20a2.5 2.5 0 0 0-5 0H9a2.5 2.5 0 0 0-5 0Z";
@@ -147,6 +153,68 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       `<g fill="#2a3945"><circle cx="16.5" cy="23.6" r="2.5"/><circle cx="24" cy="23.6" r="2.5"/><circle cx="31.5" cy="23.6" r="2.5"/></g>` +
       `<g fill="#fff" opacity=".55"><circle cx="15.8" cy="22.8" r=".7"/><circle cx="23.3" cy="22.8" r=".7"/><circle cx="30.8" cy="22.8" r=".7"/></g>`,
   };
+  // Types de prestation (cartes de l'écran prestataire) : clé d'intervention et hayon élévateur.
+  ICONS["svc-intervention"] = ground(24, 42.4, 15, 2.1) +
+    `<g transform="rotate(-40 24 24)">` +
+    // clé plate : tête ouverte à droite (masque), anneau à gauche, manche avec poignée bleue City-Drop
+    `<g mask="url(#i3-jaw)">${solid("M29.5 24a7.5 7.5 0 1 1 15 0a7.5 7.5 0 1 1-15 0Z", "steel")}</g>` +
+    solid("M8 21.2h24v5.6H8Z", "steel") +
+    solid("M13.5 20.6h13.4a1.6 1.6 0 0 1 1.6 1.6v3.6a1.6 1.6 0 0 1-1.6 1.6H13.5a1.6 1.6 0 0 1-1.6-1.6v-3.6a1.6 1.6 0 0 1 1.6-1.6Z", "grip") +
+    `<path d="M14 21.6h12.4" stroke="#fff" stroke-opacity=".45" stroke-width=".8" stroke-linecap="round"/><path d="M16 22.6v2.8M18.6 22.6v2.8M21.2 22.6v2.8M23.8 22.6v2.8" stroke="#0a3a4c" stroke-opacity=".45" stroke-width=".7" stroke-linecap="round"/>` +
+    solid("M3.6 24a6 6 0 1 1 12 0a6 6 0 1 1-12 0Z", "steel") +
+    `<path d="M9.6 20.6l2.95 1.7v3.4L9.6 27.4l-2.95-1.7v-3.4Z" fill="#33414c" stroke="${O}" stroke-width=".8" stroke-linejoin="round"/><path d="M6.65 22.3l2.95-1.7 2.95 1.7" stroke="#0a141c" stroke-width=".7" fill="none" opacity=".6"/>` +
+    `<path d="M31.4 20.2a6.4 6.4 0 0 1 8.8-2.4" stroke="#fff" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M5 21.4a4.8 4.8 0 0 1 4-2.6" stroke="#fff" stroke-width=".9" fill="none" stroke-linecap="round"/>` +
+    `</g>`;
+  ICONS["svc-hayon"] = `<g transform="translate(6.4 2.6) scale(.86)">${van(true, false)}</g>` +
+    // hayon : bras, plateau baissé, flèche monte / descend
+    `<path d="M9.6 30.2l-.4 7.6" stroke="${O}" stroke-width="1.6" stroke-linecap="round"/><path d="M9.6 30.2l-.4 7.6" stroke="#9aa7b2" stroke-width=".7" stroke-linecap="round"/>` +
+    solid("M1.4 37.4h9.4v2.6H1.4Z", "steel") + `<path d="M2 37.9h8.2" stroke="#fff" stroke-width=".6" stroke-linecap="round"/>` +
+    `<g stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M5.2 23.6v9.6M2.8 26l2.4-2.4 2.4 2.4M2.8 30.8l2.4 2.4 2.4-2.4" stroke="#fff" stroke-width="2.6" stroke-opacity=".7"/><path d="M5.2 23.6v9.6M2.8 26l2.4-2.4 2.4 2.4M2.8 30.8l2.4 2.4 2.4-2.4" stroke="#0f6f8f" stroke-width="1.5"/></g>`;
+  // Actions d'une carte prestataire : reporter (calendrier + flèche), véhicule absent (place vide), problème (triangle).
+  ICONS["act-date"] = ground(24, 43.2, 16, 2.1) +
+    solid("M8 12.5a3.5 3.5 0 0 1 3.5-3.5h25a3.5 3.5 0 0 1 3.5 3.5V37a3.5 3.5 0 0 1-3.5 3.5h-25A3.5 3.5 0 0 1 8 37Z") +
+    `<path d="M8 12.5a3.5 3.5 0 0 1 3.5-3.5h25a3.5 3.5 0 0 1 3.5 3.5V18H8Z" fill="url(#i3-cal-top)" ${S}/>` +
+    `<path d="M10.4 10.6h27" stroke="#fff" stroke-opacity=".45" stroke-width=".9" stroke-linecap="round"/>` +
+    `<g fill="url(#i3-dark)" ${S}><rect x="14" y="5.5" width="3.4" height="7.4" rx="1.7"/><rect x="30.6" y="5.5" width="3.4" height="7.4" rx="1.7"/></g>` +
+    `<g fill="#c3ced6"><rect x="12.4" y="22" width="4.4" height="3.4" rx=".9"/><rect x="19.6" y="22" width="4.4" height="3.4" rx=".9"/><rect x="12.4" y="28.4" width="4.4" height="3.4" rx=".9"/></g>` +
+    // flèche « plus tard » bleue
+    `<path d="M22 33.6a8.4 8.4 0 1 0 2.2-10.4" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".9"/>` +
+    `<path d="M22 33.6a8.4 8.4 0 1 0 2.2-10.4" fill="none" stroke="#0f6f8f" stroke-width="2.6" stroke-linecap="round"/>` +
+    `<path d="M21.4 19.6l3.4 3.4-3.9 2.6Z" fill="#0f6f8f" stroke="#0f6f8f" stroke-width="1.6" stroke-linejoin="round"/>`;
+  ICONS["act-absent"] = ground(24, 43, 20, 2) +
+    // place de parking vide : bitume, lignes blanches, camion en pointillés
+    `<path d="M4 40.5l5-21h30l5 21Z" fill="url(#i3-dark)" ${S}/><path d="M9.6 20.6h28.8" stroke="#8a97a2" stroke-width=".6"/>` +
+    `<path d="M10.6 22.4l-3.8 16.6M37.4 22.4l3.8 16.6" stroke="#f4f7f9" stroke-width="1.6" stroke-linecap="round"/>` +
+    `<path d="M14.6 25.4h18.8l1.4 10.6H13.2Z" fill="none" stroke="#f4f7f9" stroke-opacity=".75" stroke-width="1.1" stroke-dasharray="2.2 1.8" stroke-linejoin="round"/>` +
+    // point d'interrogation orange, en volume
+    `<circle cx="34.6" cy="13.4" r="8.4" fill="url(#i3-ora)" ${S}/><ellipse cx="32.6" cy="9.6" rx="4.6" ry="2.4" fill="url(#i3-shine)" opacity=".75"/>` +
+    `<path d="M31.8 11.2a2.9 2.9 0 1 1 4.1 2.6c-.8.4-1.3 1-1.3 1.9v.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="34.6" cy="18.6" r="1.15" fill="#fff"/>`;
+  ICONS["act-problem"] = ground(24, 42.8, 17, 2.1) +
+    `<path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="url(#i3-warn)"/><path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="url(#i3-shadeR)"/>` +
+    `<path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="none" stroke="#7d1810" stroke-width="1" stroke-linejoin="round"/>` +
+    `<path d="M22.4 9.6a1.8 1.8 0 0 1 3.1 0l3 5.4c-2.6 1.6-6.4 1.9-9.4.9Z" fill="#fff" opacity=".35"/>` +
+    `<rect x="22" y="17" width="4" height="12.4" rx="2" fill="#fff"/><circle cx="24" cy="34" r="2.2" fill="#fff"/>`;
+  ICONS["faits-vide"] = ground(24, 43.2, 15, 2.1) +
+    // « Faits » vide : un bloc-notes à pince, une pastille verte avec une coche
+    solid("M10 10.5a3.5 3.5 0 0 1 3.5-3.5h21a3.5 3.5 0 0 1 3.5 3.5V38a3.5 3.5 0 0 1-3.5 3.5h-21A3.5 3.5 0 0 1 10 38Z") +
+    `<path d="M12.6 9.2h22.6" stroke="#fff" stroke-opacity=".5" stroke-width=".9" stroke-linecap="round"/>` +
+    `<path d="M17.5 4.8h13a1.6 1.6 0 0 1 1.6 1.6v3.4a1.6 1.6 0 0 1-1.6 1.6h-13a1.6 1.6 0 0 1-1.6-1.6V6.4a1.6 1.6 0 0 1 1.6-1.6Z" fill="url(#i3-steel)" ${S}/>` +
+    `<g stroke="#c3ced6" stroke-width="2.2" stroke-linecap="round"><path d="M15.4 18h17"/><path d="M15.4 23.6h12"/><path d="M15.4 29.2h7"/></g>` +
+    `<circle cx="32.4" cy="33.2" r="8.6" fill="url(#i3-spg)" ${S}/><ellipse cx="30.4" cy="29.4" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".7"/>` +
+    `<path d="M28.4 33.4l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // « Pas possible » : panneau sens interdit en volume (refus d'une demande, à ne pas confondre avec « Problème »).
+  ICONS["act-refuse"] = ground(24, 42.6, 15, 2.1) +
+    `<circle cx="24" cy="23" r="16" fill="url(#i3-warn)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeR)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeB)"/>` +
+    `<circle cx="24" cy="23" r="16" fill="none" stroke="#7d1810" stroke-width="1"/><circle cx="24" cy="23" r="13.6" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width=".8"/>` +
+    `<ellipse cx="19.4" cy="13.6" rx="7.6" ry="3.4" fill="url(#i3-shine)" opacity=".55"/>` +
+    `<rect x="13.4" y="20" width="21.2" height="6" rx="3" fill="#fff"/><path d="M15 25.4h18" stroke="#0a141c" stroke-opacity=".12" stroke-width=".8" stroke-linecap="round"/>`;
+  // État vide de « À valider » : bac à courrier vide, coche verte en volume.
+  ICONS["empty-inbox"] = ground(24, 42.4, 19, 2.2) +
+    solid("M5.5 27.5l5.2-13.8a2.4 2.4 0 0 1 2.2-1.6h22.2a2.4 2.4 0 0 1 2.2 1.6l5.2 13.8V36a3 3 0 0 1-3 3H8.5a3 3 0 0 1-3-3Z") +
+    `<path d="M9.4 27.5l4.4-11.6h20.4l4.4 11.6Z" fill="#c9d4dc"/><path d="M9.4 27.5l4.4-11.6h20.4" fill="none" stroke="#9aa8b3" stroke-width=".7"/>` +
+    `<path d="M5.5 27.5h10.2l2.2 4.3h12.2l2.2-4.3h10.2" fill="none" ${S}/><path d="M7.2 29h7.6" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".9"/>` +
+    `<circle cx="35" cy="12.6" r="8.6" fill="url(#i3-spg)" ${S}/><ellipse cx="32.8" cy="8.8" rx="4.8" ry="2.4" fill="url(#i3-shine)" opacity=".6"/>` +
+    `<path d="M31 12.8l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };

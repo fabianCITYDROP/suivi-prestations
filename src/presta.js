@@ -40,21 +40,28 @@
 
     function modelHtml(d) {
       const [name, size] = (D.vehicleLabel(d) || "").split(" – ");
-      return `<span class="job-model">${esc(name || "Modèle non précisé")}${size ? `<small>${esc(size)}</small>` : ""}</span>`;
+      return `<span class="job-model">${esc(name || "Modèle non précisé")}${size ? ` · ${esc(size)}` : ""}</span>`;
     }
-    function jobHead(d) {
-      return `<div class="job-head">${plateTag(d.plaque)}
-        ${modelHtml(d)}
-        <span class="job-kind">${esc(D.jobLabel(d))}</span></div>`;
+    // Le type de prestation en icône en volume (même famille que « Signaler »), dans une tuile en relief.
+    const SERVICE_ART = { lavage: "Véhicule sale", "pare-brise": "Pare-brise", intervention: "svc-intervention", hayon: "svc-hayon" };
+    const serviceTile = (d, cls = "svc-tile") => `<span class="${cls}" aria-hidden="true">${self.IssueArt?.art(SERVICE_ART[d.service] || "svc-intervention", "svc-art") || ""}</span>`;
+    // withTime: the slot on the right (« Aujourd'hui », where date and site are already given by the section).
+    function jobHead(d, { withTime = false } = {}) {
+      return `<div class="job-head">${serviceTile(d)}
+        <div class="job-id"><div class="job-line">${plateTag(d.plaque)}${withTime ? `<span class="job-time">${esc(slot(d))}</span>` : ""}</div>${modelHtml(d)}<span class="job-kind">${esc(D.jobLabel(d))}</span>
+        ${D.isLate(d, today()) ? `<span class="late-pill">${icon("alert")}En retard · prévu ${esc(D.shortDate(D.lastDay(d)))}</span>` : ""}</div></div>`;
     }
     function jobMeta(d, { withDate = true, withSite = true } = {}) {
       const late = D.isLate(d, today());
-      return `<ul class="job-meta">
-        ${withDate ? `<li>${icon("cal")}<span>${esc(cap(when(d)))}</span></li>` : ""}
-        <li>${icon("clock")}<span>${esc(cap(slot(d)))}${!withDate && D.isMultiDay(d) ? ` · sur site jusqu'au ${esc(D.shortDate(D.lastDay(d)))}` : ""}</span></li>
-        ${withSite ? `<li>${icon("pin")}<span>${esc([d.site, d.adresse].filter(Boolean).join(" · ") || "Site à préciser")}</span></li>` : ""}
-        ${late ? `<li class="late">${icon("alert")}<span>En retard : prévu jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>` : ""}
-      </ul>${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}`;
+      const items = [
+        withDate && `<li>${icon("cal")}<span>${esc(cap(when(d)))}</span></li>`,
+        withDate ? `<li>${icon("clock")}<span>${esc(cap(slot(d)))}</span></li>`
+          : D.isMultiDay(d) && !late && `<li>${icon("cal")}<span>Sur site jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>`,
+        withSite && `<li>${icon("pin")}<span>${esc([d.site, d.adresse].filter(Boolean).join(" · ") || "Site à préciser")}</span></li>`,
+      ].filter(Boolean);
+      return (items.length ? `<ul class="job-meta">${items.join("")}</ul>` : "") +
+        (d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : "") +
+        (d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : "");
     }
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
@@ -76,80 +83,139 @@
       return `<p class="job-answer">${icon("alert")}<span>${esc(D.answerSummary(r))}${r.vu ? "" : " · en attente de l'équipe"}</span></p>`;
     }
 
-    // ---------- inline forms (done, another date, missing vehicle, not possible) ----------
-    function formHtml(d) {
-      const cancel = (kind) => `<button type="button" class="ghost" data-form="${kind}:${esc(d.id)}">Annuler</button>`;
-      const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note value="${esc(state.draft.note || "")}" placeholder="${placeholder}" maxlength="${D.PROBLEM_TEXT_MAX}"></label>`;
-      // "Done": one confirmation step so a slip of the finger does not close a job. No photo: providers are trusted.
-      if (state.openForm === "done:" + d.id) return `<div class="job-form">
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. RAS, tout est propre")}
-        <div class="job-form-actions">${cancel("done")}<button type="button" class="primary" data-send="done:${esc(d.id)}">${icon("check")}Confirmer : réalisée</button></div></div>`;
-      if (state.openForm === "undo:" + d.id) return `<div class="job-form">
-        <p class="job-form-text">Ce véhicule revient dans ta liste à faire. L'équipe est prévenue.</p>
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. c'était le véhicule d'à côté")}
-        <div class="job-form-actions">${cancel("undo")}<button type="button" class="primary" data-send="undo:${esc(d.id)}">Oui, remettre à faire</button></div></div>`;
-      if (state.openForm === "problem:" + d.id) return `<div class="job-form">
-        <label class="field"><span>Qu'est-ce qui ne va pas sur le véhicule ?</span><textarea data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(state.draft.note || "")}</textarea></label>
-        ${photoPicker()}
-        <div class="job-form-actions">${cancel("problem")}<button type="button" class="primary" data-send="problem:${esc(d.id)}">${icon("alert")}Envoyer à l'équipe</button></div></div>`;
-      if (state.openForm === "date:" + d.id) return `<div class="job-form">
-        <div class="job-form-row"><label class="field"><span>Date proposée</span><input type="date" data-date min="${today()}"></label>
-        <label class="field"><span>Heure</span><input type="time" data-time step="900"></label></div>
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. complet jeudi matin")}
-        <div class="job-form-actions">${cancel("date")}<button type="button" class="primary" data-send="date:${esc(d.id)}">Proposer cette date</button></div></div>`;
-      if (state.openForm === "absent:" + d.id) return `<div class="job-form">
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. pas sur le parking à 9 h")}
-        <div class="job-form-actions">${cancel("absent")}<button type="button" class="primary" data-send="absent:${esc(d.id)}">Signaler le véhicule absent</button></div></div>`;
-      if (state.openForm === "refuse:" + d.id) return `<div class="job-form">
-        ${note("Pourquoi ? (facultatif)", "Ex. pièce indisponible")}
-        <div class="job-form-actions">${cancel("refuse")}<button type="button" class="primary" data-send="refuse:${esc(d.id)}">Confirmer : pas possible</button></div></div>`;
-      return "";
+    // ---------- actions in a sheet over the screen (done, postpone, missing vehicle, problem, not possible, take back) ----------
+    // Same sheet as « Signaler »: the card stays where it is, nothing unfolds inside the list.
+    const ACTS = {
+      done: { title: "Prestation réalisée ?", btn: "Confirmer : réalisée", noteLabel: "Un mot pour l'équipe", ph: "Ex. RAS, tout est propre" },
+      undo: { title: "Remettre à faire ?", text: "Ce véhicule revient dans ta liste à faire. L'équipe est prévenue.", btn: "Oui, remettre à faire", noteLabel: "Un mot pour l'équipe", ph: "Ex. c'était le véhicule d'à côté" },
+      date: { title: "Reporter", btn: "Proposer cette date", noteLabel: "Un mot pour l'équipe", ph: "Ex. complet jeudi matin" },
+      absent: { title: "Véhicule absent", text: "L'équipe City-Drop est prévenue tout de suite.", btn: "Signaler le véhicule absent", noteLabel: "Un mot pour l'équipe", ph: "Ex. pas sur le parking à 9 h" },
+      refuse: { title: "Pas possible", btn: "Confirmer : pas possible", noteLabel: "Pourquoi ?", ph: "Ex. pièce indisponible" },
+      problem: { title: "Problème sur le véhicule", btn: "Envoyer à l'équipe" },
+    };
+    const actOf = () => { const [kind, id] = (state.openForm || "").split(":"); return { kind, d: byId(id) }; };
+    const actTitle = (kind, d) => (kind === "veh" && d ? (d.date ? upDayTitle(d.date) : "Date à préciser")
+      : kind === "date" && d && !D.isAccepted(d) ? "Proposer une autre date" : ACTS[kind]?.title || "");
+    // Secondary actions: round raised buttons with an icon in volume (same family as « Signaler »), label underneath.
+    const ACT_ART = { date: "act-date", absent: "act-absent", problem: "act-problem", refuse: "act-refuse" };
+    const actBtn = (kind, id, label) => `<button type="button" class="act-btn" data-act="${kind}" data-id="${esc(id)}"><span class="act-ico" aria-hidden="true">${self.IssueArt?.art(ACT_ART[kind], "act-art") || ""}</span><span class="act-lbl">${label}</span></button>`;
+    // The next days as one-tap choices; any other day stays in the date field.
+    function nextDays(n) {
+      const out = []; const d0 = new Date(today() + "T12:00:00");
+      for (let i = 1; i <= n; i++) { const x = new Date(d0); x.setDate(d0.getDate() + i); out.push(D.toIsoDate(x)); }
+      return out;
+    }
+    const dayChip = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" }).replace(".", "");
+    function actBody() {
+      const { kind, d } = actOf();
+      if (kind === "veh" && d) return vehBody(d);
+      const a = ACTS[kind];
+      if (!a || !d) return "";
+      const dr = state.draft;
+      const note = (rows) => `<label class="sheet-group"><span class="sheet-label">${a.noteLabel || "Un mot pour l'équipe"} <i>facultatif</i></span>${rows
+        ? `<textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="${a.ph}">${esc(dr.note || "")}</textarea>`
+        : `<input class="sheet-input" data-note value="${esc(dr.note || "")}" placeholder="${a.ph}" maxlength="${D.PROBLEM_TEXT_MAX}">`}</label>`;
+      const veh = `<div class="act-veh">${serviceTile(d, "svc-tile sm")}<span>${plateTag(d.plaque)}<small>${esc([D.vehicleLabel(d), D.jobLabel(d)].filter(Boolean).join(" · "))}</small></span></div>`;
+      let fields = "";
+      if (kind === "problem") fields = `<label class="sheet-group"><span class="sheet-label">Qu'est-ce qui ne va pas ?</span><textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(dr.note || "")}</textarea></label>${photoPicker()}`;
+      else if (kind === "date") fields = `<fieldset class="sheet-group day-set"><legend class="sheet-label">Nouvelle date</legend>
+          <div class="day-chips">${nextDays(4).map((iso) => `<button type="button" class="day-chip" data-day="${iso}" aria-pressed="${dr.date === iso}">${esc(dayChip(iso))}</button>`).join("")}</div>
+          <div class="day-row"><label><span>Autre jour</span><input type="date" class="sheet-input" data-date data-keep="adate" min="${today()}" value="${esc(dr.date || "")}"></label>
+          <label><span>Heure <i>facultatif</i></span><input type="time" class="sheet-input" data-time data-keep="atime" step="900" value="${esc(dr.time || "")}"></label></div></fieldset>${note(false)}`;
+      else fields = (a.text ? `<p class="sheet-sub">${a.text}</p>` : "") + note(false);
+      const back = state.actFrom === d.id ? `<button type="button" class="sheet-back" data-veh="${esc(d.id)}">${icon("chev-l")}Retour au véhicule</button>` : "";
+      return `<div class="act-sheet" data-asheet>${back}${veh}${fields}
+        ${state.busy.has(d.id) ? busyLine : `<button type="button" class="primary big field-send${kind === "done" ? " ok" : ""}" data-asend>${kind === "done" ? icon("check") : ""}${a.btn}</button>`}</div>`;
     }
     function photoPicker() {
       const ph = state.draft.photo;
       if (state.draft.photoBusy) return `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`;
-      if (ph) return `<div class="problem-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer la photo</button></div>`;
-      return `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
+      if (ph) return `<div class="sheet-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer</button></div>`;
+      return `<label class="sheet-photo-add">${icon("camera")}<span>Ajouter une photo</span><small>facultatif</small><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
     }
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
-    const formOpen = (d) => state.openForm?.endsWith(":" + d.id);
 
     // ---------- cards per tab ----------
-    function validateCard(d) {
-      return `<article class="job">${jobHead(d)}${jobMeta(d)}${photosStrip(d)}${answerLine(d)}
-        ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
-          <button type="button" class="primary" data-take="${esc(d.id)}">${icon("check")}Accepter</button>
-          <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Autre date</button>
-          <button type="button" class="ghost" data-form="refuse:${esc(d.id)}">Pas possible</button></div>`}
-      </article>`;
+    // « À valider » : la date et le site d'abord (c'est ce qui décide), le véhicule ensuite.
+    const relDay = (iso) => { const n = Math.round((new Date(iso + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5); return n === 0 ? "Aujourd'hui" : n === 1 ? "Demain" : ""; };
+    function calTile(iso) {
+      const x = new Date((iso || today()) + "T12:00:00");
+      return `<span class="cal-tile" aria-hidden="true"><small>${esc(x.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", ""))}</small><b>${x.getDate()}</b></span>`;
     }
+    function askWhen(d) {
+      const rel = !D.isMultiDay(d) && d.date ? relDay(d.date) : "";
+      const dm = (iso, month = true) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", month ? { day: "numeric", month: "short" } : { day: "numeric" });
+      const last = D.lastDay(d);
+      const day = !d.date ? "Date à préciser"
+        : D.isMultiDay(d) ? `Du ${dm(d.date, d.date.slice(0, 7) !== last.slice(0, 7))} au ${dm(last)}` // la tuile donne déjà le jour de la semaine
+        : rel ? `${rel} · ${dm(d.date)}` : cap(D.shortDate(d.date));
+      return `<header class="ask-when">${calTile(d.date)}
+        <div class="ask-when-txt"><p class="ask-day"><b>${esc(day)}</b><span class="job-time">${esc(slot(d))}</span></p>
+        <p class="ask-site">${icon("pin")}<span><b>${esc(d.site || "Site à préciser")}</b>${d.adresse ? `<small>${esc(d.adresse)}</small>` : ""}</span></p></div></header>`;
+    }
+    // Réponse déjà envoyée (autre date, pas possible…) : pastille orange en haut de la carte, l'équipe n'a pas encore tranché.
+    function askAnswer(d) {
+      const r = d.retour;
+      if (!r || ["fait", "confirme", "erreur"].includes(r.etat)) return "";
+      return `<p class="ask-answer">${icon("clock")}<span><b>${esc(D.answerSummary(r))}</b>${r.vu ? "Vu par l'équipe" : "En attente de l'équipe"}</span></p>`;
+    }
+    function validateCard(d) {
+      const flying = state.accepting === d.id;
+      return `<article class="job ask${flying ? " accepting" : ""}" data-job="${esc(d.id)}">${askWhen(d)}<div class="ask-veh">${jobHead(d)}</div>${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}${photosStrip(d)}${askAnswer(d)}
+        ${state.busy.has(d.id) && !flying ? busyLine : `<div class="job-actions">
+          <button type="button" class="primary big ok-btn" data-take="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Accepter</button>
+          <div class="act-row two">${actBtn("date", d.id, "Autre date")}${actBtn("refuse", d.id, "Pas possible")}</div></div>`}
+      ${flying ? `<div class="job-done-flash ask-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Acceptée</b><small>Rangée dans ${esc(state.acceptTo === "today" ? "Aujourd'hui" : "À venir")}</small></div>` : ""}</article>`;
+    }
+    // early: a vehicle of « À venir » done ahead of time (date and site shown, the section does not give them).
     function doCard(d, { early = false } = {}) {
-      return `<article class="job">${jobHead(d)}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
-        ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
-          <button type="button" class="primary big" data-form="done:${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
-          <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Reporter</button>
-          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button>
-          <button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button></div>`}
-      ${problemLines(d)}</article>`;
+      const leaving = state.leaving === d.id;
+      return `<article class="job${leaving ? " leaving" : ""}" data-job="${esc(d.id)}">${jobHead(d, { withTime: !early })}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
+        ${state.busy.has(d.id) && !leaving ? busyLine : `<div class="job-actions">
+          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>OK prestation réalisée</button>
+          <div class="act-row">${actBtn("date", d.id, "Reporter")}${actBtn("absent", d.id, "Véhicule absent")}${actBtn("problem", d.id, "Problème")}</div></div>`}
+      ${problemLines(d)}${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
     }
     const doneDayOf = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
+    // « Faits » : une liste groupée par jour, façon iPhone. L'heure du « fait » à droite, les deux actions possibles
+    // (Corriger pendant 10 minutes, Problème pendant 7 jours) en petites capsules sous la ligne.
+    function doneTime(d) {
+      const at = d.retour?.etat === "fait" ? d.retour.at : d.doneAt;
+      if (!at || !String(at).includes("T")) return "";
+      const t = new Date(at);
+      return Number.isNaN(t.getTime()) ? "" : t.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    }
     function doneRow(d) {
       const day = doneDayOf(d);
       // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
       const undo = D.canUndoDone(d, email, Date.now());
-      const more = recent || undo ? (state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d)
-        : (undo ? `<button type="button" class="undo-done" data-form="undo:${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : "") +
-          (recent ? `<button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button>` : "")) : "";
-      const lines = problemLines(d);
-      return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
-        ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}
-        ${more || lines ? `<div class="done-more">${lines}${more}</div>` : ""}</li>`;
+      const acts = recent || undo ? (state.busy.has(d.id) ? busyLine
+        : `<div class="done-acts">${undo ? `<button type="button" class="done-pill undo" data-act="undo" data-id="${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : ""}${recent ? `<button type="button" class="done-pill" data-act="problem" data-id="${esc(d.id)}"><span class="done-pill-art" aria-hidden="true">${self.IssueArt?.art("act-problem", "act-art") || ""}</span>Problème</button>` : ""}</div>`) : "";
+      const [name, size] = (D.vehicleLabel(d) || "").split(" – ");
+      const time = doneTime(d);
+      return `<li class="done-item">${serviceTile(d, "svc-tile xs")}
+        <div class="done-main"><div class="done-line">${plateTag(d.plaque)}${time ? `<time class="done-time">${esc(time)}</time>` : ""}</div>
+          <b class="done-model">${esc(name || D.jobLabel(d))}${size ? `<span> · ${esc(size)}</span>` : ""}</b>
+          <small class="done-sub">${esc([name ? D.jobLabel(d) : "", d.site].filter(Boolean).join(" · "))}</small>
+          ${problemLines(d)}${acts}</div>
+        ${d.retour?.preuve ? `<button type="button" class="done-proof" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : ""}</li>`;
+    }
+    // « Aujourd'hui », « Hier », puis « Mercredi 18 novembre ».
+    function doneDayHead(iso) {
+      if (iso === today()) return "Aujourd'hui";
+      if (iso === D.addDays(today(), -1)) return "Hier";
+      return iso ? cap(D.dayLabel(iso)) : "Date inconnue";
+    }
+    function doneGroups(list) {
+      return [...D.groupBy(list, doneDayOf).entries()].map(([iso, rows]) => `<section class="done-day">
+        <h2 class="done-day-head"><span>${esc(doneDayHead(iso))}</span><em>${rows.length}</em></h2>
+        <ul class="done-list">${rows.map(doneRow).join("")}</ul></section>`).join("");
     }
     // Today's vehicles grouped by site: the provider goes site by site.
     function todayHtml(list) {
       return [...D.groupBy(list, D.siteOf).entries()].map(([site, rows]) => `<section class="spot">
-        <header class="spot-head">${icon("pin")}<span><b>${esc(site)}</b>${rows[0].adresse ? `<small>${esc(rows[0].adresse)}</small>` : ""}</span><em>${rows.length}</em></header>
+        <header class="spot-head"><span class="spot-pin">${icon("pin")}</span><span><b>${esc(site)}</b>${rows[0].adresse ? `<small>${esc(rows[0].adresse)}</small>` : ""}</span><em aria-label="${rows.length} véhicule${rows.length > 1 ? "s" : ""}">${rows.length}</em></header>
         ${rows.map((d) => doCard(d)).join("")}</section>`).join("");
     }
     const searchBox = () => `<label class="job-search">${icon("search")}<input type="search" data-search value="${esc(state.query)}" placeholder="Chercher une plaque, un site…" aria-label="Chercher"></label>`;
@@ -166,37 +232,127 @@
         return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
     }
-    function validateTab(list) {
-      return list.length
-        ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${list.map(validateCard).join("")}`
-        : empty("Aucune demande à valider", "Les nouvelles demandes de City-Drop arrivent ici.");
+    // En tête : combien de demandes attendent une réponse, et combien attendent l'équipe (réponse déjà envoyée).
+    function validateTab(all) {
+      const list = all.filter((d) => d.id !== state.gone);
+      if (!list.length) return `<div class="job-empty ask-empty"><span class="svc-tile lg" aria-hidden="true">${self.IssueArt?.art("empty-inbox", "svc-art") || ""}</span><b>Aucune demande à valider</b><span>Les nouvelles demandes de City-Drop arrivent ici.</span></div>`;
+      const waiting = list.filter((d) => d.retour && !["fait", "confirme", "erreur"].includes(d.retour.etat)).length;
+      const todo = list.length - waiting;
+      const head = todo ? `<b>${todo}</b> demande${todo > 1 ? "s" : ""} à valider` : `<b>${icon("check")}Tu as répondu à tout</b>`;
+      return `<div class="ask-sum"><p>${head}${waiting ? `<span class="ask-sum-wait"> · ${waiting} en attente de l'équipe</span>` : ""}</p>
+        <p class="ask-sum-sub">${todo ? "Accepte chaque demande, ou propose une autre date." : "L'équipe City-Drop te répond ici."}</p></div>${list.map(validateCard).join("")}`;
+    }
+    // The day at a glance: what is left, what is already done today (green bar = done only).
+    function daySummary(left) {
+      const doneToday = state.demandes.filter((d) => D.isForProvider(d) && (d.retour?.etat === "fait" || d.statut === "realisee") && doneDayOf(d) === today()).length;
+      const total = left + doneToday;
+      if (!total) return "";
+      const pct = Math.round((doneToday / total) * 100);
+      const late = state.demandes.filter((d) => D.providerLists([d], today()).today.length && D.isLate(d, today())).length;
+      const text = left ? `<b>${left}</b> véhicule${left > 1 ? "s" : ""} à faire${doneToday ? `<span> · ${doneToday} fait${doneToday > 1 ? "s" : ""}</span>` : ""}${late ? `<span class="sum-late"> · ${late} en retard</span>` : ""}`
+        : `<b class="all-done">${icon("check")}Tout est fait</b><span> · ${doneToday} véhicule${doneToday > 1 ? "s" : ""}</span>`;
+      return `<div class="day-sum"><p>${text}</p><div class="day-bar" role="progressbar" aria-label="Avancement de la journée" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${doneToday}"><i style="width:${pct}%"></i></div></div>`;
     }
     function todayTab(list) {
-      return list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site.");
+      return daySummary(list.length) + (list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site."));
+    }
+    // « À venir » : groupé par jour (« Lundi 23 »), cartes compactes ; un appui sur la carte ouvre la feuille du véhicule
+    // (détails + OK en avance, Reporter, Véhicule absent, Problème).
+    const daysFromToday = (iso) => Math.round((new Date(iso + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5);
+    function upDayTitle(iso) {
+      const dt = new Date(iso + "T12:00:00");
+      const sameMonth = iso.slice(0, 7) === today().slice(0, 7);
+      return cap(dt.toLocaleDateString("fr-FR", sameMonth ? { weekday: "long", day: "numeric" } : { weekday: "long", day: "numeric", month: "long" }));
+    }
+    const upDaySub = (iso) => { const n = daysFromToday(iso); return n === 1 ? "Demain" : `Dans ${n} jours`; };
+    function upCard(d) {
+      const leaving = state.leaving === d.id;
+      const late = D.isMultiDay(d) ? `Jusqu'au ${D.shortDate(D.lastDay(d))}` : "";
+      const probs = D.problemsOfRequest(state.problems, d.id).length;
+      const r = d.retour, waiting = r && !["fait", "confirme", "erreur"].includes(r.etat);
+      const flags = [
+        waiting && `<span class="up-flag warn">${icon("alert")}${esc(D.answerOf(r.etat)?.label || "Réponse envoyée")}${r.vu ? "" : " · en attente"}</span>`,
+        probs && `<span class="up-flag bad">${icon("alert")}Problème signalé</span>`,
+      ].filter(Boolean).join("");
+      return `<article class="up-card${leaving ? " leaving" : ""}" data-job="${esc(d.id)}">
+        <button type="button" class="up-row" data-veh="${esc(d.id)}" aria-haspopup="dialog" aria-label="${esc(`${d.plaque || "Véhicule"}, ${D.jobLabel(d)}, ${d.site || "site à préciser"} : voir et agir`)}">
+          ${serviceTile(d, "svc-tile sm")}
+          <span class="up-id"><span class="up-line">${plateTag(d.plaque)}<span class="up-time">${esc(d.date ? slot(d) : "")}</span></span>
+            <span class="up-what"><b>${esc(D.vehicleLabel(d) || "Modèle non précisé")}</b> · ${esc(D.jobLabel(d))}</span>
+            <span class="up-where">${icon("pin")}<span>${esc(d.site || "Site à préciser")}${late ? ` · ${esc(late)}` : ""}</span></span>
+            ${flags ? `<span class="up-flags">${flags}</span>` : ""}</span>
+          <span class="up-chev" aria-hidden="true">${icon("chev-r")}</span>
+        </button>
+        ${state.busy.has(d.id) && !leaving ? `<div class="up-busy">${busyLine}</div>` : ""}
+        ${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
+    }
+    // La feuille d'un véhicule d'« À venir » : tout ce que la carte compacte ne montre pas, puis les actions.
+    function vehBody(d) {
+      return `<div class="act-sheet veh-sheet" data-asheet>
+        <div class="act-veh">${serviceTile(d, "svc-tile sm")}<span>${plateTag(d.plaque)}<small>${esc([D.vehicleLabel(d), D.jobLabel(d)].filter(Boolean).join(" · "))}</small></span></div>
+        <div class="veh-info">${jobMeta(d)}${photosStrip(d)}${answerLine(d)}${problemLines(d)}</div>
+        <p class="veh-hint">Le véhicule est déjà sur site ? Tu peux le faire en avance.</p>
+        ${state.busy.has(d.id) ? busyLine : `<div class="job-actions">
+          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>OK prestation réalisée</button>
+          <div class="act-row">${actBtn("date", d.id, "Reporter")}${actBtn("absent", d.id, "Véhicule absent")}${actBtn("problem", d.id, "Problème")}</div></div>`}</div>`;
     }
     function upcomingTab(all) {
       const list = filtered(all);
-      return searchBox() + (list.length
-        ? `<p class="tab-intro">Un véhicule est déjà sur site ? Tu peux le faire en avance.</p>${list.map((d) => doCard(d, { early: true })).join("")}`
-        : state.query ? empty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.") : empty("Rien à venir", "Tes demandes acceptées des prochains jours s'afficheront ici."));
+      const groups = [...D.groupBy(list, (d) => d.date || "").entries()].sort(([a], [b]) => (!a) - (!b) || a.localeCompare(b));
+      const search = `<div class="up-search">${searchBox()}</div>`;
+      if (!list.length) return search + (state.query
+        ? upEmpty("Aucun véhicule trouvé", `Rien ne correspond à « ${esc(state.query.trim())} ». Vérifie la plaque ou le site.`)
+        : upEmpty("Rien à venir", "Tes demandes acceptées des prochains jours s'afficheront ici, jour par jour."));
+      return search + `<p class="tab-intro up-intro">Un véhicule est déjà sur site ? Touche-le pour le faire en avance.</p>` +
+        groups.map(([iso, rows]) => `<section class="up-day" aria-label="${esc(iso ? upDayTitle(iso) : "Date à préciser")}">
+          <header class="up-day-head"><span><b>${esc(iso ? upDayTitle(iso) : "Date à préciser")}</b>${iso ? `<small>${esc(upDaySub(iso))}</small>` : ""}</span><em aria-label="${rows.length} véhicule${rows.length > 1 ? "s" : ""}">${rows.length}</em></header>
+          <div class="up-list">${rows.map(upCard).join("")}</div></section>`).join("");
     }
+    const upEmpty = (title, text) => `<div class="up-empty"><span class="up-empty-ico" aria-hidden="true">${self.IssueArt?.art("act-date", "act-art") || ""}</span><b>${title}</b><span>${text}</span></div>`;
+    // Le sélecteur de mois : les 40 derniers jours (chargés à l'ouverture), les 2 mois d'avant en un appui, les autres dans une feuille.
+    // Un ancien mois n'est lu qu'à la demande (quota de lectures), comme avant.
+    const monthOf = (k) => { const d = new Date(today().slice(0, 7) + "-15T12:00:00"); d.setMonth(d.getMonth() - k); return D.toIsoDate(d).slice(0, 7); };
+    const monthShort = (ym) => cap(new Date(ym + "-15T12:00:00").toLocaleDateString("fr-FR", { month: "long" }));
+    function monthPills() {
+      const quick = [monthOf(1), monthOf(2)];
+      const other = state.month && !quick.includes(state.month) ? state.month : "";
+      const pill = (ym, label) => `<button type="button" class="month-pill" data-month-pick="${ym}" aria-pressed="${state.month === ym}">${esc(label)}</button>`;
+      return `<div class="month-pills" role="group" aria-label="Période">${pill("", "40 derniers jours")}${quick.map((ym) => pill(ym, monthShort(ym))).join("")}
+        ${other ? pill(other, D.monthLabel(other)) : ""}<button type="button" class="month-pill more" data-month-more aria-haspopup="dialog">${icon("cal")}Autre mois</button></div>`;
+    }
+    function monthSheetBody() {
+      const months = Array.from({ length: 12 }, (_, i) => monthOf(i + 1));
+      return `<div class="month-sheet"><p class="sheet-sub">Le mois en cours est dans « 40 derniers jours ».</p>
+        ${[...D.groupBy(months, (ym) => ym.slice(0, 4)).entries()].map(([y, list]) => `<section><h3 class="sheet-label">${y}</h3><div class="month-grid">
+          ${list.map((ym) => `<button type="button" class="day-chip" data-month-pick="${ym}" aria-pressed="${state.month === ym}">${esc(monthShort(ym))}</button>`).join("")}</div></section>`).join("")}
+        <label class="sheet-group"><span class="sheet-label">Plus ancien</span><input type="month" class="sheet-input" data-month value="${esc(state.month)}" max="${monthOf(1)}"></label></div>`;
+    }
+    // Le compteur en grand : le mois en cours (ou le mois choisi), avec aujourd'hui et cette semaine à côté.
+    function doneSummary(n, label, side) {
+      return `<div class="done-sum"><div class="done-sum-main"><b class="done-count">${n}</b><span>${icon("check")}${esc(label)}</span></div>
+        ${side.length ? `<dl class="done-sum-side">${side.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join("")}</dl>` : ""}</div>`;
+    }
+    const doneEmpty = (title, text) => `<div class="done-empty"><span class="done-empty-ico" aria-hidden="true">${self.IssueArt?.art("faits-vide", "svc-art") || ""}</span><b>${title}</b><span>${text}</span></div>`;
+    const plural = (n, w) => `${w}${n > 1 ? "s" : ""}`;
     function doneTab(all) {
-      const counts = D.providerCounts(state.demandes, today());
-      const picker = `<label class="field month-pick"><span>Voir un ancien mois</span>
-          <input type="month" data-month value="${esc(state.month)}" max="${today().slice(0, 7)}" ${state.monthLoading ? "disabled aria-busy=\"true\"" : ""}></label>`;
       if (state.month) { // report of one month, loaded on demand
         const inMonth = all.filter((d) => doneDayOf(d).slice(0, 7) === state.month);
         const list = filtered(inMonth);
-        const head = state.monthLoading ? `<p class="tally">Chargement de ${esc(D.monthLabel(state.month))}…</p>`
-          : `<p class="tally"><b>${inMonth.length}</b> véhicule${inMonth.length > 1 ? "s" : ""} en ${esc(D.monthLabel(state.month))}</p>`;
-        const back = `<button type="button" class="month-back" data-month-reset>${icon("chev-l")}Revenir aux 40 derniers jours</button>`;
-        return back + head + picker + searchBox() +
-          (state.monthLoading ? "" : list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait ce mois-là", "Choisis un autre mois."));
+        const days = new Set(inMonth.map(doneDayOf)).size;
+        const head = state.monthLoading
+          ? `<div class="done-sum loading" aria-busy="true"><span class="spinner" aria-hidden="true"></span><span>Chargement de ${esc(D.monthLabel(state.month))}…</span></div>`
+          : doneSummary(inMonth.length, `${plural(inMonth.length, "véhicule")} en ${D.monthLabel(state.month)}`, inMonth.length ? [["Jours travaillés", days]] : []);
+        return head + monthPills() + (state.monthLoading ? "" : searchBox() + (list.length ? doneGroups(list)
+          : state.query ? doneEmpty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.") : doneEmpty("Aucun véhicule fait ce mois-là", "Choisis un autre mois.")));
       }
-      const list = filtered(all.filter((d) => doneDayOf(d) >= recentFrom)); // an older month looked at stays loaded, not listed here
-      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci</p>${searchBox()}` +
-        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici.")) +
-        `<p class="tab-intro">Ici : les 40 derniers jours.</p>` + picker;
+      const counts = D.providerCounts(state.demandes, today());
+      const recent = all.filter((d) => doneDayOf(d) >= recentFrom); // an older month looked at stays loaded, not listed here
+      const list = filtered(recent);
+      const monday = D.mondayOf(today());
+      const side = [["Aujourd'hui", recent.filter((d) => doneDayOf(d) === today()).length], ["Cette semaine", recent.filter((d) => doneDayOf(d) >= monday).length]];
+      return doneSummary(counts.month, `${plural(counts.month, "véhicule")} ${plural(counts.month, "fait")} en ${monthShort(today().slice(0, 7)).toLowerCase()}`, side) + monthPills() + searchBox() +
+        (list.length ? doneGroups(list) : state.query ? doneEmpty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.")
+          : doneEmpty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici."));
     }
     // ---------- « Signaler »: field reports on any vehicle ----------
     // One vehicle at a time: « Envoyer » clears the form for the next one (several vehicles = several quick sends).
@@ -315,9 +471,10 @@
     const main = view.querySelector(".presta-main");
     const sheetEl = view.querySelector(".presta-sheet");
     let lastFocus = null;
-    function openSheet() {
+    // mode: "report" (« Signaler ») or "act" (an action on one vehicle, state.openForm = "kind:id").
+    function openSheet(mode = "report") {
       if (state.sheetOpen) return;
-      state.sheetOpen = true; lastFocus = document.activeElement; render();
+      state.sheetMode = mode; state.sheetOpen = true; lastFocus = document.activeElement; render();
       sheetEl.style.transform = "";
       document.body.classList.add("sheet-open"); sheetEl.setAttribute("aria-hidden", "false");
       requestAnimationFrame(() => sheetEl.classList.add("on"));
@@ -326,6 +483,7 @@
     function closeSheet() {
       if (!state.sheetOpen) return;
       state.sheetOpen = false; state.pdelArmed = null;
+      if (state.sheetMode === "act") { state.openForm = null; state.draft = {}; state.actFrom = null; }
       if (state.fd?.editId) state.fd = null; // an edit left half-way is dropped; a new report being typed is kept
       sheetEl.style.transform = ""; sheetEl.classList.remove("on");
       document.body.classList.remove("sheet-open"); sheetEl.setAttribute("aria-hidden", "true");
@@ -362,18 +520,21 @@
       const a = document.activeElement;
       const typing = a?.matches?.("[data-keep]") ? `[data-keep="${a.dataset.keep}"]` : a?.matches?.("[data-search], [data-note]") ? (a.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
       main.innerHTML = `<header class="presta-top">
-          <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
-          <h1>${esc(cap(D.dayLabel(today())))}</h1>
+          <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}<span> · ${esc(cap(D.dayLabel(today())))}</span></p>
+          <h1>${esc(TABS.find((t) => t.id === state.tab)?.label || "Mes demandes")}</h1>
         </header>
         ${alertCard()}
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
-      sheetEl.querySelector("#sheetTitle").textContent = sheetTitle();
-      sheetEl.querySelector(".sheet-b").innerHTML = sheetBody();
+      const acting = state.sheetMode === "act";
+      if (acting && state.sheetOpen && !actOf().d) closeSheet(); // the vehicle left the list meanwhile (done from another phone)
+      const months = state.sheetMode === "month";
+      sheetEl.querySelector("#sheetTitle").textContent = acting ? actTitle(actOf().kind, actOf().d) : months ? "Voir un autre mois" : sheetTitle();
+      sheetEl.querySelector(".sheet-b").innerHTML = acting ? (state.openForm ? actBody() : "") : months ? monthSheetBody() : sheetBody();
       scheduleUndoEnd();
       const input = typing && view.querySelector(typing);
-      if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+      if (input) { input.focus(); try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* date / time fields */ } }
     }
 
     // The « Corriger » button disappears by itself when its 10 minutes are over.
@@ -393,23 +554,23 @@
       catch (err) { toast(err?.code === "permission-denied" ? "Plus de 10 minutes : appelle l'équipe pour corriger" : "Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
-    async function send(d, retour, message) {
+    async function send(d, retour, message, action) {
       state.busy.add(d.id); state.openForm = null; render();
-      try { await store.answer(d, { ...retour, par: email }); toast(message); }
+      try { await store.answer(d, { ...retour, par: email }); toast(message, action); }
       catch { toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
 
     // A problem report; the photo is optional. Nothing is lost if it fails: the form stays open with what was typed.
-    async function sendProblem(d, note) {
+    async function sendProblem(d, note, typed = state.draft) {
       const check = D.problemReport(d, { texte: note }, email, "");
-      if (check.error) return toast(check.error);
-      const draft = { ...state.draft, note };
+      if (check.error) { state.openForm = "problem:" + d.id; state.draft = typed; openSheet("act"); return toast(check.error); }
+      const draft = { ...typed, note };
       state.busy.add(d.id); state.openForm = null; render();
       try {
         await store.reportProblem(d, { texte: note, par: email }, draft.photo?.full);
         state.draft = {}; toast("Problème envoyé à l'équipe, merci !");
-      } catch { state.openForm = "problem:" + d.id; state.draft = draft; toast("Envoi impossible : vérifie ta connexion et réessaie"); }
+      } catch { state.openForm = "problem:" + d.id; state.draft = draft; openSheet("act"); toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
     async function addPhoto(file) {
@@ -421,7 +582,7 @@
 
     view.addEventListener("change", (e) => {
       if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]);
-      if (e.target.matches("[data-month]")) showMonth(e.target.value);
+      if (e.target.matches("[data-month]")) { closeSheet(); showMonth(e.target.value); }
       if (e.target.matches("[data-fphoto]") && e.target.files[0]) addFieldPhoto(e.target.files[0]);
       if (e.target.matches("[data-fplate]")) { fd().plaque = D.normalizePlate(fd().plaque); e.target.value = fd().plaque; } // AB123CD -> AB-123-CD
     });
@@ -434,6 +595,8 @@
     }
     view.addEventListener("input", (e) => {
       if (e.target.matches("[data-note]")) state.draft.note = e.target.value;
+      else if (e.target.matches("[data-date]")) { state.draft.date = e.target.value; sheetEl.querySelectorAll("[data-day]").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.day === e.target.value))); }
+      else if (e.target.matches("[data-time]")) state.draft.time = e.target.value;
       else if (e.target.matches("[data-fplate]")) { fd().plaque = e.target.value; syncSend(); }
       else if (e.target.matches("[data-ftext]")) { fd().texte = e.target.value; syncSend(); }
       else if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); }
@@ -442,7 +605,8 @@
       const el = (sel) => e.target.closest(sel);
       let b;
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
-      else if ((b = el("[data-month-reset]"))) { state.month = ""; render(); }
+      else if ((b = el("[data-month-pick]"))) { const ym = b.dataset.monthPick; closeSheet(); if (!ym) { state.month = ""; state.query = ""; render(); } else if (ym !== state.month) showMonth(ym); }
+      else if ((b = el("[data-month-more]"))) openSheet("month");
       else if ((b = el("[data-sheet-open]"))) openSheet();
       else if ((b = el("[data-sheet-close]"))) closeSheet();
       else if ((b = el("[data-fissue]"))) {
@@ -459,34 +623,78 @@
       else if ((b = el("[data-fcancel]"))) { state.fd = emptyField(); state.pdelArmed = null; render(); }
       else if ((b = el("[data-pdel]"))) deleteReport(b.dataset.pdel);
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
-      else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
-      else if ((b = el("[data-form]"))) {
-        state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; state.draft = {}; render();
-        const form = state.openForm && view.querySelector(".job-form");
-        if (form) {
-          form.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-          if (state.openForm.startsWith("problem:")) form.querySelector("textarea")?.focus({ preventScroll: true });
-        }
+      else if ((b = el("[data-take]"))) acceptRequest(byId(b.dataset.take));
+      else if ((b = el("[data-veh]"))) { // « À venir » : la feuille du véhicule (ou retour vers elle depuis une action)
+        state.openForm = "veh:" + b.dataset.veh; state.actFrom = null; state.draft = {};
+        if (state.sheetOpen) { render(); sheetEl.querySelector(".sheet-b").scrollTop = 0; } else openSheet("act");
       }
+      else if ((b = el("[data-act]"))) {
+        // From the vehicle sheet of « À venir »: the sheet stays open and shows the action, with a way back.
+        const inSheet = state.sheetOpen && state.openForm?.startsWith("veh:");
+        state.actFrom = inSheet ? b.dataset.id : null;
+        state.openForm = `${b.dataset.act}:${b.dataset.id}`; state.draft = {};
+        if (inSheet) { render(); sheetEl.querySelector(".sheet-b").scrollTop = 0; } else openSheet("act");
+        if (b.dataset.act === "problem") setTimeout(() => sheetEl.querySelector("textarea[data-note]")?.focus({ preventScroll: true }), 380);
+      }
+      else if ((b = el("[data-day]"))) { state.draft.date = b.dataset.day; render(); }
       else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
-      else if ((b = el("[data-send]"))) {
-        const [kind, id] = b.dataset.send.split(":");
-        const form = b.closest(".job-form");
-        const note = form.querySelector("[data-note]").value.trim();
-        const withNote = note ? { note } : {};
-        if (kind === "problem") sendProblem(byId(id), note);
-        else if (kind === "undo") undoDone(byId(id), note);
-        else if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
-        else if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
-        else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");
-        else {
-          const date = form.querySelector("[data-date]").value;
-          if (!date) return toast("Choisis la date que tu proposes");
-          const debut = form.querySelector("[data-time]").value;
-          send(byId(id), { etat: "autre-date", date, ...(debut ? { debut } : {}), ...withNote }, "Date proposée à l'équipe");
-        }
-      }
+      else if ((b = el("[data-asend]"))) sendAct();
     });
+    // The sheet's main button. « OK prestation réalisée »: the card shows a green tick, then leaves the list.
+    function sendAct() {
+      const { kind, d } = actOf();
+      if (!d) return closeSheet();
+      const dr = state.draft;
+      const note = (dr.note || "").trim();
+      const withNote = note ? { note } : {};
+      if (kind === "date" && !dr.date) return toast("Choisis la date que tu proposes");
+      if (kind === "problem") { const typed = { ...dr }; closeSheet(); return sendProblem(d, note, typed); }
+      if (kind === "undo") { closeSheet(); return undoDone(d, note); }
+      closeSheet();
+      if (kind === "done") return finishDone(d, withNote);
+      if (kind === "absent") send(d, { etat: "absent", ...withNote }, "L'équipe est prévenue");
+      else if (kind === "refuse") send(d, { etat: "refuse", ...withNote }, "L'équipe est prévenue");
+      else if (kind === "date") send(d, { etat: "autre-date", date: dr.date, ...(dr.time ? { debut: dr.time } : {}), ...withNote }, "Date proposée à l'équipe");
+    }
+    const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+    async function finishDone(d, withNote) {
+      if (!reduceMotion()) { state.leaving = d.id; render(); navigator.vibrate?.([10, 60, 14]); await new Promise((r) => setTimeout(r, 720)); }
+      state.leaving = null;
+      // The bubble offers « Corriger » for a slip of the finger (same 10 minutes as in « Faits »).
+      await send(d, { etat: "fait", ...withNote }, `${d.plaque} réalisé, merci !`,
+        { label: "Corriger", run: () => { if (byId(d.id) && D.canUndoDone(byId(d.id), email, Date.now())) { state.openForm = "undo:" + d.id; state.draft = {}; openSheet("act"); } } });
+    }
+
+    // « Accepter » : coche verte sur la carte, puis la carte part vers l'onglet où elle est rangée (Aujourd'hui ou À venir),
+    // les cartes du dessous remontent et le compteur de l'onglet rebondit. Sans animation si « réduire les animations ».
+    async function acceptRequest(d) {
+      if (!d || state.accepting) return;
+      const to = d.date && d.date <= today() ? "today" : "upcoming";
+      const label = to === "today" ? "Aujourd'hui" : "À venir";
+      if (!reduceMotion()) {
+        state.accepting = d.id; state.acceptTo = to; render(); navigator.vibrate?.(10);
+        await new Promise((r) => setTimeout(r, 560));
+        const card = main.querySelector(`[data-job="${CSS.escape(d.id)}"]`);
+        const tab = main.querySelector(`[data-tab="${to}"]`);
+        if (card && tab) {
+          const c = card.getBoundingClientRect(), t = tab.getBoundingClientRect();
+          const dx = t.left + t.width / 2 - (c.left + c.width / 2), dy = t.top + t.height / 2 - (c.top + c.height / 2);
+          const fly = card.animate([{ transform: "none", opacity: 1 }, { transform: `translate(${dx}px, ${dy}px) scale(.12)`, opacity: 0 }],
+            { duration: 420, easing: "cubic-bezier(.55, 0, .75, .2)", fill: "forwards" });
+          const gap = parseFloat(getComputedStyle(card.parentElement).rowGap) || 0;
+          card.style.height = c.height + "px";
+          const shut = card.animate([{ height: c.height + "px", marginBottom: "0px" }, { height: "0px", marginBottom: -gap + "px" }],
+            { duration: 300, delay: 260, easing: "cubic-bezier(.32, .72, 0, 1)", fill: "forwards" });
+          await Promise.all([fly.finished, shut.finished]).catch(() => {});
+        }
+        state.gone = d.id; // la carte reste cachée pendant l'envoi ; elle revient seulement si l'envoi échoue
+      }
+      state.accepting = null;
+      await send(d, { etat: "confirme" }, `${d.plaque} acceptée : dans ${label}`);
+      if (state.gone && !reduceMotion()) main.querySelector(`[data-tab="${to}"] .count`)?.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(1.45)" }, { transform: "scale(.92)" }, { transform: "scale(1)" }], { duration: 420, easing: "ease-out" });
+      state.gone = null; render();
+    }
 
     alerts?.listen(() => render());
     render();

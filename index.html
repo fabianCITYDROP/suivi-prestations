@@ -662,9 +662,78 @@ button.pf-line:hover { background: var(--accent-soft); }
 .trash-days { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; color: var(--ink-2); background: var(--surface-2); font-variant-numeric: tabular-nums; }
 .trash-days.soon { color: var(--lv-soon); background: var(--lv-soon-bg); }
 @media (max-width: 560px) { .trash-card { grid-template-columns: minmax(0, 1fr); } .trash-card > button { width: 100%; justify-content: center; } }
-/* Provider « Faits »: older month report on demand */
-.presta-body .month-pick { margin: 12px 0; max-width: 260px; }
-.presta-body .month-back { width: 100%; min-height: 48px; justify-content: center; gap: 8px; margin: 4px 0 14px; font-weight: 600; color: var(--accent); border: 1px solid var(--line-strong); background: var(--surface); }
+/* ===== Prestataire « Faits » façon iPhone (2026-11-21) : compteur en grand, mois en pastilles, liste groupée par jour.
+   Tout est préfixé .done- / .month- pour ne rien changer aux autres onglets. Vert = fait, orange = Corriger (statuts). */
+.done-sum { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; border-radius: 20px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 12px 26px -18px rgba(10, 20, 28, .4); }
+.done-sum.loading { flex-direction: row; align-items: center; gap: 12px; color: var(--ink-2); font-size: 15px; min-height: 92px; }
+.done-sum-main { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; min-width: 0; }
+.done-count { font: 700 48px/1 var(--f-body); letter-spacing: -.035em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.done-sum-main > span { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 500; color: var(--ink-2); }
+.done-sum-main > span .icon { width: 16px; height: 16px; stroke-width: 2.6; color: var(--st-done); flex: none; }
+.done-sum-side { display: grid; grid-template-columns: 1fr 1fr; margin: 0; padding-top: 12px; border-top: .5px solid var(--line-strong); }
+.done-sum-side > div { display: flex; flex-direction: column; gap: 3px; padding: 0 12px; }
+.done-sum-side > div:first-child { padding-left: 0; }
+.done-sum-side > div + div { border-left: .5px solid var(--line-strong); padding-left: 16px; }
+.done-sum-side dt { font-size: 12px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.done-sum-side dd { margin: 0; font: 700 22px/1.1 var(--f-body); color: var(--ink); font-variant-numeric: tabular-nums; }
+/* Les mois en pastilles, qui défilent sur le côté sur téléphone */
+.month-pills { display: flex; gap: 8px; overflow-x: auto; margin: 2px -16px 0; padding: 2px 16px 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.month-pills::-webkit-scrollbar { display: none; }
+.month-pill { flex: none; min-height: 38px; padding: 0 15px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 14px var(--f-body); white-space: nowrap;
+  box-shadow: 0 0 0 .5px rgba(10, 20, 28, .12), 0 1px 2px rgba(10, 20, 28, .06); -webkit-tap-highlight-color: transparent; transition: transform 140ms var(--ease-out), background-color .15s ease, color .15s ease; }
+.month-pill:active { transform: scale(.95); }
+.month-pill[aria-pressed="true"] { background: var(--ink); color: var(--bg); box-shadow: none; }
+.month-pill.more { gap: 6px; color: var(--accent); }
+.month-pill.more .icon { width: 16px; height: 16px; }
+.presta-body .done-day + .done-day, .presta-body .month-pills + .job-search, .presta-body .done-sum + .month-pills { margin-top: 2px; }
+.presta-body .job-search:has([data-search]) { border: 0; min-height: 44px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.presta-body .job-search:has([data-search]):focus-within { box-shadow: 0 0 0 3px var(--accent-soft); }
+.presta-body .job-search [data-search] { min-height: 42px; }
+/* Un jour = un groupe : titre en petites capitales grises, carte blanche, séparateurs fins décalés après l'icône */
+.done-day { display: flex; flex-direction: column; gap: 7px; }
+.done-day-head { display: flex; align-items: baseline; justify-content: space-between; margin: 8px 6px 0; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.done-day-head em { font-style: normal; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.presta-body .done-list { border: 0; border-radius: 18px; box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+.done-item { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 14px; }
+.done-item + .done-item { border-top: 0; }
+.done-item + .done-item::before { content: ""; position: absolute; top: 0; left: 64px; right: 0; border-top: .5px solid var(--line-strong); }
+.svc-tile.xs { width: 38px; height: 38px; border-radius: 11px; margin-top: 1px; }
+.svc-tile.xs .svc-art { width: 29px; height: 29px; }
+.done-item .done-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.done-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+.done-line .plate { font-size: 13.5px; }
+.done-line .plate span { padding: 4px 6px; }
+.done-time { font-size: 14px; font-weight: 500; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.done-item .done-model { font-weight: 600; font-size: 15px; line-height: 1.3; white-space: normal; }
+.done-model span { display: inline; font-weight: 500; color: var(--ink-2); }
+.done-item .done-sub { color: var(--ink-2); font-size: 13.5px; line-height: 1.3; }
+.done-item .job-problem { margin-top: 6px; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); color: var(--ink); font-size: 13.5px; align-items: center; }
+.done-item .job-problem .icon { color: var(--danger); margin-top: 0; }
+.done-item .job-problem > span { display: block; }
+.done-item .job-problem b { font-weight: 600; }
+.done-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.done-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px 0 8px; border: 0; border-radius: 999px; background: var(--surface-2); color: var(--ink); font: 600 14px var(--f-body);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1); -webkit-tap-highlight-color: transparent; transition: transform 140ms var(--ease-out); }
+.done-pill:active { transform: scale(.95); }
+.done-pill-art { display: grid; place-items: center; width: 24px; height: 24px; }
+.done-pill-art .act-art { width: 22px; height: 22px; }
+.done-pill.undo { padding-left: 12px; background: var(--st-todo-bg); color: var(--st-todo); box-shadow: 0 0 0 .5px color-mix(in srgb, var(--st-todo) 35%, transparent); }
+.done-pill.undo .icon { width: 16px; height: 16px; stroke-width: 2.6; }
+.done-proof { width: 36px; height: 36px; min-height: 0; padding: 0; border: 0; border-radius: 50%; background: var(--surface-2); color: var(--accent); display: grid; place-items: center; }
+.done-proof .icon { width: 18px; height: 18px; }
+/* État vide : une icône en volume, pas de cadre en pointillés */
+.done-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 36px 24px 40px; text-align: center; color: var(--ink-2); font-size: 15px; }
+.done-empty b { color: var(--ink); font-size: 17px; margin-top: 8px; }
+.done-empty-ico { display: grid; place-items: center; width: 76px; height: 76px; border-radius: 22px; background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 8px 18px -8px rgba(10, 20, 28, .32), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.done-empty-ico .svc-art { width: 54px; height: 54px; }
+/* Feuille « Voir un autre mois » */
+.month-sheet { display: flex; flex-direction: column; gap: 18px; }
+.month-sheet section { display: flex; flex-direction: column; gap: 8px; }
+.month-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 721px) { .month-pills { margin: 2px 0 0; padding: 2px 0 4px; flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { .month-pill:active, .done-pill:active { transform: none; } .month-pill { transition: none; } }
 /* « Signaler »: blue + button. Wide screens: a blue pill at the end of the tabs. Phones: round, raised, in the middle of the bar. */
 .presta-tabs .tab-plus, .presta-tabs .tab-plus[aria-selected="true"] { background: var(--accent); color: #fff; box-shadow: none; }
 .presta-tabs .tab-plus .icon { display: block; width: 18px; height: 18px; }
@@ -810,6 +879,266 @@ body.sheet-open .sheet-scrim { opacity: 1; pointer-events: auto; }
   .issue-tile.pop .issue-ico, .issue-tile.pop .issue-check, .sent-flash-card, .sent-flash-card path { animation: none; }
 }
 .sheet-b > * { flex-shrink: 0; }
+
+/* ===== Écran prestataire « façon iPhone » (2026-11-21) : même famille que la feuille « Signaler ».
+   Cartes en relief, type de prestation en icône en volume, actions dans une feuille par-dessus l'écran.
+   Bleu City-Drop = actions ; vert / orange / rouge = statuts seulement. Une seule lumière, en haut à gauche. */
+#view-presta { max-width: 600px; }
+.presta-top { padding: 6px 4px 16px; }
+.presta-who { margin: 0 0 2px; font: 600 14px var(--f-body); color: var(--accent); }
+.presta-who span { color: var(--ink-2); font-weight: 500; }
+.presta-top h1 { margin: 0; font: 700 34px/1.1 var(--f-body); letter-spacing: -.025em; color: var(--ink); }
+.presta-body { gap: 14px; }
+/* La journée d'un coup d'œil */
+.day-sum { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 18px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+.day-sum p { margin: 0; font-size: 15px; color: var(--ink-2); }
+.day-sum b { color: var(--ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.day-sum .all-done { display: inline-flex; align-items: center; gap: 6px; color: var(--st-done); }
+.day-sum .all-done .icon { width: 18px; height: 18px; }
+.day-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.day-bar i { display: block; height: 100%; border-radius: 3px; background: var(--st-done); transition: width 600ms var(--ease-out); }
+/* Un site = un groupe */
+.spot { gap: 10px; }
+.spot + .spot { margin-top: 10px; }
+.spot-head { gap: 12px; padding: 4px 4px 0; }
+.spot-head .spot-pin { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); }
+.spot-pin .icon { width: 17px; height: 17px; color: var(--accent); }
+.spot-head b { font: 700 17px/1.25 var(--f-body); letter-spacing: -.01em; }
+.spot-head small { font-size: 13px; line-height: 1.3; }
+.spot-head em { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 13px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); font: 700 13px var(--f-body); }
+/* La carte d'un véhicule */
+.job { position: relative; border: 0; border-radius: 20px; padding: 14px; gap: 12px;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 12px 26px -18px rgba(10, 20, 28, .4); }
+.job-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; }
+.job-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.svc-tile { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 15px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.svc-tile.sm { width: 42px; height: 42px; border-radius: 12px; }
+.svc-art { width: 42px; height: 42px; overflow: visible; }
+.svc-tile.sm .svc-art { width: 32px; height: 32px; }
+.job-id { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; padding-top: 1px; }
+.job-id .job-model { display: block; flex: none; font-weight: 600; font-size: 15px; line-height: 1.3; }
+.job-id .job-kind { padding: 0; background: none; color: var(--ink-2); font-size: 13.5px; font-weight: 500; line-height: 1.2; }
+.job-time { font: 600 15px var(--f-body); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+.job-meta { gap: 6px; font-size: 14px; }
+.job-meta li.late { font-weight: 600; }
+.job-task, .job-note { border-radius: 12px; }
+.job-actions { display: flex; flex-direction: column; gap: 8px; }
+.job-actions .primary.big { min-height: 52px; border-radius: 14px; font-size: 16px; letter-spacing: -.005em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), 0 6px 14px -8px color-mix(in srgb, var(--accent) 80%, transparent); }
+.act-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.act-row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.job-actions .act-btn, .act-btn { flex-direction: column; justify-content: flex-start; gap: 5px; min-height: 62px; padding: 9px 4px 8px; border: 0; border-radius: 14px; background: var(--surface-2); color: var(--ink); font: 600 12.5px/1.2 var(--f-body); text-align: center; -webkit-tap-highlight-color: transparent; transition: transform 140ms var(--ease-out), background-color .15s ease; }
+.act-btn .icon { width: 21px; height: 21px; color: var(--accent); }
+.act-btn.warn .icon { color: var(--danger); }
+.job-actions .act-btn:hover { background: color-mix(in srgb, var(--surface-2) 88%, var(--ink)); }
+.job-actions .act-btn:active { transform: scale(.95); }
+/* « OK » : grande coche verte sur la carte, puis la carte s'en va. */
+.job-done-flash { position: absolute; inset: 0; z-index: 2; border-radius: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: fade-in 160ms var(--ease-out); }
+.job-done-flash svg { width: 60px; height: 60px; fill: none; stroke: var(--st-done); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; animation: flash-in 240ms var(--ease-out); }
+.job-done-flash circle { fill: var(--st-done-bg); stroke: none; }
+.job-done-flash path { stroke-dasharray: 36; animation: draw-check 320ms 80ms var(--ease-out) backwards; }
+.job-done-flash b { color: var(--st-done); font-size: 16px; }
+.job.leaving { animation: job-out 220ms 500ms ease-in forwards; }
+@keyframes job-out { to { opacity: 0; transform: scale(.96); } }
+/* La feuille d'action */
+.act-sheet { display: flex; flex-direction: column; gap: 18px; }
+.act-veh { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 1px var(--line) inset; }
+.act-veh > span { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
+.act-veh small { color: var(--ink-2); font-size: 13.5px; line-height: 1.3; }
+.sheet-label i { font-style: normal; font-weight: 500; text-transform: none; letter-spacing: 0; opacity: .75; }
+textarea.sheet-input { display: block; padding: 14px 16px; min-height: 96px; line-height: 1.4; resize: none; font: 16px var(--f-body); }
+.day-set { border: 0; margin: 0; padding: 0; min-width: 0; }
+.day-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.day-chip { min-height: 50px; padding: 0 4px; border: 0; border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line) inset, 0 1px 2px rgba(10, 20, 28, .05); font: 600 14.5px var(--f-body); text-transform: capitalize; transition: transform 140ms var(--ease-out); }
+.day-chip:active { transform: scale(.95); }
+.day-chip[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 13%, var(--surface)); color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.day-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; margin-top: 12px; }
+.day-row label > span { display: block; margin: 0 4px 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.day-row label i { font-style: normal; font-weight: 500; opacity: .75; }
+.day-row .sheet-input { min-height: 50px; padding: 0 12px; }
+.field-send .icon { width: 20px; height: 20px; }
+/* Bulle avec « Corriger » */
+.toast.with-action { display: flex; align-items: center; gap: 14px; padding: 7px 7px 7px 18px; }
+.toast-action { min-height: 36px; padding: 0 14px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--bg) 20%, transparent); color: var(--bg); font-weight: 700; }
+@media (max-width: 720px) {
+  .presta-top h1 { font-size: 32px; }
+  /* Barre du bas translucide : la liste défile dessous. */
+  .presta-tabs { background: color-mix(in srgb, var(--surface) 80%, transparent); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-top: .5px solid var(--line); box-shadow: none; }
+}
+@media (prefers-reduced-transparency: reduce) { .presta-tabs { background: var(--surface) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .job.leaving, .job-done-flash, .job-done-flash svg, .job-done-flash path { animation: none; }
+  .job-actions .act-btn:active, .day-chip:active { transform: none; }
+  .day-bar i { transition: none; }
+}
+
+/* ----- v2 (Fabian, 21/11 13:45) : bouton OK en capsule, actions rondes à icônes en volume, retard en pastille, barre du bas flottante ----- */
+.late-pill { display: inline-flex; align-items: center; gap: 5px; margin-top: 3px; padding: 3px 10px 3px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface)); color: var(--danger); font: 600 12.5px/1.3 var(--f-body); }
+.late-pill .icon { width: 14px; height: 14px; }
+.sum-late { color: var(--danger); font-weight: 600; }
+/* Le bouton principal : capsule, une seule lumière en haut à gauche (reflet en haut, ombre portée en bas), coche dans une pastille. */
+.job-actions .ok-btn, .ok-btn { position: relative; min-height: 54px; padding: 0 20px 0 10px; border: 0; border-radius: 999px; gap: 12px; font: 650 16.5px var(--f-body); letter-spacing: -.01em;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(10, 20, 28, .12), 0 8px 18px -8px color-mix(in srgb, var(--accent) 85%, transparent);
+  transition: transform 140ms var(--ease-out), box-shadow 180ms ease, filter .15s; }
+.ok-btn:hover { filter: brightness(1.05); }
+.job-actions .ok-btn:active { transform: scale(.97); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 1px 2px rgba(10, 20, 28, .12), 0 3px 8px -6px color-mix(in srgb, var(--accent) 85%, transparent); }
+.ok-badge { position: absolute; left: 7px; top: 50%; translate: 0 -50%; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: #fff; color: var(--accent); box-shadow: inset 0 -2px 0 rgba(10, 20, 28, .08), 0 2px 5px -1px rgba(10, 20, 28, .3); }
+.ok-badge .icon { width: 22px; height: 22px; stroke-width: 3; }
+:root[data-theme="dark"] .ok-badge { background: #f4f8fa; color: #0f6f8f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ok-badge { background: #f4f8fa; color: #0f6f8f; } }
+/* Actions secondaires : boutons ronds en relief, libellé dessous (comme les boutons d'appel de l'iPhone). */
+.act-row { gap: 4px; padding: 2px 0 0; }
+.job-actions .act-btn, .act-btn { min-height: 0; padding: 4px 2px; gap: 6px; background: none; border-radius: 16px; align-items: center; }
+.job-actions .act-btn:hover { background: none; }
+.job-actions .act-btn:hover .act-ico { filter: brightness(1.03); }
+.act-ico { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 92%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .07), 0 6px 14px -6px rgba(10, 20, 28, .32), 0 0 0 .5px rgba(10, 20, 28, .1);
+  transition: transform 140ms var(--ease-out); }
+.act-art { width: 36px; height: 36px; overflow: visible; }
+.act-lbl { font: 600 12.5px/1.2 var(--f-body); color: var(--ink); }
+.job-actions .act-btn:active { transform: none; }
+.job-actions .act-btn:active .act-ico { transform: scale(.92); }
+@media (max-width: 720px) {
+  /* Barre du bas flottante : capsule translucide détachée des bords, onglet choisi dans une pastille, + rond à part à droite. */
+  body.presta-mode main { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+  .presta-tabs { left: 12px; right: 84px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 5px; border-radius: 30px; border: 0;
+    background: color-mix(in srgb, var(--surface) 72%, transparent); -webkit-backdrop-filter: saturate(180%) blur(22px); backdrop-filter: saturate(180%) blur(22px);
+    box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .12), 0 10px 30px -10px rgba(10, 20, 28, .35); }
+  .presta-tabs button { min-height: 52px; border-radius: 24px; font-size: 11px; gap: 2px; transition: background-color .2s ease, color .2s ease; }
+  .presta-tabs button[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
+  .presta-tabs .count { top: 1px; left: calc(50% + 5px); }
+  .presta-tabs .tab-plus { position: absolute; order: 0; right: -72px; top: 50%; margin: 0; translate: 0 -50%; width: 62px; height: 62px; border: 0;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 82%, #fff) 0%, var(--accent) 55%, color-mix(in srgb, var(--accent) 86%, #000) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 0 0 .5px rgba(10, 20, 28, .12), 0 10px 24px -8px color-mix(in srgb, var(--accent) 80%, transparent); }
+  .presta-tabs .tab-plus .icon { width: 28px; height: 28px; stroke-width: 2.4; }
+  body.presta-mode .toast { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (prefers-reduced-transparency: reduce) and (max-width: 720px) { .presta-tabs { background: var(--surface) !important; } }
+@media (prefers-reduced-motion: reduce) { .job-actions .ok-btn:active, .job-actions .act-btn:active .act-ico { transform: none; } }
+/* Le bouton de la feuille d'action reprend la capsule en relief. */
+.act-sheet .field-send { border: 0; border-radius: 999px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 8px 18px -8px color-mix(in srgb, var(--accent) 85%, transparent); }
+/* ===== Prestataire, onglet « À venir » façon iPhone (2026-11-21) : recherche grise arrondie qui reste en haut,
+   véhicules groupés par jour, cartes compactes ; un appui ouvre la feuille du véhicule. Tout est préfixé .up- / .veh-. ===== */
+.up-search { position: sticky; top: 0; z-index: 4; margin: -6px -4px -4px; padding: 6px 4px 8px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent); -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px); }
+@media (min-width: 721px) { .up-search { top: 58px; } }
+@media (max-width: 720px) { .up-search { margin-inline: -16px; padding-inline: 16px; } }
+.up-search .job-search { min-height: 44px; padding: 0 12px; gap: 8px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--ink) 8%, var(--surface)); }
+.up-search .job-search:focus-within { box-shadow: 0 0 0 3px var(--accent-soft); }
+.up-search .job-search .icon { width: 18px; height: 18px; }
+.up-search .job-search input { min-height: 42px; font-size: 16px; }
+.up-search .job-search input::placeholder { color: var(--ink-2); opacity: .85; }
+.up-intro { margin-top: 0; }
+.up-day { display: flex; flex-direction: column; gap: 8px; }
+.up-day + .up-day { margin-top: 10px; }
+.up-day-head { display: flex; align-items: flex-end; gap: 12px; padding: 0 4px; }
+.up-day-head > span { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.up-day-head b { font: 700 20px/1.2 var(--f-body); letter-spacing: -.015em; color: var(--ink); }
+.up-day-head small { font-size: 13px; color: var(--ink-2); font-weight: 500; }
+.up-day-head em { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 13px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); font: 700 13px var(--f-body); font-style: normal; font-variant-numeric: tabular-nums; }
+/* Les véhicules d'un jour : une liste groupée (une seule carte, lignes séparées par un filet), comme les réglages de l'iPhone. */
+.up-list { display: flex; flex-direction: column; border-radius: 20px; background: var(--surface); overflow: hidden;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 12px 26px -18px rgba(10, 20, 28, .4); }
+.up-card { position: relative; }
+.up-card + .up-card .up-row::before { content: ""; position: absolute; top: 0; left: 70px; right: 0; height: .5px; background: var(--line-strong); }
+.up-row { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 0; padding: 12px 12px 12px 14px;
+  border: 0; border-radius: 0; background: none; color: var(--ink); font: inherit; font-weight: 400; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.up-row:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.up-row:active { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.up-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.up-row .svc-tile.sm { align-self: start; width: 44px; height: 44px; border-radius: 12px; }
+.up-row .svc-tile.sm .svc-art { width: 34px; height: 34px; }
+.up-id { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.up-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.up-line .plate { font-size: 14px; }
+.up-line .plate span { padding: 4px 6px; }
+.up-time { font: 600 14.5px var(--f-body); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+.up-what { font-size: 14px; color: var(--ink-2); line-height: 1.3; max-width: 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.up-what b { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.up-where { display: flex; align-items: center; gap: 5px; max-width: 100%; font-size: 13.5px; color: var(--ink-2); line-height: 1.3; }
+.up-where > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.up-where .icon { flex: none; width: 14px; height: 14px; }
+.up-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.up-flag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px 2px 6px; border-radius: 999px; font: 600 12px/1.4 var(--f-body); }
+.up-flag .icon { width: 13px; height: 13px; }
+.up-flag.warn { background: color-mix(in srgb, var(--st-todo) 13%, var(--surface)); color: var(--st-todo); }
+.up-flag.bad { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); color: var(--danger); }
+.up-chev { color: var(--ink-2); opacity: .55; }
+.up-chev .icon { width: 18px; height: 18px; }
+.up-busy { padding: 0 14px 8px 70px; }
+.up-busy .job-busy { min-height: 32px; font-size: 14px; }
+.up-card .job-done-flash { border-radius: 0; flex-direction: row; gap: 10px; }
+.up-card .job-done-flash svg { width: 40px; height: 40px; }
+.up-card.leaving { animation: job-out 220ms 500ms ease-in forwards; }
+/* État vide : une tuile en relief, un titre, une phrase. */
+.up-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 44px 24px 36px; text-align: center; color: var(--ink-2); font-size: 14.5px; line-height: 1.4; }
+.up-empty b { margin-top: 8px; color: var(--ink); font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.up-empty > span:last-child { max-width: 300px; }
+.up-empty-ico { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 20px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 92%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .07), 0 8px 18px -8px rgba(10, 20, 28, .32), 0 0 0 .5px rgba(10, 20, 28, .1); }
+.up-empty-ico .act-art { width: 46px; height: 46px; }
+/* La feuille du véhicule */
+.veh-sheet { gap: 16px; }
+.veh-info { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 1px var(--line) inset; }
+.veh-info:empty { display: none; }
+.veh-hint { margin: 0 4px -4px; font-size: 13.5px; color: var(--ink-2); }
+.veh-sheet .job-actions { gap: 12px; }
+.sheet-back { align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; min-height: 36px; margin: -6px 0 -8px -8px; padding: 0 10px 0 4px; border: 0; border-radius: 10px; background: none; color: var(--accent); font: 600 15px var(--f-body); }
+.sheet-back .icon { width: 20px; height: 20px; }
+@media (prefers-reduced-transparency: reduce) { .up-search { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+@media (prefers-reduced-motion: reduce) { .up-card.leaving, .up-row { animation: none; transition: none; } }
+/* ----- « À valider » (prestataire, 21/11) : la date et le site d'abord, le véhicule ensuite. Classes .ask* / .cal-tile seulement. ----- */
+.ask-sum { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 18px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
+.ask-sum p { margin: 0; font-size: 15px; color: var(--ink-2); }
+.ask-sum b { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ask-sum b .icon { width: 18px; height: 18px; color: var(--st-done); }
+.ask-sum .ask-sum-wait { color: var(--st-todo); font-weight: 600; }
+.ask-sum .ask-sum-sub { font-size: 14px; }
+.job.ask { gap: 0; padding: 0; overflow: hidden; }
+.job.ask > * { margin-left: 14px; margin-right: 14px; }
+.job.ask > * + * { margin-top: 12px; }
+.job.ask > :last-child:not(.job-done-flash) { margin-bottom: 14px; }
+.ask-when { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: center; margin: 0 !important; padding: 14px; background: var(--surface-2); border-bottom: .5px solid var(--line); }
+.cal-tile { display: grid; grid-template-rows: 18px 1fr; width: 54px; height: 54px; border-radius: 15px; overflow: hidden; background: var(--surface); text-align: center;
+  box-shadow: inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.cal-tile small { display: block; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 82%, #fff), var(--accent)); color: #fff;
+  font: 700 10.5px/18px var(--f-body); letter-spacing: .06em; text-transform: uppercase; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3); }
+.cal-tile b { display: grid; place-items: center; font: 700 23px/1 var(--f-body); letter-spacing: -.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ask-when-txt { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ask-day { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 10px; }
+.ask-day b { white-space: nowrap; font: 700 17px/1.25 var(--f-body); letter-spacing: -.015em; color: var(--ink); }
+.ask-day .job-time { font-size: 14.5px; color: var(--ink-2); }
+.ask-site { margin: 0; display: flex; gap: 6px; align-items: flex-start; min-width: 0; }
+.ask-site .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent); }
+.ask-site span { display: flex; flex-direction: column; min-width: 0; }
+.ask-site b { font: 600 15px/1.3 var(--f-body); color: var(--ink); }
+.ask-site small { font-size: 13px; line-height: 1.3; color: var(--ink-2); }
+.ask-veh .job-head { gap: 12px; }
+.job.ask .ask-veh { margin-top: 14px; }
+.ask-answer { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--st-todo-bg); color: var(--st-todo); font-size: 13.5px; }
+.ask-answer .icon { flex: none; width: 17px; height: 17px; margin-top: 1px; }
+.ask-answer span { display: flex; flex-direction: column; gap: 1px; font-weight: 500; }
+.ask-answer b { font-size: 14px; font-weight: 650; }
+.job.ask .job-done-flash { margin: 0; }
+.ask-flash small { color: var(--ink-2); font-size: 13.5px; font-weight: 500; }
+.ask-empty { gap: 8px; padding: 36px 20px 40px; border: 0; border-radius: 20px; background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 12px 26px -18px rgba(10, 20, 28, .4); }
+.ask-empty .svc-tile.lg { width: 76px; height: 76px; border-radius: 22px; margin-bottom: 6px; }
+.ask-empty .svc-tile.lg .svc-art { width: 56px; height: 56px; }
+.ask-empty b { font-size: 17px; letter-spacing: -.01em; }
+.ask-empty span:last-child { max-width: 260px; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .job.ask .job-done-flash { animation: none; } }
 </style>
 </head>
 <body>
@@ -2979,6 +3308,12 @@ ${rad("amber", [[0, "#ffe2a0"], [0.5, "#ffb53d"], [1, "#e87b00"]], 0.45, 0.35, 0
 ${rad("ground", [[0, "#0a141c", 0.34], [1, "#0a141c", 0]], 0.5, 0.5, 0.5)}
 ${rad("dent", [[0, "#7f8d98"], [0.6, "#b9c4cc", 0.6], [1, "#e4e9ed", 0]], 0.42, 0.4, 0.6)}
 ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
+${lin("steel", [[0, "#fbfcfd"], [0.5, "#c3ccd3"], [1, "#7d8a95"]])}
+${lin("grip", [[0, "#3a9cc0"], [0.5, "#0f6f8f"], [1, "#0a4a60"]])}
+${lin("cal-top", [[0, "#3a9cc0"], [0.55, "#0f6f8f"], [1, "#0a4e66"]])}
+${lin("warn", [[0, "#ff8a7a"], [0.5, "#e5412f"], [1, "#a8231a"]])}
+${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
+<mask id="i3-jaw" maskUnits="userSpaceOnUse" x="0" y="0" width="48" height="48"><rect width="48" height="48" fill="#fff"/><path d="M37 21.3h12v5.4H37Z" fill="#000"/><circle cx="37" cy="24" r="2.7" fill="#000"/></mask>
 <filter id="i3-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.6"/></filter>
 </defs></svg>`;
   const S = `stroke="${O}" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"`;
@@ -2992,7 +3327,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     `<circle cx="${cx}" cy="${cy}" r="2.7" fill="url(#i3-rim)" stroke="#5d6a74" stroke-width=".5"/>` +
     [0, 72, 144, 216, 288].map((a) => { const r = (a - 90) * Math.PI / 180; return `<circle cx="${(cx + 1.6 * Math.cos(r)).toFixed(2)}" cy="${(cy + 1.6 * Math.sin(r)).toFixed(2)}" r=".42" fill="#6b7883"/>`; }).join("") +
     `<circle cx="${cx}" cy="${cy}" r=".7" fill="#3d4952"/><path d="M${cx - 3.6} ${cy - 2.2}a4.2 4.2 0 0 1 3-2" stroke="#fff" stroke-opacity=".35" stroke-width=".7" fill="none" stroke-linecap="round"/>`;
-  const van = (front) => ground(24, 41.6, 22, 2.1) +
+  const van = (front, mark = true) => ground(24, 41.6, 22, 2.1) +
     // caisse : volume, nervures, logo City-Drop, poignée de porte arrière
     solid("M3.5 11a2.5 2.5 0 0 1 2.5-2.5h22a2.5 2.5 0 0 1 2.5 2.5v22h-27Z") +
     `<path d="M5 9.9h23" stroke="url(#i3-shine)" stroke-width="1.2" stroke-linecap="round"/><path d="M5.2 10.2h22.6" stroke="#fff" stroke-width=".8" stroke-linecap="round"/>` +
@@ -3010,7 +3345,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     // bas de caisse et passages de roue
     `<path d="M3 32.6h42.2v1.9c0 .6-.5 1.1-1.1 1.1H4.1A1.1 1.1 0 0 1 3 34.5Z" fill="url(#i3-dark)" ${S}/><path d="M4 33.2h40" stroke="#7d8a95" stroke-width=".5"/>` +
     `<path d="M6.4 33a6 6 0 0 1 12 0M30.7 33a6 6 0 0 1 12 0" fill="#151c21"/>` +
-    wheel(12.4, 35.4, !front) + wheel(36.7, 35.4, front);
+    wheel(12.4, 35.4, mark && !front) + wheel(36.7, 35.4, mark && front);
   const ENG = "M7 8h8.5l2 2.2H19V8.6h2v7.8h-2v-1.6h-1.5l-2.6 3.2H9.6L7 15.6Z";
   const PIPES = "M9.5 5.5h5M12 5.5v2.5M7 12.2H4.6M4.6 9.7v5";
   const CAR = "M4 16.5H2.6a.8.8 0 0 1-.8-.8v-2.3c0-.9.6-1.6 1.5-1.8l3.5-.8 2.9-3a2.4 2.4 0 0 1 1.7-.8h5.1c.8 0 1.5.4 2 1l2.3 2.9 1.7.4c.9.2 1.6 1 1.6 2v2.4a.8.8 0 0 1-.8.8H20a2.5 2.5 0 0 0-5 0H9a2.5 2.5 0 0 0-5 0Z";
@@ -3096,6 +3431,68 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       `<g fill="#2a3945"><circle cx="16.5" cy="23.6" r="2.5"/><circle cx="24" cy="23.6" r="2.5"/><circle cx="31.5" cy="23.6" r="2.5"/></g>` +
       `<g fill="#fff" opacity=".55"><circle cx="15.8" cy="22.8" r=".7"/><circle cx="23.3" cy="22.8" r=".7"/><circle cx="30.8" cy="22.8" r=".7"/></g>`,
   };
+  // Types de prestation (cartes de l'écran prestataire) : clé d'intervention et hayon élévateur.
+  ICONS["svc-intervention"] = ground(24, 42.4, 15, 2.1) +
+    `<g transform="rotate(-40 24 24)">` +
+    // clé plate : tête ouverte à droite (masque), anneau à gauche, manche avec poignée bleue City-Drop
+    `<g mask="url(#i3-jaw)">${solid("M29.5 24a7.5 7.5 0 1 1 15 0a7.5 7.5 0 1 1-15 0Z", "steel")}</g>` +
+    solid("M8 21.2h24v5.6H8Z", "steel") +
+    solid("M13.5 20.6h13.4a1.6 1.6 0 0 1 1.6 1.6v3.6a1.6 1.6 0 0 1-1.6 1.6H13.5a1.6 1.6 0 0 1-1.6-1.6v-3.6a1.6 1.6 0 0 1 1.6-1.6Z", "grip") +
+    `<path d="M14 21.6h12.4" stroke="#fff" stroke-opacity=".45" stroke-width=".8" stroke-linecap="round"/><path d="M16 22.6v2.8M18.6 22.6v2.8M21.2 22.6v2.8M23.8 22.6v2.8" stroke="#0a3a4c" stroke-opacity=".45" stroke-width=".7" stroke-linecap="round"/>` +
+    solid("M3.6 24a6 6 0 1 1 12 0a6 6 0 1 1-12 0Z", "steel") +
+    `<path d="M9.6 20.6l2.95 1.7v3.4L9.6 27.4l-2.95-1.7v-3.4Z" fill="#33414c" stroke="${O}" stroke-width=".8" stroke-linejoin="round"/><path d="M6.65 22.3l2.95-1.7 2.95 1.7" stroke="#0a141c" stroke-width=".7" fill="none" opacity=".6"/>` +
+    `<path d="M31.4 20.2a6.4 6.4 0 0 1 8.8-2.4" stroke="#fff" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M5 21.4a4.8 4.8 0 0 1 4-2.6" stroke="#fff" stroke-width=".9" fill="none" stroke-linecap="round"/>` +
+    `</g>`;
+  ICONS["svc-hayon"] = `<g transform="translate(6.4 2.6) scale(.86)">${van(true, false)}</g>` +
+    // hayon : bras, plateau baissé, flèche monte / descend
+    `<path d="M9.6 30.2l-.4 7.6" stroke="${O}" stroke-width="1.6" stroke-linecap="round"/><path d="M9.6 30.2l-.4 7.6" stroke="#9aa7b2" stroke-width=".7" stroke-linecap="round"/>` +
+    solid("M1.4 37.4h9.4v2.6H1.4Z", "steel") + `<path d="M2 37.9h8.2" stroke="#fff" stroke-width=".6" stroke-linecap="round"/>` +
+    `<g stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M5.2 23.6v9.6M2.8 26l2.4-2.4 2.4 2.4M2.8 30.8l2.4 2.4 2.4-2.4" stroke="#fff" stroke-width="2.6" stroke-opacity=".7"/><path d="M5.2 23.6v9.6M2.8 26l2.4-2.4 2.4 2.4M2.8 30.8l2.4 2.4 2.4-2.4" stroke="#0f6f8f" stroke-width="1.5"/></g>`;
+  // Actions d'une carte prestataire : reporter (calendrier + flèche), véhicule absent (place vide), problème (triangle).
+  ICONS["act-date"] = ground(24, 43.2, 16, 2.1) +
+    solid("M8 12.5a3.5 3.5 0 0 1 3.5-3.5h25a3.5 3.5 0 0 1 3.5 3.5V37a3.5 3.5 0 0 1-3.5 3.5h-25A3.5 3.5 0 0 1 8 37Z") +
+    `<path d="M8 12.5a3.5 3.5 0 0 1 3.5-3.5h25a3.5 3.5 0 0 1 3.5 3.5V18H8Z" fill="url(#i3-cal-top)" ${S}/>` +
+    `<path d="M10.4 10.6h27" stroke="#fff" stroke-opacity=".45" stroke-width=".9" stroke-linecap="round"/>` +
+    `<g fill="url(#i3-dark)" ${S}><rect x="14" y="5.5" width="3.4" height="7.4" rx="1.7"/><rect x="30.6" y="5.5" width="3.4" height="7.4" rx="1.7"/></g>` +
+    `<g fill="#c3ced6"><rect x="12.4" y="22" width="4.4" height="3.4" rx=".9"/><rect x="19.6" y="22" width="4.4" height="3.4" rx=".9"/><rect x="12.4" y="28.4" width="4.4" height="3.4" rx=".9"/></g>` +
+    // flèche « plus tard » bleue
+    `<path d="M22 33.6a8.4 8.4 0 1 0 2.2-10.4" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".9"/>` +
+    `<path d="M22 33.6a8.4 8.4 0 1 0 2.2-10.4" fill="none" stroke="#0f6f8f" stroke-width="2.6" stroke-linecap="round"/>` +
+    `<path d="M21.4 19.6l3.4 3.4-3.9 2.6Z" fill="#0f6f8f" stroke="#0f6f8f" stroke-width="1.6" stroke-linejoin="round"/>`;
+  ICONS["act-absent"] = ground(24, 43, 20, 2) +
+    // place de parking vide : bitume, lignes blanches, camion en pointillés
+    `<path d="M4 40.5l5-21h30l5 21Z" fill="url(#i3-dark)" ${S}/><path d="M9.6 20.6h28.8" stroke="#8a97a2" stroke-width=".6"/>` +
+    `<path d="M10.6 22.4l-3.8 16.6M37.4 22.4l3.8 16.6" stroke="#f4f7f9" stroke-width="1.6" stroke-linecap="round"/>` +
+    `<path d="M14.6 25.4h18.8l1.4 10.6H13.2Z" fill="none" stroke="#f4f7f9" stroke-opacity=".75" stroke-width="1.1" stroke-dasharray="2.2 1.8" stroke-linejoin="round"/>` +
+    // point d'interrogation orange, en volume
+    `<circle cx="34.6" cy="13.4" r="8.4" fill="url(#i3-ora)" ${S}/><ellipse cx="32.6" cy="9.6" rx="4.6" ry="2.4" fill="url(#i3-shine)" opacity=".75"/>` +
+    `<path d="M31.8 11.2a2.9 2.9 0 1 1 4.1 2.6c-.8.4-1.3 1-1.3 1.9v.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="34.6" cy="18.6" r="1.15" fill="#fff"/>`;
+  ICONS["act-problem"] = ground(24, 42.8, 17, 2.1) +
+    `<path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="url(#i3-warn)"/><path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="url(#i3-shadeR)"/>` +
+    `<path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="none" stroke="#7d1810" stroke-width="1" stroke-linejoin="round"/>` +
+    `<path d="M22.4 9.6a1.8 1.8 0 0 1 3.1 0l3 5.4c-2.6 1.6-6.4 1.9-9.4.9Z" fill="#fff" opacity=".35"/>` +
+    `<rect x="22" y="17" width="4" height="12.4" rx="2" fill="#fff"/><circle cx="24" cy="34" r="2.2" fill="#fff"/>`;
+  ICONS["faits-vide"] = ground(24, 43.2, 15, 2.1) +
+    // « Faits » vide : un bloc-notes à pince, une pastille verte avec une coche
+    solid("M10 10.5a3.5 3.5 0 0 1 3.5-3.5h21a3.5 3.5 0 0 1 3.5 3.5V38a3.5 3.5 0 0 1-3.5 3.5h-21A3.5 3.5 0 0 1 10 38Z") +
+    `<path d="M12.6 9.2h22.6" stroke="#fff" stroke-opacity=".5" stroke-width=".9" stroke-linecap="round"/>` +
+    `<path d="M17.5 4.8h13a1.6 1.6 0 0 1 1.6 1.6v3.4a1.6 1.6 0 0 1-1.6 1.6h-13a1.6 1.6 0 0 1-1.6-1.6V6.4a1.6 1.6 0 0 1 1.6-1.6Z" fill="url(#i3-steel)" ${S}/>` +
+    `<g stroke="#c3ced6" stroke-width="2.2" stroke-linecap="round"><path d="M15.4 18h17"/><path d="M15.4 23.6h12"/><path d="M15.4 29.2h7"/></g>` +
+    `<circle cx="32.4" cy="33.2" r="8.6" fill="url(#i3-spg)" ${S}/><ellipse cx="30.4" cy="29.4" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".7"/>` +
+    `<path d="M28.4 33.4l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // « Pas possible » : panneau sens interdit en volume (refus d'une demande, à ne pas confondre avec « Problème »).
+  ICONS["act-refuse"] = ground(24, 42.6, 15, 2.1) +
+    `<circle cx="24" cy="23" r="16" fill="url(#i3-warn)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeR)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeB)"/>` +
+    `<circle cx="24" cy="23" r="16" fill="none" stroke="#7d1810" stroke-width="1"/><circle cx="24" cy="23" r="13.6" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width=".8"/>` +
+    `<ellipse cx="19.4" cy="13.6" rx="7.6" ry="3.4" fill="url(#i3-shine)" opacity=".55"/>` +
+    `<rect x="13.4" y="20" width="21.2" height="6" rx="3" fill="#fff"/><path d="M15 25.4h18" stroke="#0a141c" stroke-opacity=".12" stroke-width=".8" stroke-linecap="round"/>`;
+  // État vide de « À valider » : bac à courrier vide, coche verte en volume.
+  ICONS["empty-inbox"] = ground(24, 42.4, 19, 2.2) +
+    solid("M5.5 27.5l5.2-13.8a2.4 2.4 0 0 1 2.2-1.6h22.2a2.4 2.4 0 0 1 2.2 1.6l5.2 13.8V36a3 3 0 0 1-3 3H8.5a3 3 0 0 1-3-3Z") +
+    `<path d="M9.4 27.5l4.4-11.6h20.4l4.4 11.6Z" fill="#c9d4dc"/><path d="M9.4 27.5l4.4-11.6h20.4" fill="none" stroke="#9aa8b3" stroke-width=".7"/>` +
+    `<path d="M5.5 27.5h10.2l2.2 4.3h12.2l2.2-4.3h10.2" fill="none" ${S}/><path d="M7.2 29h7.6" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".9"/>` +
+    `<circle cx="35" cy="12.6" r="8.6" fill="url(#i3-spg)" ${S}/><ellipse cx="32.8" cy="8.8" rx="4.8" ry="2.4" fill="url(#i3-shine)" opacity=".6"/>` +
+    `<path d="M31 12.8l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
@@ -3145,21 +3542,28 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
 
     function modelHtml(d) {
       const [name, size] = (D.vehicleLabel(d) || "").split(" – ");
-      return `<span class="job-model">${esc(name || "Modèle non précisé")}${size ? `<small>${esc(size)}</small>` : ""}</span>`;
+      return `<span class="job-model">${esc(name || "Modèle non précisé")}${size ? ` · ${esc(size)}` : ""}</span>`;
     }
-    function jobHead(d) {
-      return `<div class="job-head">${plateTag(d.plaque)}
-        ${modelHtml(d)}
-        <span class="job-kind">${esc(D.jobLabel(d))}</span></div>`;
+    // Le type de prestation en icône en volume (même famille que « Signaler »), dans une tuile en relief.
+    const SERVICE_ART = { lavage: "Véhicule sale", "pare-brise": "Pare-brise", intervention: "svc-intervention", hayon: "svc-hayon" };
+    const serviceTile = (d, cls = "svc-tile") => `<span class="${cls}" aria-hidden="true">${self.IssueArt?.art(SERVICE_ART[d.service] || "svc-intervention", "svc-art") || ""}</span>`;
+    // withTime: the slot on the right (« Aujourd'hui », where date and site are already given by the section).
+    function jobHead(d, { withTime = false } = {}) {
+      return `<div class="job-head">${serviceTile(d)}
+        <div class="job-id"><div class="job-line">${plateTag(d.plaque)}${withTime ? `<span class="job-time">${esc(slot(d))}</span>` : ""}</div>${modelHtml(d)}<span class="job-kind">${esc(D.jobLabel(d))}</span>
+        ${D.isLate(d, today()) ? `<span class="late-pill">${icon("alert")}En retard · prévu ${esc(D.shortDate(D.lastDay(d)))}</span>` : ""}</div></div>`;
     }
     function jobMeta(d, { withDate = true, withSite = true } = {}) {
       const late = D.isLate(d, today());
-      return `<ul class="job-meta">
-        ${withDate ? `<li>${icon("cal")}<span>${esc(cap(when(d)))}</span></li>` : ""}
-        <li>${icon("clock")}<span>${esc(cap(slot(d)))}${!withDate && D.isMultiDay(d) ? ` · sur site jusqu'au ${esc(D.shortDate(D.lastDay(d)))}` : ""}</span></li>
-        ${withSite ? `<li>${icon("pin")}<span>${esc([d.site, d.adresse].filter(Boolean).join(" · ") || "Site à préciser")}</span></li>` : ""}
-        ${late ? `<li class="late">${icon("alert")}<span>En retard : prévu jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>` : ""}
-      </ul>${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}`;
+      const items = [
+        withDate && `<li>${icon("cal")}<span>${esc(cap(when(d)))}</span></li>`,
+        withDate ? `<li>${icon("clock")}<span>${esc(cap(slot(d)))}</span></li>`
+          : D.isMultiDay(d) && !late && `<li>${icon("cal")}<span>Sur site jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>`,
+        withSite && `<li>${icon("pin")}<span>${esc([d.site, d.adresse].filter(Boolean).join(" · ") || "Site à préciser")}</span></li>`,
+      ].filter(Boolean);
+      return (items.length ? `<ul class="job-meta">${items.join("")}</ul>` : "") +
+        (d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : "") +
+        (d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : "");
     }
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
@@ -3181,80 +3585,139 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       return `<p class="job-answer">${icon("alert")}<span>${esc(D.answerSummary(r))}${r.vu ? "" : " · en attente de l'équipe"}</span></p>`;
     }
 
-    // ---------- inline forms (done, another date, missing vehicle, not possible) ----------
-    function formHtml(d) {
-      const cancel = (kind) => `<button type="button" class="ghost" data-form="${kind}:${esc(d.id)}">Annuler</button>`;
-      const note = (label, placeholder) => `<label class="field"><span>${label}</span><input data-note value="${esc(state.draft.note || "")}" placeholder="${placeholder}" maxlength="${D.PROBLEM_TEXT_MAX}"></label>`;
-      // "Done": one confirmation step so a slip of the finger does not close a job. No photo: providers are trusted.
-      if (state.openForm === "done:" + d.id) return `<div class="job-form">
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. RAS, tout est propre")}
-        <div class="job-form-actions">${cancel("done")}<button type="button" class="primary" data-send="done:${esc(d.id)}">${icon("check")}Confirmer : réalisée</button></div></div>`;
-      if (state.openForm === "undo:" + d.id) return `<div class="job-form">
-        <p class="job-form-text">Ce véhicule revient dans ta liste à faire. L'équipe est prévenue.</p>
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. c'était le véhicule d'à côté")}
-        <div class="job-form-actions">${cancel("undo")}<button type="button" class="primary" data-send="undo:${esc(d.id)}">Oui, remettre à faire</button></div></div>`;
-      if (state.openForm === "problem:" + d.id) return `<div class="job-form">
-        <label class="field"><span>Qu'est-ce qui ne va pas sur le véhicule ?</span><textarea data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(state.draft.note || "")}</textarea></label>
-        ${photoPicker()}
-        <div class="job-form-actions">${cancel("problem")}<button type="button" class="primary" data-send="problem:${esc(d.id)}">${icon("alert")}Envoyer à l'équipe</button></div></div>`;
-      if (state.openForm === "date:" + d.id) return `<div class="job-form">
-        <div class="job-form-row"><label class="field"><span>Date proposée</span><input type="date" data-date min="${today()}"></label>
-        <label class="field"><span>Heure</span><input type="time" data-time step="900"></label></div>
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. complet jeudi matin")}
-        <div class="job-form-actions">${cancel("date")}<button type="button" class="primary" data-send="date:${esc(d.id)}">Proposer cette date</button></div></div>`;
-      if (state.openForm === "absent:" + d.id) return `<div class="job-form">
-        ${note("Un mot pour l'équipe (facultatif)", "Ex. pas sur le parking à 9 h")}
-        <div class="job-form-actions">${cancel("absent")}<button type="button" class="primary" data-send="absent:${esc(d.id)}">Signaler le véhicule absent</button></div></div>`;
-      if (state.openForm === "refuse:" + d.id) return `<div class="job-form">
-        ${note("Pourquoi ? (facultatif)", "Ex. pièce indisponible")}
-        <div class="job-form-actions">${cancel("refuse")}<button type="button" class="primary" data-send="refuse:${esc(d.id)}">Confirmer : pas possible</button></div></div>`;
-      return "";
+    // ---------- actions in a sheet over the screen (done, postpone, missing vehicle, problem, not possible, take back) ----------
+    // Same sheet as « Signaler »: the card stays where it is, nothing unfolds inside the list.
+    const ACTS = {
+      done: { title: "Prestation réalisée ?", btn: "Confirmer : réalisée", noteLabel: "Un mot pour l'équipe", ph: "Ex. RAS, tout est propre" },
+      undo: { title: "Remettre à faire ?", text: "Ce véhicule revient dans ta liste à faire. L'équipe est prévenue.", btn: "Oui, remettre à faire", noteLabel: "Un mot pour l'équipe", ph: "Ex. c'était le véhicule d'à côté" },
+      date: { title: "Reporter", btn: "Proposer cette date", noteLabel: "Un mot pour l'équipe", ph: "Ex. complet jeudi matin" },
+      absent: { title: "Véhicule absent", text: "L'équipe City-Drop est prévenue tout de suite.", btn: "Signaler le véhicule absent", noteLabel: "Un mot pour l'équipe", ph: "Ex. pas sur le parking à 9 h" },
+      refuse: { title: "Pas possible", btn: "Confirmer : pas possible", noteLabel: "Pourquoi ?", ph: "Ex. pièce indisponible" },
+      problem: { title: "Problème sur le véhicule", btn: "Envoyer à l'équipe" },
+    };
+    const actOf = () => { const [kind, id] = (state.openForm || "").split(":"); return { kind, d: byId(id) }; };
+    const actTitle = (kind, d) => (kind === "veh" && d ? (d.date ? upDayTitle(d.date) : "Date à préciser")
+      : kind === "date" && d && !D.isAccepted(d) ? "Proposer une autre date" : ACTS[kind]?.title || "");
+    // Secondary actions: round raised buttons with an icon in volume (same family as « Signaler »), label underneath.
+    const ACT_ART = { date: "act-date", absent: "act-absent", problem: "act-problem", refuse: "act-refuse" };
+    const actBtn = (kind, id, label) => `<button type="button" class="act-btn" data-act="${kind}" data-id="${esc(id)}"><span class="act-ico" aria-hidden="true">${self.IssueArt?.art(ACT_ART[kind], "act-art") || ""}</span><span class="act-lbl">${label}</span></button>`;
+    // The next days as one-tap choices; any other day stays in the date field.
+    function nextDays(n) {
+      const out = []; const d0 = new Date(today() + "T12:00:00");
+      for (let i = 1; i <= n; i++) { const x = new Date(d0); x.setDate(d0.getDate() + i); out.push(D.toIsoDate(x)); }
+      return out;
+    }
+    const dayChip = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" }).replace(".", "");
+    function actBody() {
+      const { kind, d } = actOf();
+      if (kind === "veh" && d) return vehBody(d);
+      const a = ACTS[kind];
+      if (!a || !d) return "";
+      const dr = state.draft;
+      const note = (rows) => `<label class="sheet-group"><span class="sheet-label">${a.noteLabel || "Un mot pour l'équipe"} <i>facultatif</i></span>${rows
+        ? `<textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="${a.ph}">${esc(dr.note || "")}</textarea>`
+        : `<input class="sheet-input" data-note value="${esc(dr.note || "")}" placeholder="${a.ph}" maxlength="${D.PROBLEM_TEXT_MAX}">`}</label>`;
+      const veh = `<div class="act-veh">${serviceTile(d, "svc-tile sm")}<span>${plateTag(d.plaque)}<small>${esc([D.vehicleLabel(d), D.jobLabel(d)].filter(Boolean).join(" · "))}</small></span></div>`;
+      let fields = "";
+      if (kind === "problem") fields = `<label class="sheet-group"><span class="sheet-label">Qu'est-ce qui ne va pas ?</span><textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(dr.note || "")}</textarea></label>${photoPicker()}`;
+      else if (kind === "date") fields = `<fieldset class="sheet-group day-set"><legend class="sheet-label">Nouvelle date</legend>
+          <div class="day-chips">${nextDays(4).map((iso) => `<button type="button" class="day-chip" data-day="${iso}" aria-pressed="${dr.date === iso}">${esc(dayChip(iso))}</button>`).join("")}</div>
+          <div class="day-row"><label><span>Autre jour</span><input type="date" class="sheet-input" data-date data-keep="adate" min="${today()}" value="${esc(dr.date || "")}"></label>
+          <label><span>Heure <i>facultatif</i></span><input type="time" class="sheet-input" data-time data-keep="atime" step="900" value="${esc(dr.time || "")}"></label></div></fieldset>${note(false)}`;
+      else fields = (a.text ? `<p class="sheet-sub">${a.text}</p>` : "") + note(false);
+      const back = state.actFrom === d.id ? `<button type="button" class="sheet-back" data-veh="${esc(d.id)}">${icon("chev-l")}Retour au véhicule</button>` : "";
+      return `<div class="act-sheet" data-asheet>${back}${veh}${fields}
+        ${state.busy.has(d.id) ? busyLine : `<button type="button" class="primary big field-send${kind === "done" ? " ok" : ""}" data-asend>${kind === "done" ? icon("check") : ""}${a.btn}</button>`}</div>`;
     }
     function photoPicker() {
       const ph = state.draft.photo;
       if (state.draft.photoBusy) return `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`;
-      if (ph) return `<div class="problem-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer la photo</button></div>`;
-      return `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
+      if (ph) return `<div class="sheet-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer</button></div>`;
+      return `<label class="sheet-photo-add">${icon("camera")}<span>Ajouter une photo</span><small>facultatif</small><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
     }
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
-    const formOpen = (d) => state.openForm?.endsWith(":" + d.id);
 
     // ---------- cards per tab ----------
-    function validateCard(d) {
-      return `<article class="job">${jobHead(d)}${jobMeta(d)}${photosStrip(d)}${answerLine(d)}
-        ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
-          <button type="button" class="primary" data-take="${esc(d.id)}">${icon("check")}Accepter</button>
-          <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Autre date</button>
-          <button type="button" class="ghost" data-form="refuse:${esc(d.id)}">Pas possible</button></div>`}
-      </article>`;
+    // « À valider » : la date et le site d'abord (c'est ce qui décide), le véhicule ensuite.
+    const relDay = (iso) => { const n = Math.round((new Date(iso + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5); return n === 0 ? "Aujourd'hui" : n === 1 ? "Demain" : ""; };
+    function calTile(iso) {
+      const x = new Date((iso || today()) + "T12:00:00");
+      return `<span class="cal-tile" aria-hidden="true"><small>${esc(x.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", ""))}</small><b>${x.getDate()}</b></span>`;
     }
+    function askWhen(d) {
+      const rel = !D.isMultiDay(d) && d.date ? relDay(d.date) : "";
+      const dm = (iso, month = true) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", month ? { day: "numeric", month: "short" } : { day: "numeric" });
+      const last = D.lastDay(d);
+      const day = !d.date ? "Date à préciser"
+        : D.isMultiDay(d) ? `Du ${dm(d.date, d.date.slice(0, 7) !== last.slice(0, 7))} au ${dm(last)}` // la tuile donne déjà le jour de la semaine
+        : rel ? `${rel} · ${dm(d.date)}` : cap(D.shortDate(d.date));
+      return `<header class="ask-when">${calTile(d.date)}
+        <div class="ask-when-txt"><p class="ask-day"><b>${esc(day)}</b><span class="job-time">${esc(slot(d))}</span></p>
+        <p class="ask-site">${icon("pin")}<span><b>${esc(d.site || "Site à préciser")}</b>${d.adresse ? `<small>${esc(d.adresse)}</small>` : ""}</span></p></div></header>`;
+    }
+    // Réponse déjà envoyée (autre date, pas possible…) : pastille orange en haut de la carte, l'équipe n'a pas encore tranché.
+    function askAnswer(d) {
+      const r = d.retour;
+      if (!r || ["fait", "confirme", "erreur"].includes(r.etat)) return "";
+      return `<p class="ask-answer">${icon("clock")}<span><b>${esc(D.answerSummary(r))}</b>${r.vu ? "Vu par l'équipe" : "En attente de l'équipe"}</span></p>`;
+    }
+    function validateCard(d) {
+      const flying = state.accepting === d.id;
+      return `<article class="job ask${flying ? " accepting" : ""}" data-job="${esc(d.id)}">${askWhen(d)}<div class="ask-veh">${jobHead(d)}</div>${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}${photosStrip(d)}${askAnswer(d)}
+        ${state.busy.has(d.id) && !flying ? busyLine : `<div class="job-actions">
+          <button type="button" class="primary big ok-btn" data-take="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Accepter</button>
+          <div class="act-row two">${actBtn("date", d.id, "Autre date")}${actBtn("refuse", d.id, "Pas possible")}</div></div>`}
+      ${flying ? `<div class="job-done-flash ask-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Acceptée</b><small>Rangée dans ${esc(state.acceptTo === "today" ? "Aujourd'hui" : "À venir")}</small></div>` : ""}</article>`;
+    }
+    // early: a vehicle of « À venir » done ahead of time (date and site shown, the section does not give them).
     function doCard(d, { early = false } = {}) {
-      return `<article class="job">${jobHead(d)}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
-        ${state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d) : `<div class="job-actions">
-          <button type="button" class="primary big" data-form="done:${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
-          <button type="button" data-form="date:${esc(d.id)}">${icon("cal")}Reporter</button>
-          <button type="button" class="ghost" data-form="absent:${esc(d.id)}">Véhicule absent</button>
-          <button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button></div>`}
-      ${problemLines(d)}</article>`;
+      const leaving = state.leaving === d.id;
+      return `<article class="job${leaving ? " leaving" : ""}" data-job="${esc(d.id)}">${jobHead(d, { withTime: !early })}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
+        ${state.busy.has(d.id) && !leaving ? busyLine : `<div class="job-actions">
+          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>OK prestation réalisée</button>
+          <div class="act-row">${actBtn("date", d.id, "Reporter")}${actBtn("absent", d.id, "Véhicule absent")}${actBtn("problem", d.id, "Problème")}</div></div>`}
+      ${problemLines(d)}${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
     }
     const doneDayOf = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
+    // « Faits » : une liste groupée par jour, façon iPhone. L'heure du « fait » à droite, les deux actions possibles
+    // (Corriger pendant 10 minutes, Problème pendant 7 jours) en petites capsules sous la ligne.
+    function doneTime(d) {
+      const at = d.retour?.etat === "fait" ? d.retour.at : d.doneAt;
+      if (!at || !String(at).includes("T")) return "";
+      const t = new Date(at);
+      return Number.isNaN(t.getTime()) ? "" : t.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    }
     function doneRow(d) {
       const day = doneDayOf(d);
       // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
       const undo = D.canUndoDone(d, email, Date.now());
-      const more = recent || undo ? (state.busy.has(d.id) ? busyLine : formOpen(d) ? formHtml(d)
-        : (undo ? `<button type="button" class="undo-done" data-form="undo:${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : "") +
-          (recent ? `<button type="button" class="report" data-form="problem:${esc(d.id)}">${icon("alert")}Signaler un problème</button>` : "")) : "";
-      const lines = problemLines(d);
-      return `<li class="done-row">${plateTag(d.plaque)}<span><b>${esc(D.vehicleLabel(d) || D.jobLabel(d))}</b><small>${esc([d.site, day && cap(D.shortDate(day))].filter(Boolean).join(" · "))}</small></span>
-        ${d.retour?.preuve ? `<button type="button" class="ghost" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : "<span></span>"}
-        ${more || lines ? `<div class="done-more">${lines}${more}</div>` : ""}</li>`;
+      const acts = recent || undo ? (state.busy.has(d.id) ? busyLine
+        : `<div class="done-acts">${undo ? `<button type="button" class="done-pill undo" data-act="undo" data-id="${esc(d.id)}">${icon("x")}${esc(D.UNDO_DONE_LABEL)}</button>` : ""}${recent ? `<button type="button" class="done-pill" data-act="problem" data-id="${esc(d.id)}"><span class="done-pill-art" aria-hidden="true">${self.IssueArt?.art("act-problem", "act-art") || ""}</span>Problème</button>` : ""}</div>`) : "";
+      const [name, size] = (D.vehicleLabel(d) || "").split(" – ");
+      const time = doneTime(d);
+      return `<li class="done-item">${serviceTile(d, "svc-tile xs")}
+        <div class="done-main"><div class="done-line">${plateTag(d.plaque)}${time ? `<time class="done-time">${esc(time)}</time>` : ""}</div>
+          <b class="done-model">${esc(name || D.jobLabel(d))}${size ? `<span> · ${esc(size)}</span>` : ""}</b>
+          <small class="done-sub">${esc([name ? D.jobLabel(d) : "", d.site].filter(Boolean).join(" · "))}</small>
+          ${problemLines(d)}${acts}</div>
+        ${d.retour?.preuve ? `<button type="button" class="done-proof" data-proof="${esc(d.retour.preuve)}" aria-label="Voir la photo de ${esc(d.plaque)}">${icon("image")}</button>` : ""}</li>`;
+    }
+    // « Aujourd'hui », « Hier », puis « Mercredi 18 novembre ».
+    function doneDayHead(iso) {
+      if (iso === today()) return "Aujourd'hui";
+      if (iso === D.addDays(today(), -1)) return "Hier";
+      return iso ? cap(D.dayLabel(iso)) : "Date inconnue";
+    }
+    function doneGroups(list) {
+      return [...D.groupBy(list, doneDayOf).entries()].map(([iso, rows]) => `<section class="done-day">
+        <h2 class="done-day-head"><span>${esc(doneDayHead(iso))}</span><em>${rows.length}</em></h2>
+        <ul class="done-list">${rows.map(doneRow).join("")}</ul></section>`).join("");
     }
     // Today's vehicles grouped by site: the provider goes site by site.
     function todayHtml(list) {
       return [...D.groupBy(list, D.siteOf).entries()].map(([site, rows]) => `<section class="spot">
-        <header class="spot-head">${icon("pin")}<span><b>${esc(site)}</b>${rows[0].adresse ? `<small>${esc(rows[0].adresse)}</small>` : ""}</span><em>${rows.length}</em></header>
+        <header class="spot-head"><span class="spot-pin">${icon("pin")}</span><span><b>${esc(site)}</b>${rows[0].adresse ? `<small>${esc(rows[0].adresse)}</small>` : ""}</span><em aria-label="${rows.length} véhicule${rows.length > 1 ? "s" : ""}">${rows.length}</em></header>
         ${rows.map((d) => doCard(d)).join("")}</section>`).join("");
     }
     const searchBox = () => `<label class="job-search">${icon("search")}<input type="search" data-search value="${esc(state.query)}" placeholder="Chercher une plaque, un site…" aria-label="Chercher"></label>`;
@@ -3271,37 +3734,127 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
         return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
     }
-    function validateTab(list) {
-      return list.length
-        ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${list.map(validateCard).join("")}`
-        : empty("Aucune demande à valider", "Les nouvelles demandes de City-Drop arrivent ici.");
+    // En tête : combien de demandes attendent une réponse, et combien attendent l'équipe (réponse déjà envoyée).
+    function validateTab(all) {
+      const list = all.filter((d) => d.id !== state.gone);
+      if (!list.length) return `<div class="job-empty ask-empty"><span class="svc-tile lg" aria-hidden="true">${self.IssueArt?.art("empty-inbox", "svc-art") || ""}</span><b>Aucune demande à valider</b><span>Les nouvelles demandes de City-Drop arrivent ici.</span></div>`;
+      const waiting = list.filter((d) => d.retour && !["fait", "confirme", "erreur"].includes(d.retour.etat)).length;
+      const todo = list.length - waiting;
+      const head = todo ? `<b>${todo}</b> demande${todo > 1 ? "s" : ""} à valider` : `<b>${icon("check")}Tu as répondu à tout</b>`;
+      return `<div class="ask-sum"><p>${head}${waiting ? `<span class="ask-sum-wait"> · ${waiting} en attente de l'équipe</span>` : ""}</p>
+        <p class="ask-sum-sub">${todo ? "Accepte chaque demande, ou propose une autre date." : "L'équipe City-Drop te répond ici."}</p></div>${list.map(validateCard).join("")}`;
+    }
+    // The day at a glance: what is left, what is already done today (green bar = done only).
+    function daySummary(left) {
+      const doneToday = state.demandes.filter((d) => D.isForProvider(d) && (d.retour?.etat === "fait" || d.statut === "realisee") && doneDayOf(d) === today()).length;
+      const total = left + doneToday;
+      if (!total) return "";
+      const pct = Math.round((doneToday / total) * 100);
+      const late = state.demandes.filter((d) => D.providerLists([d], today()).today.length && D.isLate(d, today())).length;
+      const text = left ? `<b>${left}</b> véhicule${left > 1 ? "s" : ""} à faire${doneToday ? `<span> · ${doneToday} fait${doneToday > 1 ? "s" : ""}</span>` : ""}${late ? `<span class="sum-late"> · ${late} en retard</span>` : ""}`
+        : `<b class="all-done">${icon("check")}Tout est fait</b><span> · ${doneToday} véhicule${doneToday > 1 ? "s" : ""}</span>`;
+      return `<div class="day-sum"><p>${text}</p><div class="day-bar" role="progressbar" aria-label="Avancement de la journée" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${doneToday}"><i style="width:${pct}%"></i></div></div>`;
     }
     function todayTab(list) {
-      return list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site.");
+      return daySummary(list.length) + (list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site."));
+    }
+    // « À venir » : groupé par jour (« Lundi 23 »), cartes compactes ; un appui sur la carte ouvre la feuille du véhicule
+    // (détails + OK en avance, Reporter, Véhicule absent, Problème).
+    const daysFromToday = (iso) => Math.round((new Date(iso + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5);
+    function upDayTitle(iso) {
+      const dt = new Date(iso + "T12:00:00");
+      const sameMonth = iso.slice(0, 7) === today().slice(0, 7);
+      return cap(dt.toLocaleDateString("fr-FR", sameMonth ? { weekday: "long", day: "numeric" } : { weekday: "long", day: "numeric", month: "long" }));
+    }
+    const upDaySub = (iso) => { const n = daysFromToday(iso); return n === 1 ? "Demain" : `Dans ${n} jours`; };
+    function upCard(d) {
+      const leaving = state.leaving === d.id;
+      const late = D.isMultiDay(d) ? `Jusqu'au ${D.shortDate(D.lastDay(d))}` : "";
+      const probs = D.problemsOfRequest(state.problems, d.id).length;
+      const r = d.retour, waiting = r && !["fait", "confirme", "erreur"].includes(r.etat);
+      const flags = [
+        waiting && `<span class="up-flag warn">${icon("alert")}${esc(D.answerOf(r.etat)?.label || "Réponse envoyée")}${r.vu ? "" : " · en attente"}</span>`,
+        probs && `<span class="up-flag bad">${icon("alert")}Problème signalé</span>`,
+      ].filter(Boolean).join("");
+      return `<article class="up-card${leaving ? " leaving" : ""}" data-job="${esc(d.id)}">
+        <button type="button" class="up-row" data-veh="${esc(d.id)}" aria-haspopup="dialog" aria-label="${esc(`${d.plaque || "Véhicule"}, ${D.jobLabel(d)}, ${d.site || "site à préciser"} : voir et agir`)}">
+          ${serviceTile(d, "svc-tile sm")}
+          <span class="up-id"><span class="up-line">${plateTag(d.plaque)}<span class="up-time">${esc(d.date ? slot(d) : "")}</span></span>
+            <span class="up-what"><b>${esc(D.vehicleLabel(d) || "Modèle non précisé")}</b> · ${esc(D.jobLabel(d))}</span>
+            <span class="up-where">${icon("pin")}<span>${esc(d.site || "Site à préciser")}${late ? ` · ${esc(late)}` : ""}</span></span>
+            ${flags ? `<span class="up-flags">${flags}</span>` : ""}</span>
+          <span class="up-chev" aria-hidden="true">${icon("chev-r")}</span>
+        </button>
+        ${state.busy.has(d.id) && !leaving ? `<div class="up-busy">${busyLine}</div>` : ""}
+        ${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
+    }
+    // La feuille d'un véhicule d'« À venir » : tout ce que la carte compacte ne montre pas, puis les actions.
+    function vehBody(d) {
+      return `<div class="act-sheet veh-sheet" data-asheet>
+        <div class="act-veh">${serviceTile(d, "svc-tile sm")}<span>${plateTag(d.plaque)}<small>${esc([D.vehicleLabel(d), D.jobLabel(d)].filter(Boolean).join(" · "))}</small></span></div>
+        <div class="veh-info">${jobMeta(d)}${photosStrip(d)}${answerLine(d)}${problemLines(d)}</div>
+        <p class="veh-hint">Le véhicule est déjà sur site ? Tu peux le faire en avance.</p>
+        ${state.busy.has(d.id) ? busyLine : `<div class="job-actions">
+          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>OK prestation réalisée</button>
+          <div class="act-row">${actBtn("date", d.id, "Reporter")}${actBtn("absent", d.id, "Véhicule absent")}${actBtn("problem", d.id, "Problème")}</div></div>`}</div>`;
     }
     function upcomingTab(all) {
       const list = filtered(all);
-      return searchBox() + (list.length
-        ? `<p class="tab-intro">Un véhicule est déjà sur site ? Tu peux le faire en avance.</p>${list.map((d) => doCard(d, { early: true })).join("")}`
-        : state.query ? empty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.") : empty("Rien à venir", "Tes demandes acceptées des prochains jours s'afficheront ici."));
+      const groups = [...D.groupBy(list, (d) => d.date || "").entries()].sort(([a], [b]) => (!a) - (!b) || a.localeCompare(b));
+      const search = `<div class="up-search">${searchBox()}</div>`;
+      if (!list.length) return search + (state.query
+        ? upEmpty("Aucun véhicule trouvé", `Rien ne correspond à « ${esc(state.query.trim())} ». Vérifie la plaque ou le site.`)
+        : upEmpty("Rien à venir", "Tes demandes acceptées des prochains jours s'afficheront ici, jour par jour."));
+      return search + `<p class="tab-intro up-intro">Un véhicule est déjà sur site ? Touche-le pour le faire en avance.</p>` +
+        groups.map(([iso, rows]) => `<section class="up-day" aria-label="${esc(iso ? upDayTitle(iso) : "Date à préciser")}">
+          <header class="up-day-head"><span><b>${esc(iso ? upDayTitle(iso) : "Date à préciser")}</b>${iso ? `<small>${esc(upDaySub(iso))}</small>` : ""}</span><em aria-label="${rows.length} véhicule${rows.length > 1 ? "s" : ""}">${rows.length}</em></header>
+          <div class="up-list">${rows.map(upCard).join("")}</div></section>`).join("");
     }
+    const upEmpty = (title, text) => `<div class="up-empty"><span class="up-empty-ico" aria-hidden="true">${self.IssueArt?.art("act-date", "act-art") || ""}</span><b>${title}</b><span>${text}</span></div>`;
+    // Le sélecteur de mois : les 40 derniers jours (chargés à l'ouverture), les 2 mois d'avant en un appui, les autres dans une feuille.
+    // Un ancien mois n'est lu qu'à la demande (quota de lectures), comme avant.
+    const monthOf = (k) => { const d = new Date(today().slice(0, 7) + "-15T12:00:00"); d.setMonth(d.getMonth() - k); return D.toIsoDate(d).slice(0, 7); };
+    const monthShort = (ym) => cap(new Date(ym + "-15T12:00:00").toLocaleDateString("fr-FR", { month: "long" }));
+    function monthPills() {
+      const quick = [monthOf(1), monthOf(2)];
+      const other = state.month && !quick.includes(state.month) ? state.month : "";
+      const pill = (ym, label) => `<button type="button" class="month-pill" data-month-pick="${ym}" aria-pressed="${state.month === ym}">${esc(label)}</button>`;
+      return `<div class="month-pills" role="group" aria-label="Période">${pill("", "40 derniers jours")}${quick.map((ym) => pill(ym, monthShort(ym))).join("")}
+        ${other ? pill(other, D.monthLabel(other)) : ""}<button type="button" class="month-pill more" data-month-more aria-haspopup="dialog">${icon("cal")}Autre mois</button></div>`;
+    }
+    function monthSheetBody() {
+      const months = Array.from({ length: 12 }, (_, i) => monthOf(i + 1));
+      return `<div class="month-sheet"><p class="sheet-sub">Le mois en cours est dans « 40 derniers jours ».</p>
+        ${[...D.groupBy(months, (ym) => ym.slice(0, 4)).entries()].map(([y, list]) => `<section><h3 class="sheet-label">${y}</h3><div class="month-grid">
+          ${list.map((ym) => `<button type="button" class="day-chip" data-month-pick="${ym}" aria-pressed="${state.month === ym}">${esc(monthShort(ym))}</button>`).join("")}</div></section>`).join("")}
+        <label class="sheet-group"><span class="sheet-label">Plus ancien</span><input type="month" class="sheet-input" data-month value="${esc(state.month)}" max="${monthOf(1)}"></label></div>`;
+    }
+    // Le compteur en grand : le mois en cours (ou le mois choisi), avec aujourd'hui et cette semaine à côté.
+    function doneSummary(n, label, side) {
+      return `<div class="done-sum"><div class="done-sum-main"><b class="done-count">${n}</b><span>${icon("check")}${esc(label)}</span></div>
+        ${side.length ? `<dl class="done-sum-side">${side.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join("")}</dl>` : ""}</div>`;
+    }
+    const doneEmpty = (title, text) => `<div class="done-empty"><span class="done-empty-ico" aria-hidden="true">${self.IssueArt?.art("faits-vide", "svc-art") || ""}</span><b>${title}</b><span>${text}</span></div>`;
+    const plural = (n, w) => `${w}${n > 1 ? "s" : ""}`;
     function doneTab(all) {
-      const counts = D.providerCounts(state.demandes, today());
-      const picker = `<label class="field month-pick"><span>Voir un ancien mois</span>
-          <input type="month" data-month value="${esc(state.month)}" max="${today().slice(0, 7)}" ${state.monthLoading ? "disabled aria-busy=\"true\"" : ""}></label>`;
       if (state.month) { // report of one month, loaded on demand
         const inMonth = all.filter((d) => doneDayOf(d).slice(0, 7) === state.month);
         const list = filtered(inMonth);
-        const head = state.monthLoading ? `<p class="tally">Chargement de ${esc(D.monthLabel(state.month))}…</p>`
-          : `<p class="tally"><b>${inMonth.length}</b> véhicule${inMonth.length > 1 ? "s" : ""} en ${esc(D.monthLabel(state.month))}</p>`;
-        const back = `<button type="button" class="month-back" data-month-reset>${icon("chev-l")}Revenir aux 40 derniers jours</button>`;
-        return back + head + picker + searchBox() +
-          (state.monthLoading ? "" : list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait ce mois-là", "Choisis un autre mois."));
+        const days = new Set(inMonth.map(doneDayOf)).size;
+        const head = state.monthLoading
+          ? `<div class="done-sum loading" aria-busy="true"><span class="spinner" aria-hidden="true"></span><span>Chargement de ${esc(D.monthLabel(state.month))}…</span></div>`
+          : doneSummary(inMonth.length, `${plural(inMonth.length, "véhicule")} en ${D.monthLabel(state.month)}`, inMonth.length ? [["Jours travaillés", days]] : []);
+        return head + monthPills() + (state.monthLoading ? "" : searchBox() + (list.length ? doneGroups(list)
+          : state.query ? doneEmpty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.") : doneEmpty("Aucun véhicule fait ce mois-là", "Choisis un autre mois.")));
       }
-      const list = filtered(all.filter((d) => doneDayOf(d) >= recentFrom)); // an older month looked at stays loaded, not listed here
-      return `<p class="tally"><b>${counts.month}</b> véhicule${counts.month > 1 ? "s" : ""} ce mois-ci</p>${searchBox()}` +
-        (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici.")) +
-        `<p class="tab-intro">Ici : les 40 derniers jours.</p>` + picker;
+      const counts = D.providerCounts(state.demandes, today());
+      const recent = all.filter((d) => doneDayOf(d) >= recentFrom); // an older month looked at stays loaded, not listed here
+      const list = filtered(recent);
+      const monday = D.mondayOf(today());
+      const side = [["Aujourd'hui", recent.filter((d) => doneDayOf(d) === today()).length], ["Cette semaine", recent.filter((d) => doneDayOf(d) >= monday).length]];
+      return doneSummary(counts.month, `${plural(counts.month, "véhicule")} ${plural(counts.month, "fait")} en ${monthShort(today().slice(0, 7)).toLowerCase()}`, side) + monthPills() + searchBox() +
+        (list.length ? doneGroups(list) : state.query ? doneEmpty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.")
+          : doneEmpty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici."));
     }
     // ---------- « Signaler »: field reports on any vehicle ----------
     // One vehicle at a time: « Envoyer » clears the form for the next one (several vehicles = several quick sends).
@@ -3420,9 +3973,10 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     const main = view.querySelector(".presta-main");
     const sheetEl = view.querySelector(".presta-sheet");
     let lastFocus = null;
-    function openSheet() {
+    // mode: "report" (« Signaler ») or "act" (an action on one vehicle, state.openForm = "kind:id").
+    function openSheet(mode = "report") {
       if (state.sheetOpen) return;
-      state.sheetOpen = true; lastFocus = document.activeElement; render();
+      state.sheetMode = mode; state.sheetOpen = true; lastFocus = document.activeElement; render();
       sheetEl.style.transform = "";
       document.body.classList.add("sheet-open"); sheetEl.setAttribute("aria-hidden", "false");
       requestAnimationFrame(() => sheetEl.classList.add("on"));
@@ -3431,6 +3985,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     function closeSheet() {
       if (!state.sheetOpen) return;
       state.sheetOpen = false; state.pdelArmed = null;
+      if (state.sheetMode === "act") { state.openForm = null; state.draft = {}; state.actFrom = null; }
       if (state.fd?.editId) state.fd = null; // an edit left half-way is dropped; a new report being typed is kept
       sheetEl.style.transform = ""; sheetEl.classList.remove("on");
       document.body.classList.remove("sheet-open"); sheetEl.setAttribute("aria-hidden", "true");
@@ -3467,18 +4022,21 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       const a = document.activeElement;
       const typing = a?.matches?.("[data-keep]") ? `[data-keep="${a.dataset.keep}"]` : a?.matches?.("[data-search], [data-note]") ? (a.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
       main.innerHTML = `<header class="presta-top">
-          <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
-          <h1>${esc(cap(D.dayLabel(today())))}</h1>
+          <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}<span> · ${esc(cap(D.dayLabel(today())))}</span></p>
+          <h1>${esc(TABS.find((t) => t.id === state.tab)?.label || "Mes demandes")}</h1>
         </header>
         ${alertCard()}
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
-      sheetEl.querySelector("#sheetTitle").textContent = sheetTitle();
-      sheetEl.querySelector(".sheet-b").innerHTML = sheetBody();
+      const acting = state.sheetMode === "act";
+      if (acting && state.sheetOpen && !actOf().d) closeSheet(); // the vehicle left the list meanwhile (done from another phone)
+      const months = state.sheetMode === "month";
+      sheetEl.querySelector("#sheetTitle").textContent = acting ? actTitle(actOf().kind, actOf().d) : months ? "Voir un autre mois" : sheetTitle();
+      sheetEl.querySelector(".sheet-b").innerHTML = acting ? (state.openForm ? actBody() : "") : months ? monthSheetBody() : sheetBody();
       scheduleUndoEnd();
       const input = typing && view.querySelector(typing);
-      if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+      if (input) { input.focus(); try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* date / time fields */ } }
     }
 
     // The « Corriger » button disappears by itself when its 10 minutes are over.
@@ -3498,23 +4056,23 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       catch (err) { toast(err?.code === "permission-denied" ? "Plus de 10 minutes : appelle l'équipe pour corriger" : "Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
-    async function send(d, retour, message) {
+    async function send(d, retour, message, action) {
       state.busy.add(d.id); state.openForm = null; render();
-      try { await store.answer(d, { ...retour, par: email }); toast(message); }
+      try { await store.answer(d, { ...retour, par: email }); toast(message, action); }
       catch { toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
 
     // A problem report; the photo is optional. Nothing is lost if it fails: the form stays open with what was typed.
-    async function sendProblem(d, note) {
+    async function sendProblem(d, note, typed = state.draft) {
       const check = D.problemReport(d, { texte: note }, email, "");
-      if (check.error) return toast(check.error);
-      const draft = { ...state.draft, note };
+      if (check.error) { state.openForm = "problem:" + d.id; state.draft = typed; openSheet("act"); return toast(check.error); }
+      const draft = { ...typed, note };
       state.busy.add(d.id); state.openForm = null; render();
       try {
         await store.reportProblem(d, { texte: note, par: email }, draft.photo?.full);
         state.draft = {}; toast("Problème envoyé à l'équipe, merci !");
-      } catch { state.openForm = "problem:" + d.id; state.draft = draft; toast("Envoi impossible : vérifie ta connexion et réessaie"); }
+      } catch { state.openForm = "problem:" + d.id; state.draft = draft; openSheet("act"); toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
     async function addPhoto(file) {
@@ -3526,7 +4084,7 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
 
     view.addEventListener("change", (e) => {
       if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]);
-      if (e.target.matches("[data-month]")) showMonth(e.target.value);
+      if (e.target.matches("[data-month]")) { closeSheet(); showMonth(e.target.value); }
       if (e.target.matches("[data-fphoto]") && e.target.files[0]) addFieldPhoto(e.target.files[0]);
       if (e.target.matches("[data-fplate]")) { fd().plaque = D.normalizePlate(fd().plaque); e.target.value = fd().plaque; } // AB123CD -> AB-123-CD
     });
@@ -3539,6 +4097,8 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
     }
     view.addEventListener("input", (e) => {
       if (e.target.matches("[data-note]")) state.draft.note = e.target.value;
+      else if (e.target.matches("[data-date]")) { state.draft.date = e.target.value; sheetEl.querySelectorAll("[data-day]").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.day === e.target.value))); }
+      else if (e.target.matches("[data-time]")) state.draft.time = e.target.value;
       else if (e.target.matches("[data-fplate]")) { fd().plaque = e.target.value; syncSend(); }
       else if (e.target.matches("[data-ftext]")) { fd().texte = e.target.value; syncSend(); }
       else if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); }
@@ -3547,7 +4107,8 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       const el = (sel) => e.target.closest(sel);
       let b;
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
-      else if ((b = el("[data-month-reset]"))) { state.month = ""; render(); }
+      else if ((b = el("[data-month-pick]"))) { const ym = b.dataset.monthPick; closeSheet(); if (!ym) { state.month = ""; state.query = ""; render(); } else if (ym !== state.month) showMonth(ym); }
+      else if ((b = el("[data-month-more]"))) openSheet("month");
       else if ((b = el("[data-sheet-open]"))) openSheet();
       else if ((b = el("[data-sheet-close]"))) closeSheet();
       else if ((b = el("[data-fissue]"))) {
@@ -3564,34 +4125,78 @@ ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
       else if ((b = el("[data-fcancel]"))) { state.fd = emptyField(); state.pdelArmed = null; render(); }
       else if ((b = el("[data-pdel]"))) deleteReport(b.dataset.pdel);
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
-      else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
-      else if ((b = el("[data-form]"))) {
-        state.openForm = state.openForm === b.dataset.form ? null : b.dataset.form; state.draft = {}; render();
-        const form = state.openForm && view.querySelector(".job-form");
-        if (form) {
-          form.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-          if (state.openForm.startsWith("problem:")) form.querySelector("textarea")?.focus({ preventScroll: true });
-        }
+      else if ((b = el("[data-take]"))) acceptRequest(byId(b.dataset.take));
+      else if ((b = el("[data-veh]"))) { // « À venir » : la feuille du véhicule (ou retour vers elle depuis une action)
+        state.openForm = "veh:" + b.dataset.veh; state.actFrom = null; state.draft = {};
+        if (state.sheetOpen) { render(); sheetEl.querySelector(".sheet-b").scrollTop = 0; } else openSheet("act");
       }
+      else if ((b = el("[data-act]"))) {
+        // From the vehicle sheet of « À venir »: the sheet stays open and shows the action, with a way back.
+        const inSheet = state.sheetOpen && state.openForm?.startsWith("veh:");
+        state.actFrom = inSheet ? b.dataset.id : null;
+        state.openForm = `${b.dataset.act}:${b.dataset.id}`; state.draft = {};
+        if (inSheet) { render(); sheetEl.querySelector(".sheet-b").scrollTop = 0; } else openSheet("act");
+        if (b.dataset.act === "problem") setTimeout(() => sheetEl.querySelector("textarea[data-note]")?.focus({ preventScroll: true }), 380);
+      }
+      else if ((b = el("[data-day]"))) { state.draft.date = b.dataset.day; render(); }
       else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
-      else if ((b = el("[data-send]"))) {
-        const [kind, id] = b.dataset.send.split(":");
-        const form = b.closest(".job-form");
-        const note = form.querySelector("[data-note]").value.trim();
-        const withNote = note ? { note } : {};
-        if (kind === "problem") sendProblem(byId(id), note);
-        else if (kind === "undo") undoDone(byId(id), note);
-        else if (kind === "done") send(byId(id), { etat: "fait", ...withNote }, `${byId(id).plaque} réalisé, merci !`);
-        else if (kind === "absent") send(byId(id), { etat: "absent", ...withNote }, "L'équipe est prévenue");
-        else if (kind === "refuse") send(byId(id), { etat: "refuse", ...withNote }, "L'équipe est prévenue");
-        else {
-          const date = form.querySelector("[data-date]").value;
-          if (!date) return toast("Choisis la date que tu proposes");
-          const debut = form.querySelector("[data-time]").value;
-          send(byId(id), { etat: "autre-date", date, ...(debut ? { debut } : {}), ...withNote }, "Date proposée à l'équipe");
-        }
-      }
+      else if ((b = el("[data-asend]"))) sendAct();
     });
+    // The sheet's main button. « OK prestation réalisée »: the card shows a green tick, then leaves the list.
+    function sendAct() {
+      const { kind, d } = actOf();
+      if (!d) return closeSheet();
+      const dr = state.draft;
+      const note = (dr.note || "").trim();
+      const withNote = note ? { note } : {};
+      if (kind === "date" && !dr.date) return toast("Choisis la date que tu proposes");
+      if (kind === "problem") { const typed = { ...dr }; closeSheet(); return sendProblem(d, note, typed); }
+      if (kind === "undo") { closeSheet(); return undoDone(d, note); }
+      closeSheet();
+      if (kind === "done") return finishDone(d, withNote);
+      if (kind === "absent") send(d, { etat: "absent", ...withNote }, "L'équipe est prévenue");
+      else if (kind === "refuse") send(d, { etat: "refuse", ...withNote }, "L'équipe est prévenue");
+      else if (kind === "date") send(d, { etat: "autre-date", date: dr.date, ...(dr.time ? { debut: dr.time } : {}), ...withNote }, "Date proposée à l'équipe");
+    }
+    const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+    async function finishDone(d, withNote) {
+      if (!reduceMotion()) { state.leaving = d.id; render(); navigator.vibrate?.([10, 60, 14]); await new Promise((r) => setTimeout(r, 720)); }
+      state.leaving = null;
+      // The bubble offers « Corriger » for a slip of the finger (same 10 minutes as in « Faits »).
+      await send(d, { etat: "fait", ...withNote }, `${d.plaque} réalisé, merci !`,
+        { label: "Corriger", run: () => { if (byId(d.id) && D.canUndoDone(byId(d.id), email, Date.now())) { state.openForm = "undo:" + d.id; state.draft = {}; openSheet("act"); } } });
+    }
+
+    // « Accepter » : coche verte sur la carte, puis la carte part vers l'onglet où elle est rangée (Aujourd'hui ou À venir),
+    // les cartes du dessous remontent et le compteur de l'onglet rebondit. Sans animation si « réduire les animations ».
+    async function acceptRequest(d) {
+      if (!d || state.accepting) return;
+      const to = d.date && d.date <= today() ? "today" : "upcoming";
+      const label = to === "today" ? "Aujourd'hui" : "À venir";
+      if (!reduceMotion()) {
+        state.accepting = d.id; state.acceptTo = to; render(); navigator.vibrate?.(10);
+        await new Promise((r) => setTimeout(r, 560));
+        const card = main.querySelector(`[data-job="${CSS.escape(d.id)}"]`);
+        const tab = main.querySelector(`[data-tab="${to}"]`);
+        if (card && tab) {
+          const c = card.getBoundingClientRect(), t = tab.getBoundingClientRect();
+          const dx = t.left + t.width / 2 - (c.left + c.width / 2), dy = t.top + t.height / 2 - (c.top + c.height / 2);
+          const fly = card.animate([{ transform: "none", opacity: 1 }, { transform: `translate(${dx}px, ${dy}px) scale(.12)`, opacity: 0 }],
+            { duration: 420, easing: "cubic-bezier(.55, 0, .75, .2)", fill: "forwards" });
+          const gap = parseFloat(getComputedStyle(card.parentElement).rowGap) || 0;
+          card.style.height = c.height + "px";
+          const shut = card.animate([{ height: c.height + "px", marginBottom: "0px" }, { height: "0px", marginBottom: -gap + "px" }],
+            { duration: 300, delay: 260, easing: "cubic-bezier(.32, .72, 0, 1)", fill: "forwards" });
+          await Promise.all([fly.finished, shut.finished]).catch(() => {});
+        }
+        state.gone = d.id; // la carte reste cachée pendant l'envoi ; elle revient seulement si l'envoi échoue
+      }
+      state.accepting = null;
+      await send(d, { etat: "confirme" }, `${d.plaque} acceptée : dans ${label}`);
+      if (state.gone && !reduceMotion()) main.querySelector(`[data-tab="${to}"] .count`)?.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(1.45)" }, { transform: "scale(.92)" }, { transform: "scale(1)" }], { duration: 420, easing: "ease-out" });
+      state.gone = null; render();
+    }
 
     alerts?.listen(() => render());
     render();
@@ -3719,10 +4324,17 @@ function page(texte) {
   }
 
   let toastTimer;
-  function toast(text) {
+  // action (optional): { label, run } adds one button to the bubble, e.g. « Corriger » just after « OK prestation réalisée ».
+  function toast(text, action) {
     const el = $("#toast");
-    el.textContent = text; el.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 3200);
+    el.textContent = text; el.hidden = false; el.classList.toggle("with-action", !!action);
+    if (action) {
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.className = "toast-action"; btn.textContent = action.label;
+      btn.addEventListener("click", () => { el.hidden = true; action.run(); });
+      el.append(btn);
+    }
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), action ? 6000 : 3200);
   }
   function banner(text) { const el = $("#banner"); el.textContent = text || ""; el.hidden = !text; }
   function reportWriteError(err) {
