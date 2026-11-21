@@ -8805,7 +8805,7 @@ function page(texte) {
         ${rgSection("", `<button type="button" class="rg-row rg-action rg-danger" data-rg-act="remove-site-named" data-i="${esc(site.nom)}"><span class="rg-txt"><b>Retirer ce site</b></span></button>`)}` : ""}
     </div>`];
   }
-  const GARAGES_FOLDED = 3; // au-delà, « + N autres » déplie le groupe
+  const GARAGES_FOLDED = 2; // au-delà, « + N autres » déplie le groupe
   function garagesSheet() {
     const rows = garageRows();
     const todo = rows.filter((r) => r.missing);
