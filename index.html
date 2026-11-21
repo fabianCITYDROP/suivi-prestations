@@ -1710,6 +1710,177 @@ body.team-sheet-open .toast { z-index: 45; }
   .hy-search { max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) { .hy-tile, .hy-btn, .hy-paste-btn, .hy-gauge i { transition: none; } .hy-tile:active, .hy-btn:active { transform: none; } }
+/* ===== Équipe « Vérification » façon iPhone (2026-11-21). Tout est préfixé .vf- (ou rangé sous #view-verif).
+   Bleu City-Drop = actions ; vert = reconnu / coché / réalisée, orange = pas dans la liste, rouge = annuler.
+   Une seule lumière, en haut à gauche ; pas de bande de couleur sur les cartes. ===== */
+#view-verif { max-width: 1180px; }
+.vf-hidden { display: none !important; }
+.vf-head { margin: 4px 2px 16px; }
+.vf-kicker { margin: 0 0 2px; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.vf-title { margin: 0; font: 700 34px/1.1 -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--f-body); letter-spacing: -.025em; color: var(--ink); }
+.vf-lead { margin: 6px 0 0; max-width: 62ch; font-size: 14.5px; color: var(--ink-2); }
+/* Prestataires en pastilles (même famille que le Planning) */
+.vf-provs { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px 14px; padding: 2px 16px 4px; scrollbar-width: none; }
+.vf-provs::-webkit-scrollbar { display: none; }
+.vf-prov { flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 8px 0 14px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 14px var(--f-body); white-space: nowrap;
+  box-shadow: 0 0 0 .5px rgba(10, 20, 28, .12), 0 1px 2px rgba(10, 20, 28, .06); transition: transform 140ms var(--ease-out), background-color .15s ease, color .15s ease; -webkit-tap-highlight-color: transparent; }
+.vf-prov em { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; display: grid; place-items: center; font: 700 12px var(--f-body); font-style: normal; background: var(--surface-2); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.vf-prov:active { transform: scale(.95); }
+.vf-prov[aria-pressed="true"] { background: var(--ink); color: var(--bg); box-shadow: none; }
+.vf-prov[aria-pressed="true"] em { background: color-mix(in srgb, var(--bg) 22%, transparent); color: var(--bg); }
+@media (min-width: 721px) { .vf-provs { margin: 0 0 14px; padding: 2px 0 4px; flex-wrap: wrap; } }
+/* Période et statut : contrôles segmentés, pastille blanche sur l'option choisie */
+.vf-filters { display: flex; flex-wrap: wrap; gap: 12px 28px; margin-bottom: 20px; }
+.vf-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; min-width: 0; }
+.vf-label { width: 100%; font: 600 12px var(--f-body); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
+.vf-seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); }
+.vf-seg button { min-height: 34px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: 600 14px var(--f-body); white-space: nowrap; transition: background-color .2s ease, box-shadow .2s ease; -webkit-tap-highlight-color: transparent; }
+.vf-seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 2px rgba(10, 20, 28, .1), 0 3px 8px -3px rgba(10, 20, 28, .18), 0 0 0 .5px rgba(10, 20, 28, .06); }
+.vf-dates { display: inline-flex; align-items: center; gap: 6px; }
+.vf-date { display: inline-flex; align-items: center; gap: 6px; margin: 0; font: 500 14px var(--f-body); color: var(--ink-2); }
+.vf-date input { min-height: 36px; width: auto; padding: 0 10px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); font: 600 14px var(--f-body); box-shadow: none; }
+.vf-date input:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
+/* Deux colonnes sur ordinateur : la liste à gauche, message + réponse à droite (collés en haut) */
+.vf-work { display: flex; flex-direction: column; gap: 18px; }
+@media (min-width: 980px) {
+  .vf-work { display: grid; grid-template-columns: minmax(340px, 1fr) minmax(0, 1.25fr); grid-template-areas: "side main"; align-items: start; gap: 22px; }
+  .vf-main { grid-area: main; }
+  .vf-side { grid-area: side; }
+}
+.vf-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.vf-card, .vf-main { border-radius: 20px; background: var(--surface); padding: 16px 18px 18px;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 12px 26px -18px rgba(10, 20, 28, .4); }
+.vf-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.vf-card-head h2, .vf-list-head h2 { margin: 0; font: 700 19px/1.2 -apple-system, BlinkMacSystemFont, var(--f-body); letter-spacing: -.015em; }
+.vf-num { margin: 0 0 1px; font: 600 11.5px var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.vf-step { display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 13px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.vf-step .svc-art { width: 36px; height: 36px; }
+/* Question posée : contrôle segmenté sur les boutons radio */
+.vf-kind { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; margin-bottom: 12px; border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); }
+.vf-kind label { position: relative; margin: 0; }
+.vf-kind input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.vf-kind span { display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 8px; border-radius: 8px; font: 600 14px var(--f-body); color: var(--ink); transition: background-color .2s ease, box-shadow .2s ease; }
+.vf-kind input:checked + span { background: var(--surface); box-shadow: 0 1px 2px rgba(10, 20, 28, .1), 0 3px 8px -3px rgba(10, 20, 28, .18), 0 0 0 .5px rgba(10, 20, 28, .06); }
+.vf-kind input:focus-visible + span { box-shadow: 0 0 0 3px var(--accent-soft); }
+/* Le message : bulle grise façon conversation, puis « Copier » en capsule */
+.vf-msg { margin: 0; max-height: 260px; overflow: auto; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--ink) 5%, transparent); border: 0; font: 400 14px/1.5 var(--f-body); white-space: pre-wrap; color: var(--ink); }
+.vf-msg-actions { display: flex; gap: 10px; margin-top: 12px; }
+.vf-copy, .vf-ok { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 0 20px 0 16px; border: 0; border-radius: 999px; font: 650 15.5px var(--f-body); color: #fff; text-decoration: none; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(10, 20, 28, .12), 0 8px 18px -8px color-mix(in srgb, var(--accent) 85%, transparent);
+  transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
+.vf-copy { flex: 1; white-space: nowrap; }
+@media (min-width: 980px) { .vf-msg { max-height: 200px; } .vf-paste textarea { min-height: 92px; } }
+.vf-copy .icon { width: 19px; height: 19px; }
+.vf-copy:hover, .vf-ok:hover { filter: brightness(1.05); }
+.vf-copy:active, .vf-ok:active { transform: scale(.97); }
+.vf-wa, .vf-sec, .vf-pill-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 48px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 15px var(--f-body); text-decoration: none; cursor: pointer; white-space: nowrap;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .14), 0 1px 1px rgba(10, 20, 28, .06), 0 4px 10px -5px rgba(10, 20, 28, .3); transition: transform 140ms var(--ease-out); -webkit-tap-highlight-color: transparent; }
+.vf-wa .icon, .vf-pill-btn .icon { width: 18px; height: 18px; }
+.vf-wa:active, .vf-sec:active, .vf-pill-btn:active { transform: scale(.96); }
+:root[data-theme="dark"] :is(.vf-copy, .vf-ok) { color: #052029; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.vf-copy, .vf-ok) { color: #052029; } }
+/* La réponse collée */
+.vf-paste { position: relative; }
+.vf-paste textarea { display: block; width: 100%; min-height: 104px; padding: 12px 14px 56px; border: 0; border-radius: 14px; background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); font: 400 15px/1.45 var(--f-body); resize: vertical; box-shadow: none; }
+.vf-paste textarea:focus { outline: none; background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 .5px rgba(10, 20, 28, .14); }
+.vf-paste-actions { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 8px; }
+.vf-pill-btn { min-height: 36px; padding: 0 14px; font-size: 14px; color: var(--accent); }
+.vf-pill-btn.ghost { color: var(--ink-2); }
+.vf-match:empty { display: none; }
+.vf-match { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.vf-match-line { margin: 0; padding-left: 16px; text-indent: -16px; font: 600 14px/1.45 var(--f-body); }
+.vf-match-line.ok { color: var(--st-done); }
+.vf-match-line.todo { color: var(--st-todo); }
+.vf-match-line.none { color: var(--ink-2); font-weight: 500; }
+.vf-match-line b { font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+.vf-dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
+/* La liste, groupée par jour */
+.vf-list-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.vf-count { display: block; margin-top: 2px; font: 500 13.5px var(--f-body); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.vf-link { min-height: 36px; padding: 0 4px; border: 0; background: none; color: var(--accent); font: 600 14.5px var(--f-body); cursor: pointer; }
+.vf-day { margin-top: 14px; }
+.vf-day h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px 2px; font: 600 12.5px var(--f-body); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); }
+.vf-day h3 em { font-style: normal; font-variant-numeric: tabular-nums; color: var(--ink-2); opacity: .8; }
+.vf-list { border-radius: 14px; background: color-mix(in srgb, var(--ink) 3%, var(--surface)); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1); overflow: hidden; }
+.vf-row { display: flex; align-items: stretch; transition: background-color .18s ease; }
+.vf-row + .vf-row { box-shadow: inset 0 .5px 0 var(--line); }
+.vf-row.on { background: color-mix(in srgb, var(--st-done) 7%, transparent); }
+.vf-check { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 9px 4px 9px 12px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.vf-check:active { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.vf-check:focus-visible, .vf-more:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: -3px; }
+.vf-tick { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 1.6px var(--line-strong); transition: background-color .18s ease, box-shadow .18s ease, transform 160ms var(--ease-out); }
+.vf-tick svg { width: 17px; height: 17px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 20; stroke-dashoffset: 20; transition: stroke-dashoffset 220ms var(--ease-out) 40ms; }
+.vf-row.on .vf-tick { background: var(--st-done); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 2px 6px -2px color-mix(in srgb, var(--st-done) 80%, transparent); }
+.vf-row.on .vf-tick svg { stroke-dashoffset: 0; }
+.vf-check:active .vf-tick { transform: scale(.88); }
+:root[data-theme="dark"] .vf-row.on .vf-tick svg { stroke: #062512; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .vf-row.on .vf-tick svg { stroke: #062512; } }
+.vf-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.vf-row-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vf-row-top .plate { font-size: 13.5px; }
+.vf-row-sub { font: 500 13px/1.3 var(--f-body); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vf-said { display: inline-flex; align-items: center; min-height: 22px; padding: 0 9px; border-radius: 11px; font: 600 12px var(--f-body); white-space: nowrap; }
+.vf-said.ok { color: var(--st-done); background: color-mix(in srgb, var(--st-done) 13%, transparent); }
+.vf-said.todo { color: var(--st-todo); background: color-mix(in srgb, var(--st-todo) 14%, transparent); }
+.vf-check .plan-st { margin-left: auto; }
+.vf-more { flex: none; width: 44px; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.vf-more .icon { width: 17px; height: 17px; }
+.vf-more:hover { color: var(--accent); }
+@media (max-width: 520px) { .vf-check .plan-st { display: none; } .vf-check { gap: 10px; } }
+.vf-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 34px 16px 22px; text-align: center; }
+.vf-empty-art .svc-art { width: 64px; height: 64px; margin-bottom: 6px; }
+.vf-empty b { font: 650 16px var(--f-body); }
+.vf-empty span:last-child { max-width: 40ch; font-size: 14px; color: var(--ink-2); }
+/* Barre d'action en bas, dès qu'un véhicule est coché */
+.vf-bar { position: fixed; z-index: 15; left: 0; right: 0; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; padding: 0 12px; pointer-events: none; animation: vf-bar-in 260ms cubic-bezier(.32, .72, 0, 1); }
+.vf-bar[hidden] { display: none; }
+.vf-bar-in { pointer-events: auto; display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; justify-content: space-between; width: min(100%, 760px); padding: 10px 10px 10px 18px; border-radius: 26px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent); -webkit-backdrop-filter: saturate(180%) blur(22px); backdrop-filter: saturate(180%) blur(22px);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .14), 0 14px 34px -12px rgba(10, 20, 28, .4); }
+.vf-bar-n { display: flex; align-items: baseline; gap: 6px; margin: 0; font: 600 14.5px var(--f-body); }
+.vf-bar-n b { font: 700 22px/1 -apple-system, BlinkMacSystemFont, var(--f-body); font-variant-numeric: tabular-nums; }
+.vf-bar-n .vf-link { min-height: 0; margin-left: 6px; font-size: 14px; }
+.vf-bar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vf-ok { min-height: 46px; padding: 0 18px 0 8px; }
+.vf-ok-badge { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; color: var(--accent); box-shadow: 0 1px 2px rgba(0, 0, 0, .18); }
+.vf-ok-badge .icon { width: 17px; height: 17px; stroke-width: 2.8; }
+.vf-sec { min-height: 46px; padding: 0 16px; }
+.vf-sec.danger { color: var(--danger); }
+.vf-bar button:disabled { opacity: .55; pointer-events: none; }
+.vf-bar #v-sheet:empty { display: none; }
+body.vf-bar-on #view-verif { padding-bottom: 96px; }
+body.vf-bar-on:not(.presta-mode) .toast { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+@keyframes vf-bar-in { from { transform: translateY(24px); opacity: 0; } }
+@media (max-width: 720px) {
+  .vf-title { font-size: 32px; }
+  .vf-filters { gap: 14px; }
+  .vf-filter, .vf-seg { width: 100%; }
+  .vf-dates { width: 100%; }
+  .vf-date { flex: 1; }
+  .vf-date input { flex: 1; min-width: 0; width: 100%; }
+  .vf-row-top .plate { font-size: 12.5px; }
+  .vf-copy { padding: 0 16px 0 14px; font-size: 15px; }
+  .vf-wa { padding: 0 14px; }
+  .vf-card, .vf-main { padding: 14px 14px 16px; border-radius: 18px; }
+  .vf-main { padding: 14px 12px 14px; }
+  /* au-dessus de la barre du bas flottante */
+  .vf-bar { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); padding: 0 12px; }
+  .vf-bar-in { padding: 10px; border-radius: 22px; }
+  .vf-bar-n { width: 100%; padding: 0 6px; }
+  .vf-bar-actions { width: 100%; }
+  .vf-ok { flex: 1.3; }
+  .vf-sec { flex: 1; padding: 0 10px; }
+  body.vf-bar-on #view-verif { padding-bottom: 150px; }
+  body.vf-bar-on:not(.presta-mode) .toast { bottom: calc(196px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vf-bar { animation: none; }
+  .vf-tick, .vf-tick svg, .vf-row, .vf-prov, .vf-seg button, .vf-kind span { transition: none; }
+}
+@media (prefers-reduced-transparency: reduce) { .vf-bar-in { background: var(--surface); } }
 </style>
 </head>
 <body>
@@ -1907,39 +2078,83 @@ body.team-sheet-open .toast { z-index: 45; }
   </section>
 
   <!-- VERIFICATION -->
-  <section id="view-verif" hidden>
-    <p class="intro">Pour relancer le prestataire : copie le message, envoie-le, puis colle sa réponse ici. Les plaques citées se cochent toutes seules et un clic les met à jour.</p>
-    <div class="tools">
-      <label class="field"><span>Prestataire</span><select id="v-prest"></select></label>
-      <label class="field"><span>Du</span><input type="date" id="v-from"></label>
-      <label class="field"><span>Au</span><input type="date" id="v-to"></label>
-      <label class="field"><span>Statuts</span><select id="v-st">
-        <option value="pending">Envoyées + confirmées</option>
-        <option value="envoyee">Envoyées seulement</option>
-        <option value="confirmee">Confirmées seulement</option>
-        <option value="all">Toutes sauf annulées</option>
-      </select></label>
+  <section id="view-verif" class="vf" hidden>
+    <header class="vf-head">
+      <p class="vf-kicker" id="vfKicker">Relance d'un prestataire</p>
+      <h1 class="vf-title">Vérification</h1>
+      <p class="vf-lead">Envoie le message, colle sa réponse : les plaques citées se cochent, puis tu mets tout à jour en un appui.</p>
+    </header>
+    <select id="v-prest" class="vf-hidden" tabindex="-1" aria-hidden="true"></select>
+    <select id="v-st" class="vf-hidden" tabindex="-1" aria-hidden="true">
+      <option value="pending">Envoyées + confirmées</option>
+      <option value="envoyee">Envoyées seulement</option>
+      <option value="confirmee">Confirmées seulement</option>
+      <option value="all">Toutes sauf annulées</option>
+    </select>
+    <div class="vf-provs" id="vfProvs" role="group" aria-label="Prestataire"></div>
+    <div class="vf-filters">
+      <div class="vf-filter">
+        <span class="vf-label">Période</span>
+        <div class="vf-seg" id="vfRange" role="group" aria-label="Période">
+          <button type="button" data-range="7">7 jours</button>
+          <button type="button" data-range="14">14 jours</button>
+          <button type="button" data-range="30">30 jours</button>
+        </div>
+        <div class="vf-dates">
+          <label class="vf-date"><span>Du</span><input type="date" id="v-from"></label>
+          <label class="vf-date"><span>au</span><input type="date" id="v-to"></label>
+        </div>
+      </div>
+      <div class="vf-filter">
+        <span class="vf-label">Statut</span>
+        <div class="vf-seg" id="vfStatus" role="group" aria-label="Statut">
+          <button type="button" data-st="pending">En attente</button>
+          <button type="button" data-st="envoyee">Envoyées</button>
+          <button type="button" data-st="confirmee">Confirmées</button>
+          <button type="button" data-st="all">Toutes</button>
+        </div>
+      </div>
     </div>
-    <div class="work">
-      <div class="panel">
-        <div class="panel-head"><h2>Véhicules à vérifier</h2><span class="muted small" id="v-count"></span></div>
+    <div class="vf-work">
+      <aside class="vf-side">
+        <section class="vf-card" aria-labelledby="vfMsgTitle">
+          <header class="vf-card-head"><span class="vf-step" aria-hidden="true" id="vfMsgArt"></span><div><p class="vf-num">Étape 1</p><h2 id="vfMsgTitle">Le message à envoyer</h2></div></header>
+          <div class="vf-kind" id="v-kind" role="radiogroup" aria-label="Question posée">
+            <label><input type="radio" name="vkind" value="faits" checked><span>Prestations faites ?</span></label>
+            <label><input type="radio" name="vkind" value="rdv"><span>RDV confirmés ?</span></label>
+          </div>
+          <div id="v-share"></div>
+        </section>
+        <section class="vf-card" aria-labelledby="vfReplyTitle">
+          <header class="vf-card-head"><span class="vf-step" aria-hidden="true" id="vfReplyArt"></span><div><p class="vf-num">Étape 2</p><h2 id="vfReplyTitle">Sa réponse</h2></div></header>
+          <div class="vf-paste">
+            <textarea id="v-paste" rows="4" placeholder="Colle ici sa réponse, ex. « AB-123-CD ok, EF-456-GH ok »" aria-label="Réponse du prestataire"></textarea>
+            <div class="vf-paste-actions">
+              <button type="button" class="vf-pill-btn" id="vfPasteBtn"><svg class="icon"><use href="#i-copy"/></svg>Coller</button>
+              <button type="button" class="vf-pill-btn ghost" id="vfClearBtn" hidden>Effacer</button>
+            </div>
+          </div>
+          <div class="vf-match" id="vfMatch" aria-live="polite"></div>
+        </section>
+      </aside>
+      <section class="vf-main" aria-labelledby="vfListTitle">
+        <header class="vf-list-head">
+          <div><p class="vf-num">Étape 3</p><h2 id="vfListTitle">Véhicules à vérifier</h2><span class="vf-count" id="v-count"></span></div>
+          <button type="button" class="vf-link" id="vfAll" hidden>Tout cocher</button>
+        </header>
         <div id="v-table"></div>
-        <label class="field"><span>Réponse du prestataire</span><textarea id="v-paste" placeholder="Colle ici sa réponse, ex. « AB-123-CD ok, EF-456-GH ok »"></textarea></label>
-        <div class="actions">
-          <button type="button" class="primary" data-bulk="realisee">Cochés → Réalisée</button>
-          <button type="button" data-bulk="confirmee">Cochés → Confirmée</button>
-          <button type="button" class="ghost" data-bulk="annulee">Cochés → Annulée</button>
+      </section>
+    </div>
+    <div class="vf-bar" id="vfBar" aria-live="polite" hidden>
+      <div class="vf-bar-in">
+        <p class="vf-bar-n"><b id="vfBarN">0</b><span id="vfBarLabel">coché</span><button type="button" class="vf-link" id="vfNone">Décocher</button></p>
+        <div class="vf-bar-actions">
+          <button type="button" class="vf-ok" data-bulk="realisee"><span class="vf-ok-badge" aria-hidden="true"><svg class="icon"><use href="#i-check"/></svg></span>Réalisée</button>
+          <button type="button" class="vf-sec" data-bulk="confirmee">Confirmée</button>
+          <button type="button" class="vf-sec danger" data-bulk="annulee">Annulée</button>
           <span id="v-sheet"></span>
         </div>
       </div>
-      <aside class="panel sticky">
-        <div class="panel-head"><h2>Message de rappel</h2></div>
-        <div class="seg" id="v-kind">
-          <label><input type="radio" name="vkind" value="faits" checked><span>Prestations faites ?</span></label>
-          <label><input type="radio" name="vkind" value="rdv"><span>RDV confirmés ?</span></label>
-        </div>
-        <div id="v-share"></div>
-      </aside>
     </div>
   </section>
 
@@ -2324,8 +2539,23 @@ window.SUIVI_FIREBASE_CONFIG = {
     return siv ? `${siv[1]}-${siv[2]}-${siv[3]}` : String(plate || "").toUpperCase().trim();
   }
   // SIV plates (AB-123-CD) and old FNI plates (123 ABC 45) found in free text.
+  const PLATE_IN_TEXT_I = /\b[A-Z]{2}[\s-]?\d{3}[\s-]?[A-Z]{2}\b|\b\d{1,4}[\s-]?[A-Z]{2,3}[\s-]?\d{2}\b/gi;
   const PLATE_IN_TEXT = /\b[A-Z]{2}[\s-]?\d{3}[\s-]?[A-Z]{2}\b|\b\d{1,4}[\s-]?[A-Z]{2,3}[\s-]?\d{2}\b/g;
   const platesInText = (text) => (String(text || "").toUpperCase().match(PLATE_IN_TEXT) || []).map(plateKey);
+  // A provider reply read bit by bit (line, comma, semicolon, full stop): a plate next to « pas », « reste », « demain »…
+  // is not done, every other plate cited is. « pas de souci » / « pas de problème » stay positive.
+  const REPLY_NOT_DONE = /(?:^|[^\p{L}])(pas|non|rien|reste|restent|à faire|a faire|absente?s?|impossible|annul\p{L}*|report\p{L}*|demain|plus tard)(?=$|[^\p{L}])/iu;
+  const REPLY_FINE = /pas\s+(de|d')\s*(souci|soucis|problème|probleme|problèmes|problemes)/giu;
+  function replyPlates(text) {
+    const done = [], notDone = [];
+    String(text || "").split(/[\n,;.!]+|\s+et\s+/i).forEach((part) => {
+      const plates = platesInText(part);
+      if (!plates.length) return;
+      const target = REPLY_NOT_DONE.test(part.replace(PLATE_IN_TEXT_I, " ").replace(REPLY_FINE, " ")) ? notDone : done;
+      plates.forEach((k) => { if (!done.includes(k) && !notDone.includes(k)) target.push(k); });
+    });
+    return { done, notDone };
+  }
 
   // ---------- fleet & sites ----------
   const fleetLabel = ({ modele, cubage }) => [modele, cubage ? `${cubage} m³` : ""].filter(Boolean).join(" – ");
@@ -3236,7 +3466,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     SERVICES, STATUSES, NO_SITE, DEFAULT_PROVIDERS, DEFAULT_SITES, DEFAULT_FLEET,
     toIsoDate, parseIsoDate, addDays, mondayOf, longDate, dayLabel, shortDate, numericDate, monthLabel, timeSlotLabel, defaultEndTime,
     lastDay, isMultiDay, isAvailableOn, availabilityLabel,
-    plateKey, normalizePlate, platesInText, PLATE_SEARCH_MIN, plateLookup, isFullPlate,
+    plateKey, normalizePlate, platesInText, replyPlates, PLATE_SEARCH_MIN, plateLookup, isFullPlate,
     fleetLabel, fleetIndex, modelKey, uniqueModels, baseModel, fleetBases, fleetVariants, normalizeSites, siteAddress, parseSiteList, mergeSites,
     serviceOf, WASH_KINDS, washKindOf, jobLabel, jobTitle, statusOf, isWindshield, isActive, isOpen, siteOf, vehicleLabel, byStartTime, byDateThenTime,
     groupBy, groupBySite, vehiclesOnDay, missingFields, statusTimestamps,
@@ -4091,6 +4321,16 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
   ICONS["act-restore"] = ground(24, 42.6, 15, 2.1) + BIN +
     `<circle cx="35.4" cy="31.8" r="8.4" fill="url(#i3-grip)" ${S}/><ellipse cx="33.2" cy="28" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".55"/>` +
     `<path d="M35.4 36.6v-8.4M31.8 31.6l3.6-3.6 3.6 3.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // Vérification (équipe) : bulle de message avec un « ? » bleu City-Drop (la relance), bulle de réponse avec une coche verte.
+  const bubble = (d) => solid(d) + `<path d="M11.4 9.4h21" stroke="#fff" stroke-opacity=".55" stroke-width=".9" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="2.2" stroke-linecap="round"><path d="M11.6 16.6h18"/><path d="M11.6 22.2h12"/></g>`;
+  const corner = (grad, inner) => `<circle cx="34.8" cy="31.6" r="8.6" fill="url(#i3-${grad})" ${S}/><ellipse cx="32.8" cy="27.8" rx="4.8" ry="2.4" fill="url(#i3-shine)" opacity=".6"/>` + inner;
+  ICONS["vf-message"] = ground(23, 43, 17, 2.1) +
+    bubble("M10 7h26a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H19l-7.4 6.4V29H10a4 4 0 0 1-4-4V11a4 4 0 0 1 4-4Z") +
+    corner("grip", `<path d="M32.2 29.6a2.7 2.7 0 1 1 3.8 2.4c-.7.4-1.2.9-1.2 1.7v.4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="34.8" cy="36.6" r="1.25" fill="#fff"/>`);
+  ICONS["vf-reponse"] = ground(25, 43, 17, 2.1) +
+    bubble("M38 7H12a4 4 0 0 0-4 4v14a4 4 0 0 0 4 4h17l7.4 6.4V29H38a4 4 0 0 0 4-4V11a4 4 0 0 0-4-4Z") +
+    corner("spg", `<path d="M30.8 31.8l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`);
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
@@ -5365,6 +5605,7 @@ function page(texte) {
     if (view === "corbeille") openTrash();
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
     if (view === "bilan") renderReport(); // its month is read only once the page is opened
+    document.body.classList.toggle("vf-bar-on", view === "verif" && !$("#vfBar").hidden);
   }
   // Rare pages live under « Plus »: its label names the open page so the menu never hides where you are.
   function markCurrentNav(view) {
@@ -6189,62 +6430,155 @@ function page(texte) {
   }
 
   // ================= verification =================
-  $("#v-from").value = D.addDays(today(), -14);
-  $("#v-to").value = D.addDays(today(), 7);
+  // Relance d'un prestataire (2026-11-21, façon iPhone) : qui et quand en pastilles, le message à copier, sa réponse collée
+  // qui coche les plaques citées, la liste groupée par jour, puis une barre en bas pour tout mettre à jour (bulle « Annuler »).
+  const VF_DEFAULT_RANGE = 14;
+  function setVerificationRange(days) {
+    $("#v-from").value = D.addDays(today(), -days);
+    $("#v-to").value = D.addDays(today(), 7);
+  }
+  setVerificationRange(VF_DEFAULT_RANGE);
+  $("#vfMsgArt").innerHTML = self.IssueArt?.art("vf-message", "svc-art") || "";
+  $("#vfReplyArt").innerHTML = self.IssueArt?.art("vf-reponse", "svc-art") || "";
   const VERIFICATION_FILTERS = {
     pending: (d) => ["envoyee", "confirmee"].includes(d.statut),
     envoyee: (d) => d.statut === "envoyee",
     confirmee: (d) => d.statut === "confirmee",
     all: D.isActive,
   };
-  function verificationRows() {
-    const provider = $("#v-prest").value, from = $("#v-from").value, to = $("#v-to").value;
+  function verificationRows(provider = $("#v-prest").value) {
+    const from = $("#v-from").value, to = $("#v-to").value;
     const statusFilter = VERIFICATION_FILTERS[$("#v-st").value];
     return state.demandes
       .filter((d) => (!provider || d.prestataire === provider) && (!from || D.lastDay(d) >= from) && (!to || d.date <= to) && statusFilter(d))
       .sort(D.byDateThenTime);
+  }
+  const vfReply = () => D.replyPlates($("#v-paste").value);
+  function vfRow(d, reply, showProvider) {
+    const on = state.checkedForVerification.has(d.id);
+    const hour = (t) => String(t || "").replace(/^0?(\d+):(\d\d)$/, (m, h, mn) => `${h}h${mn === "00" ? "" : mn}`);
+    const slot = d.debut && d.fin ? `${hour(d.debut)}–${hour(d.fin)}` : D.timeSlotLabel(d);
+    const sub = [D.siteOf(d), slot, showProvider ? d.prestataire : ""].filter(Boolean).map(esc).join(" · ");
+    const key = D.plateKey(d.plaque);
+    const said = reply.done.includes(key) ? `<span class="vf-said ok">Répondu : fait</span>` : reply.notDone.includes(key) ? `<span class="vf-said todo">Répondu : pas fait</span>` : "";
+    return `<div class="vf-row${on ? " on" : ""}">
+      <button type="button" class="vf-check" data-check="${esc(d.id)}" aria-pressed="${on}" aria-label="${on ? "Décocher" : "Cocher"} ${esc(d.plaque)}">
+        <span class="vf-tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg></span>
+        ${serviceTile(d)}
+        <span class="vf-row-text"><span class="vf-row-top">${plateTag(d.plaque)}${said}</span><span class="vf-row-sub">${sub}</span></span>
+        ${planStatus(d)}
+      </button>
+      <button type="button" class="vf-more" data-vf-open="${esc(d.id)}" aria-label="Voir la demande ${esc(d.plaque)}">${icon("chev-r")}</button>
+    </div>`;
+  }
+  function renderVerificationPills() {
+    const box = $("#vfProvs");
+    const pill = (value, label) => `<button type="button" class="vf-prov" data-vf-prov="${esc(value)}" aria-pressed="${$("#v-prest").value === value}">${esc(label)}<em>${verificationRows(value).length}</em></button>`;
+    box.innerHTML = pill("", "Tous") + state.providers.map((p) => pill(p, p)).join("");
+    const from = $("#v-from").value, to = $("#v-to").value;
+    $("#vfRange").querySelectorAll("[data-range]").forEach((b) => b.setAttribute("aria-pressed", String(to === D.addDays(today(), 7) && from === D.addDays(today(), -Number(b.dataset.range)))));
+    $("#vfStatus").querySelectorAll("[data-st]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.st === $("#v-st").value)));
   }
   function renderVerification() {
     if ($("#v-from").value) needOlder($("#v-from").value, $("#v-to").value ? D.addDays($("#v-to").value, 1) : null);
     const rows = verificationRows();
     const checked = state.checkedForVerification;
     [...checked].forEach((id) => { if (!rows.some((r) => r.id === id)) checked.delete(id); });
-    $("#v-count").textContent = `${plural(rows.length, "véhicule")} · ${plural(checked.size, "coché")}`;
-    $("#v-table").innerHTML = rows.length ? `<div class="tablewrap"><table><thead><tr>
-        <th><input type="checkbox" id="v-all" aria-label="Tout cocher" ${checked.size && checked.size === rows.length ? "checked" : ""}></th><th>Dispo</th><th>Plaque</th><th>Site</th><th>Statut</th></tr></thead><tbody>
-      ${rows.map((d) => `<tr><td><input type="checkbox" data-check="${esc(d.id)}" aria-label="Cocher ${esc(d.plaque)}" ${checked.has(d.id) ? "checked" : ""}></td>
-        <td class="date">${esc(D.shortDate(d.date))}</td><td>${plateTag(d.plaque)}</td><td>${esc(D.siteOf(d))}</td><td>${statusChip(d.statut)}</td></tr>`).join("")}
-      </tbody></table></div>` : `<div class="empty"><b>Rien à vérifier sur cette période.</b><span>Les demandes envoyées ou confirmées dont la disponibilité tombe entre les deux dates s'affichent ici.</span></div>`;
     const provider = $("#v-prest").value;
+    const reply = vfReply();
+    const cited = [...reply.done, ...reply.notDone];
+    renderVerificationPills();
+    $("#vfKicker").textContent = provider ? `Relance de ${provider}` : "Relance d'un prestataire";
+    $("#v-count").textContent = rows.length ? `${plural(rows.length, "véhicule")} · ${plural(checked.size, "coché")}` : "";
+    const allOn = rows.length && checked.size === rows.length;
+    $("#vfAll").hidden = !rows.length;
+    $("#vfAll").textContent = allOn ? "Tout décocher" : "Tout cocher";
+    $("#v-table").innerHTML = rows.length
+      ? [...D.groupBy(rows, (d) => d.date)].map(([date, items]) => `<section class="vf-day"><h3>${esc(capFirst(D.dayLabel(date)))}<em>${items.length}</em></h3>
+          <div class="vf-list">${items.map((d) => vfRow(d, reply, !provider)).join("")}</div></section>`).join("")
+      : `<div class="vf-empty"><span class="vf-empty-art" aria-hidden="true">${self.IssueArt?.art("faits-vide", "svc-art") || ""}</span><b>Rien à vérifier sur cette période</b><span>Les demandes envoyées ou confirmées dont la disponibilité tombe entre les deux dates s'affichent ici.</span></div>`;
+    // Message: the same text as before, in a card with a capsule « Copier » and a WhatsApp shortcut.
     const kind = document.querySelector('input[name="vkind"]:checked')?.value;
-    $("#v-share").innerHTML = shareBlock({ text: D.verificationMessage(rows, { provider, kind, siteNames: siteNames() }) });
+    const text = D.verificationMessage(rows, { provider, kind, siteNames: siteNames() });
+    $("#v-share").innerHTML = `<pre class="vf-msg" id="v-msg">${esc(text)}</pre>
+      ${rows.length ? `<div class="vf-msg-actions"><button type="button" class="vf-copy" data-copy="#v-msg">${icon("copy")}Copier le message</button>
+        <a class="vf-wa" href="${esc(D.whatsappLink(text))}" target="_blank" rel="noopener">${icon("wa")}WhatsApp</a></div>` : ""}`;
+    // Reply: what was recognised (done = ticked, not done = left unticked), and the plates it cites that are not in the list.
+    const known = new Set(rows.map((r) => D.plateKey(r.plaque)));
+    const found = reply.done.filter((k) => known.has(k));
+    const notDone = reply.notDone.filter((k) => known.has(k));
+    const unknown = cited.filter((k) => !known.has(k));
+    const plateList = (keys) => keys.map((k) => `<b>${esc(D.normalizePlate(k))}</b>`).join(", ");
+    $("#vfClearBtn").hidden = !$("#v-paste").value;
+    $("#vfMatch").innerHTML = !cited.length ? (($("#v-paste").value.trim()) ? `<p class="vf-match-line none">Aucune plaque reconnue dans ce texte.</p>` : "")
+      : `${found.length ? `<p class="vf-match-line ok"><span class="vf-dot" aria-hidden="true"></span>${found.length > 1 ? `${found.length} faites, cochées` : "1 faite, cochée"} : ${plateList(found)}</p>` : ""}
+        ${notDone.length ? `<p class="vf-match-line todo"><span class="vf-dot" aria-hidden="true"></span>${notDone.length > 1 ? `${notDone.length} pas encore faites, non cochées` : "1 pas encore faite, non cochée"} : ${plateList(notDone)}</p>` : ""}
+        ${unknown.length ? `<p class="vf-match-line none"><span class="vf-dot" aria-hidden="true"></span>Pas dans la liste : ${plateList(unknown)}</p>` : ""}`;
+    // Bottom bar: only once something is ticked.
+    const n = checked.size;
+    $("#vfBar").hidden = !n || !state.canWrite;
+    $("#vfBarN").textContent = n;
+    $("#vfBarLabel").textContent = n > 1 ? "véhicules cochés" : "véhicule coché";
+    document.body.classList.toggle("vf-bar-on", !$("#vfBar").hidden && !$("#view-verif").hidden);
     $("#v-sheet").innerHTML = sheetLink(state.demandes.filter((d) => checked.has(d.id)).map((d) => d.plaque));
   }
-  ["#v-prest", "#v-from", "#v-to", "#v-st"].forEach((s) => $(s).addEventListener("change", renderVerification));
+  ["#v-from", "#v-to"].forEach((s) => $(s).addEventListener("change", renderVerification));
   $("#v-kind").addEventListener("change", renderVerification);
-  $("#v-table").addEventListener("change", (e) => {
-    const checked = state.checkedForVerification;
-    if (e.target.id === "v-all") { checked.clear(); if (e.target.checked) verificationRows().forEach((r) => checked.add(r.id)); }
-    else if (e.target.dataset.check) e.target.checked ? checked.add(e.target.dataset.check) : checked.delete(e.target.dataset.check);
+  $("#vfProvs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-vf-prov]"); if (!b) return;
+    $("#v-prest").value = b.dataset.vfProv; renderVerification();
+  });
+  $("#vfRange").addEventListener("click", (e) => { const b = e.target.closest("[data-range]"); if (b) { setVerificationRange(Number(b.dataset.range)); renderVerification(); } });
+  $("#vfStatus").addEventListener("click", (e) => { const b = e.target.closest("[data-st]"); if (b) { $("#v-st").value = b.dataset.st; renderVerification(); } });
+  $("#v-table").addEventListener("click", (e) => {
+    const open = e.target.closest("[data-vf-open]");
+    if (open) { openDemandeFromPlanning(open.dataset.vfOpen); return; }
+    const b = e.target.closest("[data-check]"); if (!b) return;
+    const checked = state.checkedForVerification, id = b.dataset.check;
+    checked.has(id) ? checked.delete(id) : checked.add(id);
     renderVerification();
   });
-  $("#v-paste").addEventListener("input", () => {
-    const cited = D.platesInText($("#v-paste").value);
-    const newlyChecked = verificationRows().filter((r) => cited.includes(D.plateKey(r.plaque)) && !state.checkedForVerification.has(r.id));
+  $("#vfAll").addEventListener("click", () => {
+    const rows = verificationRows(), checked = state.checkedForVerification;
+    if (rows.length && checked.size === rows.length) checked.clear(); else rows.forEach((r) => checked.add(r.id));
+    renderVerification();
+  });
+  $("#vfNone").addEventListener("click", () => { state.checkedForVerification.clear(); renderVerification(); });
+  function applyPastedReply() {
+    const { done } = vfReply();
+    const newlyChecked = verificationRows().filter((r) => done.includes(D.plateKey(r.plaque)) && !state.checkedForVerification.has(r.id));
     newlyChecked.forEach((r) => state.checkedForVerification.add(r.id));
-    if (newlyChecked.length) toast(`${plural(newlyChecked.length, "véhicule")} coché${newlyChecked.length > 1 ? "s" : ""}`);
-    renderVerification();
+    renderVerification(); // the « Sa réponse » card and the bottom bar say what was ticked
+  }
+  $("#v-paste").addEventListener("input", applyPastedReply);
+  $("#vfPasteBtn").addEventListener("click", async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) { toast("Le presse-papiers est vide"); return; }
+      $("#v-paste").value = text; applyPastedReply();
+    } catch { $("#v-paste").focus(); toast("Colle sa réponse dans la case (Ctrl+V ou appui long)"); }
   });
-  document.querySelectorAll("[data-bulk]").forEach((button) => button.addEventListener("click", async () => {
+  $("#vfClearBtn").addEventListener("click", () => { $("#v-paste").value = ""; renderVerification(); $("#v-paste").focus(); });
+  document.querySelectorAll("#view-verif [data-bulk]").forEach((button) => button.addEventListener("click", async () => {
     if (!requireStore()) return;
     const status = button.dataset.bulk;
-    const targets = state.demandes.filter((d) => state.checkedForVerification.has(d.id));
-    if (!targets.length) return toast("Coche d'abord des véhicules");
+    const targets = state.demandes.filter((d) => state.checkedForVerification.has(d.id) && d.statut !== status);
+    if (!targets.length) return toast(state.checkedForVerification.size ? `Déjà en « ${D.statusOf(status).label} »` : "Coche d'abord des véhicules");
+    const before = targets.map((d) => ({ id: d.id, statut: d.statut }));
+    const buttons = document.querySelectorAll("#view-verif [data-bulk]");
+    buttons.forEach((b) => (b.disabled = true));
     try {
       for (const d of targets) await state.store.setStatus(d, status);
-      toast(`${plural(targets.length, "véhicule")} passé${targets.length > 1 ? "s" : ""} en « ${D.statusOf(status).label} »`);
-      if (status === "annulee") state.checkedForVerification.clear();
+      state.checkedForVerification.clear();
+      renderVerification();
+      toast(`${plural(targets.length, "véhicule")} passé${targets.length > 1 ? "s" : ""} en « ${D.statusOf(status).label} »`, { label: "Annuler", run: async () => {
+        try {
+          for (const b of before) { const d = demandeById(b.id); if (d && d.statut === status) await state.store.setStatus(d, b.statut); }
+          toast("Statuts remis comme avant");
+        } catch (err) { reportWriteError(err); }
+      } });
     } catch (err) { reportWriteError(err); }
+    finally { buttons.forEach((b) => (b.disabled = false)); }
   }));
 
   // ================= monthly report =================
