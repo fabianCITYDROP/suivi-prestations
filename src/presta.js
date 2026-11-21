@@ -48,7 +48,8 @@
     // withTime: the slot on the right (« Aujourd'hui », where date and site are already given by the section).
     function jobHead(d, { withTime = false } = {}) {
       return `<div class="job-head">${serviceTile(d)}
-        <div class="job-id"><div class="job-line">${plateTag(d.plaque)}${withTime ? `<span class="job-time">${esc(slot(d))}</span>` : ""}</div>${modelHtml(d)}<span class="job-kind">${esc(D.jobLabel(d))}</span></div></div>`;
+        <div class="job-id"><div class="job-line">${plateTag(d.plaque)}${withTime ? `<span class="job-time">${esc(slot(d))}</span>` : ""}</div>${modelHtml(d)}<span class="job-kind">${esc(D.jobLabel(d))}</span>
+        ${D.isLate(d, today()) ? `<span class="late-pill">${icon("alert")}En retard · prévu ${esc(D.shortDate(D.lastDay(d)))}</span>` : ""}</div></div>`;
     }
     function jobMeta(d, { withDate = true, withSite = true } = {}) {
       const late = D.isLate(d, today());
@@ -57,7 +58,6 @@
         withDate ? `<li>${icon("clock")}<span>${esc(cap(slot(d)))}</span></li>`
           : D.isMultiDay(d) && !late && `<li>${icon("cal")}<span>Sur site jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>`,
         withSite && `<li>${icon("pin")}<span>${esc([d.site, d.adresse].filter(Boolean).join(" · ") || "Site à préciser")}</span></li>`,
-        late && `<li class="late">${icon("alert")}<span>En retard · prévu jusqu'au ${esc(D.shortDate(D.lastDay(d)))}</span></li>`,
       ].filter(Boolean);
       return (items.length ? `<ul class="job-meta">${items.join("")}</ul>` : "") +
         (d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : "") +
@@ -95,7 +95,9 @@
     };
     const actOf = () => { const [kind, id] = (state.openForm || "").split(":"); return { kind, d: byId(id) }; };
     const actTitle = (kind, d) => (kind === "date" && d && !D.isAccepted(d) ? "Proposer une autre date" : ACTS[kind]?.title || "");
-    const actBtn = (kind, id, label, ic = "") => `<button type="button" class="act-btn${kind === "problem" ? " warn" : ""}" data-act="${kind}" data-id="${esc(id)}">${ic ? icon(ic) : ""}<span>${label}</span></button>`;
+    // Secondary actions: round raised buttons with an icon in volume (same family as « Signaler »), label underneath.
+    const ACT_ART = { date: "act-date", absent: "act-absent", problem: "act-problem", refuse: "act-problem" };
+    const actBtn = (kind, id, label) => `<button type="button" class="act-btn" data-act="${kind}" data-id="${esc(id)}"><span class="act-ico" aria-hidden="true">${self.IssueArt?.art(ACT_ART[kind], "act-art") || ""}</span><span class="act-lbl">${label}</span></button>`;
     // The next days as one-tap choices; any other day stays in the date field.
     function nextDays(n) {
       const out = []; const d0 = new Date(today() + "T12:00:00");
@@ -134,8 +136,8 @@
     function validateCard(d) {
       return `<article class="job" data-job="${esc(d.id)}">${jobHead(d)}${jobMeta(d)}${photosStrip(d)}${answerLine(d)}
         ${state.busy.has(d.id) ? busyLine : `<div class="job-actions">
-          <button type="button" class="primary big" data-take="${esc(d.id)}">${icon("check")}Accepter</button>
-          <div class="act-row two">${actBtn("date", d.id, "Autre date", "cal")}${actBtn("refuse", d.id, "Pas possible", "x")}</div></div>`}
+          <button type="button" class="primary big ok-btn" data-take="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Accepter</button>
+          <div class="act-row two">${actBtn("date", d.id, "Autre date")}${actBtn("refuse", d.id, "Pas possible")}</div></div>`}
       </article>`;
     }
     // early: a vehicle of « À venir » done ahead of time (date and site shown, the section does not give them).
@@ -143,8 +145,8 @@
       const leaving = state.leaving === d.id;
       return `<article class="job${leaving ? " leaving" : ""}" data-job="${esc(d.id)}">${jobHead(d, { withTime: !early })}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
         ${state.busy.has(d.id) && !leaving ? busyLine : `<div class="job-actions">
-          <button type="button" class="primary big" data-act="done" data-id="${esc(d.id)}">${icon("check")}OK prestation réalisée</button>
-          <div class="act-row">${actBtn("date", d.id, "Reporter", "cal")}${actBtn("absent", d.id, "Véhicule absent", "pin")}${actBtn("problem", d.id, "Problème", "alert")}</div></div>`}
+          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>OK prestation réalisée</button>
+          <div class="act-row">${actBtn("date", d.id, "Reporter")}${actBtn("absent", d.id, "Véhicule absent")}${actBtn("problem", d.id, "Problème")}</div></div>`}
       ${problemLines(d)}${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
     }
     const doneDayOf = (d) => (d.retour?.etat === "fait" ? d.retour.at : d.doneAt || d.date || "").slice(0, 10);
@@ -192,7 +194,8 @@
       const total = left + doneToday;
       if (!total) return "";
       const pct = Math.round((doneToday / total) * 100);
-      const text = left ? `<b>${left}</b> véhicule${left > 1 ? "s" : ""} à faire${doneToday ? `<span> · ${doneToday} fait${doneToday > 1 ? "s" : ""}</span>` : ""}`
+      const late = state.demandes.filter((d) => D.providerLists([d], today()).today.length && D.isLate(d, today())).length;
+      const text = left ? `<b>${left}</b> véhicule${left > 1 ? "s" : ""} à faire${doneToday ? `<span> · ${doneToday} fait${doneToday > 1 ? "s" : ""}</span>` : ""}${late ? `<span class="sum-late"> · ${late} en retard</span>` : ""}`
         : `<b class="all-done">${icon("check")}Tout est fait</b><span> · ${doneToday} véhicule${doneToday > 1 ? "s" : ""}</span>`;
       return `<div class="day-sum"><p>${text}</p><div class="day-bar" role="progressbar" aria-label="Avancement de la journée" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${doneToday}"><i style="width:${pct}%"></i></div></div>`;
     }

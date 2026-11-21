@@ -32,6 +32,9 @@ ${rad("dent", [[0, "#7f8d98"], [0.6, "#b9c4cc", 0.6], [1, "#e4e9ed", 0]], 0.42, 
 ${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
 ${lin("steel", [[0, "#fbfcfd"], [0.5, "#c3ccd3"], [1, "#7d8a95"]])}
 ${lin("grip", [[0, "#3a9cc0"], [0.5, "#0f6f8f"], [1, "#0a4a60"]])}
+${lin("cal-top", [[0, "#3a9cc0"], [0.55, "#0f6f8f"], [1, "#0a4e66"]])}
+${lin("warn", [[0, "#ff8a7a"], [0.5, "#e5412f"], [1, "#a8231a"]])}
+${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
 <mask id="i3-jaw" maskUnits="userSpaceOnUse" x="0" y="0" width="48" height="48"><rect width="48" height="48" fill="#fff"/><path d="M37 21.3h12v5.4H37Z" fill="#000"/><circle cx="37" cy="24" r="2.7" fill="#000"/></mask>
 <filter id="i3-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.6"/></filter>
 </defs></svg>`;
@@ -167,6 +170,30 @@ ${lin("grip", [[0, "#3a9cc0"], [0.5, "#0f6f8f"], [1, "#0a4a60"]])}
     `<path d="M9.6 30.2l-.4 7.6" stroke="${O}" stroke-width="1.6" stroke-linecap="round"/><path d="M9.6 30.2l-.4 7.6" stroke="#9aa7b2" stroke-width=".7" stroke-linecap="round"/>` +
     solid("M1.4 37.4h9.4v2.6H1.4Z", "steel") + `<path d="M2 37.9h8.2" stroke="#fff" stroke-width=".6" stroke-linecap="round"/>` +
     `<g stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M5.2 23.6v9.6M2.8 26l2.4-2.4 2.4 2.4M2.8 30.8l2.4 2.4 2.4-2.4" stroke="#fff" stroke-width="2.6" stroke-opacity=".7"/><path d="M5.2 23.6v9.6M2.8 26l2.4-2.4 2.4 2.4M2.8 30.8l2.4 2.4 2.4-2.4" stroke="#0f6f8f" stroke-width="1.5"/></g>`;
+  // Actions d'une carte prestataire : reporter (calendrier + flèche), véhicule absent (place vide), problème (triangle).
+  ICONS["act-date"] = ground(24, 43.2, 16, 2.1) +
+    solid("M8 12.5a3.5 3.5 0 0 1 3.5-3.5h25a3.5 3.5 0 0 1 3.5 3.5V37a3.5 3.5 0 0 1-3.5 3.5h-25A3.5 3.5 0 0 1 8 37Z") +
+    `<path d="M8 12.5a3.5 3.5 0 0 1 3.5-3.5h25a3.5 3.5 0 0 1 3.5 3.5V18H8Z" fill="url(#i3-cal-top)" ${S}/>` +
+    `<path d="M10.4 10.6h27" stroke="#fff" stroke-opacity=".45" stroke-width=".9" stroke-linecap="round"/>` +
+    `<g fill="url(#i3-dark)" ${S}><rect x="14" y="5.5" width="3.4" height="7.4" rx="1.7"/><rect x="30.6" y="5.5" width="3.4" height="7.4" rx="1.7"/></g>` +
+    `<g fill="#c3ced6"><rect x="12.4" y="22" width="4.4" height="3.4" rx=".9"/><rect x="19.6" y="22" width="4.4" height="3.4" rx=".9"/><rect x="12.4" y="28.4" width="4.4" height="3.4" rx=".9"/></g>` +
+    // flèche « plus tard » bleue
+    `<path d="M22 33.6a8.4 8.4 0 1 0 2.2-10.4" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".9"/>` +
+    `<path d="M22 33.6a8.4 8.4 0 1 0 2.2-10.4" fill="none" stroke="#0f6f8f" stroke-width="2.6" stroke-linecap="round"/>` +
+    `<path d="M21.4 19.6l3.4 3.4-3.9 2.6Z" fill="#0f6f8f" stroke="#0f6f8f" stroke-width="1.6" stroke-linejoin="round"/>`;
+  ICONS["act-absent"] = ground(24, 43, 20, 2) +
+    // place de parking vide : bitume, lignes blanches, camion en pointillés
+    `<path d="M4 40.5l5-21h30l5 21Z" fill="url(#i3-dark)" ${S}/><path d="M9.6 20.6h28.8" stroke="#8a97a2" stroke-width=".6"/>` +
+    `<path d="M10.6 22.4l-3.8 16.6M37.4 22.4l3.8 16.6" stroke="#f4f7f9" stroke-width="1.6" stroke-linecap="round"/>` +
+    `<path d="M14.6 25.4h18.8l1.4 10.6H13.2Z" fill="none" stroke="#f4f7f9" stroke-opacity=".75" stroke-width="1.1" stroke-dasharray="2.2 1.8" stroke-linejoin="round"/>` +
+    // point d'interrogation orange, en volume
+    `<circle cx="34.6" cy="13.4" r="8.4" fill="url(#i3-ora)" ${S}/><ellipse cx="32.6" cy="9.6" rx="4.6" ry="2.4" fill="url(#i3-shine)" opacity=".75"/>` +
+    `<path d="M31.8 11.2a2.9 2.9 0 1 1 4.1 2.6c-.8.4-1.3 1-1.3 1.9v.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="34.6" cy="18.6" r="1.15" fill="#fff"/>`;
+  ICONS["act-problem"] = ground(24, 42.8, 17, 2.1) +
+    `<path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="url(#i3-warn)"/><path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="url(#i3-shadeR)"/>` +
+    `<path d="M21.2 7.6a3.2 3.2 0 0 1 5.6 0l15.6 28a3.2 3.2 0 0 1-2.8 4.8H8.4a3.2 3.2 0 0 1-2.8-4.8Z" fill="none" stroke="#7d1810" stroke-width="1" stroke-linejoin="round"/>` +
+    `<path d="M22.4 9.6a1.8 1.8 0 0 1 3.1 0l3 5.4c-2.6 1.6-6.4 1.9-9.4.9Z" fill="#fff" opacity=".35"/>` +
+    `<rect x="22" y="17" width="4" height="12.4" rx="2" fill="#fff"/><circle cx="24" cy="34" r="2.2" fill="#fff"/>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
