@@ -551,10 +551,21 @@
   // ================= navigation =================
   const VIEWS = ["planning", "retours", "demande", "hayon", "photos", "verif", "bilan", "historique", "corbeille", "reglages"];
   const navButtons = () => document.querySelectorAll("nav.tabs [data-view]");
+  // « Nouvelle demande » (and an opened request) is a sheet over the page underneath, never a page of its own.
+  let baseView = "planning";
   function show(view) {
     if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
-    VIEWS.forEach((v) => ($("#view-" + v).hidden = v !== view));
+    if (view === "demande") {
+      VIEWS.forEach((v) => v !== "demande" && ($("#view-" + v).hidden = v !== baseView));
+      markCurrentNav(baseView);
+      openFormSheet();
+      if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
+      return;
+    }
+    closeFormSheet();
+    baseView = view;
+    VIEWS.forEach((v) => v !== "demande" && ($("#view-" + v).hidden = v !== view));
     markCurrentNav(view);
     if (view === "corbeille") openTrash();
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
@@ -590,6 +601,7 @@
     });
     setSelectOptions($("#f-site"), `<option value="">Choisir un site…</option>` + options(siteNames()));
     setSelectOptions($("#h-site"), `<option value="">Tous les sites</option>` + options(siteNames()));
+    renderChoiceTiles();
   }
   $("#h-statut").innerHTML = `<option value="">Tous les statuts</option><option value="ouvert">En cours (hors réalisées / annulées)</option>` + D.STATUSES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
   $("#h-svc").innerHTML = `<option value="">Toutes prestations</option>` + D.SERVICES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
@@ -1005,7 +1017,136 @@
     else if (!allowed.includes(chosenService())) $("#svc-" + allowed[0]).checked = true;
     $("#taskRow").hidden = chosenService() !== "intervention";
     $("#washRow").hidden = chosenService() !== "lavage";
+    renderChoiceTiles();
   }
+
+  // ----- the sheet itself: slides up over the page on a phone, centred window on a computer -----
+  const ndView = $("#view-demande");
+  const ndSheet = ndView.querySelector(".nd-sheet");
+  let ndHideTimer, ndLastFocus = null;
+  const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  function openFormSheet() {
+    clearTimeout(ndHideTimer);
+    if (!ndView.hidden && ndView.classList.contains("on")) return;
+    if (teamSheet.isOpen) teamSheet.close();
+    ndLastFocus = document.activeElement;
+    ndView.hidden = false; ndSheet.style.transform = "";
+    document.body.classList.add("nd-open");
+    requestAnimationFrame(() => requestAnimationFrame(() => ndView.classList.add("on")));
+    setTimeout(() => ndSheet.querySelector(".sheet-x")?.focus({ preventScroll: true }), 60);
+  }
+  function closeFormSheet() {
+    if (ndView.hidden) return;
+    ndView.classList.remove("on"); ndSheet.style.transform = "";
+    document.body.classList.remove("nd-open");
+    clearTimeout(ndHideTimer);
+    ndHideTimer = setTimeout(() => { ndView.hidden = true; }, reducedMotion() ? 200 : 380);
+    if (ndLastFocus?.isConnected) ndLastFocus.focus({ preventScroll: true });
+  }
+  // Closing a new request that was started keeps it: the bubble offers to pick it up again.
+  function leaveFormSheet() {
+    const started = !state.editingId && (field("plaque").value.trim() || readExtras().length);
+    show(baseView);
+    if (started) toast("Demande non enregistrée", { label: "Reprendre", run: () => show("demande") });
+  }
+  ndView.addEventListener("click", (e) => { if (e.target.closest("[data-nd-close]")) leaveFormSheet(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !ndView.hidden && ndView.classList.contains("on") && !document.querySelector(".lightbox:not([hidden])")) leaveFormSheet();
+  }, true); // capture: runs before the photo viewer closes itself on the same key
+  // Drag the grabber or the title down to close: follows the finger, closes past 120 px or on a quick flick.
+  (function dragToClose() {
+    let startY = 0, lastY = 0, lastT = 0, v = 0, dragging = false;
+    ndSheet.addEventListener("pointerdown", (e) => {
+      if (!e.target.closest(".sheet-grab, .nd-head") || e.target.closest("button") || window.innerWidth > 720) return;
+      dragging = true; startY = lastY = e.clientY; lastT = e.timeStamp; v = 0;
+      ndSheet.setPointerCapture(e.pointerId); ndSheet.classList.add("dragging");
+    });
+    ndSheet.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const dy = e.clientY - startY;
+      v = (e.clientY - lastY) / Math.max(1, e.timeStamp - lastT); lastY = e.clientY; lastT = e.timeStamp;
+      ndSheet.style.transform = `translateY(${dy > 0 ? dy : dy / 6}px)`;
+    });
+    const end = (e) => {
+      if (!dragging) return;
+      dragging = false; ndSheet.classList.remove("dragging");
+      if (e.clientY - startY > 120 || v > 0.6) leaveFormSheet(); else ndSheet.style.transform = "";
+    };
+    ndSheet.addEventListener("pointerup", end); ndSheet.addEventListener("pointercancel", end);
+  })();
+
+  // ----- tiles: type first, then only the providers who do it (same rules as Réglages › Prestataires) -----
+  const offers = (name, service) => D.servicesFor(state.providerDocs.get(D.providerId(name)), name).includes(service);
+  const providersFor = (service) => state.providers.filter((name) => offers(name, service));
+  const initials = (name) => name.replace(/\(.*?\)/g, "").split(/[\s-]+/).filter((w) => /^[a-zà-ÿ]/i.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
+  const nextDays = () => Array.from({ length: 7 }, (_, i) => D.addDays(today(), i));
+  const dayChipLabel = (iso, i) => i === 0 ? "Aujourd'hui" : i === 1 ? "Demain"
+    : D.parseIsoDate(iso).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" }).replace(".", "").replace(/^./, (c) => c.toUpperCase());
+  const SLOTS = [{ label: "Journée", debut: D.DEFAULT_SLOT.debut, fin: D.DEFAULT_SLOT.fin }, { label: "Matin", debut: "08:30", fin: "12:30" }, { label: "Après-midi", debut: "13:30", fin: "19:30" }];
+  const tile = (attrs, pressed, art, label) => `<button type="button" class="issue-tile nd-tile" ${attrs} aria-pressed="${pressed}">
+      <span class="issue-ico">${self.IssueArt?.art(art) || ""}<span class="issue-check">${icon("check")}</span></span><span class="issue-lbl">${esc(label)}</span></button>`;
+  function renderChoiceTiles() {
+    const editing = state.editingId ? demandeById(state.editingId)?.service : "";
+    const services = D.SERVICES.filter((s) => s.id === editing || providersFor(s.id).length);
+    const svc = chosenService();
+    $("#ndSvc").innerHTML = services.map((s) => tile(`data-nd-svc="${s.id}"`, s.id === svc, SERVICE_ART[s.id], s.label)).join("");
+    $("#ndSvc").style.setProperty("--n", Math.max(services.length, 1));
+    const current = field("prest").value;
+    const names = svc ? state.providers.filter((n) => n === current || offers(n, svc)) : state.providers;
+    $("#ndProv").innerHTML = names.map((n) => `<button type="button" class="nd-pv" role="radio" data-nd-prov="${esc(n)}" aria-checked="${n === current}">
+        <span class="nd-pv-av" aria-hidden="true">${esc(initials(n))}</span><span class="nd-pv-txt"><b>${esc(n)}</b><small class="nd-pv-price"></small></span>
+        <span class="nd-pv-tick" aria-hidden="true">${icon("check")}</span></button>`).join("");
+    $("#provRow").hidden = state.providers.length === 0;
+    const site = field("site").value;
+    $("#ndSites").innerHTML = siteNames().map((n) => `<button type="button" class="nd-chip" role="radio" data-nd-site="${esc(n)}" aria-checked="${n === site}">${esc(n)}</button>`).join("")
+      || `<p class="nd-hint">Aucun site : ajoute-les dans Réglages › Sites.</p>`;
+    $("#ndDays").innerHTML = nextDays().map((iso, i) => `<button type="button" class="nd-chip" data-nd-day="${iso}" aria-pressed="false">${esc(dayChipLabel(iso, i))}</button>`).join("");
+    $("#ndSlots").innerHTML = SLOTS.map((t) => `<button type="button" class="nd-chip" data-nd-slot="${t.debut}-${t.fin}" aria-pressed="false">${t.label}<small>${t.debut.replace(":", "h")}–${t.fin.replace(":", "h")}</small></button>`).join("");
+    syncChoiceTiles();
+  }
+  // Only the pressed states and prices change while typing: the tiles are not redrawn (no flicker, focus kept).
+  function syncChoiceTiles() {
+    const d = readForm();
+    const press = (sel, on) => document.querySelectorAll(sel).forEach((b) => b.setAttribute(b.getAttribute("role") === "radio" ? "aria-checked" : "aria-pressed", on(b)));
+    press("#ndSites [data-nd-site]", (b) => b.dataset.ndSite === field("site").value);
+    press("#ndDays [data-nd-day]", (b) => b.dataset.ndDay === field("date").value && (field("dateFin").value || field("date").value) === field("date").value);
+    press("#ndSlots [data-nd-slot]", (b) => b.dataset.ndSlot === `${field("debut").value}-${field("fin").value}`);
+    const before = demandeById(state.editingId);
+    document.querySelectorAll("#ndProv [data-nd-prov]").forEach((b) => {
+      const name = b.dataset.ndProv;
+      const prices = pricesOf(D.providerId(name)).filter((l) => (l.service || "pare-brise") === d.service);
+      const price = before && before.prestataire === name ? D.providerFields({ ...d, prestataire: name }, before, pricesOf).prixHT : D.priceFor(prices, { ...d, prestataire: name });
+      b.querySelector(".nd-pv-price").textContent = price != null ? D.euros(price) + " HT" : prices.length ? "Prix selon le cubage" : d.service === "hayon" ? "Forfait mensuel" : "Pas de tarif";
+    });
+  }
+  function pop(button) { button.classList.remove("pop"); void button.offsetWidth; button.classList.add("pop"); }
+  $("#form").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-nd-svc], [data-nd-prov], [data-nd-site], [data-nd-day], [data-nd-slot]");
+    if (!b) return;
+    if (b.dataset.ndSvc) {
+      const svc = b.dataset.ndSvc;
+      if (!offers(field("prest").value, svc)) {
+        const first = providersFor(svc).find((n) => n === state.providerFilter) || providersFor(svc)[0];
+        if (first) field("prest").value = first;
+      }
+      const radio = $("#svc-" + svc);
+      renderServiceChoice();
+      if (radio && !radio.closest("label").hidden) radio.checked = true;
+      renderServiceChoice();
+      pop($(`#ndSvc [data-nd-svc="${svc}"]`));
+    } else if (b.dataset.ndProv) {
+      field("prest").value = b.dataset.ndProv;
+      renderServiceChoice();
+    } else if (b.dataset.ndSite) {
+      field("site").value = b.dataset.ndSite;
+      field("site").dispatchEvent(new Event("change", { bubbles: true }));
+    } else if (b.dataset.ndDay) {
+      setAvailability(b.dataset.ndDay);
+    } else if (b.dataset.ndSlot) {
+      [field("debut").value, field("fin").value] = b.dataset.ndSlot.split("-");
+    }
+    renderFormSide();
+  });
   const chosenWashKind = () => document.querySelector('input[name="wash"]:checked')?.value || "complet";
   function selectedFleetModel() {
     const index = field("modele").value;
@@ -1032,7 +1173,7 @@
   }
   // ----- model picker: brand + model first, then cubage (year shown only when the cubage is ambiguous) -----
   const baseOptions = () => `<option value="">Choisir le modèle…</option>` + options(D.fleetBases(state.fleet));
-  const variantSelectOf = (base) => base.closest(".grid, .extra-veh").querySelector(".m-var");
+  const variantSelectOf = (base) => base.closest(".nd-veh, .extra-veh").querySelector(".m-var");
   function fillVariants(base, variant) {
     const variants = D.fleetVariants(state.fleet, base.value);
     setSelectOptions(variant, base.value
@@ -1058,13 +1199,14 @@
     const row = document.createElement("div");
     row.className = "extra-veh";
     row.dataset.id = v.id || "";
-    row.innerHTML = `<span class="num"></span>
-      <label class="field"><span>Immatriculation</span><input class="x-plaque plate-input" placeholder="AB-123-CD" list="dl-plaques" value="${esc(v.plaque || "")}"></label>
-      <label class="field"><span>Modèle</span><select class="x-base m-base">${baseOptions()}</select></label>
-      <label class="field"><span>Cubage</span><select class="x-modele m-var"></select></label>
-      <label class="field"><span>De</span><input type="time" class="x-debut" step="900" value="${esc(v.debut ?? field("debut").value)}"></label>
-      <label class="field"><span>À</span><input type="time" class="x-fin" step="900" value="${esc(v.fin ?? field("fin").value)}"></label>
-      <button type="button" class="ghost danger" data-remove-veh aria-label="Retirer ce véhicule">${icon("x")}</button>`;
+    row.innerHTML = `<div class="xv-head"><span class="num"></span><button type="button" class="xv-remove" data-remove-veh aria-label="Retirer ce véhicule">${icon("x")}</button></div>
+      <label class="nd-plate sm"><span class="nd-plate-eu" aria-hidden="true">F</span><input class="x-plaque plate-input" placeholder="AB-123-CD" list="dl-plaques" aria-label="Immatriculation" value="${esc(v.plaque || "")}"></label>
+      <div class="nd-model">
+        <label><span>Modèle</span><select class="x-base m-base">${baseOptions()}</select></label>
+        <label><span>Cubage</span><select class="x-modele m-var"></select></label>
+        <label><span>De</span><input type="time" class="x-debut" step="900" value="${esc(v.debut ?? field("debut").value)}"></label>
+        <label><span>À</span><input type="time" class="x-fin" step="900" value="${esc(v.fin ?? field("fin").value)}"></label>
+      </div>`;
     $("#extraVeh").append(row);
     fillVariants(row.querySelector(".x-base"), row.querySelector(".x-modele"));
     if (v.modele) setModelPicker(row.querySelector(".x-base"), row.querySelector(".x-modele"), v);
@@ -1136,6 +1278,24 @@
     $("#vehHint").classList.toggle("warn", !!hayonWarning);
     const current = demandeById(state.editingId);
     $("#formSheet").innerHTML = current && ["confirmee", "realisee"].includes(current.statut) ? sheetLink([d.plaque]) : "";
+    syncChoiceTiles();
+    renderSummary(d, others, current);
+  }
+  // What will be saved, in one card: vehicles, price HT frozen at the first save, and what is still missing.
+  function renderSummary(d, others, current) {
+    const problem = formProblem(d, readExtras());
+    $("#saveBtn").dataset.ready = String(!problem); // greyed until complete, still clickable to say what is missing
+    const count = others.length + 1;
+    const price = d.prestataire ? D.providerFields(d, current, pricesOf).prixHT : null;
+    const total = price != null ? D.euros(price * count) : "";
+    const when = d.date ? D.dayLabel(d.date) + (d.dateFin && d.dateFin !== d.date ? " → " + D.dayLabel(d.dateFin) : "") : "";
+    $("#ndSum").innerHTML = `<div class="nd-sum-top">
+        <span class="svc-tile sm" aria-hidden="true">${d.service ? self.IssueArt?.art(SERVICE_ART[d.service], "svc-art") || "" : ""}</span>
+        <span class="nd-sum-txt"><b>${esc(d.service ? D.jobLabel(d) : "Prestation à choisir")}${count > 1 ? ` · ${count} véhicules` : ""}</b>
+        <small>${esc([d.prestataire, d.site].filter(Boolean).join(" · ") || "Prestataire et site à choisir")}</small></span>
+        ${total ? `<span class="nd-sum-price"><b>${esc(total)}</b><small>HT${count > 1 ? ` · ${esc(D.euros(price))} / véh.` : ""}</small></span>` : ""}</div>
+      ${when ? `<p class="nd-sum-when">${icon("cal")}${esc(when)} · ${esc(d.debut.replace(":", "h"))}–${esc(d.fin.replace(":", "h"))}</p>` : ""}
+      ${problem ? `<p class="nd-sum-miss">${icon("alert")}${esc(problem)}</p>` : `<p class="nd-sum-ok">${icon("check")}${current ? "Prête à enregistrer les modifications" : "Prête à enregistrer"}</p>`}`;
   }
   // The windshield photos shown here are those of the chosen model: added once, sent with every request.
   function renderFormPhotos(d) {
@@ -1177,16 +1337,24 @@
     field("debut").value = D.DEFAULT_SLOT.debut;
     field("fin").value = D.DEFAULT_SLOT.fin;
     field("prest").value = state.providerFilter || defaultProvider();
+    if (!D.SERVICES.some((x) => offers(field("prest").value, x.id))) {
+      const any = state.providers.find((n) => D.SERVICES.some((x) => offers(n, x.id)));
+      if (any) field("prest").value = any;
+    }
     renderServiceChoice();
+    $(".nd-scroll").scrollTop = 0;
     $("#notesBox").open = false;
     $("#historyBox").hidden = true; $("#historyBox").open = false; $("#historyBox").dataset.id = "";
     $("#formTitle").textContent = "Nouvelle demande";
+    $("#ndKicker").textContent = "Demande à un prestataire";
     $("#formStatusChip").hidden = true;
-    $("#saveBtn").textContent = "Enregistrer la demande";
+    setSaveLabel("Enregistrer la demande");
+    ndView.classList.remove("saved");
     $("#delZone").innerHTML = "";
     renderFormSide();
   }
   $("#resetBtn").onclick = resetForm;
+  function setSaveLabel(text) { $("#saveBtn").innerHTML = `<span class="ok-badge" aria-hidden="true">${icon("check")}</span><span>${esc(text)}</span>`; }
 
   function openDemande(id) {
     const d = demandeById(id);
@@ -1194,7 +1362,7 @@
     state.editingId = id;
     fillForm(d);
     showSavedHeader(d);
-    renderFormSide(); show("demande"); window.scrollTo({ top: 0 });
+    renderFormSide(); show("demande"); $(".nd-scroll").scrollTop = 0;
   }
   function newDemandeFor(vehicle) {
     resetForm();
@@ -1206,7 +1374,9 @@
     $("#formTitle").textContent = count > 1 ? `Demande groupée · ${count} véhicules` : "Demande " + (d.plaque || "");
     const chip = $("#formStatusChip");
     chip.hidden = false; chip.className = "chip st-" + d.statut; chip.textContent = D.statusOf(d.statut).label;
-    $("#saveBtn").textContent = "Enregistrer les modifications";
+    $("#ndKicker").textContent = [D.jobLabel(d), d.date ? D.shortDate(d.date) : ""].filter(Boolean).join(" · ");
+    setSaveLabel("Enregistrer les modifications");
+    ndView.classList.add("saved");
     $("#delZone").innerHTML = deleteZone(d);
     showHistoryBox();
   }
@@ -1306,7 +1476,16 @@
   }
   $("#form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (await saveForm()) { toast(extraRows().length ? "Demande groupée enregistrée" : "Demande enregistrée"); state.day = field("date").value || state.day; }
+    const wasNew = !state.editingId;
+    if (await saveForm()) {
+      toast(extraRows().length ? "Demande groupée enregistrée" : "Demande enregistrée");
+      state.day = field("date").value || state.day;
+      // Next step after a new request: send it. On a phone the message is below the form.
+      if (wasNew) {
+        const box = $(".nd-scroll"), top = $("#ndSum").getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 8;
+        box.scrollTo({ top, behavior: reducedMotion() ? "auto" : "smooth" });
+      }
+    }
   });
   $("#formShare").addEventListener("click", async (e) => {
     if (!e.target.closest("[data-copy]")) return;

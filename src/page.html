@@ -104,86 +104,104 @@
     <div class="ret-body" id="retList"></div>
   </section>
 
-  <section id="view-demande" hidden>
-    <div class="work">
-      <form class="panel" id="form" autocomplete="off" novalidate>
-        <div class="panel-head">
-          <h2 id="formTitle">Nouvelle demande</h2>
-          <span class="chip" id="formStatusChip" hidden></span>
+  <section id="view-demande" class="nd" hidden>
+    <div class="nd-scrim" data-nd-close></div>
+    <div class="nd-sheet" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+      <div class="sheet-grab" aria-hidden="true"><span></span></div>
+      <header class="nd-head">
+        <div class="nd-titles"><small id="ndKicker">Demande à un prestataire</small><h2 id="formTitle">Nouvelle demande</h2></div>
+        <span class="chip" id="formStatusChip" hidden></span>
+        <button type="button" class="sheet-x" data-nd-close aria-label="Fermer"><svg class="icon"><use href="#i-x"/></svg></button>
+      </header>
+      <div class="nd-scroll">
+        <div class="nd-cols">
+          <form id="form" class="nd-form" autocomplete="off" novalidate>
+            <section class="nd-sec" aria-labelledby="svcLabel">
+              <h3 class="nd-label" id="svcLabel">Prestation</h3>
+              <div class="nd-svc" id="ndSvc" role="group" aria-labelledby="svcLabel"></div>
+              <div class="nd-src" aria-hidden="true"><div class="seg" id="svcSeg"></div></div>
+              <p class="nd-warn" id="svcNone" hidden>Aucun prestataire ne fait ce type de prestation : coche-le dans Réglages › Prestataires.</p>
+              <div class="nd-sub" id="washRow" hidden><span class="nd-sub-lbl" id="washLabel">Formule</span><div class="seg nd-seg" id="washSeg" role="radiogroup" aria-labelledby="washLabel"></div></div>
+              <div class="nd-sub task-row" id="taskRow" hidden>
+                <label class="nd-sub-lbl" for="f-tache">Que faut-il faire ? *</label>
+                <div class="task-chips" id="taskChips" role="group" aria-label="Tâches fréquentes"></div>
+                <input id="f-tache" class="nd-input" placeholder="Touche une tâche ou écris-la, puis précise si besoin">
+              </div>
+            </section>
+
+            <section class="nd-sec" id="provRow" aria-labelledby="provLabel">
+              <h3 class="nd-label" id="provLabel">Prestataire</h3>
+              <div class="nd-prov" id="ndProv" role="radiogroup" aria-labelledby="provLabel"></div>
+              <select id="f-prest" class="nd-src" tabindex="-1" aria-hidden="true"></select>
+            </section>
+
+            <section class="nd-sec" aria-labelledby="vehLabel">
+              <h3 class="nd-label" id="vehLabel">Véhicule</h3>
+              <div class="nd-card nd-veh">
+                <label class="nd-plate"><span class="nd-plate-eu" aria-hidden="true">F</span><input id="f-plaque" class="plate-input" placeholder="AB-123-CD" list="dl-plaques" required aria-label="Immatriculation"></label>
+                <p class="nd-hint" id="vehHint" aria-live="polite"></p>
+                <div class="nd-model">
+                  <label><span>Modèle</span><select id="f-base" class="m-base"></select></label>
+                  <label><span>Cubage</span><select id="f-modele" class="m-var"></select></label>
+                </div>
+              </div>
+              <div id="extraVeh" class="extra-list"></div>
+              <button type="button" class="nd-add" id="addVeh"><span class="nd-add-ico"><svg class="icon"><use href="#i-plus"/></svg></span><span><b>Ajouter un véhicule au même endroit</b><small id="groupHint">Même site, mêmes dates, même prestataire. Seul l'horaire peut changer.</small></span></button>
+              <datalist id="dl-plaques"></datalist>
+            </section>
+
+            <section class="nd-sec" aria-labelledby="siteLabel">
+              <h3 class="nd-label" id="siteLabel">Site</h3>
+              <div class="nd-chips" id="ndSites" role="radiogroup" aria-labelledby="siteLabel"></div>
+              <select id="f-site" class="nd-src" tabindex="-1" aria-hidden="true"></select>
+              <label class="nd-addr"><svg class="icon"><use href="#i-pin"/></svg><input id="f-adresse" class="nd-input" placeholder="Adresse (remplie avec celle du site)" aria-label="Adresse"></label>
+            </section>
+
+            <section class="nd-sec" aria-labelledby="whenLabel">
+              <h3 class="nd-label" id="whenLabel">Disponibilité</h3>
+              <div class="nd-chips nd-days" id="ndDays" role="group" aria-label="Jour"></div>
+              <div class="nd-card nd-when">
+                <label><span>Du *</span><input type="date" id="f-date"></label>
+                <label><span>Au</span><input type="date" id="f-dateFin"></label>
+                <label><span>De</span><input type="time" id="f-debut" step="900"></label>
+                <label><span>À</span><input type="time" id="f-fin" step="900"></label>
+              </div>
+              <div class="nd-chips nd-slots" id="ndSlots" role="group" aria-label="Créneau"></div>
+            </section>
+
+            <section class="nd-sec">
+              <details class="nd-note" id="notesBox"><summary><svg class="icon"><use href="#i-plus"/></svg>Ajouter une remarque</summary>
+                <textarea id="f-notes" class="nd-input" aria-label="Remarque (ajoutée au message)" placeholder="Clés à l'accueil…"></textarea>
+              </details>
+            </section>
+
+            <section class="nd-sec" id="photosSet">
+              <h3 class="nd-label">Photos du pare-brise</h3>
+              <div class="photos" id="formPhotos"></div>
+              <p class="nd-hint" id="formPhotosHint"></p>
+            </section>
+
+            <div class="nd-manage" id="ndManage">
+              <span id="delZone"></span>
+              <details class="more history" id="historyBox" hidden>
+                <summary><svg class="icon"><use href="#i-plus"/></svg>Historique des modifications</summary>
+                <div id="historyBody"></div>
+              </details>
+            </div>
+          </form>
+
+          <aside class="nd-side" aria-labelledby="msgTitle">
+            <div class="nd-sum" id="ndSum"></div>
+            <h3 class="nd-label" id="msgTitle">Envoyer la demande</h3>
+            <div id="formShare"></div>
+            <div id="formSheet"></div>
+          </aside>
         </div>
-        <div class="form-sections">
-          <fieldset>
-            <legend>Prestation</legend>
-            <div class="svc-line">
-              <label class="field" id="provRow"><span>Prestataire</span><select id="f-prest"></select></label>
-              <div class="field"><span id="svcLabel">Type</span><div class="seg" id="svcSeg" role="radiogroup" aria-labelledby="svcLabel"></div>
-                <span class="hint warn" id="svcNone" hidden>Rien n'est coché pour ce prestataire dans Réglages › Prestataires.</span></div>
-            </div>
-            <div class="field" id="washRow" hidden><span id="washLabel">Lavage</span><div class="seg" id="washSeg" role="radiogroup" aria-labelledby="washLabel"></div></div>
-            <div class="task-row" id="taskRow" hidden>
-              <div class="task-chips" id="taskChips" role="group" aria-label="Tâches fréquentes"></div>
-              <label class="field"><span>Que faut-il faire ? *</span><input id="f-tache" placeholder="Touche une tâche ou écris-la, puis précise si besoin"></label>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>Véhicule</legend>
-            <div class="grid g3">
-              <label class="field"><span>Immatriculation *</span><input id="f-plaque" class="plate-input" placeholder="AB-123-CD" list="dl-plaques" required></label>
-              <label class="field"><span>Modèle</span><select id="f-base" class="m-base"></select></label>
-              <label class="field"><span>Cubage</span><select id="f-modele" class="m-var"></select></label>
-            </div>
-            <span class="hint" id="vehHint"></span>
-            <div id="extraVeh" class="extra-list"></div>
-            <button type="button" class="add-veh" id="addVeh"><svg class="icon"><use href="#i-plus"/></svg>Ajouter un véhicule au même endroit</button>
-            <span class="hint" id="groupHint">Les véhicules ajoutés reprennent le même site, les mêmes dates et le même prestataire. Leurs horaires peuvent changer.</span>
-            <datalist id="dl-plaques"></datalist>
-          </fieldset>
-
-          <fieldset>
-            <legend>Où</legend>
-            <div class="grid g2">
-              <label class="field"><span>Site *</span><select id="f-site"></select></label>
-              <label class="field"><span>Adresse</span><input id="f-adresse" placeholder="Remplie avec l'adresse du site"></label>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>Disponibilité</legend>
-            <div class="grid g4">
-              <label class="field"><span>Dispo du *</span><input type="date" id="f-date"></label>
-              <label class="field"><span>Au</span><input type="date" id="f-dateFin"></label>
-              <label class="field"><span>De</span><input type="time" id="f-debut" step="900"></label>
-              <label class="field"><span>À</span><input type="time" id="f-fin" step="900"></label>
-            </div>
-            <details class="more" id="notesBox"><summary><svg class="icon"><use href="#i-plus"/></svg>Ajouter une remarque</summary>
-              <label class="field"><span>Remarque (ajoutée au message)</span><textarea id="f-notes" placeholder="Clés à l'accueil…"></textarea></label>
-            </details>
-          </fieldset>
-
-          <fieldset id="photosSet">
-            <legend>Photos du pare-brise</legend>
-            <div class="photos" id="formPhotos"></div>
-            <span class="hint" id="formPhotosHint"></span>
-          </fieldset>
-        </div>
-        <div class="actions">
-          <button type="submit" class="primary" id="saveBtn">Enregistrer la demande</button>
-          <button type="button" class="ghost" id="resetBtn">Vider le formulaire</button>
-          <span class="spacer"></span>
-          <span id="delZone"></span>
-        </div>
-        <details class="more history" id="historyBox" hidden>
-          <summary><svg class="icon"><use href="#i-plus"/></svg>Historique des modifications</summary>
-          <div id="historyBody"></div>
-        </details>
-      </form>
-
-      <aside class="panel sticky" aria-labelledby="msgTitle">
-        <div class="panel-head"><h2 id="msgTitle">Envoyer la demande</h2></div>
-        <div id="formShare"></div>
-        <div id="formSheet"></div>
-      </aside>
+      </div>
+      <footer class="nd-foot">
+        <button type="button" class="nd-reset" id="resetBtn">Vider</button>
+        <button type="submit" form="form" class="ok-btn nd-save" id="saveBtn">Enregistrer la demande</button>
+      </footer>
     </div>
   </section>
 
