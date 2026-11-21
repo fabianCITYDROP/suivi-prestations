@@ -1098,34 +1098,56 @@ textarea.sheet-input { display: block; padding: 14px 16px; min-height: 96px; lin
 @media (prefers-reduced-transparency: reduce) { .up-search { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 @media (prefers-reduced-motion: reduce) { .up-card.leaving, .up-row { animation: none; transition: none; } }
 /* ----- « À valider » (prestataire, 21/11) : la date et le site d'abord, le véhicule ensuite. Classes .ask* / .cal-tile seulement. ----- */
-.ask-sum { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 18px; background: var(--surface);
+/* Résumé : deux compteurs côte à côte (à valider / en attente de l'équipe), icône en volume à gauche. */
+.ask-sum { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 14px; padding: 14px 16px; border-radius: 20px; background: var(--surface);
   box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); }
-.ask-sum p { margin: 0; font-size: 15px; color: var(--ink-2); }
-.ask-sum b { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.ask-sum b .icon { width: 18px; height: 18px; color: var(--st-done); }
-.ask-sum .ask-sum-wait { color: var(--st-todo); font-weight: 600; }
-.ask-sum .ask-sum-sub { font-size: 14px; }
-.job.ask { gap: 0; padding: 0; overflow: hidden; }
-.job.ask > * { margin-left: 14px; margin-right: 14px; }
-.job.ask > * + * { margin-top: 12px; }
-.job.ask > :last-child:not(.job-done-flash) { margin-bottom: 14px; }
-.ask-when { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: center; margin: 0 !important; padding: 14px; background: var(--surface-2); border-bottom: .5px solid var(--line); }
+.ask-stat { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ask-stat + .ask-stat { padding-left: 14px; box-shadow: inset .5px 0 0 var(--line); }
+.ask-stat b { display: flex; align-items: center; height: 32px; font: 700 31px/1 var(--f-body); letter-spacing: -.035em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ask-stat span { font: 500 13px/1.25 var(--f-body); color: var(--ink-2); }
+.ask-stat.wait b { color: var(--st-todo); }
+.ask-stat.none b { color: var(--line-strong); }
+.ask-stat.all b .icon { width: 28px; height: 28px; stroke-width: 2.6; color: var(--st-done); }
+.ask-sum-sub { margin: -4px 6px 2px; font-size: 14px; line-height: 1.4; color: var(--ink-2); }
+/* Carte : le jour en grand, puis lieu et véhicule dans une liste groupée, puis Accepter et deux capsules. */
+.job.ask { gap: 0; padding: 16px; overflow: hidden; }
+.job.ask > * + * { margin-top: 14px; }
+.ask-when { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
 .cal-tile { display: grid; grid-template-rows: 18px 1fr; width: 54px; height: 54px; border-radius: 15px; overflow: hidden; background: var(--surface); text-align: center;
   box-shadow: inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
 .cal-tile small { display: block; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 82%, #fff), var(--accent)); color: #fff;
   font: 700 10.5px/18px var(--f-body); letter-spacing: .06em; text-transform: uppercase; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3); }
 .cal-tile b { display: grid; place-items: center; font: 700 23px/1 var(--f-body); letter-spacing: -.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
-.ask-when-txt { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.ask-day { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 10px; }
-.ask-day b { white-space: nowrap; font: 700 17px/1.25 var(--f-body); letter-spacing: -.015em; color: var(--ink); }
-.ask-day .job-time { font-size: 14.5px; color: var(--ink-2); }
-.ask-site { margin: 0; display: flex; gap: 6px; align-items: flex-start; min-width: 0; }
-.ask-site .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent); }
-.ask-site span { display: flex; flex-direction: column; min-width: 0; }
-.ask-site b { font: 600 15px/1.3 var(--f-body); color: var(--ink); }
-.ask-site small { font-size: 13px; line-height: 1.3; color: var(--ink-2); }
-.ask-veh .job-head { gap: 12px; }
-.job.ask .ask-veh { margin-top: 14px; }
+.ask-when-txt { display: flex; flex-direction: column; min-width: 0; }
+.ask-rel { margin: 0 0 2px; font: 700 12px/1.2 var(--f-body); letter-spacing: .07em; text-transform: uppercase; color: var(--accent); }
+.ask-day { margin: 0; font: 700 19px/1.22 var(--f-body); letter-spacing: -.02em; color: var(--ink); }
+.ask-slot { margin: 3px 0 0; display: flex; align-items: center; gap: 6px; font: 500 15px/1.3 var(--f-body); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.ask-slot .icon { width: 15px; height: 15px; }
+.ask-facts { list-style: none; margin-left: 0; margin-right: 0; margin-bottom: 0; padding: 0 12px; border-radius: 16px; background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
+.ask-facts li { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: center; padding: 11px 0; }
+.ask-facts li + li { background: linear-gradient(var(--line), var(--line)) 50px 0 / calc(100% - 50px) 1px no-repeat; }
+.ask-glyph { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; color: var(--accent);
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 1px 1px rgba(10, 20, 28, .06), 0 4px 10px -5px rgba(10, 20, 28, .3), 0 0 0 .5px rgba(10, 20, 28, .09); }
+.ask-glyph .icon { width: 20px; height: 20px; }
+.ask-facts .svc-tile.xs { margin: 0; }
+.ask-fact { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.ask-fact b { font: 600 15.5px/1.3 var(--f-body); color: var(--ink); }
+.ask-fact small { font-size: 13.5px; line-height: 1.3; color: var(--ink-2); }
+.ask-plate { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.ask-plate em { font: 600 13.5px/1.2 var(--f-body); font-style: normal; color: var(--ink-2); }
+.ask-fact .job-model { display: block; flex: none; font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.ask-btns { display: flex; flex-direction: column; gap: 10px; }
+.ask-alts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ask-alt { gap: 8px; min-height: 50px; padding: 0 12px; border: 0; border-radius: 999px; color: var(--ink); font: 600 15px var(--f-body); letter-spacing: -.01em; -webkit-tap-highlight-color: transparent;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 92%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .04), 0 0 0 .5px rgba(10, 20, 28, .12), 0 1px 1px rgba(10, 20, 28, .06), 0 5px 12px -7px rgba(10, 20, 28, .35);
+  transition: transform 140ms var(--ease-out), filter .15s ease; }
+.ask-alt:hover { filter: brightness(.985); }
+.ask-alt:active { transform: scale(.97); }
+.ask-alt-art { display: grid; place-items: center; width: 28px; height: 28px; flex: none; }
+.ask-alt-art .act-art { width: 28px; height: 28px; }
+@media (prefers-reduced-motion: reduce) { .ask-alt:active { transform: none; } }
 .ask-answer { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--st-todo-bg); color: var(--st-todo); font-size: 13.5px; }
 .ask-answer .icon { flex: none; width: 17px; height: 17px; margin-top: 1px; }
 .ask-answer span { display: flex; flex-direction: column; gap: 1px; font-weight: 500; }
@@ -1139,6 +1161,44 @@ textarea.sheet-input { display: block; padding: 14px 16px; min-height: 96px; lin
 .ask-empty b { font-size: 17px; letter-spacing: -.01em; }
 .ask-empty span:last-child { max-width: 260px; font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { .job.ask .job-done-flash { animation: none; } }
+/* ----- Haut des pages prestataire (21/11) : barre fixe translucide + grand titre façon iPhone.
+   Limité à body.presta-mode, .bar-* et .hero* : les écrans de l'équipe ne changent pas. ----- */
+body.presta-mode header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; border-bottom: 0; background: var(--bg);
+  transition: background-color .25s ease, box-shadow .25s ease; }
+body.presta-mode::before { background: var(--bg); transition: background-color .25s ease; }
+body.presta-mode.bar-edge header.top, body.presta-mode.bar-edge::before { background: color-mix(in srgb, var(--surface) 74%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
+body.presta-mode.bar-edge header.top { box-shadow: 0 .5px 0 color-mix(in srgb, var(--ink) 18%, transparent); }
+body.presta-mode header.top .wrap { max-width: 632px; min-height: 60px; align-items: center; gap: 12px; }
+@media (min-width: 900px) { body.presta-mode header.top .wrap { max-width: 656px; } }
+body.presta-mode .brand { flex: 1; min-width: 0; gap: 11px; padding-block: 8px; }
+body.presta-mode .brand-logo { width: 38px; height: 38px; filter: drop-shadow(0 3px 5px rgba(0, 59, 102, .22)); }
+.bar-stack { display: grid; min-width: 0; font-family: var(--f-body); text-transform: none; letter-spacing: 0; }
+.bar-rest, .bar-ctx { grid-area: 1 / 1; display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0;
+  transition: opacity .22s var(--ease-out), transform .3s var(--ease-out); }
+.bar-ctx { opacity: 0; transform: translateY(8px); }
+body.bar-titled .bar-rest { opacity: 0; transform: translateY(-8px); }
+body.bar-titled .bar-ctx { opacity: 1; transform: none; }
+body.presta-mode .brand-word { gap: 5px; font: 800 19px/1.05 var(--f-body); letter-spacing: -.025em; }
+body.presta-mode .brand-word i { font-size: 14px; font-weight: 700; }
+.bar-who, .bar-ctx small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 12.5px/1.2 var(--f-body); letter-spacing: 0; color: var(--ink-2); }
+.bar-ctx b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 17px/1.15 var(--f-body); letter-spacing: -.02em; color: var(--ink); }
+body.presta-mode .power-btn { width: 38px; height: 38px; border: 0; color: var(--ink-2);
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 1px rgba(10, 20, 28, .06), 0 4px 10px -6px rgba(10, 20, 28, .35); }
+body.presta-mode .power-btn:hover { color: var(--danger); }
+body.presta-mode .power-btn.armed { width: auto; color: #fff; background: var(--danger); }
+@media (min-width: 721px) { body.presta-mode .presta-tabs { top: calc(60px + env(safe-area-inset-top, 0px)); } }
+/* Grand titre : la date en petites capitales, l'onglet en grand, le prestataire en pastille à initiales. */
+.presta-top.hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; padding: 4px 4px 16px; }
+.hero-txt { min-width: 0; }
+.hero-date { margin: 0 0 3px; font: 600 13px/1.3 var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.hero-me { flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 2px; border-radius: 50%;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 78%, #fff) 0%, var(--accent) 58%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+  color: var(--accent-ink); font: 700 16px/1 var(--f-body); letter-spacing: .02em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 0 0 .5px rgba(10, 20, 28, .12), 0 6px 14px -6px color-mix(in srgb, var(--accent) 75%, transparent); }
+@media (prefers-reduced-motion: reduce) { .bar-rest, .bar-ctx, body.presta-mode header.top { transition: none; } }
+@media (prefers-reduced-transparency: reduce) { body.presta-mode.bar-edge header.top, body.presta-mode.bar-edge::before { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 </style>
 </head>
 <body>
@@ -3493,6 +3553,15 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     `<path d="M5.5 27.5h10.2l2.2 4.3h12.2l2.2-4.3h10.2" fill="none" ${S}/><path d="M7.2 29h7.6" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".9"/>` +
     `<circle cx="35" cy="12.6" r="8.6" fill="url(#i3-spg)" ${S}/><ellipse cx="32.8" cy="8.8" rx="4.8" ry="2.4" fill="url(#i3-shine)" opacity=".6"/>` +
     `<path d="M31 12.8l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // Résumé de « À valider » : le même bac, avec une demande (feuille) qui attend dedans.
+  ICONS["ask-inbox"] = ground(24, 42.4, 19, 2.2) +
+    solid("M5.5 27.5l5.2-13.8a2.4 2.4 0 0 1 2.2-1.6h22.2a2.4 2.4 0 0 1 2.2 1.6l5.2 13.8V36a3 3 0 0 1-3 3H8.5a3 3 0 0 1-3-3Z") +
+    `<path d="M9.4 27.5l4.4-11.6h20.4l4.4 11.6Z" fill="#c9d4dc"/>` +
+    `<path d="M14.6 5.6h18.8a1.6 1.6 0 0 1 1.6 1.6V30H13V7.2a1.6 1.6 0 0 1 1.6-1.6Z" fill="#fff" ${S}/>` +
+    `<path d="M16.6 10.2h9.6" stroke="#0f6f8f" stroke-width="2.2" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="1.6" stroke-linecap="round"><path d="M16.6 14.8h14.8"/><path d="M16.6 18.8h14.8"/><path d="M16.6 22.8h9.8"/></g>` +
+    solid("M5.5 27.5h10.2l2.2 4.3h12.2l2.2-4.3h10.2V36a3 3 0 0 1-3 3H8.5a3 3 0 0 1-3-3Z") +
+    `<path d="M7.2 29h7.6" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".9"/>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
@@ -3533,6 +3602,35 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     document.querySelector("nav.tabs").hidden = true;
     document.querySelectorAll("main > section").forEach((s) => (s.hidden = s !== view));
     view.hidden = false;
+
+    // ---------- barre du haut (fixe, translucide) ----------
+    // Au repos : logo + « City-Drop × Presta » et le nom du prestataire dessous. Une fois le grand titre passé sous la barre,
+    // le titre de l'onglet prend sa place (comme les grands titres sur iPhone) et un filet fin apparaît sous la barre.
+    const brandWord = document.querySelector("header.top .brand-word");
+    const bar = document.createElement("span");
+    bar.className = "bar-stack";
+    brandWord.replaceWith(bar);
+    bar.innerHTML = `<span class="bar-rest"></span><span class="bar-ctx" aria-hidden="true"><b data-bar-title></b><small data-bar-sub></small></span>`;
+    bar.firstChild.append(brandWord);
+    bar.firstChild.insertAdjacentHTML("beforeend", `<small class="bar-who" data-bar-who></small>`);
+    let barTicking = false;
+    function barScroll() {
+      barTicking = false;
+      const h1 = view.querySelector(".presta-top h1");
+      const barBottom = document.querySelector("header.top").getBoundingClientRect().bottom;
+      document.body.classList.toggle("bar-edge", scrollY > 4);
+      document.body.classList.toggle("bar-titled", !!h1 && h1.getBoundingClientRect().bottom < barBottom + 2);
+    }
+    addEventListener("scroll", () => { if (!barTicking) { barTicking = true; requestAnimationFrame(barScroll); } }, { passive: true });
+    function paintBar(title) {
+      const who = state.providerName || "Mon espace prestataire";
+      bar.querySelector("[data-bar-who]").textContent = who;
+      bar.querySelector("[data-bar-title]").textContent = title;
+      bar.querySelector("[data-bar-sub]").textContent = who;
+      barScroll();
+    }
+    // Initiales du prestataire dans une pastille en relief (« Allo Pare-Brise » → AP).
+    const initials = (name) => (name || "").replace(/[^\p{L}\p{N}\s-]/gu, " ").split(/[\s-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
 
     // ---------- pieces ----------
     const modelPhotos = (d) => state.models.get(D.modelKey(d))?.photos || [];
@@ -3644,17 +3742,27 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       const x = new Date((iso || today()) + "T12:00:00");
       return `<span class="cal-tile" aria-hidden="true"><small>${esc(x.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", ""))}</small><b>${x.getDate()}</b></span>`;
     }
+    // En tête de carte : le jour en grand (c'est ce qui décide), puis le lieu et le véhicule dans une liste groupée.
     function askWhen(d) {
       const rel = !D.isMultiDay(d) && d.date ? relDay(d.date) : "";
-      const dm = (iso, month = true) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", month ? { day: "numeric", month: "short" } : { day: "numeric" });
+      const n = d.date ? Math.round((new Date(d.date + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5) : null;
+      const over = !d.date ? "" : rel || (n > 1 ? `Dans ${n} jours` : "");
+      const long = (iso) => cap(new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }));
+      const dm = (iso, month = true) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", month ? { day: "numeric", month: "long" } : { day: "numeric" });
       const last = D.lastDay(d);
       const day = !d.date ? "Date à préciser"
-        : D.isMultiDay(d) ? `Du ${dm(d.date, d.date.slice(0, 7) !== last.slice(0, 7))} au ${dm(last)}` // la tuile donne déjà le jour de la semaine
-        : rel ? `${rel} · ${dm(d.date)}` : cap(D.shortDate(d.date));
+        : D.isMultiDay(d) ? `Du ${dm(d.date, d.date.slice(0, 7) !== last.slice(0, 7))} au ${dm(last)}`
+        : long(d.date);
       return `<header class="ask-when">${calTile(d.date)}
-        <div class="ask-when-txt"><p class="ask-day"><b>${esc(day)}</b><span class="job-time">${esc(slot(d))}</span></p>
-        <p class="ask-site">${icon("pin")}<span><b>${esc(d.site || "Site à préciser")}</b>${d.adresse ? `<small>${esc(d.adresse)}</small>` : ""}</span></p></div></header>`;
+        <div class="ask-when-txt">${over ? `<p class="ask-rel">${esc(over)}</p>` : ""}<p class="ask-day">${esc(day)}</p><p class="ask-slot">${icon("clock")}${esc(slot(d))}</p></div></header>`;
     }
+    function askFacts(d) {
+      return `<ul class="ask-facts">
+        <li><span class="ask-glyph" aria-hidden="true">${icon("pin")}</span><span class="ask-fact"><b>${esc(d.site || "Site à préciser")}</b>${d.adresse ? `<small>${esc(d.adresse)}</small>` : ""}</span></li>
+        <li>${serviceTile(d, "svc-tile xs")}<span class="ask-fact"><span class="ask-plate">${plateTag(d.plaque)}<em>${esc(D.jobLabel(d))}</em></span>${modelHtml(d)}</span></li>
+      </ul>`;
+    }
+    const askAlt = (kind, id, label) => `<button type="button" class="ask-alt" data-act="${kind}" data-id="${esc(id)}"><span class="ask-alt-art" aria-hidden="true">${self.IssueArt?.art(ACT_ART[kind], "act-art") || ""}</span>${label}</button>`;
     // Réponse déjà envoyée (autre date, pas possible…) : pastille orange en haut de la carte, l'équipe n'a pas encore tranché.
     function askAnswer(d) {
       const r = d.retour;
@@ -3663,11 +3771,12 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     }
     function validateCard(d) {
       const flying = state.accepting === d.id;
-      return `<article class="job ask${flying ? " accepting" : ""}" data-job="${esc(d.id)}">${askWhen(d)}<div class="ask-veh">${jobHead(d)}</div>${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}${photosStrip(d)}${askAnswer(d)}
-        ${state.busy.has(d.id) && !flying ? busyLine : `<div class="job-actions">
+      return `<article class="job ask${flying ? " accepting" : ""}" data-job="${esc(d.id)}">${askWhen(d)}${askFacts(d)}${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}${photosStrip(d)}${askAnswer(d)}
+        ${state.busy.has(d.id) && !flying ? busyLine : `<div class="job-actions ask-btns">
           <button type="button" class="primary big ok-btn" data-take="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Accepter</button>
-          <div class="act-row two">${actBtn("date", d.id, "Autre date")}${actBtn("refuse", d.id, "Pas possible")}</div></div>`}
-      ${flying ? `<div class="job-done-flash ask-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Acceptée</b><small>Rangée dans ${esc(state.acceptTo === "today" ? "Aujourd'hui" : "À venir")}</small></div>` : ""}</article>`;
+          <div class="ask-alts">${askAlt("date", d.id, "Autre date")}${askAlt("refuse", d.id, "Pas possible")}</div></div>`}
+      ${flying ? `<div class="job-done-flash ask-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Acceptée</b><small>Rangée dans ${esc(state.acceptTo === "today" ? "Aujourd'hui" : "À venir")}</small></div>` : ""}</article>
+`;
     }
     // early: a vehicle of « À venir » done ahead of time (date and site shown, the section does not give them).
     function doCard(d, { early = false } = {}) {
@@ -3740,9 +3849,13 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       if (!list.length) return `<div class="job-empty ask-empty"><span class="svc-tile lg" aria-hidden="true">${self.IssueArt?.art("empty-inbox", "svc-art") || ""}</span><b>Aucune demande à valider</b><span>Les nouvelles demandes de City-Drop arrivent ici.</span></div>`;
       const waiting = list.filter((d) => d.retour && !["fait", "confirme", "erreur"].includes(d.retour.etat)).length;
       const todo = list.length - waiting;
-      const head = todo ? `<b>${todo}</b> demande${todo > 1 ? "s" : ""} à valider` : `<b>${icon("check")}Tu as répondu à tout</b>`;
-      return `<div class="ask-sum"><p>${head}${waiting ? `<span class="ask-sum-wait"> · ${waiting} en attente de l'équipe</span>` : ""}</p>
-        <p class="ask-sum-sub">${todo ? "Accepte chaque demande, ou propose une autre date." : "L'équipe City-Drop te répond ici."}</p></div>${list.map(validateCard).join("")}`;
+      const tile = (n, label, cls = "") => `<div class="ask-stat${cls}"><b>${n}</b><span>${label}</span></div>`;
+      return `<section class="ask-sum" aria-label="Résumé">
+          <span class="svc-tile" aria-hidden="true">${self.IssueArt?.art(todo ? "ask-inbox" : "empty-inbox", "svc-art") || ""}</span>
+          ${todo ? tile(todo, `demande${todo > 1 ? "s" : ""} à valider`) : `<div class="ask-stat all"><b>${icon("check")}</b><span>Tu as répondu à tout</span></div>`}
+          ${tile(waiting, "en attente de l'équipe", waiting ? " wait" : " none")}
+        </section>
+        <p class="ask-sum-sub">${todo ? "Accepte chaque demande, ou propose une autre date." : "L'équipe City-Drop te répond ici."}</p>${list.map(validateCard).join("")}`;
     }
     // The day at a glance: what is left, what is already done today (green bar = done only).
     function daySummary(left) {
@@ -4021,9 +4134,11 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       const body = state.loaded ? TAB_BODY[state.tab](lists[state.tab]) : loadingHtml;
       const a = document.activeElement;
       const typing = a?.matches?.("[data-keep]") ? `[data-keep="${a.dataset.keep}"]` : a?.matches?.("[data-search], [data-note]") ? (a.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
-      main.innerHTML = `<header class="presta-top">
-          <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}<span> · ${esc(cap(D.dayLabel(today())))}</span></p>
-          <h1>${esc(TABS.find((t) => t.id === state.tab)?.label || "Mes demandes")}</h1>
+      const title = TABS.find((t) => t.id === state.tab)?.label || "Mes demandes";
+      const who = state.providerName || "Mon espace prestataire";
+      main.innerHTML = `<header class="presta-top hero">
+          <div class="hero-txt"><p class="hero-date">${esc(cap(D.dayLabel(today())))}</p><h1>${esc(title)}</h1></div>
+          <span class="hero-me" role="img" aria-label="${esc(who)}" title="${esc(who)}"><span>${esc(initials(state.providerName))}</span></span>
         </header>
         ${alertCard()}
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
@@ -4035,6 +4150,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       sheetEl.querySelector("#sheetTitle").textContent = acting ? actTitle(actOf().kind, actOf().d) : months ? "Voir un autre mois" : sheetTitle();
       sheetEl.querySelector(".sheet-b").innerHTML = acting ? (state.openForm ? actBody() : "") : months ? monthSheetBody() : sheetBody();
       scheduleUndoEnd();
+      paintBar(title);
       const input = typing && view.querySelector(typing);
       if (input) { input.focus(); try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* date / time fields */ } }
     }
