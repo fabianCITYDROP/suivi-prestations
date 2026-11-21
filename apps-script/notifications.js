@@ -279,15 +279,17 @@ function demandesRecentes() {
 // Renvoie { prestataireId: message } ; rien pour un prestataire qui n'a rien oublié.
 function rappelsPrestataires(demandes, aujourdhuiIso, maintenantIso) {
   const parPrestataire = {};
-  demandes.forEach((d) => { if (d.prestataireId) (parPrestataire[d.prestataireId] = parPrestataire[d.prestataireId] || []).push({ ...d, prestataire: '' }); });
+  // Déjà répondu (Reporter, Véhicule absent, Pas possible) : c'est à l'équipe d'agir, on ne relance pas le prestataire.
+  const repondu = (d) => d.retour && ['autre-date', 'absent', 'refuse'].includes(d.retour.etat);
+  demandes.forEach((d) => { if (d.prestataireId && !repondu(d)) (parPrestataire[d.prestataireId] = parPrestataire[d.prestataireId] || []).push({ ...d, prestataire: '' }); });
   const messages = {};
   Object.keys(parPrestataire).forEach((id) => {
     const { pasFaites, sansReponse } = oublisDuMatin(parPrestataire[id], aujourdhuiIso, maintenantIso);
     if (!pasFaites.length && !sansReponse.length) return;
     const titres = [];
-    if (pasFaites.length) titres.push(pluriel(pasFaites.length, '1 véhicule pas marqué « fait »', 'véhicules pas marqués « fait »'));
-    if (sansReponse.length) titres.push(pluriel(sansReponse.length, '1 demande à accepter', 'demandes à accepter'));
-    const lignes = [...pasFaites.map((l) => 'Pas faite : ' + l), ...sansReponse.map((l) => 'À accepter : ' + l)];
+    if (pasFaites.length) titres.push(pluriel(pasFaites.length, '1 véhicule sans « Prestation réalisée »', 'véhicules sans « Prestation réalisée »'));
+    if (sansReponse.length) titres.push(pluriel(sansReponse.length, '1 demande à valider', 'demandes à valider'));
+    const lignes = [...pasFaites.map((l) => 'Pas faite : ' + l), ...sansReponse.map((l) => 'À valider : ' + l)];
     messages[id] = { titre: 'Rappel : ' + titres.join(' · '), texte: lignes.slice(0, 6).join('\n') + (lignes.length > 6 ? '\n…' : ''), url: './' };
   });
   return messages;
