@@ -94,7 +94,8 @@
       problem: { title: "Problème sur le véhicule", btn: "Envoyer à l'équipe" },
     };
     const actOf = () => { const [kind, id] = (state.openForm || "").split(":"); return { kind, d: byId(id) }; };
-    const actTitle = (kind, d) => (kind === "date" && d && !D.isAccepted(d) ? "Proposer une autre date" : ACTS[kind]?.title || "");
+    const actTitle = (kind, d) => (kind === "veh" && d ? (d.date ? upDayTitle(d.date) : "Date à préciser")
+      : kind === "date" && d && !D.isAccepted(d) ? "Proposer une autre date" : ACTS[kind]?.title || "");
     // Secondary actions: round raised buttons with an icon in volume (same family as « Signaler »), label underneath.
     const ACT_ART = { date: "act-date", absent: "act-absent", problem: "act-problem", refuse: "act-refuse" };
     const actBtn = (kind, id, label) => `<button type="button" class="act-btn" data-act="${kind}" data-id="${esc(id)}"><span class="act-ico" aria-hidden="true">${self.IssueArt?.art(ACT_ART[kind], "act-art") || ""}</span><span class="act-lbl">${label}</span></button>`;
@@ -107,6 +108,7 @@
     const dayChip = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" }).replace(".", "");
     function actBody() {
       const { kind, d } = actOf();
+      if (kind === "veh" && d) return vehBody(d);
       const a = ACTS[kind];
       if (!a || !d) return "";
       const dr = state.draft;
@@ -121,7 +123,8 @@
           <div class="day-row"><label><span>Autre jour</span><input type="date" class="sheet-input" data-date data-keep="adate" min="${today()}" value="${esc(dr.date || "")}"></label>
           <label><span>Heure <i>facultatif</i></span><input type="time" class="sheet-input" data-time data-keep="atime" step="900" value="${esc(dr.time || "")}"></label></div></fieldset>${note(false)}`;
       else fields = (a.text ? `<p class="sheet-sub">${a.text}</p>` : "") + note(false);
-      return `<div class="act-sheet" data-asheet>${veh}${fields}
+      const back = state.actFrom === d.id ? `<button type="button" class="sheet-back" data-veh="${esc(d.id)}">${icon("chev-l")}Retour au véhicule</button>` : "";
+      return `<div class="act-sheet" data-asheet>${back}${veh}${fields}
         ${state.busy.has(d.id) ? busyLine : `<button type="button" class="primary big field-send${kind === "done" ? " ok" : ""}" data-asend>${kind === "done" ? icon("check") : ""}${a.btn}</button>`}</div>`;
     }
     function photoPicker() {
@@ -253,12 +256,59 @@
     function todayTab(list) {
       return daySummary(list.length) + (list.length ? todayHtml(list) : empty("Rien de prévu aujourd'hui", "Tes véhicules acceptés s'affichent ici les jours où ils sont sur site."));
     }
+    // « À venir » : groupé par jour (« Lundi 23 »), cartes compactes ; un appui sur la carte ouvre la feuille du véhicule
+    // (détails + OK en avance, Reporter, Véhicule absent, Problème).
+    const daysFromToday = (iso) => Math.round((new Date(iso + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5);
+    function upDayTitle(iso) {
+      const dt = new Date(iso + "T12:00:00");
+      const sameMonth = iso.slice(0, 7) === today().slice(0, 7);
+      return cap(dt.toLocaleDateString("fr-FR", sameMonth ? { weekday: "long", day: "numeric" } : { weekday: "long", day: "numeric", month: "long" }));
+    }
+    const upDaySub = (iso) => { const n = daysFromToday(iso); return n === 1 ? "Demain" : `Dans ${n} jours`; };
+    function upCard(d) {
+      const leaving = state.leaving === d.id;
+      const late = D.isMultiDay(d) ? `Jusqu'au ${D.shortDate(D.lastDay(d))}` : "";
+      const probs = D.problemsOfRequest(state.problems, d.id).length;
+      const r = d.retour, waiting = r && !["fait", "confirme", "erreur"].includes(r.etat);
+      const flags = [
+        waiting && `<span class="up-flag warn">${icon("alert")}${esc(D.answerOf(r.etat)?.label || "Réponse envoyée")}${r.vu ? "" : " · en attente"}</span>`,
+        probs && `<span class="up-flag bad">${icon("alert")}Problème signalé</span>`,
+      ].filter(Boolean).join("");
+      return `<article class="up-card${leaving ? " leaving" : ""}" data-job="${esc(d.id)}">
+        <button type="button" class="up-row" data-veh="${esc(d.id)}" aria-haspopup="dialog" aria-label="${esc(`${d.plaque || "Véhicule"}, ${D.jobLabel(d)}, ${d.site || "site à préciser"} : voir et agir`)}">
+          ${serviceTile(d, "svc-tile sm")}
+          <span class="up-id"><span class="up-line">${plateTag(d.plaque)}<span class="up-time">${esc(d.date ? slot(d) : "")}</span></span>
+            <span class="up-what"><b>${esc(D.vehicleLabel(d) || "Modèle non précisé")}</b> · ${esc(D.jobLabel(d))}</span>
+            <span class="up-where">${icon("pin")}<span>${esc(d.site || "Site à préciser")}${late ? ` · ${esc(late)}` : ""}</span></span>
+            ${flags ? `<span class="up-flags">${flags}</span>` : ""}</span>
+          <span class="up-chev" aria-hidden="true">${icon("chev-r")}</span>
+        </button>
+        ${state.busy.has(d.id) && !leaving ? `<div class="up-busy">${busyLine}</div>` : ""}
+        ${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
+    }
+    // La feuille d'un véhicule d'« À venir » : tout ce que la carte compacte ne montre pas, puis les actions.
+    function vehBody(d) {
+      return `<div class="act-sheet veh-sheet" data-asheet>
+        <div class="act-veh">${serviceTile(d, "svc-tile sm")}<span>${plateTag(d.plaque)}<small>${esc([D.vehicleLabel(d), D.jobLabel(d)].filter(Boolean).join(" · "))}</small></span></div>
+        <div class="veh-info">${jobMeta(d)}${photosStrip(d)}${answerLine(d)}${problemLines(d)}</div>
+        <p class="veh-hint">Le véhicule est déjà sur site ? Tu peux le faire en avance.</p>
+        ${state.busy.has(d.id) ? busyLine : `<div class="job-actions">
+          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>OK prestation réalisée</button>
+          <div class="act-row">${actBtn("date", d.id, "Reporter")}${actBtn("absent", d.id, "Véhicule absent")}${actBtn("problem", d.id, "Problème")}</div></div>`}</div>`;
+    }
     function upcomingTab(all) {
       const list = filtered(all);
-      return searchBox() + (list.length
-        ? `<p class="tab-intro">Un véhicule est déjà sur site ? Tu peux le faire en avance.</p>${list.map((d) => doCard(d, { early: true })).join("")}`
-        : state.query ? empty("Aucun véhicule trouvé", "Vérifie la plaque ou le site.") : empty("Rien à venir", "Tes demandes acceptées des prochains jours s'afficheront ici."));
+      const groups = [...D.groupBy(list, (d) => d.date || "").entries()].sort(([a], [b]) => (!a) - (!b) || a.localeCompare(b));
+      const search = `<div class="up-search">${searchBox()}</div>`;
+      if (!list.length) return search + (state.query
+        ? upEmpty("Aucun véhicule trouvé", `Rien ne correspond à « ${esc(state.query.trim())} ». Vérifie la plaque ou le site.`)
+        : upEmpty("Rien à venir", "Tes demandes acceptées des prochains jours s'afficheront ici, jour par jour."));
+      return search + `<p class="tab-intro up-intro">Un véhicule est déjà sur site ? Touche-le pour le faire en avance.</p>` +
+        groups.map(([iso, rows]) => `<section class="up-day" aria-label="${esc(iso ? upDayTitle(iso) : "Date à préciser")}">
+          <header class="up-day-head"><span><b>${esc(iso ? upDayTitle(iso) : "Date à préciser")}</b>${iso ? `<small>${esc(upDaySub(iso))}</small>` : ""}</span><em aria-label="${rows.length} véhicule${rows.length > 1 ? "s" : ""}">${rows.length}</em></header>
+          <div class="up-list">${rows.map(upCard).join("")}</div></section>`).join("");
     }
+    const upEmpty = (title, text) => `<div class="up-empty"><span class="up-empty-ico" aria-hidden="true">${self.IssueArt?.art("act-date", "act-art") || ""}</span><b>${title}</b><span>${text}</span></div>`;
     // Le sélecteur de mois : les 40 derniers jours (chargés à l'ouverture), les 2 mois d'avant en un appui, les autres dans une feuille.
     // Un ancien mois n'est lu qu'à la demande (quota de lectures), comme avant.
     const monthOf = (k) => { const d = new Date(today().slice(0, 7) + "-15T12:00:00"); d.setMonth(d.getMonth() - k); return D.toIsoDate(d).slice(0, 7); };
@@ -433,7 +483,7 @@
     function closeSheet() {
       if (!state.sheetOpen) return;
       state.sheetOpen = false; state.pdelArmed = null;
-      if (state.sheetMode === "act") { state.openForm = null; state.draft = {}; }
+      if (state.sheetMode === "act") { state.openForm = null; state.draft = {}; state.actFrom = null; }
       if (state.fd?.editId) state.fd = null; // an edit left half-way is dropped; a new report being typed is kept
       sheetEl.style.transform = ""; sheetEl.classList.remove("on");
       document.body.classList.remove("sheet-open"); sheetEl.setAttribute("aria-hidden", "true");
@@ -574,9 +624,16 @@
       else if ((b = el("[data-pdel]"))) deleteReport(b.dataset.pdel);
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) acceptRequest(byId(b.dataset.take));
+      else if ((b = el("[data-veh]"))) { // « À venir » : la feuille du véhicule (ou retour vers elle depuis une action)
+        state.openForm = "veh:" + b.dataset.veh; state.actFrom = null; state.draft = {};
+        if (state.sheetOpen) { render(); sheetEl.querySelector(".sheet-b").scrollTop = 0; } else openSheet("act");
+      }
       else if ((b = el("[data-act]"))) {
+        // From the vehicle sheet of « À venir »: the sheet stays open and shows the action, with a way back.
+        const inSheet = state.sheetOpen && state.openForm?.startsWith("veh:");
+        state.actFrom = inSheet ? b.dataset.id : null;
         state.openForm = `${b.dataset.act}:${b.dataset.id}`; state.draft = {};
-        openSheet("act");
+        if (inSheet) { render(); sheetEl.querySelector(".sheet-b").scrollTop = 0; } else openSheet("act");
         if (b.dataset.act === "problem") setTimeout(() => sheetEl.querySelector("textarea[data-note]")?.focus({ preventScroll: true }), 380);
       }
       else if ((b = el("[data-day]"))) { state.draft.date = b.dataset.day; render(); }
