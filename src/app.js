@@ -2406,18 +2406,37 @@
   const garageRows = () => D.garageList(state.demandes, state.garages, { providerNames: state.providers, sites: state.sites });
   const garagesMissing = () => garageRows().filter((r) => r.missing).length;
   const pickOptions = (values, chosen, empty) => `<option value="">${esc(empty)}</option>` + values.map((v) => `<option value="${esc(v)}" ${v === chosen ? "selected" : ""}>${esc(v)}</option>`).join("");
+  // Liste calme façon Réglages de l'iPhone : un groupe par prestataire, une ligne par garage (site en gras, nom du mail
+  // en gris), le réglage s'ouvre en feuille. Les garages pas encore réglés passent en haut, avec un point orange.
+  const garageLine = (r) => rgRow({ open: "garage:" + r.garage, title: r.missing ? r.garage : r.guessSite, sub: r.missing ? (r.guessProvider ? "Site à choisir" : "Prestataire à choisir") : r.garage, cls: "rg-garage",
+    value: r.missing ? `<span class="rg-val"><i class="rg-dot todo" aria-hidden="true"></i></span>` : "" });
   function garagesSheet() {
-    const w = state.canWrite, rows = garageRows();
-    const list = rows.map((r, i) => `<div class="rg-row rg-static rg-site rg-garage" data-garage="${esc(r.garage)}"><span class="rg-txt">
-        <b>${r.missing ? `<i class="rg-dot todo" aria-hidden="true"></i>` : ""}${esc(r.garage)}</b>${r.count ? `<small>${esc(plural(r.count, "demande"))}</small>` : ""}
-        <span class="rg-form-line"><select data-garage-prov="${i}" aria-label="Prestataire de ${esc(r.garage)}" ${w ? "" : "disabled"}>${pickOptions(state.providers, r.guessProvider, "Prestataire ?")}</select>
-        <select data-garage-site="${i}" aria-label="Site de ${esc(r.garage)}" ${w ? "" : "disabled"}>${pickOptions(siteNames(), r.guessSite, "Site ?")}</select></span></span>
-        ${w && r.saved ? rgRemove("remove-garage", r.garage, r.garage) : ""}</div>`).join("");
+    const rows = garageRows();
+    const todo = rows.filter((r) => r.missing);
+    const groups = state.providers.map((p) => [p, rows.filter((r) => !r.missing && r.guessProvider === p)
+      .sort((x, y) => x.guessSite.localeCompare(y.guessSite, "fr"))]).filter(([, list]) => list.length);
     return `<div class="rg-sheet">
-      ${rgSection(plural(rows.length, "garage"), `<div id="s-garages">${list || `<p class="rg-empty">Aucun garage reçu par mail pour l'instant.</p>`}</div>`)}
-      ${rgForm(`<input id="g-new" placeholder="Nom du garage, comme dans le mail" aria-label="Nom du garage" autocomplete="off">
-        <div class="rg-form-line"><select id="g-prov" aria-label="Prestataire">${pickOptions(state.providers, "", "Prestataire ?")}</select><select id="g-site" aria-label="Site">${pickOptions(siteNames(), "", "Site ?")}</select></div>
-        ${rgAddBtn("g-add", "add-garage")}`)}</div>`;
+      ${todo.length ? rgSection(`À rattacher <em>${todo.length}</em>`, todo.map(garageLine).join("")) : ""}
+      ${groups.map(([p, list]) => rgSection(`${esc(p)} <em>${list.length}</em>`, list.map(garageLine).join(""))).join("")}
+      ${!rows.length ? `<p class="rg-empty">Aucun garage reçu par mail.</p>` : ""}
+      ${state.canWrite ? rgSection("", `<button type="button" class="rg-row rg-add" data-rg-open="garage-new"><span class="rg-ico plus" aria-hidden="true">${icon("plus")}</span><span class="rg-txt"><b>Ajouter un garage</b></span></button>`) : ""}
+    </div>`;
+  }
+  // Feuille d'un garage : le nom tel qu'écrit dans le mail, puis prestataire et site.
+  function garageSheet(name) {
+    const w = state.canWrite, isNew = name === null;
+    const r = isNew ? null : garageRows().find((x) => x.garage === name);
+    if (!isNew && !r) return null;
+    return [isNew ? "Nouveau garage" : "Garage", `<div class="rg-sheet">
+      ${isNew ? `<div class="rg-form"><input id="g-new" placeholder="Nom du garage, comme dans le mail" aria-label="Nom du garage" autocomplete="off"></div>`
+        : `<div class="rg-hero"><div><b>${esc(r.garage)}</b>${r.count ? `<small>${esc(plural(r.count, "demande"))}</small>` : ""}</div></div>`}
+      <section class="rg-group"><div class="rg-list">
+        <label class="rg-row rg-static rg-pick"><span class="rg-txt"><b>Prestataire</b></span><select id="g-prov" ${w ? "" : "disabled"}>${pickOptions(state.providers, r?.guessProvider || "", "Choisir")}</select></label>
+        <label class="rg-row rg-static rg-pick"><span class="rg-txt"><b>Site</b></span><select id="g-site" ${w ? "" : "disabled"}>${pickOptions(siteNames(), r?.guessSite || "", "Choisir")}</select></label>
+      </div></section>
+      ${w ? `<button type="button" class="rg-btn primary big" data-rg-act="save-garage" data-i="${esc(isNew ? "" : r.garage)}">Enregistrer</button>` : ""}
+      ${w && r?.saved ? rgSection("", `<button type="button" class="rg-row rg-action rg-danger" data-rg-act="remove-garage" data-i="${esc(r.garage)}"><span class="rg-txt"><b>Retirer ce garage</b></span></button>`) : ""}
+    </div>`];
   }
   async function saveGarage(garage, prestataire, site, message) {
     if (!requireStore()) return;
@@ -2478,6 +2497,8 @@
         <textarea id="s-paste" rows="6" placeholder="Paris - Centre&#9;Parking Indigo, 75007 Paris" aria-label="Liste des sites à coller"></textarea>
         <button type="button" class="rg-btn primary" id="s-importsites" data-rg-act="import-sites">Importer</button></details>` : ""}</div>`];
     if (key === "garages") return ["Garages des mails", garagesSheet()];
+    if (key === "garage-new") return garageSheet(null);
+    if (key.startsWith("garage:")) return garageSheet(key.slice(7));
     if (key === "fleet") return ["Flotte", `<div class="rg-sheet">
       <p class="rg-intro">Modèles proposés dans la demande. Choisir un modèle remplit le cubage.</p>
       ${rgSection(plural(state.fleet.length, "modèle"), `<div id="s-fleet">${state.fleet.map((f, i) => `<div class="rg-row rg-static"><span class="rg-txt"><b>${esc(f.modele)}</b></span>${f.cubage ? rgVal("", f.cubage + " m³") : ""}${w ? rgRemove("remove-model", i, D.fleetLabel(f)) : ""}</div>`).join("") || `<p class="rg-empty">Aucun modèle.</p>`}</div>`)}
@@ -2679,18 +2700,17 @@
       $("#s-newsite").value = ""; state.sites.push({ nom, adresse: "" }); renderAll(); persistSettings("Site ajouté");
       return setTimeout(() => teamSheet.body.querySelector(`[data-site-address="${state.sites.length - 1}"]`)?.focus(), 50);
     }
-    if (act === "add-garage") {
-      const garage = rgValue("#g-new");
+    if (act === "save-garage") {
+      const garage = b.dataset.i || rgValue("#g-new");
       if (!garage) return toast("Indique le nom du garage, comme dans le mail");
       if (!$("#g-prov").value || !$("#g-site").value) return toast("Choisis le prestataire et le site");
-      await saveGarage(garage, $("#g-prov").value, $("#g-site").value, "Garage ajouté");
-      if ($("#g-new")) $("#g-new").value = "";
-      return refreshRgSheet();
+      await saveGarage(garage, $("#g-prov").value, $("#g-site").value, `${garage} : ${$("#g-site").value}`);
+      return openRg("garages");
     }
     if (act === "remove-garage") {
       const before = state.garages.slice(), key = D.providerId(b.dataset.i);
       if (!requireStore()) return;
-      try { await state.store.saveGarages(before.filter((g) => D.providerId(g.garage) !== key)); undoable("Garage retiré", () => state.store.saveGarages(before)); }
+      try { await state.store.saveGarages(before.filter((g) => D.providerId(g.garage) !== key)); openRg("garages"); undoable("Garage retiré", () => state.store.saveGarages(before)); }
       catch (err) { reportWriteError(err); }
       return;
     }
@@ -2733,12 +2753,6 @@
   document.addEventListener("change", async (e) => {
     if (!inRg(e.target)) return;
     if (e.target.id === "a-role") return syncAccountRole();
-    const garageRow = e.target.closest("[data-garage]");
-    if (garageRow && e.target.matches("select")) {
-      if (!state.canWrite) return;
-      const prov = garageRow.querySelector("[data-garage-prov]").value, site = garageRow.querySelector("[data-garage-site]").value;
-      return saveGarage(garageRow.dataset.garage, prov, site, prov && site ? `${garageRow.dataset.garage} : ${prov}, ${site}` : "Enregistré");
-    }
     const box = e.target.closest("[data-prov-flag]");
     if (box) {
       if (!requireStore()) return;

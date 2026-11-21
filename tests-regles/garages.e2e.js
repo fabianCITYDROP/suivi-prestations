@@ -34,6 +34,8 @@ async function seed() {
   await mail('mail-AA111AA', 'Du Sol au Toit', 'AA-111-AA');
   await mail('mail-BB222BB', 'Du Sol au Toit Lille', 'BB-222-BB');
   await mail('mail-CC333CC', 'ALLO pare-brise 78', 'CC-333-CC');
+  const allo = (site, nom) => ({ garage: `Allo Pare brise / Lavage (${nom})`, prestataire: 'Allo Pare-Brise', site });
+  await put('config/garages', { liste: [allo('Saint-Cloud', 'St-Cloud'), allo('La Défense', 'la def'), allo('Lille', 'Lille'), allo('Saint-Cloud', 'Paris'), { garage: 'Du Sol au Toit Lille', prestataire: 'Du Sol au Toit', site: 'Lille' }] });
   await put('robot/etat', { passage: new Date().toISOString(), dernierMail: new Date().toISOString(), erreur: '' });
   await signUp('fabian@city-drop.com');
 }
@@ -81,18 +83,18 @@ async function seed() {
     }
     await s('1-reglages');
     await row(p, 'garages').click(); await p.waitForTimeout(700); await s('2-garages');
+    await row(p, 'garage:Du Sol au Toit').click(); await p.waitForTimeout(700); await s('3-un-garage');
     if (scheme === 'light') {
-      // « Du Sol au Toit » = La Défense : un choix dans la liste suffit.
-      await p.locator('[data-garage="Du Sol au Toit"] [data-garage-site]').selectOption('La Défense'); await p.waitForTimeout(1500);
+      await p.selectOption('#g-site', 'La Défense'); await p.click('[data-rg-act="save-garage"]'); await p.waitForTimeout(1500);
       await check('mail-AA111AA', 'site', 'La Défense'); await check('mail-AA111AA', 'adresse', 'Rue des Hautes Pâtures, 92000 Nanterre'); await check('mail-AA111AA', 'prixHT', 42);
-      // Un garage pas encore reçu, ajouté à la main.
-      await p.fill('#g-new', 'Allo Pare-Brise Saint-Cloud'); await p.selectOption('#g-prov', 'Allo Pare-Brise'); await p.selectOption('#g-site', 'Saint-Cloud');
-      await p.click('#g-add'); await p.waitForTimeout(900);
+      await s('4-garages-apres');
+      await row(p, 'garage-new').click(); await p.waitForTimeout(700);
+      await p.fill('#g-new', 'Allo Pare brise / Lavage (Aulnay)'); await p.selectOption('#g-prov', 'Allo Pare-Brise'); await p.selectOption('#g-site', 'Saint-Cloud');
+      await s('5-nouveau'); await p.click('[data-rg-act="save-garage"]'); await p.waitForTimeout(1200);
       const g = await get('config/garages');
-      if ((g.fields?.liste?.arrayValue?.values || []).length !== 2) errors.push('garages enregistrés : ' + JSON.stringify(g.fields));
+      if ((g.fields?.liste?.arrayValue?.values || []).length !== 7) errors.push('garages enregistrés : ' + (g.fields?.liste?.arrayValue?.values || []).length);
       const reg = await get('config/reglages');
       if ((reg.fields.prestataires.arrayValue.values || []).length !== 3) errors.push('un prestataire a été créé');
-      await s('3-garages-apres');
     }
     await ctx.close();
   }
