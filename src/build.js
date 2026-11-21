@@ -7,8 +7,8 @@ const sheet = read("sheet-script.txt").replace("const SCRIPT = `", "const SHEET_
 const app = read("app.js").replace("/*@SHEET_SCRIPT*/", sheet.trim());
 const inline = (code) => `<script>\n${code}</script>`;
 const appScripts = ["domain.js", "store.js", "notifs.js", "icons3d.js", "icons3d-nav.js", "presta.js"].map((f) => inline(read(f))).join("\n") + "\n" + inline(app) + "\n";
-// navigation.css (connexion, menu « Plus », onglets) is kept apart and added at the end of style.css.
-const style = read("style.css").trim().replace(/<\/style>$/, () => read("navigation.css").trim() + "\n</style>");
+// navigation.css (connexion, menu « Plus », onglets) then compact.css (tailles resserrées) are kept apart and added at the end of style.css.
+const style = read("style.css").trim().replace(/<\/style>$/, () => read("navigation.css").trim() + "\n" + read("compact.css").trim() + "\n</style>");
 const body = (scripts) => read("page.html").replace("<!--@style-->", () => style).replace("<!--@scripts-->", () => scripts);
 
 const artifact = body(appScripts);

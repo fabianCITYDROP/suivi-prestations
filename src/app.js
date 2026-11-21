@@ -291,6 +291,7 @@
   // Avec un album (page Photos) : barre du bas Copier / Enregistrer / Supprimer.
   const viewer = (() => {
     let el = null, items = [], index = 0, album = null, lastFocus = null, token = 0;
+    let zoom = { s: 1, x: 0, y: 0 }, resetZoom = () => {}, wheelT = 0, touchUpAt = 0;
     const reduce = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
     function build() {
       if (el) return;
@@ -307,7 +308,7 @@
         const st = e.target.closest("[data-v-step]"); if (st) return step(+st.dataset.vStep);
         const del = e.target.closest("[data-v-remove]"); if (del) return removeCurrent();
         if (moved) return;
-        if (e.target.matches(".pho-v-stage")) close();
+        if (e.target.matches(".pho-v-stage")) { if (zoom.s <= 1.001) close(); }
         else if (e.target.matches(".pho-v-stage img")) el.classList.toggle("bare");
       });
       document.addEventListener("keydown", (e) => {
@@ -315,32 +316,109 @@
         if (e.key === "Escape") { e.stopImmediatePropagation(); close(); }
         else if (e.key === "ArrowRight") step(1); else if (e.key === "ArrowLeft") step(-1);
       }, true);
-      // Le geste : on décide l'axe après quelques pixels, la photo suit le doigt, puis suivante / fermer / retour en place.
+      // Les gestes, comme dans l'app Photos :
+      // - pincer à deux doigts = zoomer (jusqu'à ×5) autour des doigts ; un doigt sur une photo zoomée = la déplacer ;
+      // - double appui = zoomer à cet endroit / revenir ; molette avec Ctrl (pincement du pavé tactile) sur ordinateur ;
+      // - photo non zoomée : glisser à gauche / à droite = suivante, vers le bas = fermer.
       const stage = el.querySelector(".pho-v-stage"), img = stage.querySelector("img");
+      const pts = new Map();
       let x0 = 0, y0 = 0, axis = "", down = false, moved = false, lastT = 0, lastX = 0, lastY = 0, vx = 0, vy = 0;
-      stage.addEventListener("pointerdown", (e) => { if (e.button) return; down = true; moved = false; axis = ""; x0 = lastX = e.clientX; y0 = lastY = e.clientY; lastT = e.timeStamp; vx = vy = 0; });
+      let pinch = null, pan = null, lastTap = { t: 0, x: 0, y: 0 };
+      const centre = () => { const r = stage.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+      const clamp = (v, max) => Math.max(-max, Math.min(max, v));
+      const bounds = (s) => ({ x: Math.max(0, (img.offsetWidth * s - stage.clientWidth) / 2), y: Math.max(0, (img.offsetHeight * s - stage.clientHeight) / 2) });
+      const apply = () => { img.style.transform = zoom.s > 1.001 ? `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.s})` : ""; el.classList.toggle("zoomed", zoom.s > 1.001); };
+      // Zoomer à l'échelle s en gardant le point (px, py) de l'écran sous le doigt.
+      const zoomAt = (s, px, py, from = zoom) => {
+        const c = centre(); s = Math.max(1, Math.min(5, s));
+        const qx = (px - c.x - from.x) / from.s, qy = (py - c.y - from.y) / from.s;
+        const b = bounds(s);
+        zoom = s <= 1.001 ? { s: 1, x: 0, y: 0 } : { s, x: clamp(px - c.x - s * qx, b.x), y: clamp(py - c.y - s * qy, b.y) };
+        apply();
+      };
+      resetZoom = () => { zoom = { s: 1, x: 0, y: 0 }; pts.clear(); pinch = pan = null; el.classList.remove("zoomed"); };
+      const toggleZoom = (px, py) => { el.classList.remove("dragging"); zoom.s > 1.001 ? zoomAt(1, px, py) : zoomAt(2.5, px, py); };
+      stage.addEventListener("pointerdown", (e) => {
+        if (e.button) return;
+        pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        try { stage.setPointerCapture(e.pointerId); } catch {}
+        if (pts.size === 2) { // deux doigts : on passe en pincement, le glissé en cours est abandonné
+          const [a, b] = [...pts.values()];
+          pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, from: { ...zoom } };
+          down = false; pan = null; axis = ""; moved = true; el.classList.add("dragging"); el.style.removeProperty("--pho-dim");
+          return;
+        }
+        if (pts.size > 2) return;
+        if (zoom.s > 1.001) { pan = { x: e.clientX, y: e.clientY, from: { ...zoom } }; moved = false; el.classList.add("dragging"); return; }
+        down = true; moved = false; axis = ""; x0 = lastX = e.clientX; y0 = lastY = e.clientY; lastT = e.timeStamp; vx = vy = 0;
+      });
       stage.addEventListener("pointermove", (e) => {
+        if (!pts.has(e.pointerId)) return;
+        pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pinch && pts.size >= 2) {
+          const [a, b] = [...pts.values()];
+          const s = pinch.from.s * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d;
+          // Le point sous les doigts au départ suit le milieu des deux doigts (zoomer et déplacer en même temps).
+          const c = centre(), from = pinch.from, sc = Math.max(1, Math.min(5, s));
+          const qx = (pinch.mx - c.x - from.x) / from.s, qy = (pinch.my - c.y - from.y) / from.s;
+          const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, bd = bounds(sc);
+          zoom = { s: sc, x: clamp(mx - c.x - sc * qx, bd.x), y: clamp(my - c.y - sc * qy, bd.y) };
+          apply(); return;
+        }
+        if (pan) {
+          const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+          if (Math.hypot(dx, dy) > 4) moved = true;
+          const b = bounds(zoom.s);
+          zoom = { s: zoom.s, x: clamp(pan.from.x + dx, b.x), y: clamp(pan.from.y + dy, b.y) };
+          apply(); return;
+        }
         if (!down) return;
         const dx = e.clientX - x0, dy = e.clientY - y0;
-        if (!axis && Math.hypot(dx, dy) > 8) { axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y"; moved = true; stage.setPointerCapture(e.pointerId); el.classList.add("dragging"); }
+        if (!axis && Math.hypot(dx, dy) > 8) { axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y"; moved = true; el.classList.add("dragging"); }
         const dt = Math.max(1, e.timeStamp - lastT); vx = (e.clientX - lastX) / dt; vy = (e.clientY - lastY) / dt; lastX = e.clientX; lastY = e.clientY; lastT = e.timeStamp;
         if (axis === "x") { const edge = (index === 0 && dx > 0) || (index === items.length - 1 && dx < 0); img.style.transform = `translateX(${edge ? dx / 4 : dx}px)`; }
         else if (axis === "y") { const d = Math.max(0, dy); img.style.transform = `translateY(${dy > 0 ? dy : dy / 6}px) scale(${1 - Math.min(d, 400) / 1600})`; el.style.setProperty("--pho-dim", String(Math.max(0.25, 1 - d / 500))); }
       });
       const end = (e) => {
-        if (!down) return; down = false; el.classList.remove("dragging");
-        const dx = e.clientX - x0, dy = e.clientY - y0;
-        if (axis === "y" && (dy > 110 || vy > 0.6)) { close(true); }
-        else if (axis === "x" && (Math.abs(dx) > 70 || Math.abs(vx) > 0.5) && items[index + (dx < 0 ? 1 : -1)]) { step(dx < 0 ? 1 : -1, true); }
-        else { img.style.transform = ""; el.style.removeProperty("--pho-dim"); }
+        if (!pts.has(e.pointerId)) return;
+        pts.delete(e.pointerId);
+        if (pinch) { // un doigt levé : on continue en déplaçant avec l'autre doigt
+          if (pts.size < 2) { pinch = null; const rest = [...pts.values()][0];
+            if (zoom.s <= 1.001) { zoom = { s: 1, x: 0, y: 0 }; apply(); }
+            if (rest && zoom.s > 1.001) pan = { x: rest.x, y: rest.y, from: { ...zoom } }; else el.classList.remove("dragging"); }
+          setTimeout(() => (moved = false), 0); return;
+        }
+        if (pan) { if (!pts.size) { pan = null; el.classList.remove("dragging"); } }
+        else if (down) {
+          down = false; el.classList.remove("dragging");
+          const dx = e.clientX - x0, dy = e.clientY - y0;
+          if (axis === "y" && (dy > 110 || vy > 0.6)) { close(true); }
+          else if (axis === "x" && (Math.abs(dx) > 70 || Math.abs(vx) > 0.5) && items[index + (dx < 0 ? 1 : -1)]) { step(dx < 0 ? 1 : -1, true); }
+          else { img.style.transform = ""; el.style.removeProperty("--pho-dim"); }
+        }
+        // Double appui au doigt (sur iPhone, le double-clic n'arrive pas toujours).
+        if (e.pointerType === "touch") touchUpAt = e.timeStamp;
+        if (e.pointerType === "touch" && !moved && e.type === "pointerup") {
+          const near = Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30;
+          if (e.timeStamp - lastTap.t < 320 && near) { lastTap.t = 0; toggleZoom(e.clientX, e.clientY); }
+          else lastTap = { t: e.timeStamp, x: e.clientX, y: e.clientY };
+        }
         setTimeout(() => (moved = false), 0);
       };
       stage.addEventListener("pointerup", end); stage.addEventListener("pointercancel", end);
+      stage.addEventListener("dblclick", (e) => { if (!e.sourceCapabilities?.firesTouchEvents && e.timeStamp - touchUpAt > 700) toggleZoom(e.clientX, e.clientY); });
+      stage.addEventListener("wheel", (e) => {
+        if (!e.ctrlKey && zoom.s <= 1.001) return; // la molette seule ne zoome que si la photo est déjà zoomée (déplacement)
+        e.preventDefault(); el.classList.add("dragging");
+        if (e.ctrlKey) zoomAt(zoom.s * Math.exp(-e.deltaY / 200), e.clientX, e.clientY);
+        else { const b = bounds(zoom.s); zoom = { ...zoom, x: clamp(zoom.x - e.deltaX, b.x), y: clamp(zoom.y - e.deltaY, b.y) }; apply(); }
+        clearTimeout(wheelT); wheelT = setTimeout(() => el.classList.remove("dragging"), 120);
+      }, { passive: false });
     }
     async function show(fromSwipe) {
       const it = items[index]; if (!it) return close();
       const img = el.querySelector(".pho-v-stage img"), my = ++token;
-      img.style.transform = ""; el.style.removeProperty("--pho-dim");
+      resetZoom(); img.style.transform = ""; el.style.removeProperty("--pho-dim");
       if (fromSwipe && !reduce()) { img.classList.remove("pho-v-in"); void img.offsetWidth; img.classList.add("pho-v-in"); }
       if (it.thumb) img.src = safeImageSrc(it.thumb); else img.removeAttribute("src");
       el.querySelector(".pho-v-title b").textContent = album ? album.label : "Photo";
@@ -367,7 +445,7 @@
     }
     function close(fromSwipe) {
       if (!el || el.hidden) return;
-      token++; el.classList.remove("on"); document.body.classList.remove("pho-viewing");
+      token++; resetZoom(); el.classList.remove("on"); document.body.classList.remove("pho-viewing");
       const img = el.querySelector(".pho-v-stage img");
       if (fromSwipe && !reduce()) img.style.transform = `translateY(${innerHeight * 0.6}px) scale(.85)`;
       setTimeout(() => { el.hidden = true; img.style.transform = ""; el.style.removeProperty("--pho-dim"); img.removeAttribute("src"); }, reduce() ? 0 : 220);
