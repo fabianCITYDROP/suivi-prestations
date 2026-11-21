@@ -136,7 +136,7 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   ok('no camera or photo asked to close a job', !(await k.$('input[type=file][capture]')) && !(await k.textContent('#view-presta')).includes('photo de la plaque'));
   await k.click('[data-form="done:lav1"]'); await k.waitForTimeout(200);
   lav1 = (await list('demandes')).find((d) => d.id === 'lav1');
-  ok('"OK prestation réalisée" asks for a confirmation first', lav1.statut === 'confirmee' && await k.isVisible('[data-send="done:lav1"]'));
+  ok('"Prestation réalisée" asks for a confirmation first', lav1.statut === 'confirmee' && await k.isVisible('[data-send="done:lav1"]'));
   if (process.env.SHOTS) await k.screenshot({ path: process.env.SHOTS + '/4b-confirmer-realisee.png', fullPage: true });
   await k.fill('[data-note]', 'Siège un peu taché');
   await k.click('[data-send="done:lav1"]'); await k.waitForTimeout(2500);

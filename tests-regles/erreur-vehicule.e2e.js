@@ -57,7 +57,7 @@ const check = (ok, what) => { if (!ok) { console.error('ÉCHEC : ' + what); proc
     return p;
   }
 
-  // 1. Khalid taps « OK prestation réalisée » on the wrong vehicle.
+  // 1. Khalid taps « Prestation réalisée » on the wrong vehicle.
   const k = await open('khalid@lavage.fr', { width: 390, height: 844 });
   await k.click('[data-tab="today"]'); await k.waitForTimeout(300);
   await k.click('[data-form="done:r9"]'); await k.click('[data-send="done:r9"]'); await k.waitForTimeout(1500);
@@ -96,7 +96,7 @@ const check = (ok, what) => { if (!ok) { console.error('ÉCHEC : ' + what); proc
   await k.evaluate(() => { const now = Date.now(); Date.now = () => now + 11 * 60000; });
   await k.click('[data-tab="done"]'); await k.waitForTimeout(400);
   check(!(await k.isVisible('[data-form="undo:r9"]')), 'après 10 minutes, le bouton disparaît');
-  // 5. With the old rules (not yet republished), « OK prestation réalisée » still works.
+  // 5. With the old rules (not yet republished), « Prestation réalisée » still works.
   await put('demandes/r9', { prestataire: 'Khalid', prestataireId: 'khalid', service: 'lavage', plaque: 'GD-207-NF', date: day(0), dateFin: day(0), statut: 'confirmee', prixHT: 37 });
   const oldRules = require('child_process').execSync('git show origin/main:src/firestore.rules', { cwd: ROOT }).toString();
   await setRules(oldRules);

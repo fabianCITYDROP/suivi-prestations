@@ -1,5 +1,5 @@
 // Captures de l'écran prestataire « Aujourd'hui » (téléphone clair/sombre + ordinateur) et des feuilles d'action
-// (OK prestation réalisée, Reporter, Véhicule absent), dans les émulateurs Firebase (aucune donnée réelle).
+// (Prestation réalisée, Reporter, Véhicule absent), dans les émulateurs Firebase (aucune donnée réelle).
 // npx firebase emulators:exec --only firestore,auth --project suivi-prestations "node tests-regles/aujourdhui.e2e.js <dossier> [avant]"
 const { chromium } = require('playwright');
 const http = require('http'); const fs = require('fs'); const path = require('path');

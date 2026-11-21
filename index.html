@@ -460,7 +460,7 @@ body.presta-mode .top .sync { display: none; }
 .job-problem { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--danger); }
 .job-problem > span { flex: 1; min-width: 0; }
 .done-more { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; }
-/* « Corriger »: orange, the 10 minutes after « OK prestation réalisée ». */
+/* « Corriger »: orange, the 10 minutes after « Prestation réalisée ». */
 .done-more .undo-done { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; border-radius: 10px; background: var(--st-todo-bg); border: 1.5px solid var(--st-todo); color: var(--st-todo); font: 600 15px var(--f-body); cursor: pointer; }
 .done-more .undo-done .icon { width: 18px; height: 18px; }
 .done-more .undo-done:active { transform: scale(.97); }
@@ -2638,7 +2638,7 @@ body.team-sheet-open .toast { z-index: 60; }
 .login-sent-ico { flex: none; width: 34px; height: 34px; margin-top: 1px; }
 .login-sent-ico .login-art { width: 34px; height: 34px; overflow: visible; }
 
-/* Bouton capsule, même famille que « OK prestation réalisée ». */
+/* Bouton capsule, même famille que « Prestation réalisée ». */
 .login-btn { position: relative; width: 100%; min-height: 54px; margin-top: 6px; padding: 0 20px; border: 0; border-radius: 999px; display: grid; place-items: center;
   font: 650 17px var(--f-body); letter-spacing: -.01em; color: #fff; cursor: pointer;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
@@ -2786,7 +2786,7 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
 .day-sum p { font-size: 14px; }
 .day-sum b { font-size: 15px; }
 
-/* Bouton principal « OK prestation réalisée » / « Accepter » : même rôle, hauteur d'un bouton iPhone. */
+/* Bouton principal « Prestation réalisée » / « Accepter » : même rôle, hauteur d'un bouton iPhone. */
 .job-actions .ok-btn, .ok-btn { min-height: 46px; font-size: 16px; gap: 10px; padding: 0 16px 0 8px; }
 .ok-badge { left: 6px; width: 32px; height: 32px; }
 .ok-badge .icon { width: 17px; height: 17px; }
@@ -4077,7 +4077,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     return patch;
   }
   // ---------- a « fait » tapped by mistake ----------
-  // For a few minutes the provider who tapped « OK prestation réalisée » can take it back: the vehicle goes back to its
+  // For a few minutes the provider who tapped « Prestation réalisée » can take it back: the vehicle goes back to its
   // list, the team is told. The access rules check the same window with the server's own time (retour.le).
   const UNDO_DONE_MINUTES = 10;
   const UNDO_DONE_LABEL = "Corriger";
@@ -5435,11 +5435,11 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
 // Provider screen: what a provider sees after signing in. Only its own requests are loaded
 // (the access rules refuse anything else).
 // 1. "À valider": a new request is accepted, refused, or answered with another date.
-// 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), closed with "OK prestation réalisée".
+// 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), closed with "Prestation réalisée".
 // 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
 // 4. "Faits": history and counts.
 // On any accepted vehicle (and for 7 days once done), the provider can report a problem seen on it: a few words, an optional photo.
-// For 10 minutes after « OK prestation réalisée », the provider can take it back (wrong vehicle): it goes back to its list.
+// For 10 minutes after « Prestation réalisée », the provider can take it back (wrong vehicle): it goes back to its list.
 // To add something, it simply reports again.
 // 5. "Signaler" (+): what the provider saw on ANY vehicle, even one it was not sent to (dirty, windscreen, tyres…),
 //    one after the other. The team gets it in « Retours »; the provider only sees its own reports, and changes or
@@ -5646,7 +5646,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       const leaving = state.leaving === d.id;
       return `<article class="job${leaving ? " leaving" : ""}" data-job="${esc(d.id)}">${jobHead(d, { withTime: !early })}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
         ${state.busy.has(d.id) && !leaving ? busyLine : `<div class="job-actions">
-          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>OK prestation réalisée</button>
+          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Prestation réalisée</button>
           <div class="act-row">${actBtn("date", d.id, "Reporter")}${actBtn("absent", d.id, "Véhicule absent")}${actBtn("problem", d.id, "Problème")}</div></div>`}
       ${problemLines(d)}${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
     }
@@ -5661,7 +5661,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     }
     function doneRow(d) {
       const day = doneDayOf(d);
-      // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
+      // A problem noticed after « Prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
       const undo = D.canUndoDone(d, email, Date.now());
       const acts = recent || undo ? (state.busy.has(d.id) ? busyLine
@@ -5771,7 +5771,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
         <div class="veh-info">${jobMeta(d)}${photosStrip(d)}${answerLine(d)}${problemLines(d)}</div>
         <p class="veh-hint">Le véhicule est déjà sur site ? Tu peux le faire en avance.</p>
         ${state.busy.has(d.id) ? busyLine : `<div class="job-actions">
-          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>OK prestation réalisée</button>
+          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Prestation réalisée</button>
           <div class="act-row">${actBtn("date", d.id, "Reporter")}${actBtn("absent", d.id, "Véhicule absent")}${actBtn("problem", d.id, "Problème")}</div></div>`}</div>`;
     }
     function upcomingTab(all) {
@@ -6121,7 +6121,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
       else if ((b = el("[data-asend]"))) sendAct();
     });
-    // The sheet's main button. « OK prestation réalisée »: the card shows a green tick, then leaves the list.
+    // The sheet's main button. « Prestation réalisée »: the card shows a green tick, then leaves the list.
     function sendAct() {
       const { kind, d } = actOf();
       if (!d) return closeSheet();
@@ -6303,7 +6303,7 @@ function page(texte) {
   }
 
   let toastTimer;
-  // action (optional): { label, run } adds one button to the bubble, e.g. « Corriger » just after « OK prestation réalisée ».
+  // action (optional): { label, run } adds one button to the bubble, e.g. « Corriger » just after « Prestation réalisée ».
   function toast(text, action) {
     const el = $("#toast");
     el.textContent = text; el.hidden = false; el.classList.toggle("with-action", !!action);

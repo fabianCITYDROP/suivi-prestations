@@ -689,7 +689,7 @@
     return patch;
   }
   // ---------- a « fait » tapped by mistake ----------
-  // For a few minutes the provider who tapped « OK prestation réalisée » can take it back: the vehicle goes back to its
+  // For a few minutes the provider who tapped « Prestation réalisée » can take it back: the vehicle goes back to its
   // list, the team is told. The access rules check the same window with the server's own time (retour.le).
   const UNDO_DONE_MINUTES = 10;
   const UNDO_DONE_LABEL = "Corriger";

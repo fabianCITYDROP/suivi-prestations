@@ -65,7 +65,7 @@ Le prestataire est prévenu sur son téléphone dès qu'une demande lui arrive (
 qu'un prestataire répond (accepté, fait, autre date, absent, pas possible), **même appli fermée et téléphone verrouillé**.
 C'est gratuit : pas de forfait Firebase payant, tout passe par `notifications.js` (Google Apps Script), comme l'appli des runners.
 
-Indépendamment du script : depuis cette version, un « OK prestation réalisée » ou une acceptation du prestataire
+Indépendamment du script : depuis cette version, un « Prestation réalisée » ou une acceptation du prestataire
 passe **tout de suite** la demande en « Réalisée » / « Confirmée », même si personne de l'équipe n'a l'appli ouverte.
 
 ## Comment ça marche

@@ -441,7 +441,7 @@ body.presta-mode .top .sync { display: none; }
 .job-problem { margin: 0; display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--danger); }
 .job-problem > span { flex: 1; min-width: 0; }
 .done-more { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; }
-/* « Corriger »: orange, the 10 minutes after « OK prestation réalisée ». */
+/* « Corriger »: orange, the 10 minutes after « Prestation réalisée ». */
 .done-more .undo-done { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; border-radius: 10px; background: var(--st-todo-bg); border: 1.5px solid var(--st-todo); color: var(--st-todo); font: 600 15px var(--f-body); cursor: pointer; }
 .done-more .undo-done .icon { width: 18px; height: 18px; }
 .done-more .undo-done:active { transform: scale(.97); }

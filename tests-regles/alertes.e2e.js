@@ -154,7 +154,7 @@ const script = (code) => vm.runInContext(code, sandbox);
   await k.click('[data-tab="today"]'); await k.waitForTimeout(300);
   await k.click('[data-form="done:n1"]'); await k.click('[data-send="done:n1"]'); await k.waitForTimeout(1500);
   const d = await demande('n1');
-  ok('« OK prestation réalisée » : « Réalisée » sans l\'équipe', d.statut === 'realisee' && d.doneAt === d.retour.at);
+  ok('« Prestation réalisée » : « Réalisée » sans l\'équipe', d.statut === 'realisee' && d.doneAt === d.retour.at);
   ok('l\'appli a demandé au script de regarder tout de suite', hits.filter(h => h === 'verifier').length >= 1);
   script('verifierNotifications()');
   ok('l\'équipe est prévenue', pushes.length >= 2 && pushes.some(p => p.url === fabianAbo.endpoint));

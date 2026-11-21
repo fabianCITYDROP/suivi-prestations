@@ -1,11 +1,11 @@
 // Provider screen: what a provider sees after signing in. Only its own requests are loaded
 // (the access rules refuse anything else).
 // 1. "À valider": a new request is accepted, refused, or answered with another date.
-// 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), closed with "OK prestation réalisée".
+// 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), closed with "Prestation réalisée".
 // 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
 // 4. "Faits": history and counts.
 // On any accepted vehicle (and for 7 days once done), the provider can report a problem seen on it: a few words, an optional photo.
-// For 10 minutes after « OK prestation réalisée », the provider can take it back (wrong vehicle): it goes back to its list.
+// For 10 minutes after « Prestation réalisée », the provider can take it back (wrong vehicle): it goes back to its list.
 // To add something, it simply reports again.
 // 5. "Signaler" (+): what the provider saw on ANY vehicle, even one it was not sent to (dirty, windscreen, tyres…),
 //    one after the other. The team gets it in « Retours »; the provider only sees its own reports, and changes or
@@ -212,7 +212,7 @@
       const leaving = state.leaving === d.id;
       return `<article class="job${leaving ? " leaving" : ""}" data-job="${esc(d.id)}">${jobHead(d, { withTime: !early })}${jobMeta(d, { withDate: early, withSite: early })}${photosStrip(d)}${answerLine(d)}
         ${state.busy.has(d.id) && !leaving ? busyLine : `<div class="job-actions">
-          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>OK prestation réalisée</button>
+          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Prestation réalisée</button>
           <div class="act-row">${actBtn("date", d.id, "Reporter")}${actBtn("absent", d.id, "Véhicule absent")}${actBtn("problem", d.id, "Problème")}</div></div>`}
       ${problemLines(d)}${leaving ? `<div class="job-done-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Réalisée</b></div>` : ""}</article>`;
     }
@@ -227,7 +227,7 @@
     }
     function doneRow(d) {
       const day = doneDayOf(d);
-      // A problem noticed after « OK prestation réalisée » can still be reported for a few days.
+      // A problem noticed after « Prestation réalisée » can still be reported for a few days.
       const recent = D.canReportAfterDone(day, today());
       const undo = D.canUndoDone(d, email, Date.now());
       const acts = recent || undo ? (state.busy.has(d.id) ? busyLine
@@ -337,7 +337,7 @@
         <div class="veh-info">${jobMeta(d)}${photosStrip(d)}${answerLine(d)}${problemLines(d)}</div>
         <p class="veh-hint">Le véhicule est déjà sur site ? Tu peux le faire en avance.</p>
         ${state.busy.has(d.id) ? busyLine : `<div class="job-actions">
-          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>OK prestation réalisée</button>
+          <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Prestation réalisée</button>
           <div class="act-row">${actBtn("date", d.id, "Reporter")}${actBtn("absent", d.id, "Véhicule absent")}${actBtn("problem", d.id, "Problème")}</div></div>`}</div>`;
     }
     function upcomingTab(all) {
@@ -687,7 +687,7 @@
       else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
       else if ((b = el("[data-asend]"))) sendAct();
     });
-    // The sheet's main button. « OK prestation réalisée »: the card shows a green tick, then leaves the list.
+    // The sheet's main button. « Prestation réalisée »: the card shows a green tick, then leaves the list.
     function sendAct() {
       const { kind, d } = actOf();
       if (!d) return closeSheet();

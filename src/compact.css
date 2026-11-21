@@ -48,7 +48,7 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
 .day-sum p { font-size: 14px; }
 .day-sum b { font-size: 15px; }
 
-/* Bouton principal « OK prestation réalisée » / « Accepter » : même rôle, hauteur d'un bouton iPhone. */
+/* Bouton principal « Prestation réalisée » / « Accepter » : même rôle, hauteur d'un bouton iPhone. */
 .job-actions .ok-btn, .ok-btn { min-height: 46px; font-size: 16px; gap: 10px; padding: 0 16px 0 8px; }
 .ok-badge { left: 6px; width: 32px; height: 32px; }
 .ok-badge .icon { width: 17px; height: 17px; }
