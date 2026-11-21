@@ -1203,7 +1203,10 @@
         <span class="nd-pv-tick" aria-hidden="true">${icon("check")}</span></button>`).join("");
     $("#provRow").hidden = state.providers.length === 0;
     const site = field("site").value;
-    $("#ndSites").innerHTML = siteNames().map((n) => `<button type="button" class="nd-chip" role="radio" data-nd-site="${esc(n)}" aria-checked="${n === site}">${esc(n)}</button>`).join("")
+    // Only the sites given to the chosen provider (Garages des mails); all of them when it has none. The site already chosen stays.
+    const given = D.providerSites(state.garages, current, siteNames());
+    const shownSites = given.length ? siteNames().filter((n) => n === site || given.includes(n)) : siteNames();
+    $("#ndSites").innerHTML = shownSites.map((n) => `<button type="button" class="nd-chip" role="radio" data-nd-site="${esc(n)}" aria-checked="${n === site}">${esc(n)}</button>`).join("")
       || `<p class="nd-hint">Aucun site : ajoute-les dans Réglages › Sites.</p>`;
     $("#ndDays").innerHTML = nextDays().map((iso, i) => `<button type="button" class="nd-chip" data-nd-day="${iso}" aria-pressed="false">${esc(dayChipLabel(iso, i))}</button>`).join("");
     $("#ndSlots").innerHTML = SLOTS.map((t) => `<button type="button" class="nd-chip" data-nd-slot="${t.debut}-${t.fin}" aria-pressed="false">${t.label}<small>${t.debut.replace(":", "h")}–${t.fin.replace(":", "h")}</small></button>`).join("");
@@ -3379,7 +3382,7 @@
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
       onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderPlanning(); renderFormSide(); },
       onRobot: (etat) => { state.robot = etat; renderRobot(); },
-      onGarages: (list) => { state.garages = D.normalizeGarages(list); completeMailRequests(); renderSettings(); },
+      onGarages: (list) => { state.garages = D.normalizeGarages(list); completeMailRequests(); renderSettings(); if (!$("#ndSites")?.closest("[hidden]")) renderChoiceTiles(); },
       onDevices: (rows) => { state.alertDevices = rows; renderSettings(); },
       onError: (err) => {
         setSync("Synchronisation interrompue, recharge la page", false);
