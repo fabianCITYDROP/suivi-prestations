@@ -603,9 +603,11 @@
   // ---------- field reports (« Signaler » tab): a provider walking by tells the team what it saw on ANY vehicle ----------
   // Same collection as above, with no request: {demandeId: "", source: "terrain", plaque, quoi: [...], texte, photo?, …}.
   // Several vehicles are sent at once, one report each. Ticks are quicker than typing on a parking lot.
-  const FIELD_ISSUES = ["Pare-brise", "Véhicule sale", "Pneu avant", "Pneu arrière", "Rétro cassé", "Choc / carrosserie", "Voyant allumé"];
+  // 8 choices so they sit in an even 2-column grid; « Autre » needs a few words.
+  const FIELD_ISSUES = ["Pare-brise", "Véhicule sale", "Pneu avant", "Pneu arrière", "Rétro cassé", "Carrosserie", "Voyant allumé", "Autre"];
   const isFieldReport = (s) => s.source === "terrain";
   const fieldPlateOk = (plate) => { const k = plateKey(plate); return k.length >= 5 && k.length <= 10; };
+  const fieldTicksText = (ticks) => ticks.filter((q) => q !== "Autre").join(", ");
   function fieldReport({ plaque, quoi = [], texte = "", photo } = {}, prestataireId, email, nowIso) {
     const plate = normalizePlate(plaque);
     const ticks = FIELD_ISSUES.filter((q) => quoi.includes(q));
@@ -613,9 +615,23 @@
     if (!plateKey(plate)) return { error: "Écris la plaque du véhicule" };
     if (!fieldPlateOk(plate)) return { error: `Plaque ${plate} incomplète : vérifie-la` };
     if (!ticks.length && !text) return { error: `Coche ce que tu as vu sur ${plate}, ou écris-le` };
+    if (ticks.includes("Autre") && !text) return { error: "« Autre » : écris en quelques mots ce que tu as vu" };
     return { demandeId: "", source: "terrain", plaque: plate, prestataireId, type: "autre", quoi: ticks,
-      texte: [ticks.join(", "), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...(photo ? { photo } : {}),
+      texte: [fieldTicksText(ticks), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...(photo ? { photo } : {}),
       statut: "nouveau", at: nowIso, par: email };
+  }
+  // The words the provider typed, without the ticks in front (to edit a report).
+  function fieldNoteOf(s) {
+    const head = fieldTicksText(s.quoi || []);
+    const t = String(s.texte || "");
+    if (!head) return t;
+    return t.startsWith(head + " – ") ? t.slice(head.length + 3) : t === head ? "" : t;
+  }
+  // What an edit may change (the access rules allow only these, while the team has not handled it).
+  function fieldEditPatch(report, fields, nowIso) {
+    const r = fieldReport({ ...fields, photo: fields.photo }, report.prestataireId, report.par, report.at);
+    if (r.error) return r;
+    return { plaque: r.plaque, quoi: r.quoi, texte: r.texte, photo: fields.photo || "", modifieAt: nowIso };
   }
 
   // What a provider's answer writes. A "fait" or an acceptance also moves the request's status right away, so the
@@ -1002,7 +1018,7 @@
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
-    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport, fieldNoteOf, fieldEditPatch,
     TRASH_DAYS, trashPurgeDate, trashDaysLeft, groupTrash,
   };
 });

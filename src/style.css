@@ -639,27 +639,6 @@ button.pf-line:hover { background: var(--accent-soft); }
 /* Provider « Faits »: older month report on demand */
 .presta-body .month-pick { margin: 12px 0; max-width: 260px; }
 .presta-body .month-back { width: 100%; min-height: 48px; justify-content: center; gap: 8px; margin: 4px 0 14px; font-weight: 600; color: var(--accent); border: 1px solid var(--line-strong); background: var(--surface); }
-/* « Signaler »: field reports on any vehicle. Neutral chips (ink when ticked): colour stays for status only. */
-.field-card { gap: 14px; }
-.field-card-head { display: flex; align-items: center; justify-content: space-between; min-height: 28px; font-size: 15px; }
-.field-card .field input { min-height: 46px; font-size: 16px; }
-.field-card [data-fplate] { font: 700 17px var(--f-body); letter-spacing: .06em; text-transform: uppercase; }
-.field-card [data-fplate]::placeholder { font-weight: 500; letter-spacing: .04em; }
-.field-remove { min-height: 36px; padding: 0 10px; font-size: 13px; color: var(--ink-2); border: 1px solid var(--line); }
-.field-remove .icon { width: 15px; height: 15px; }
-.issue-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.issue-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: 600 14px var(--f-body); cursor: pointer; transition: transform 140ms var(--ease-out), background-color .15s ease, color .15s ease, border-color .15s ease; }
-.issue-chip .icon { width: 16px; height: 16px; }
-.issue-chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
-.issue-chip:active { transform: scale(.96); }
-.field-add { align-self: stretch; justify-content: center; min-height: 48px; border-radius: 12px; border: 1.5px dashed var(--line-strong); background: transparent; color: var(--ink); font-weight: 600; }
-.field-send { width: 100%; min-height: 54px; font-size: 16px; border-radius: 12px; }
-.field-send .icon { width: 21px; height: 21px; }
-.field-sent-title { margin: 18px 2px 0; font: 600 15px var(--f-body); color: var(--ink-2); text-transform: none; letter-spacing: 0; }
-.field-sent .done-row b { font-weight: 600; font-size: 14.5px; white-space: normal; overflow: visible; text-overflow: clip; }
-.seen-pill { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; color: var(--st-todo); background: var(--st-todo-bg, var(--surface-2)); }
-.seen-pill.ok { color: var(--st-done); background: var(--st-done-bg); }
-@media (prefers-reduced-motion: reduce) { .issue-chip:active { transform: none; } }
 /* « Signaler »: blue + button. Wide screens: a blue pill at the end of the tabs. Phones: round, raised, in the middle of the bar. */
 .presta-tabs .tab-plus, .presta-tabs .tab-plus[aria-selected="true"] { background: var(--accent); color: #fff; box-shadow: none; }
 .presta-tabs .tab-plus .icon { display: block; width: 18px; height: 18px; }
@@ -672,13 +651,59 @@ button.pf-line:hover { background: var(--accent-soft); }
   .presta-tabs button[data-tab="done"] { order: 5; }
 }
 /* Delete a report sent by mistake: a quiet bin, red « Supprimer ? » once armed. */
-.field-sent .done-row { grid-template-columns: auto 1fr; align-items: start; }
-.field-sent .done-row > span:not(.plate) { display: flex; align-self: stretch; flex-direction: column; gap: 2px; min-width: 0; }
-.field-sent .done-row .sent-end { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; }
 .problem-row > .row > button.ghost { border: 1px solid var(--line-strong); white-space: nowrap; }
-.field-sent .seen-pill { align-self: center; }
 .del-report { min-height: 36px; min-width: 36px; padding: 0 8px; gap: 6px; border: 1px solid transparent; background: none; color: var(--ink-2); font-size: 13px; font-weight: 600; border-radius: 9px; flex: none; }
 .del-report .icon { width: 17px; height: 17px; }
 .del-report:hover { color: var(--danger); }
 .del-report.armed { color: #fff; background: var(--danger); border-color: var(--danger); }
+/* « Signaler » (2026-11-21 redo): one vehicle at a time, an even 2-column grid of choices, neutral (ink when ticked).
+   Colour stays for status only: orange « Envoyé », green « Vu par l'équipe », red only for deleting. */
+.field-card { gap: 16px; }
+.field-card .field input { min-height: 48px; font-size: 16px; }
+.field-plate { font: 700 20px var(--f-body) !important; letter-spacing: .08em; text-transform: uppercase; text-align: center; }
+.field-plate::placeholder { font-weight: 500; letter-spacing: .06em; color: var(--ink-2); opacity: .55; }
+.field-editing { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 14px; color: var(--ink-2); }
+.issue-set { border: 0; margin: 0; padding: 0; min-width: 0; }
+.issue-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.issue-set legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.issue-tile { display: flex; align-items: center; gap: 9px; min-height: 50px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: 600 14.5px/1.2 var(--f-body); text-align: left; justify-content: flex-start; cursor: pointer; transition: transform 140ms var(--ease-out), background-color .15s ease, border-color .15s ease, color .15s ease; }
+.issue-tile .tick { flex: none; width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--line-strong); display: grid; place-items: center; transition: background-color .15s ease, border-color .15s ease; }
+.issue-tile .tick .icon { width: 15px; height: 15px; }
+.issue-tile[aria-pressed="true"] { border-color: var(--ink); background: var(--surface-2); }
+.issue-tile[aria-pressed="true"] .tick { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.issue-tile:active { transform: scale(.97); }
+.photo-kept { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.photo-kept .icon { width: 18px; height: 18px; }
+.field-send, .field-actions .primary { width: 100%; min-height: 54px; font-size: 16px; border-radius: 12px; }
+.field-send .icon, .field-actions .primary .icon { width: 21px; height: 21px; }
+.field-actions { display: flex; flex-direction: column; gap: 8px; }
+.field-actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.field-actions-row button { min-height: 46px; border-radius: 10px; justify-content: center; }
+.field-actions-row .ghost { border: 1px solid var(--line-strong); }
+.field-del { gap: 8px; background: var(--surface); border: 1.5px solid var(--danger); color: var(--danger); font-weight: 600; }
+.field-del .icon { width: 17px; height: 17px; }
+.field-del.armed { background: var(--danger); color: #fff; }
+.field-sent-title { margin: 22px 2px 0; font: 600 16px var(--f-body); color: var(--ink); text-transform: none; letter-spacing: 0; }
+.field-sent-hint { margin: 0 2px 2px; font-size: 13.5px; color: var(--ink-2); }
+.field-sent { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.field-sent li + li { border-top: 1px solid var(--line); }
+.sent-row { width: 100%; display: grid; grid-template-columns: auto 1fr auto 18px; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; min-height: 0; border: 0; border-radius: 0; background: none; color: var(--ink); font: inherit; text-align: left; }
+button.sent-row { cursor: pointer; transition: background-color .15s ease; }
+button.sent-row:hover, button.sent-row.current { background: var(--surface-2); }
+button.sent-row:active { background: var(--surface-2); }
+.sent-row .icon { width: 18px; height: 18px; color: var(--ink-2); }
+.sent-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sent-text b { font-weight: 600; font-size: 14.5px; line-height: 1.3; }
+.sent-text small { color: var(--ink-2); font-size: 13px; }
+.seen-pill { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; color: var(--st-todo); background: var(--st-todo-bg, var(--surface-2)); }
+.seen-pill.ok { color: var(--st-done); background: var(--st-done-bg); }
+@media (max-width: 420px) {
+  .sent-row { grid-template-columns: auto 1fr 18px; grid-template-areas: "plate text chev" "plate pill chev"; row-gap: 6px; }
+  .sent-row > .plate { grid-area: plate; align-self: start; }
+  .sent-row > .sent-text { grid-area: text; }
+  .sent-row > .seen-pill { grid-area: pill; justify-self: start; }
+  .sent-row > .icon, .sent-row > span:last-child:empty { grid-area: chev; }
+}
+@media (prefers-reduced-motion: reduce) { .issue-tile:active { transform: none; } }
+.field-plate::-webkit-calendar-picker-indicator { display: none !important; }
 </style>

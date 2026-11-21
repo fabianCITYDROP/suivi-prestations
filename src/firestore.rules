@@ -203,14 +203,19 @@ service cloud.firestore {
       // The robot reads them only to alert the team's phones; it can never write here.
       allow read: if canReadAll() || isRobot() || (isProvider() && resource.data.prestataireId == account().prestataireId);
       allow create: if isProvider() && validReport(request.resource.data);
-      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'traiteAt', 'traitePar'])
-                    && request.resource.data.statut in ['nouveau', 'traite'];
+      allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'traiteAt', 'traitePar'])
+                    && request.resource.data.statut in ['nouveau', 'traite'])
+                    // « Signaler »: its author changes a report seen in passing, until the team has handled it.
+                    || (isProvider() && resource.data.get('source', '') == 'terrain' && resource.data.statut == 'nouveau'
+                    && resource.data.par == email() && resource.data.prestataireId == account().prestataireId
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plaque', 'quoi', 'texte', 'photo', 'modifieAt'])
+                    && validReport(request.resource.data) && request.resource.data.modifieAt is string && request.resource.data.modifieAt.size() <= 40);
       // Sent by mistake: its author deletes it, as long as the team has not handled it yet.
       allow delete: if isAdmin() || (isProvider() && resource.data.prestataireId == account().prestataireId
                     && resource.data.par == email() && resource.data.statut == 'nouveau');
     }
     function validReport(s) {
-      return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'statut', 'at', 'par', 'source', 'quoi'])
+      return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'statut', 'at', 'par', 'source', 'quoi', 'modifieAt'])
         && s.keys().hasAll(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'statut', 'at', 'par'])
         && s.prestataireId == account().prestataireId && s.par == email() && s.statut == 'nouveau'
         && s.type in ['choc', 'pneu', 'voyant', 'autre']
