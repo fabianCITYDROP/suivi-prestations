@@ -1076,8 +1076,9 @@
       if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) goToDay(D.addDays(state.day, dx < 0 ? 7 : -7));
     });
   })();
-  $("#prevDay").onclick = () => goToDay(D.addDays(state.day, -1));
-  $("#nextDay").onclick = () => goToDay(D.addDays(state.day, 1));
+  // The arrows move a whole week, like the swipe; the same weekday stays selected.
+  $("#prevDay").onclick = () => goToDay(D.addDays(state.day, -7));
+  $("#nextDay").onclick = () => goToDay(D.addDays(state.day, 7));
   $("#todayBtn").onclick = () => goToDay(today());
   $("#dayPick").onchange = (e) => e.target.value && goToDay(e.target.value);
   const setProviderFilter = (value) => {
