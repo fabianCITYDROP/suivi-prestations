@@ -47,7 +47,7 @@
 .login-sent-ico { flex: none; width: 34px; height: 34px; margin-top: 1px; }
 .login-sent-ico .login-art { width: 34px; height: 34px; overflow: visible; }
 
-/* Bouton capsule, même famille que « OK prestation réalisée ». */
+/* Bouton capsule, même famille que « Prestation réalisée ». */
 .login-btn { position: relative; width: 100%; min-height: 54px; margin-top: 6px; padding: 0 20px; border: 0; border-radius: 999px; display: grid; place-items: center;
   font: 650 17px var(--f-body); letter-spacing: -.01em; color: #fff; cursor: pointer;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);

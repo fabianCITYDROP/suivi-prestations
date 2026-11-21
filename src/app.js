@@ -73,7 +73,7 @@
   }
 
   let toastTimer;
-  // action (optional): { label, run } adds one button to the bubble, e.g. « Corriger » just after « OK prestation réalisée ».
+  // action (optional): { label, run } adds one button to the bubble, e.g. « Corriger » just after « Prestation réalisée ».
   function toast(text, action) {
     const el = $("#toast");
     el.textContent = text; el.hidden = false; el.classList.toggle("with-action", !!action);
