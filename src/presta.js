@@ -116,9 +116,9 @@
     // Same sheet as « Signaler »: the card stays where it is, nothing unfolds inside the list.
     const ACTS = {
       done: { title: "Prestation réalisée ?", btn: "Confirmer : réalisée", noteLabel: "Un mot pour l'équipe", ph: "Ex. RAS, tout est propre" },
-      undo: { title: "Remettre à faire ?", text: "Ce véhicule revient dans ta liste à faire. L'équipe est prévenue.", btn: "Oui, remettre à faire", noteLabel: "Un mot pour l'équipe", ph: "Ex. c'était le véhicule d'à côté" },
+      undo: { title: "Remettre à faire ?", btn: "Oui, remettre à faire", noteLabel: "Un mot pour l'équipe", ph: "Ex. c'était le véhicule d'à côté" },
       date: { title: "Reporter", btn: "Proposer cette date", noteLabel: "Un mot pour l'équipe", ph: "Ex. complet jeudi matin" },
-      absent: { title: "Véhicule absent", text: "L'équipe City-Drop est prévenue tout de suite.", btn: "Signaler le véhicule absent", noteLabel: "Un mot pour l'équipe", ph: "Ex. pas sur le parking à 9 h" },
+      absent: { title: "Véhicule absent", btn: "Signaler le véhicule absent", noteLabel: "Un mot pour l'équipe", ph: "Ex. pas sur le parking à 9 h" },
       refuse: { title: "Pas possible", btn: "Confirmer : pas possible", noteLabel: "Pourquoi ?", ph: "Ex. pièce indisponible" },
       problem: { title: "Problème sur le véhicule", btn: "Envoyer à l'équipe" },
     };
@@ -284,7 +284,7 @@
           ${todo ? tile(todo, `demande${todo > 1 ? "s" : ""} à valider`) : `<div class="ask-stat all"><b>${icon("check")}</b><span>Tu as répondu à tout</span></div>`}
           ${tile(waiting, "en attente de l'équipe", waiting ? " wait" : " none")}
         </section>
-        <p class="ask-sum-sub">${todo ? "Accepte chaque demande, ou propose une autre date." : "L'équipe City-Drop te répond ici."}</p>${list.map(validateCard).join("")}`;
+        ${list.map(validateCard).join("")}`;
     }
     // The day at a glance: what is left, what is already done today (green bar = done only).
     function daySummary(left) {
@@ -335,7 +335,6 @@
       return `<div class="act-sheet veh-sheet" data-asheet>
         <div class="act-veh">${serviceTile(d, "svc-tile sm")}<span>${plateTag(d.plaque)}<small>${esc([D.vehicleLabel(d), D.jobLabel(d)].filter(Boolean).join(" · "))}</small></span></div>
         <div class="veh-info">${jobMeta(d)}${photosStrip(d)}${answerLine(d)}${problemLines(d)}</div>
-        <p class="veh-hint">Le véhicule est déjà sur site ? Tu peux le faire en avance.</p>
         ${state.busy.has(d.id) ? busyLine : `<div class="job-actions">
           <button type="button" class="primary big ok-btn" data-act="done" data-id="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Prestation réalisée</button>
           <div class="act-row">${actBtn("date", d.id, "Reporter")}${actBtn("absent", d.id, "Véhicule absent")}${actBtn("problem", d.id, "Problème")}</div></div>`}</div>`;
@@ -366,7 +365,7 @@
     }
     function monthSheetBody() {
       const months = Array.from({ length: 12 }, (_, i) => monthOf(i + 1));
-      return `<div class="month-sheet"><p class="sheet-sub">Le mois en cours est dans « 40 derniers jours ».</p>
+      return `<div class="month-sheet">
         ${[...D.groupBy(months, (ym) => ym.slice(0, 4)).entries()].map(([y, list]) => `<section><h3 class="sheet-label">${y}</h3><div class="month-grid">
           ${list.map((ym) => `<button type="button" class="day-chip" data-month-pick="${ym}" aria-pressed="${state.month === ym}">${esc(monthShort(ym))}</button>`).join("")}</div></section>`).join("")}
         <label class="sheet-group"><span class="sheet-label">Plus ancien</span><input type="month" class="sheet-input" data-month value="${esc(state.month)}" max="${monthOf(1)}"></label></div>`;
@@ -422,7 +421,7 @@
         : `<button type="button" class="field-del" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer</button>`;
       const plates = [...new Set(state.demandes.map((d) => d.plaque).filter(Boolean))];
       const mine = state.problems.filter(D.isFieldReport).sort((a, b) => (b.at || "").localeCompare(a.at || "")).slice(0, 15);
-      return `<p class="sheet-sub">${editing ? "City-Drop verra la nouvelle version." : "Sur n'importe quel véhicule de la flotte, même hors de vos interventions."}</p>
+      return `
         <datalist id="fieldPlates">${plates.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
         <label class="sheet-group"><span class="sheet-label">Immatriculation</span><input class="field-plate" data-fplate data-keep="fplate" value="${esc(r.plaque)}" placeholder="AB-123-CD" autocapitalize="characters" autocomplete="off" spellcheck="false" list="fieldPlates" maxlength="12"></label>
         <fieldset class="issue-set"><legend class="sheet-label">Anomalies constatées</legend><div class="issue-grid">
@@ -433,7 +432,7 @@
         ${state.fieldBusy ? busyLine : editing
           ? `<div class="field-actions"><button type="button" class="primary big" data-fsend aria-disabled="${!fieldReady()}">Enregistrer</button><div class="field-actions-row"><button type="button" class="ghost" data-fcancel>Annuler</button>${del}</div></div>`
           : `<button type="button" class="primary big field-send" data-fsend aria-disabled="${!fieldReady()}">Transmettre à City-Drop</button>`}
-        ${mine.length && !editing ? `<h3 class="sheet-label sent-title">Signalements récents</h3><ul class="field-sent">${mine.map(sentRow).join("")}</ul><p class="field-sent-hint">Modifiable tant que City-Drop ne l'a pas traité.</p>` : ""}`;
+        ${mine.length && !editing ? `<h3 class="sheet-label sent-title">Signalements récents</h3><ul class="field-sent">${mine.map(sentRow).join("")}</ul>` : ""}`;
     }
     function sentRow(p) {
       const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${miniIcons(p.quoi) ? `<span class="mini-arts">${miniIcons(p.quoi)}</span>` : ""}${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}${p.modifieAt ? " · modifié" : ""}</small></span>
