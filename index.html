@@ -2774,8 +2774,8 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
 /* Cartes des prestataires : moins de marge, coins moins ronds, plaque plus fine. */
 .job { padding: 12px; gap: 10px; border-radius: 16px; }
 .job-head { gap: 10px; }
-.job .plate, .ask-card .plate { font-size: 13.5px; }
-.job .plate span, .ask-card .plate span { padding: 4px 6px; }
+.job .plate, .ask-card .plate, .ask-plate .plate, .done-line .plate, .up-line .plate { font-size: 15.5px; }
+.job .plate span, .ask-card .plate span, .ask-plate .plate span, .done-line .plate span, .up-line .plate span { padding: 5px 7px; }
 .job-photos img { width: 56px; height: 56px; }
 .spot-head .spot-pin { flex-basis: 26px; width: 26px; height: 26px; }
 .spot-head .spot-pin .icon { width: 15px; height: 15px; }
@@ -2786,11 +2786,11 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
 .day-sum p { font-size: 14px; }
 .day-sum b { font-size: 15px; }
 
-/* Bouton principal « Prestation réalisée » / « Accepter » : même rôle, hauteur d'un bouton iPhone. */
-.job-actions .ok-btn, .ok-btn { min-height: 46px; font-size: 16px; gap: 10px; padding: 0 16px 0 8px; }
-.ok-badge { left: 6px; width: 32px; height: 32px; }
-.ok-badge .icon { width: 17px; height: 17px; }
-.job-actions .primary.big, .job-actions .big { min-height: 46px; font-size: 15.5px; }
+/* Bouton principal « Prestation réalisée » / « Accepter » : même poids que la plaque au-dessus (Fabian, 21/11). */
+.job-actions .ok-btn, .ok-btn { min-height: 42px; font-size: 15px; font-weight: 600; gap: 8px; padding: 0 14px 0 8px; }
+.ok-badge { left: 6px; width: 28px; height: 28px; }
+.ok-badge .icon { width: 15px; height: 15px; }
+.job-actions .primary.big, .job-actions .big { min-height: 42px; font-size: 15px; }
 
 /* Actions secondaires rondes (Reporter, Véhicule absent, Problème) : 56 → 40 px. */
 .act-ico { width: 40px; height: 40px; }
