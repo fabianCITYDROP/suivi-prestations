@@ -215,6 +215,15 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     `<path d="M5.5 27.5h10.2l2.2 4.3h12.2l2.2-4.3h10.2" fill="none" ${S}/><path d="M7.2 29h7.6" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".9"/>` +
     `<circle cx="35" cy="12.6" r="8.6" fill="url(#i3-spg)" ${S}/><ellipse cx="32.8" cy="8.8" rx="4.8" ry="2.4" fill="url(#i3-shine)" opacity=".6"/>` +
     `<path d="M31 12.8l2.8 2.8 5.2-5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // Résumé de « À valider » : le même bac, avec une demande (feuille) qui attend dedans.
+  ICONS["ask-inbox"] = ground(24, 42.4, 19, 2.2) +
+    solid("M5.5 27.5l5.2-13.8a2.4 2.4 0 0 1 2.2-1.6h22.2a2.4 2.4 0 0 1 2.2 1.6l5.2 13.8V36a3 3 0 0 1-3 3H8.5a3 3 0 0 1-3-3Z") +
+    `<path d="M9.4 27.5l4.4-11.6h20.4l4.4 11.6Z" fill="#c9d4dc"/>` +
+    `<path d="M14.6 5.6h18.8a1.6 1.6 0 0 1 1.6 1.6V30H13V7.2a1.6 1.6 0 0 1 1.6-1.6Z" fill="#fff" ${S}/>` +
+    `<path d="M16.6 10.2h9.6" stroke="#0f6f8f" stroke-width="2.2" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="1.6" stroke-linecap="round"><path d="M16.6 14.8h14.8"/><path d="M16.6 18.8h14.8"/><path d="M16.6 22.8h9.8"/></g>` +
+    solid("M5.5 27.5h10.2l2.2 4.3h12.2l2.2-4.3h10.2V36a3 3 0 0 1-3 3H8.5a3 3 0 0 1-3-3Z") +
+    `<path d="M7.2 29h7.6" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".9"/>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
