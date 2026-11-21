@@ -109,25 +109,40 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
 .login-row input { min-height: 44px; }
 .login-btn { min-height: 48px; }
 
-/* ===== Icônes au trait (2026-11-21) : menu « Plus », Réglages, Bilan, Retours › Déjà traités.
-   Même trait que la barre du bas (Planning, Retours, Historique) : pas de tuile en relief, gris ; couleur seulement quand elle dit un statut. ===== */
+/* ===== Icônes au trait (2026-11-21, v2) : menu « Plus », Réglages, Bilan, Retours › Déjà traités.
+   Même trait que la barre du bas (Planning, Retours, Historique) : pas de tuile en relief, petit, gris ; couleur seulement quand elle dit un statut. ===== */
 .more-art, .more-tile { width: 24px; height: 24px; border-radius: 0; background: none; box-shadow: none; color: var(--ink-2); }
 .more-art .icon, .more-tile .icon { width: 22px; height: 22px; stroke-width: 1.9; }
 .nav-menu button[aria-current] .more-art { color: var(--accent); }
 .more-row + .more-row::before { left: 52px; }
 .more-row { min-height: 52px; }
 
-.rg-ico, .rg-ico.sm { width: 28px; height: 28px; border-radius: 0; background: none; box-shadow: none; color: var(--ink-2); }
-.rg-ico .icon { width: 22px; height: 22px; stroke-width: 1.9; }
-.rg-ico.lg { width: 52px; height: 52px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 7%, transparent); box-shadow: none; }
-.rg-ico.lg .icon { width: 26px; height: 26px; stroke-width: 1.8; }
+/* Réglages : icône de 18 px au trait, grise ; pas d'icône devant les prestataires. */
+.rg-ico, .rg-ico.sm { width: 20px; height: 20px; border-radius: 0; background: none; box-shadow: none; color: var(--ink-2); }
+.rg-ico .icon { width: 18px; height: 18px; stroke-width: 1.9; }
+.rg-ico.lg { width: 40px; height: 40px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 6%, transparent); box-shadow: none; }
+.rg-ico.lg .icon { width: 20px; height: 20px; stroke-width: 1.8; }
+.rg-ico.plus .icon { width: 18px; height: 18px; stroke-width: 2.2; }
 .rg-danger .rg-ico { color: var(--danger); }
+.rg-row { min-height: 50px; }
+.rg-row + .rg-row::before, #s-provs + .rg-row::before, .rg-list > div > .rg-row + .rg-row::before { left: 46px; }
+#s-provs .rg-row + .rg-row::before { left: 16px; }
 
-.bil-gl { display: grid; place-items: center; grid-row: span 2; width: 24px; height: 24px; color: var(--ink-2); }
-.bil-gl .icon { width: 22px; height: 22px; stroke-width: 2.2; }
+/* Bilan : une seule bande de 4 chiffres, sans icône ; couleur sur le chiffre (vert réalisés, orange à confirmer). */
+.bil-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0 0 4px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); overflow: hidden; }
+.bil-stat { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 0; padding: 10px 4px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: center; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.bil-stat + .bil-stat::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; border-left: .5px solid var(--line-strong); }
+.bil-stat b { font: 700 19px/1.1 -apple-system, BlinkMacSystemFont, var(--f-body); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.bil-stat span { font: 500 11.5px/1.2 var(--f-body); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.bil-stat.ok b { color: var(--st-done); } .bil-stat.todo b { color: var(--st-todo); }
+.bil-stat:disabled { cursor: default; } .bil-stat:disabled b { color: var(--ink-2); opacity: .6; }
+.bil-stat:active:not(:disabled) { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.bil-gl { display: grid; place-items: center; flex: none; color: var(--ink-2); }
 .bil-gl.ok { color: var(--st-done); } .bil-gl.todo { color: var(--st-todo); }
-.ret-tile:disabled .bil-gl { opacity: .6; }
-.bil-check .bil-gl { width: 20px; height: 20px; margin-top: 1px; } .bil-check .bil-gl .icon { width: 19px; height: 19px; }
+.bil-check { gap: 10px; }
+.bil-check .bil-gl { width: 16px; height: 16px; margin-top: 2px; } .bil-check .bil-gl .icon { width: 16px; height: 16px; stroke-width: 2.2; }
 
-.ret-done-tick { display: grid; place-items: center; flex: none; width: 24px; height: 24px; margin-top: 2px; color: var(--st-done); }
-.ret-done-tick .icon { width: 20px; height: 20px; stroke-width: 2.6; }
+/* Retours › Déjà traités : pas de colonne d'icône, une petite coche verte devant l'heure. */
+.ret-card.no-ico .ret-open { grid-template-columns: minmax(0, 1fr) auto; }
+.ret-done-tick { display: inline-grid; place-items: center; vertical-align: -2px; margin-right: 4px; color: var(--st-done); }
+.ret-done-tick .icon { width: 14px; height: 14px; stroke-width: 2.8; }

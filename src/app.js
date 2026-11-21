@@ -1999,7 +1999,7 @@
       t.flat ? `<span class="bil-note">${t.flat} contrôle${t.flat > 1 ? "s" : ""} hayon au forfait mensuel, hors total</span>` : "",
       t.unpriced ? `<span class="bil-note wait">${plural(t.unpriced, "prestation réalisée")} sans prix : à vérifier sur la facture</span>` : "",
     ].join("");
-    const tile = (art, n, label, jump, tone = "") => `<button type="button" class="ret-tile bil-tile ${tone}" data-bil-jump="${jump}"${n ? "" : " disabled"}>${bilGlyph(art)}<b>${n}</b><span>${label}</span></button>`;
+    const tile = (art, n, label, jump) => `<button type="button" class="bil-stat ${BIL_LINE[art][1]}" data-bil-jump="${jump}"${n ? "" : " disabled"}><b>${n}</b><span>${label}</span></button>`;
     $("#b-body").innerHTML = `
       <section class="bil-hero">
         <div class="bil-hero-top">
@@ -2011,7 +2011,7 @@
         ${dayChart(report, month)}
         ${notes ? `<div class="bil-notes">${notes}</div>` : ""}
       </section>
-      <div class="ret-tiles bil-tiles">${tile("ret-fait", t.done, "Réalisés", "done")}${tile("bil-attente", t.overdue, "À confirmer", "overdue", "wait")}${tile("act-date", t.upcoming, "À venir", "upcoming")}${tile("bil-annule", t.cancelled, "Annulés", "cancelled")}</div>
+      <div class="bil-stats">${tile("ret-fait", t.done, "Réalisés", "done")}${tile("bil-attente", t.overdue, "À confirmer", "overdue")}${tile("act-date", t.upcoming, "À venir", "upcoming")}${tile("bil-annule", t.cancelled, "Annulés", "cancelled")}</div>
       <div class="bil-cols"><div class="bil-col">
       ${provider ? invoiceSection(provider, report) : providerCard(report)}
       ${splitCard(report)}
@@ -2374,7 +2374,7 @@
       const st = D.providerAlertStatus(state.alertDevices, state.accounts, D.providerId(p));
       const prices = pricesOf(D.providerId(p)).length;
       const sub = [i === 0 ? "Par défaut" : "", offers.length ? offers.map((f) => f.label).join(" · ") : "Aucune prestation cochée", prices ? plural(prices, "tarif") : ""].filter(Boolean).join(" · ");
-      return rgRow({ open: "prov:" + p, art: offers[0]?.art || "svc-intervention", title: p, sub, cls: "rg-prov",
+      return rgRow({ open: "prov:" + p, title: p, sub, cls: "rg-prov",
         value: st ? `<span class="rg-val alert-chip" title="${esc(st.title)}"><i class="rg-dot ${RG_TONE[st.level]}" aria-hidden="true"></i><span class="rg-val-t">${esc(ALERT_SHORT[st.level])}</span></span>` : "" });
     }).join("") + (state.canWrite ? `<button type="button" class="rg-row rg-add" data-rg-open="prov-new"><span class="rg-ico plus" aria-hidden="true">${icon("plus")}</span><span class="rg-txt"><b>Ajouter un prestataire</b></span></button>` : "");
     const noAddress = state.sites.filter((s) => !s.adresse).length;
@@ -3101,11 +3101,11 @@
     const thumb = v.photo ? `<span class="ret-thumb" data-thumb="${esc(v.photo)}">${ret.thumbs.get(v.photo) ? `<img src="${ret.thumbs.get(v.photo)}" alt="">` : ""}${icon("image")}</span>` : "";
     const meta = [v.who, v.job, v.d && D.siteOf(v.d)].filter(Boolean).join(" · ");
     const acts = state.canWrite ? v.acts.filter((a) => !["open", "replan"].includes(a.act) || v.d) : [];
-    return `<article class="ret-card${isRetDone(it) ? " done" : ""}" data-ret="${esc(it.key)}">
+    return `<article class="ret-card${isRetDone(it) ? " done no-ico" : ""}" data-ret="${esc(it.key)}">
       <button type="button" class="ret-open" data-ret-open="${esc(it.key)}" aria-label="${esc(`${v.kind} : ${v.plate} – détail`)}">
-        ${isRetDone(it) ? `<span class="ret-done-tick" aria-hidden="true">${icon("check")}</span>` : `<span class="ret-ico" aria-hidden="true">${retArt(v.art)}</span>`}
+        ${isRetDone(it) ? "" : `<span class="ret-ico" aria-hidden="true">${retArt(v.art)}</span>`}
         <span class="ret-main">
-          <span class="ret-line">${plateTag(v.plate)}<span class="ret-time">${esc(isRetDone(it) ? it.at.slice(11, 16).replace(":", "h") : timeOf(it.at))}</span></span>
+          <span class="ret-line">${plateTag(v.plate)}<span class="ret-time">${isRetDone(it) ? `<span class="ret-done-tick" aria-hidden="true">${icon("check")}</span>` : ""}${esc(isRetDone(it) ? it.at.slice(11, 16).replace(":", "h") : timeOf(it.at))}</span></span>
           <span class="ret-what">${v.extraArts?.length ? `<span class="ret-minis">${v.extraArts.map((q) => retArt(q, "mini-art")).join("")}</span>` : ""}${esc(v.whatOverride || v.what)}</span>
           ${v.note ? `<span class="ret-note">${esc(v.note)}</span>` : ""}
           <span class="ret-meta">${esc(meta)}${v.doneLine && v.doneLine !== "Vu" ? ` · ${esc(v.doneLine)}` : ""}${v.edited ? ` · ${esc(v.edited)}` : ""}</span>
