@@ -169,3 +169,10 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
   .ret-card.side .ret-line { flex-wrap: wrap; row-gap: 2px; }
   .ret-card.side .ret-what { flex-basis: 100%; white-space: normal; }
 }
+
+/* Plaque copiée d'un appui (Fabian, 21/11) : la plaque s'enfonce un instant, une petite bulle « Copié » apparaît au-dessus. */
+.plate { cursor: pointer; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; transition: transform .16s cubic-bezier(.2, .8, .2, 1); }
+.plate:active, .plate.copied { transform: scale(.95); }
+.plate-copied { position: fixed; z-index: 90; transform: translate(-50%, calc(-100% - 4px)) scale(.9); padding: 4px 9px; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: 12px; font-weight: 600; letter-spacing: .01em; pointer-events: none; opacity: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, .18); transition: opacity .18s ease, transform .22s cubic-bezier(.2, .8, .2, 1); }
+.plate-copied.on { opacity: 1; transform: translate(-50%, calc(-100% - 8px)) scale(1); }
+@media (prefers-reduced-motion: reduce) { .plate:active, .plate.copied { transform: none; } .plate-copied, .plate-copied.on { transform: translate(-50%, calc(-100% - 8px)); } }
