@@ -398,7 +398,7 @@ test("a mail request gets its provider, model, site and price from the app", () 
     providerNames: ["ALLO pare-brise 78", "Du sol au toit", "Khalid"],
     pricesOf: (id) => (id === "du-sol-au-toit" ? [{ service: "lavage", prixHT: 37 }] : []),
   };
-  assert.deepEqual(D.mailCompletion(mail, ctx), { prestataire: "Du sol au toit", modele: "Renault Master 2025", cubage: 20, site: "Coignières", adresse: "", prestataireId: "du-sol-au-toit", prixHT: 37 });
+  assert.deepEqual(D.mailCompletion(mail, ctx), { prestataire: "Du sol au toit", modele: "Renault Master 2025", cubage: 20, site: "Coignières", adresse: "", siteAuto: "plaque", prestataireId: "du-sol-au-toit", prixHT: 37 });
   const done = { ...mail, ...D.mailCompletion(mail, ctx) };
   assert.equal(D.mailCompletion(done, ctx), null, "nothing more to add once completed");
   assert.equal(D.mailCompletion(demande({}), ctx), null, "requests typed in the app are left alone");
@@ -411,6 +411,38 @@ test("the garage named in a mail is matched to a provider of the app", () => {
   assert.equal(D.providerFromGarage("Khalid", names), "Khalid Lavage");
   assert.equal(D.providerFromGarage("Garage inconnu", names), "");
   assert.equal(D.providerFromGarage("Lavage", names), "", "a generic word alone matches nobody");
+});
+
+test("each City-Drop garage gives the provider and the site of a mail request", () => {
+  const sites = [{ nom: "La Défense", adresse: "Rue des Hautes Pâtures, 92000 Nanterre" }, { nom: "Lille", adresse: "1 rue X, 59000 Lille" }, { nom: "Aulnay", adresse: "" }];
+  const garages = [{ garage: "Du sol au toit", prestataire: "DSAT (du sol au toit)", site: "La Défense" }];
+  const ctx = { demandes: [], vehicleOf: () => null, providerNames: ["DSAT (du sol au toit)", "Allo Pare brise"], pricesOf: () => [{ service: "lavage", prixHT: 42 }], garages, sites };
+  const mail = (garageMail, over = {}) => ({ id: "m", source: "mail", plaque: "AA-111-AA", service: "lavage", statut: "envoyee", garageMail, ...over });
+  // Same provider, two sites: never a second provider, the price stays the provider's.
+  assert.deepEqual(D.mailCompletion(mail("Du sol au toit"), ctx),
+    { prestataire: "DSAT (du sol au toit)", site: "La Défense", adresse: "Rue des Hautes Pâtures, 92000 Nanterre", siteAuto: "garage", prestataireId: "dsat-du-sol-au-toit", prixHT: 42 });
+  const lille = D.mailCompletion(mail("Du Sol au Toit Lille"), ctx);
+  assert.equal(lille.prestataire, "DSAT (du sol au toit)"); assert.equal(lille.site, "Lille"); assert.equal(lille.prixHT, 42);
+  // A rule set later corrects a site the app guessed, while the request is open, never a site chosen by hand.
+  const later = { ...ctx, garages: [...garages, { garage: "Du sol au toit Lille", prestataire: "DSAT (du sol au toit)", site: "Aulnay" }] };
+  const guessed = mail("Du sol au toit Lille", { prestataire: "DSAT (du sol au toit)", prestataireId: "dsat-du-sol-au-toit", prixHT: 42, site: "Lille", adresse: "1 rue X, 59000 Lille", siteAuto: "garage" });
+  assert.deepEqual(D.mailCompletion(guessed, later), { site: "Aulnay", adresse: "", siteAuto: "garage" });
+  assert.equal(D.mailCompletion({ ...guessed, siteAuto: undefined }, later), null, "edited by the team");
+  assert.equal(D.mailCompletion({ ...guessed, statut: "realisee" }, later), null, "a closed request stays as it was");
+  assert.equal(D.mailCompletion({ ...guessed, site: "Aulnay", adresse: "" }, later), null);
+  // Garage names are compared without case, accents or punctuation; unknown words name no site.
+  assert.equal(D.garageRuleOf("DU SOL AU TOIT", garages).site, "La Défense");
+  assert.equal(D.siteFromGarage("Du sol au toit 78&92", "DSAT (du sol au toit)", sites), null);
+  assert.equal(D.siteFromGarage("Allo pare-brise La Défense", "Allo Pare brise", sites).nom, "La Défense");
+});
+
+test("the garages list shows every garage seen in mails and what is missing", () => {
+  const sites = [{ nom: "La Défense", adresse: "" }, { nom: "Lille", adresse: "" }];
+  const demandes = [{ source: "mail", garageMail: "Du sol au toit" }, { source: "mail", garageMail: "du sol au toit" }, { source: "mail", garageMail: "Du sol au toit Lille" }, { garageMail: "x" }];
+  const rows = D.garageList(demandes, [{ garage: "Du Sol au Toit", prestataire: "DSAT", site: "La Défense" }], { providerNames: ["DSAT", "DSAT (du sol au toit)"], sites });
+  assert.deepEqual(rows.map((r) => [r.garage, r.guessProvider, r.guessSite, r.count, r.missing]),
+    [["Du Sol au Toit", "DSAT", "La Défense", 2, false], ["Du sol au toit Lille", "DSAT (du sol au toit)", "Lille", 1, false]]);
+  assert.deepEqual(D.normalizeGarages([{ garage: " A " }, { garage: "a" }, { garage: "" }, null]), [{ garage: "A", prestataire: "", site: "" }]);
 });
 
 test("editing an imported request keeps what lets a later mail cancel it", () => {

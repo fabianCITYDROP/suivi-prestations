@@ -45,6 +45,14 @@ test("l'équipe CityDrop voit et modifie tout", async () => {
   await assertSucceeds(setDoc(doc(db, "comptes/nouveau@exemple.fr"), { role: "prestataire", prestataireId: KHALID }));
   await assertSucceeds(updateDoc(doc(db, "prestataires", ALLO), { tarifs: [] }));
   await assertSucceeds(setDoc(doc(db, "config/reglages"), { prestataires: [] }));
+  await assertSucceeds(setDoc(doc(db, "config/garages"), { liste: [{ garage: "Du sol au toit", prestataire: "Khalid", site: "La Défense" }] }));
+});
+
+test("les garages des mails : seule l'équipe les modifie", async () => {
+  for (const who of ["khalid", "robot"]) {
+    await assertFails(getDoc(doc(as(who), "config/garages")));
+    await assertFails(setDoc(doc(as(who), "config/garages"), { liste: [] }));
+  }
 });
 
 test("Khalid ne voit ni les demandes ni les tarifs d'Allo Pare-Brise", async () => {

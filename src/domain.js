@@ -439,20 +439,65 @@
     if (!scored.length || (scored[1] && scored[1].score === scored[0].score)) return "";
     return scored[0].name;
   }
+  // City-Drop has one « garage » per provider AND site (« Du sol au toit » = La Défense, « Du sol au toit <ville> » = the
+  // other site), because its mails carry no address. Réglages › Garages des mails says, per garage name, which provider
+  // of the app and which site it is: config/reglages.garages [{garage, prestataire, site}]. Never a new provider.
+  const garageKey = (name) => providerId(name);
+  function normalizeGarages(list) {
+    const seen = new Set();
+    return (Array.isArray(list) ? list : []).map((g) => ({ garage: String(g?.garage || "").trim(), prestataire: String(g?.prestataire || ""), site: String(g?.site || "") }))
+      .filter((g) => g.garage && !seen.has(garageKey(g.garage)) && seen.add(garageKey(g.garage)));
+  }
+  const garageRuleOf = (garage, garages) => { const k = garageKey(garage); return (k && (garages || []).find((g) => garageKey(g.garage) === k)) || null; };
+  // Without a rule: the words of the garage name that are not the provider's (« lille » in « Du sol au toit Lille »)
+  // name the site when they fit exactly one site of the app.
+  function siteFromGarage(garage, provider, sites) {
+    const own = new Set(nameWords(provider));
+    const words = nameWords(garage).filter((w) => !own.has(w));
+    if (!words.length) return null;
+    const hits = (sites || []).filter((s) => { const sw = new Set(nameWords(s.nom)); return words.some((w) => sw.has(w)); });
+    return hits.length === 1 ? hits[0] : null;
+  }
+  // The garages seen in mails (and those already set up), with what the app makes of each one.
+  function garageList(demandes, garages, { providerNames, sites }) {
+    const rows = normalizeGarages(garages).map((g) => ({ ...g, saved: true, count: 0 }));
+    demandes.forEach((d) => {
+      if (d.source !== "mail" || !garageKey(d.garageMail)) return;
+      let row = rows.find((r) => garageKey(r.garage) === garageKey(d.garageMail));
+      if (!row) rows.push(row = { garage: String(d.garageMail).trim(), prestataire: "", site: "", saved: false, count: 0 });
+      row.count++;
+    });
+    return rows.map((r) => {
+      const prov = providerNames.includes(r.prestataire) ? r.prestataire : providerFromGarage(r.garage, providerNames);
+      const site = r.site && sites.some((s) => s.nom === r.site) ? r.site : siteFromGarage(r.garage, prov, sites)?.nom || "";
+      return { ...r, guessProvider: prov, guessSite: site, missing: !prov || !site };
+    }).sort((a, b) => b.missing - a.missing || a.garage.localeCompare(b.garage, "fr"));
+  }
   const MAIL_MARKERS = ["source", "mailId", "garageMail", "modeleMail", "km"];
   const mailMarkers = (d) => Object.fromEntries(MAIL_MARKERS.filter((k) => d[k] !== undefined).map((k) => [k, d[k]]));
   // What the team app adds to a mail request: the provider (so the provider sees it), the fleet model known for the
-  // plate, the site of the plate's last request, and the price. Returns null when there is nothing (more) to add.
-  function mailCompletion(d, { demandes, vehicleOf, providerNames, pricesOf }) {
+  // plate, the site (from the garage, else the plate's last request) and the price. Returns null when there is nothing (more) to add.
+  // siteAuto says the site was filled in by the app: a later garage rule may still correct it while the request is open.
+  // A team edit saves the request without it (not a mail marker), so a site chosen by hand is never overwritten.
+  function mailCompletion(d, { demandes, vehicleOf, providerNames, pricesOf, garages = [], sites = [] }) {
     if (d.source !== "mail") return null;
     const patch = {};
-    if (!d.prestataire) { const p = providerFromGarage(d.garageMail, providerNames); if (p) patch.prestataire = p; }
+    const rule = garageRuleOf(d.garageMail, garages);
+    if (!d.prestataire) {
+      const p = rule && providerNames.includes(rule.prestataire) ? rule.prestataire : providerFromGarage(d.garageMail, providerNames);
+      if (p) patch.prestataire = p;
+    }
     const vehicle = vehicleOf(d.plaque);
     if (!d.modele && vehicle?.modele) { patch.modele = vehicle.modele; patch.cubage = vehicle.cubage ?? null; }
-    if (!d.site && !d.adresse) {
+    const provider = d.prestataire || patch.prestataire || "";
+    const bySite = rule?.site ? sites.find((s) => s.nom === rule.site) || null : siteFromGarage(d.garageMail, provider, sites);
+    const empty = !d.site && !d.adresse;
+    if (bySite && (empty || (d.siteAuto && !CLOSED_STATUSES.includes(d.statut)))) {
+      if (empty || d.site !== bySite.nom || (d.adresse || "") !== (bySite.adresse || "")) Object.assign(patch, { site: bySite.nom, adresse: bySite.adresse || "", siteAuto: "garage" });
+    } else if (empty) {
       const last = demandes.filter((o) => o.id !== d.id && plateKey(o.plaque) === plateKey(d.plaque) && (o.site || o.adresse))
         .sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
-      if (last) { patch.site = last.site || ""; patch.adresse = last.adresse || ""; }
+      if (last) { patch.site = last.site || ""; patch.adresse = last.adresse || ""; patch.siteAuto = "plaque"; }
     }
     const merged = { ...d, ...patch };
     if (merged.prestataire && (!d.prestataireId || d.prixHT == null)) {
@@ -1054,7 +1099,7 @@
     monthlyReport, invoiceLines, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_DAYS, TEAM_RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
-    providerFromGarage, mailCompletion, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
+    providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,

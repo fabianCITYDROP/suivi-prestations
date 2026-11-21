@@ -86,7 +86,7 @@
     }
     const OPEN_STATUSES = ["a_envoyer", "envoyee", "confirmee"];
 
-    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onError, recentFrom, hayonFrom, problemsFrom }) {
+    function subscribe({ onDemandes, onVehicles, onModels, onSettings, onProviders, onAccounts, onHayons, onProblems, onRobot, onDevices, onGarages, onError, recentFrom, hayonFrom, problemsFrom }) {
       const requests = db.collection("demandes");
       demandesFeed = createFeed(onDemandes, onError);
       const canQuery = typeof requests.where === "function" && recentFrom;
@@ -127,6 +127,9 @@
         (s) => onDevices(toRows(s).map(({ email, role, prestataireId, appareil, createdAt, updatedAt }) => ({ email, role, prestataireId, appareil, createdAt, updatedAt }))),
         () => onDevices(null)));
       // Trace left by the mail robot: refused until the new rules are published, then simply "not installed".
+      // City-Drop garage → provider + site (Réglages › Garages des mails). Its own document, so that an older copy of the
+      // app saving config/reglages can never erase it.
+      if (onGarages) unsubs.push(db.doc("config/garages").onSnapshot((s) => onGarages((s.exists && s.data().liste) || []), () => onGarages([])));
       if (onRobot) unsubs.push(db.doc("robot/etat").onSnapshot((s) => onRobot(s.exists ? s.data() : null), () => onRobot(null)));
       return () => unsubs.forEach((u) => u());
     }
@@ -408,6 +411,7 @@
     }
 
     const saveSettings = (settings) => db.doc("config/reglages").set(settings);
+    const saveGarages = (liste) => db.doc("config/garages").set({ liste: D.normalizeGarages(liste), updatedAt: new Date().toISOString() });
 
     // Vehicle sheet: fleet model from the latest request, plus its windshield photos.
     async function saveVehicle(vehicle, identity) {
@@ -470,7 +474,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
