@@ -217,7 +217,7 @@
         <fieldset class="issue-set"><legend>Anomalies constatées</legend><div class="issue-grid">
           ${D.FIELD_ISSUES.map((q) => { const on = r.quoi.includes(q); return `<button type="button" class="issue-tile" data-fissue data-q="${esc(q)}" aria-pressed="${on}"><span class="tick" aria-hidden="true">${on ? icon("check") : ""}</span>${esc(q)}</button>`; }).join("")}
         </div></fieldset>
-        <label class="field"><span>${r.quoi.includes("Autre") ? "Commentaire (à préciser pour « Autre »)" : "Commentaire (facultatif)"}</span><input data-ftext data-keep="ftext" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche usé"></label>
+        <label class="field"><span>${r.quoi.includes("Autre") ? "Précision (obligatoire pour « Autre »)" : "Précision (facultatif)"}</span><input data-ftext data-keep="ftext" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche usé"></label>
         ${photo}
         ${state.fieldBusy ? busyLine : editing
           ? `<div class="field-actions"><button type="button" class="primary big" data-fsend>${icon("check")}Enregistrer</button><div class="field-actions-row"><button type="button" class="ghost" data-fcancel>Annuler</button>${del}</div></div>`

@@ -614,8 +614,8 @@
     const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
     if (!plateKey(plate)) return { error: "Immatriculation à renseigner" };
     if (!fieldPlateOk(plate)) return { error: `Immatriculation ${plate} incomplète` };
-    if (!ticks.length && !text) return { error: `Cochez au moins une anomalie pour ${plate}, ou ajoutez un commentaire` };
-    if (ticks.includes("Autre") && !text) return { error: "« Autre » : précisez l'anomalie dans le commentaire" };
+    if (!ticks.length && !text) return { error: `Cochez au moins une anomalie pour ${plate}, ou ajoutez une précision` };
+    if (ticks.includes("Autre") && !text) return { error: "« Autre » : précisez l'anomalie" };
     return { demandeId: "", source: "terrain", plaque: plate, prestataireId, type: "autre", quoi: ticks,
       texte: [fieldTicksText(ticks), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...(photo ? { photo } : {}),
       statut: "nouveau", at: nowIso, par: email };
