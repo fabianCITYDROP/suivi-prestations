@@ -108,3 +108,26 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
 .login-row { min-height: 46px; }
 .login-row input { min-height: 44px; }
 .login-btn { min-height: 48px; }
+
+/* ===== Icônes au trait (2026-11-21) : menu « Plus », Réglages, Bilan, Retours › Déjà traités.
+   Même trait que la barre du bas (Planning, Retours, Historique) : pas de tuile en relief, gris ; couleur seulement quand elle dit un statut. ===== */
+.more-art, .more-tile { width: 24px; height: 24px; border-radius: 0; background: none; box-shadow: none; color: var(--ink-2); }
+.more-art .icon, .more-tile .icon { width: 22px; height: 22px; stroke-width: 1.9; }
+.nav-menu button[aria-current] .more-art { color: var(--accent); }
+.more-row + .more-row::before { left: 52px; }
+.more-row { min-height: 52px; }
+
+.rg-ico, .rg-ico.sm { width: 28px; height: 28px; border-radius: 0; background: none; box-shadow: none; color: var(--ink-2); }
+.rg-ico .icon { width: 22px; height: 22px; stroke-width: 1.9; }
+.rg-ico.lg { width: 52px; height: 52px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 7%, transparent); box-shadow: none; }
+.rg-ico.lg .icon { width: 26px; height: 26px; stroke-width: 1.8; }
+.rg-danger .rg-ico { color: var(--danger); }
+
+.bil-gl { display: grid; place-items: center; grid-row: span 2; width: 24px; height: 24px; color: var(--ink-2); }
+.bil-gl .icon { width: 22px; height: 22px; stroke-width: 2.2; }
+.bil-gl.ok { color: var(--st-done); } .bil-gl.todo { color: var(--st-todo); }
+.ret-tile:disabled .bil-gl { opacity: .6; }
+.bil-check .bil-gl { width: 20px; height: 20px; margin-top: 1px; } .bil-check .bil-gl .icon { width: 19px; height: 19px; }
+
+.ret-done-tick { display: grid; place-items: center; flex: none; width: 24px; height: 24px; margin-top: 2px; color: var(--st-done); }
+.ret-done-tick .icon { width: 20px; height: 20px; stroke-width: 2.6; }
