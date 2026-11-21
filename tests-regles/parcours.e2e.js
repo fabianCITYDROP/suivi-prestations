@@ -167,7 +167,9 @@ const ok = (label, cond) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + label
   await p.click('[data-view="planning"]'); await p.click('#nextDay'); await p.click('#nextDay'); await p.click('#newOnDay'); await p.waitForTimeout(100);
   ok('« Nouvelle demande » from the planning starts on the day being looked at', (await p.inputValue('#f-date')) === day(2));
   await p.click('[data-view="planning"]'); await p.click('#todayBtn'); await p.waitForTimeout(200);
-  ok('day list message is folded behind « Voir le message »', !(await p.isVisible('#dayShare .msg')) && (await p.isVisible('#dayShare [data-copy]')));
+  await p.click('[data-plan-send]'); await p.waitForTimeout(600);
+  ok('day list message opens in a sheet, folded behind « Voir le message »', !(await p.isVisible('#dayShare .msg')) && (await p.isVisible('#dayShare [data-copy]')));
+  await p.click('.team-sheet .sheet-x'); await p.waitForTimeout(400);
   await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(200);
   const bar = await p.evaluate(() => { const r = document.querySelector('nav.tabs').getBoundingClientRect(); return { bottom: r.bottom, h: innerHeight, wide: document.documentElement.scrollWidth <= innerWidth }; });
   ok('phone: menu is a bottom bar and nothing overflows sideways', Math.abs(bar.bottom - bar.h) < 1 && bar.wide);

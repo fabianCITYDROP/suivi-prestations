@@ -65,7 +65,9 @@ const daysAhead = (n) => daysAgo(-n);
   await shot('2-plaque-entiere-ordi.png');
 
   await p.click('#plateResults .pf-line[data-open]'); await p.waitForTimeout(300);
-  ok('a line opens the request', await p.isVisible('#view-demande'));
+  ok('a line opens the request card over the planning', await p.isVisible('.team-sheet.on') && (await p.textContent('.team-sheet')).includes('PL-100-AA'));
+  await p.click('.team-sheet [data-plan-edit]'); await p.waitForTimeout(300);
+  ok('« Modifier » opens the request form', await p.isVisible('#view-demande'));
   await p.goto('http://localhost:8766/#planning'); await p.waitForTimeout(300);
   await p.click('[data-pf-history]'); await p.waitForTimeout(300);
   ok('« Tout l historique » opens the history filtered on the plate', await p.isVisible('#view-historique') && (await p.inputValue('#q')) === 'PL-100-AA');
