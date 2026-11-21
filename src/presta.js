@@ -162,7 +162,8 @@
         const n = lists[t.id]?.length || 0; // « Faits » and « Signaler » show no count
         const badge = n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : "";
         // « Signaler »: the round blue + in the middle of the bar, like the team's « Nouvelle demande ».
-        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}"${t.id === "report" ? ` class="tab-plus" aria-label="Signaler un souci sur un véhicule"` : ""}>${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
+        if (t.id === "report") return `<button type="button" class="tab-plus" data-sheet-open aria-haspopup="dialog" aria-label="Signaler une anomalie">${icon(t.icon)}<span>${t.label}</span></button>`;
+        return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
     }
     function validateTab(list) {
@@ -203,26 +204,41 @@
     const emptyField = () => ({ plaque: "", quoi: [], texte: "", photo: null, photoKey: "", photoBusy: false, editId: null });
     const fd = () => (state.fd ||= emptyField());
     const editable = (p) => p.statut !== "traite" && p.par === email;
-    function fieldForm() {
+    // One drawn icon per anomaly (same 24px grid and stroke as the app's icons): quicker to spot than words.
+    const ISSUE_ICONS = {
+      "Pare-brise": '<path d="M3.5 8.5c5.5-2 11.5-2 17 0l-2 9.5c-4.3-1-8.7-1-13 0z"/><path d="m12.5 8-1.6 3.2 2.3 1.4-1.3 3.4"/>',
+      "Véhicule sale": '<path d="M9 3.5s4 4.6 4 7.5a4 4 0 0 1-8 0c0-2.9 4-7.5 4-7.5z"/><path d="M17 11.5s2.5 2.8 2.5 4.5a2.5 2.5 0 0 1-5 0c0-1.7 2.5-4.5 2.5-4.5z"/>',
+      "Pneu avant": '<path d="M2.5 15.5V8.5a2 2 0 0 1 2-2h9.5l4.5 4.5h1.5a1.5 1.5 0 0 1 1.5 1.5v3"/><circle cx="7" cy="16.5" r="2.2"/><circle cx="17" cy="16.5" r="2.8" class="hot"/>',
+      "Pneu arrière": '<path d="M2.5 15.5V8.5a2 2 0 0 1 2-2h9.5l4.5 4.5h1.5a1.5 1.5 0 0 1 1.5 1.5v3"/><circle cx="7" cy="16.5" r="2.8" class="hot"/><circle cx="17" cy="16.5" r="2.2"/>',
+      "Rétro cassé": '<path d="M4 6.5a2 2 0 0 1 2-2h8.5a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="m11 4.5-1.5 3.5 2.5 1.5-1.5 5"/><path d="M16.5 10H20v8"/>',
+      "Carrosserie": '<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="m12 8.3 1 2.3 2.4-.6-1.3 2.1 2 1.5-2.5.3.2 2.5-1.8-1.6-1.8 1.6.2-2.5-2.5-.3 2-1.5-1.3-2.1 2.4.6z"/>',
+      "Voyant allumé": '<path d="M5 10h2V8h4V6.5h-2M11 6.5h2M7 8h8l2 2h2v5h-2l-2 2H8l-1-2H5z"/><path d="M3 11v3"/>',
+      "Autre": '<circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/>',
+    };
+    const issueIcon = (q) => `<svg class="issue-svg" viewBox="0 0 24 24" aria-hidden="true">${ISSUE_ICONS[q] || ""}</svg>`;
+    const sheetTitle = () => (fd().editId ? "Modifier le signalement" : "Signaler une anomalie");
+    function sheetBody() {
       const r = fd(), editing = !!r.editId;
       const photo = r.photoBusy ? `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`
-        : r.photo || r.photoKey ? `<div class="problem-photo">${r.photo ? `<img src="${safeImageSrc(r.photo.thumb)}" alt="Photo">` : `<span class="photo-kept">${icon("image")}Photo jointe</span>`}<button type="button" class="ghost" data-fphoto-remove>${icon("x")}Retirer la photo</button></div>`
-        : `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-fphoto hidden></label>`;
+        : r.photo || r.photoKey ? `<div class="sheet-photo">${r.photo ? `<img src="${safeImageSrc(r.photo.thumb)}" alt="Photo">` : `<span class="photo-kept">${icon("image")}Photo jointe</span>`}<button type="button" class="ghost" data-fphoto-remove>${icon("x")}Retirer</button></div>`
+        : `<label class="sheet-photo-add">${icon("camera")}<span>Ajouter une photo</span><small>facultatif</small><input type="file" accept="image/*" capture="environment" data-fphoto hidden></label>`;
       const del = state.pdelArmed === r.editId
         ? `<button type="button" class="field-del armed" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer ?</button>`
         : `<button type="button" class="field-del" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer</button>`;
-      return `<article class="job field-card${editing ? " editing" : ""}">
-        ${editing ? `<p class="field-editing">Modification du signalement. L'équipe verra la nouvelle version.</p>` : ""}
-        <label class="field"><span>Immatriculation</span><input class="field-plate" data-fplate data-keep="fplate" value="${esc(r.plaque)}" placeholder="AB-123-CD" autocapitalize="characters" autocomplete="off" spellcheck="false" list="fieldPlates" maxlength="12"></label>
-        <fieldset class="issue-set"><legend>Anomalies constatées</legend><div class="issue-grid">
-          ${D.FIELD_ISSUES.map((q) => { const on = r.quoi.includes(q); return `<button type="button" class="issue-tile" data-fissue data-q="${esc(q)}" aria-pressed="${on}"><span class="tick" aria-hidden="true">${on ? icon("check") : ""}</span>${esc(q)}</button>`; }).join("")}
+      const plates = [...new Set(state.demandes.map((d) => d.plaque).filter(Boolean))];
+      const mine = state.problems.filter(D.isFieldReport).sort((a, b) => (b.at || "").localeCompare(a.at || "")).slice(0, 15);
+      return `<p class="sheet-sub">${editing ? "City-Drop verra la nouvelle version." : "Sur n'importe quel véhicule de la flotte, même hors de vos interventions."}</p>
+        <datalist id="fieldPlates">${plates.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
+        <label class="sheet-group"><span class="sheet-label">Immatriculation</span><input class="field-plate" data-fplate data-keep="fplate" value="${esc(r.plaque)}" placeholder="AB-123-CD" autocapitalize="characters" autocomplete="off" spellcheck="false" list="fieldPlates" maxlength="12"></label>
+        <fieldset class="issue-set"><legend class="sheet-label">Anomalies constatées</legend><div class="issue-grid">
+          ${D.FIELD_ISSUES.map((q) => { const on = r.quoi.includes(q); return `<button type="button" class="issue-tile" data-fissue data-q="${esc(q)}" aria-pressed="${on}"><span class="issue-ico">${issueIcon(q)}<span class="issue-check" aria-hidden="true">${icon("check")}</span></span><span class="issue-lbl">${esc(q)}</span></button>`; }).join("")}
         </div></fieldset>
-        <label class="field"><span>${r.quoi.includes("Autre") ? "Précision (obligatoire pour « Autre »)" : "Précision (facultatif)"}</span><input data-ftext data-keep="ftext" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche usé"></label>
+        <label class="sheet-group"><span class="sheet-label">${r.quoi.includes("Autre") ? "Précision (obligatoire pour « Autre »)" : "Précision (facultatif)"}</span><input class="sheet-input" data-ftext data-keep="ftext" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche usé"></label>
         ${photo}
         ${state.fieldBusy ? busyLine : editing
-          ? `<div class="field-actions"><button type="button" class="primary big" data-fsend>${icon("check")}Enregistrer</button><div class="field-actions-row"><button type="button" class="ghost" data-fcancel>Annuler</button>${del}</div></div>`
-          : `<button type="button" class="primary big field-send" data-fsend>${icon("check")}Transmettre à City-Drop</button>`}
-      </article>`;
+          ? `<div class="field-actions"><button type="button" class="primary big" data-fsend>Enregistrer</button><div class="field-actions-row"><button type="button" class="ghost" data-fcancel>Annuler</button>${del}</div></div>`
+          : `<button type="button" class="primary big field-send" data-fsend>Transmettre à City-Drop</button>`}
+        ${mine.length && !editing ? `<h3 class="sheet-label sent-title">Signalements récents</h3><ul class="field-sent">${mine.map(sentRow).join("")}</ul><p class="field-sent-hint">Modifiable tant que City-Drop ne l'a pas traité.</p>` : ""}`;
     }
     function sentRow(p) {
       const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}${p.modifieAt ? " · modifié" : ""}</small></span>
@@ -230,14 +246,6 @@
       return editable(p)
         ? `<li><button type="button" class="sent-row${fd().editId === p.id ? " current" : ""}" data-fedit="${esc(p.id)}" aria-label="Modifier ou supprimer le signalement ${esc(p.plaque)}">${body}${icon("chev-r")}</button></li>`
         : `<li><div class="sent-row">${body}<span></span></div></li>`;
-    }
-    function reportTab() {
-      const plates = [...new Set(state.demandes.map((d) => d.plaque).filter(Boolean))];
-      const mine = state.problems.filter(D.isFieldReport).sort((a, b) => (b.at || "").localeCompare(a.at || "")).slice(0, 15);
-      return `<p class="tab-intro">Signalez toute anomalie constatée sur un véhicule de la flotte, même hors de vos interventions. Un véhicule par envoi.</p>
-        <datalist id="fieldPlates">${plates.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
-        ${fieldForm()}
-        ${mine.length ? `<h2 class="field-sent-title">Signalements récents</h2><p class="field-sent-hint">Modifiable ou supprimable tant que City-Drop ne l'a pas traité.</p><ul class="field-sent">${mine.map(sentRow).join("")}</ul>` : ""}`;
     }
     async function sendField() {
       const r = fd();
@@ -250,12 +258,12 @@
         if (r.editId) { await store.updateField(state.problems.find((p) => p.id === r.editId), fields, r.photo?.full, r.photoKey); toast(`Signalement ${D.normalizePlate(r.plaque)} modifié`); }
         else { await store.reportField(account.prestataireId, fields, r.photo?.full); toast(`Signalement ${D.normalizePlate(r.plaque)} transmis, merci`); }
         state.fd = emptyField();
-        window.scrollTo({ top: 0 });
+        sheetEl.querySelector(".sheet-b").scrollTop = 0;
       } catch (err) {
         toast(err?.code === "permission-denied" && r.editId ? "Déjà traité par City-Drop : faites un nouveau signalement" : "Envoi impossible : vérifie ta connexion et réessaie");
       } finally {
         state.fieldBusy = false; render();
-        if (!state.fd.editId) view.querySelector("[data-fplate]")?.focus({ preventScroll: true });
+        if (!state.fd.editId && state.sheetOpen) sheetEl.querySelector("[data-fplate]")?.focus({ preventScroll: true });
       }
     }
     function editField(id) {
@@ -263,7 +271,7 @@
       if (!p || !editable(p)) return;
       state.fd = { ...emptyField(), editId: p.id, plaque: p.plaque, quoi: [...(p.quoi || [])], texte: D.fieldNoteOf(p), photoKey: p.photo || "" };
       state.pdelArmed = null; render();
-      view.querySelector(".field-card")?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      sheetEl.querySelector(".sheet-b").scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     }
     async function deleteReport(id) {
       if (state.pdelArmed !== id) { state.pdelArmed = id; render(); return; }
@@ -279,7 +287,7 @@
       finally { r.photoBusy = false; render(); }
     }
 
-    const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab, report: reportTab };
+    const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
     // Until alerts work on this phone: one card above the tabs, with the one thing to do.
     function alertCard() {
@@ -292,6 +300,57 @@
           ${st === "ask" || st === "error" ? `<button type="button" class="primary big" data-alerts>Activer les alertes</button>` : ""}
         </div>`;
     }
+    // ---------- the « Signaler » sheet: slides up over the screen (iPhone-style), never a new page ----------
+    // Built once; render() only refreshes its content, so it never re-animates. Drag the grabber down to close.
+    view.innerHTML = `<div class="presta-main"></div>
+      <div class="sheet-scrim" data-sheet-close></div>
+      <section class="presta-sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" aria-hidden="true">
+        <div class="sheet-grab" aria-hidden="true"><span></span></div>
+        <header class="sheet-head"><h2 id="sheetTitle">Signaler une anomalie</h2><button type="button" class="sheet-x" data-sheet-close aria-label="Fermer">${icon("x")}</button></header>
+        <div class="sheet-b"></div>
+      </section>`;
+    const main = view.querySelector(".presta-main");
+    const sheetEl = view.querySelector(".presta-sheet");
+    let lastFocus = null;
+    function openSheet() {
+      if (state.sheetOpen) return;
+      state.sheetOpen = true; lastFocus = document.activeElement; render();
+      sheetEl.style.transform = "";
+      document.body.classList.add("sheet-open"); sheetEl.setAttribute("aria-hidden", "false");
+      requestAnimationFrame(() => sheetEl.classList.add("on"));
+      setTimeout(() => sheetEl.querySelector(".sheet-x")?.focus({ preventScroll: true }), 50);
+    }
+    function closeSheet() {
+      if (!state.sheetOpen) return;
+      state.sheetOpen = false; state.pdelArmed = null;
+      if (state.fd?.editId) state.fd = null; // an edit left half-way is dropped; a new report being typed is kept
+      sheetEl.style.transform = ""; sheetEl.classList.remove("on");
+      document.body.classList.remove("sheet-open"); sheetEl.setAttribute("aria-hidden", "true");
+      lastFocus?.focus?.({ preventScroll: true });
+    }
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.sheetOpen) closeSheet(); });
+    // Drag to dismiss: follows the finger 1:1 from the grabber or the title, closes past 120 px or on a quick flick.
+    (function dragToClose() {
+      let startY = 0, lastY = 0, lastT = 0, v = 0, dragging = false;
+      sheetEl.addEventListener("pointerdown", (e) => {
+        if (!e.target.closest(".sheet-grab, .sheet-head") || e.target.closest("button")) return;
+        dragging = true; startY = lastY = e.clientY; lastT = e.timeStamp; v = 0;
+        sheetEl.setPointerCapture(e.pointerId); sheetEl.classList.add("dragging");
+      });
+      sheetEl.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        const dy = e.clientY - startY;
+        v = (e.clientY - lastY) / Math.max(1, e.timeStamp - lastT); lastY = e.clientY; lastT = e.timeStamp;
+        sheetEl.style.transform = `translateY(${dy > 0 ? dy : dy / 6}px)`; // resists upwards
+      });
+      const end = (e) => {
+        if (!dragging) return;
+        dragging = false; sheetEl.classList.remove("dragging");
+        if (e.clientY - startY > 120 || v > 0.6) closeSheet(); else sheetEl.style.transform = "";
+      };
+      sheetEl.addEventListener("pointerup", end); sheetEl.addEventListener("pointercancel", end);
+    })();
+
     // Re-renders the whole screen, keeping the cursor in the search box while the provider types.
     function render() {
       const lists = D.providerLists(state.demandes, today());
@@ -299,7 +358,7 @@
       const body = state.loaded ? TAB_BODY[state.tab](lists[state.tab]) : loadingHtml;
       const a = document.activeElement;
       const typing = a?.matches?.("[data-keep]") ? `[data-keep="${a.dataset.keep}"]` : a?.matches?.("[data-search], [data-note]") ? (a.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
-      view.innerHTML = `<header class="presta-top">
+      main.innerHTML = `<header class="presta-top">
           <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
           <h1>${esc(cap(D.dayLabel(today())))}</h1>
         </header>
@@ -307,6 +366,8 @@
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
+      sheetEl.querySelector("#sheetTitle").textContent = sheetTitle();
+      sheetEl.querySelector(".sheet-b").innerHTML = sheetBody();
       scheduleUndoEnd();
       const input = typing && view.querySelector(typing);
       if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
@@ -379,10 +440,12 @@
       let b;
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
       else if ((b = el("[data-month-reset]"))) { state.month = ""; render(); }
+      else if ((b = el("[data-sheet-open]"))) openSheet();
+      else if ((b = el("[data-sheet-close]"))) closeSheet();
       else if ((b = el("[data-fissue]"))) {
         const r = fd(), q = b.dataset.q;
         r.quoi = r.quoi.includes(q) ? r.quoi.filter((x) => x !== q) : [...r.quoi, q]; render();
-        if (q === "Autre" && r.quoi.includes("Autre")) view.querySelector("[data-ftext]")?.focus({ preventScroll: true });
+        if (q === "Autre" && r.quoi.includes("Autre")) sheetEl.querySelector("[data-ftext]")?.focus({ preventScroll: true });
       }
       else if ((b = el("[data-fphoto-remove]"))) { fd().photo = null; fd().photoKey = ""; render(); }
       else if ((b = el("[data-fsend]"))) sendField();

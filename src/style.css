@@ -658,23 +658,8 @@ button.pf-line:hover { background: var(--accent-soft); }
 .del-report.armed { color: #fff; background: var(--danger); border-color: var(--danger); }
 /* « Signaler » (2026-11-21 redo): one vehicle at a time, an even 2-column grid of choices, neutral (ink when ticked).
    Colour stays for status only: orange « Envoyé », green « Vu par l'équipe », red only for deleting. */
-.field-card { gap: 16px; }
-.field-card .field input { min-height: 48px; font-size: 16px; }
-.field-plate { font: 700 20px var(--f-body) !important; letter-spacing: .08em; text-transform: uppercase; text-align: center; }
-.field-plate::placeholder { font-weight: 500; letter-spacing: .06em; color: var(--ink-2); opacity: .55; }
-.field-editing { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 14px; color: var(--ink-2); }
-.issue-set { border: 0; margin: 0; padding: 0; min-width: 0; }
-.issue-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.issue-set legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
-.issue-tile { display: flex; align-items: center; gap: 9px; min-height: 50px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: 600 14.5px/1.2 var(--f-body); text-align: left; justify-content: flex-start; cursor: pointer; transition: transform 140ms var(--ease-out), background-color .15s ease, border-color .15s ease, color .15s ease; }
-.issue-tile .tick { flex: none; width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--line-strong); display: grid; place-items: center; transition: background-color .15s ease, border-color .15s ease; }
-.issue-tile .tick .icon { width: 15px; height: 15px; }
-.issue-tile[aria-pressed="true"] { border-color: var(--ink); background: var(--surface-2); }
-.issue-tile[aria-pressed="true"] .tick { background: var(--ink); border-color: var(--ink); color: var(--surface); }
-.issue-tile:active { transform: scale(.97); }
 .photo-kept { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
 .photo-kept .icon { width: 18px; height: 18px; }
-.field-send, .field-actions .primary { width: 100%; min-height: 54px; font-size: 16px; border-radius: 12px; }
 .field-send .icon, .field-actions .primary .icon { width: 21px; height: 21px; }
 .field-actions { display: flex; flex-direction: column; gap: 8px; }
 .field-actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -704,6 +689,69 @@ button.sent-row:active { background: var(--surface-2); }
   .sent-row > .seen-pill { grid-area: pill; justify-self: start; }
   .sent-row > .icon, .sent-row > span:last-child:empty { grid-area: chev; }
 }
-@media (prefers-reduced-motion: reduce) { .issue-tile:active { transform: none; } }
+/* ===== « Signaler » sheet (2026-11-21): iPhone-style sheet over the screen, icon tiles that light up. =====
+   Brand blue = selection; status colours stay orange / green / red. Depth from soft shadows, no gradients. */
+body.sheet-open { overflow: hidden; }
+.sheet-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(10, 20, 28, .32); opacity: 0; pointer-events: none; transition: opacity 280ms ease; }
+.presta-sheet { position: fixed; z-index: 41; left: 0; right: 0; bottom: 0; margin: 0 auto; width: 100%; max-width: 560px; max-height: calc(100dvh - 44px - env(safe-area-inset-top, 0px));
+  display: flex; flex-direction: column; background: var(--bg); border-radius: 22px 22px 0 0;
+  box-shadow: 0 0 0 .5px rgba(0, 0, 0, .06), 0 -12px 48px -12px rgba(10, 20, 28, .35);
+  transform: translateY(105%); transition: transform 460ms cubic-bezier(.32, .72, 0, 1); visibility: hidden; }
+.presta-sheet.on { transform: none; visibility: visible; }
+body.sheet-open .sheet-scrim { opacity: 1; pointer-events: auto; }
+.presta-sheet.dragging { transition: none; }
+.presta-sheet:not(.on) { transition: transform 360ms cubic-bezier(.32, .72, 0, 1), visibility 0s 360ms; }
+.sheet-grab { flex: none; display: grid; place-items: center; height: 18px; cursor: grab; touch-action: none; }
+.sheet-grab span { width: 38px; height: 5px; border-radius: 3px; background: var(--line-strong); }
+.sheet-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 2px 16px 4px 20px; touch-action: none; }
+.sheet-head h2 { flex: 1; margin: 0; font: 700 21px/1.2 var(--f-body); letter-spacing: -.015em; text-transform: none; color: var(--ink); }
+.sheet-x { width: 32px; height: 32px; min-height: 0; padding: 0; border-radius: 50%; border: 0; background: var(--surface-2); color: var(--ink-2); display: grid; place-items: center; }
+.sheet-x .icon { width: 16px; height: 16px; }
+.sheet-b { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 18px; }
+.sheet-sub { margin: 0 4px; font-size: 14px; color: var(--ink-2); line-height: 1.4; }
+.sheet-label { display: block; margin: 0 4px 8px; padding: 0; font: 600 12.5px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.sheet-group { display: block; }
+.field-plate, .sheet-input { width: 100%; min-height: 52px; border-radius: 14px; border: 0; background: var(--surface); box-shadow: 0 1px 2px rgba(10, 20, 28, .06), 0 0 0 1px var(--line) inset; padding: 0 16px; font-size: 16px; color: var(--ink); }
+.field-plate { font: 700 22px var(--f-mono, var(--f-body)) !important; letter-spacing: .1em; text-transform: uppercase; text-align: center; }
+.field-plate::placeholder { font-weight: 500; color: var(--ink-2); opacity: .45; }
 .field-plate::-webkit-calendar-picker-indicator { display: none !important; }
+.field-plate:focus, .sheet-input:focus { outline: none; box-shadow: 0 0 0 2px var(--accent) inset, 0 0 0 4px var(--accent-soft); }
+.issue-set { border: 0; margin: 0; padding: 0; min-width: 0; }
+.issue-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 8px; }
+.issue-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 7px; min-height: 0; padding: 0; border: 0; background: none; color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.issue-ico { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; max-width: 76px; border-radius: 20px; background: var(--surface); color: var(--ink);
+  box-shadow: 0 1px 1px rgba(10, 20, 28, .05), 0 4px 12px -4px rgba(10, 20, 28, .18), 0 0 0 .5px rgba(10, 20, 28, .06);
+  transition: transform 160ms cubic-bezier(.32, .72, 0, 1), background-color 180ms ease, color 180ms ease, box-shadow 180ms ease; }
+.issue-tile .issue-svg { width: 40px !important; height: 40px !important; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.issue-svg .hot { fill: currentColor; stroke-width: 1.5; }
+.issue-lbl { font: 600 12.5px/1.2 var(--f-body); text-align: center; color: var(--ink); max-width: 84px; }
+.issue-check { position: absolute; top: -5px; right: -5px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; box-shadow: 0 0 0 2.5px var(--bg); transform: scale(0); transition: transform 220ms cubic-bezier(.34, 1.4, .64, 1); }
+.issue-check .icon { width: 13px; height: 13px; stroke-width: 3; }
+.issue-tile:active .issue-ico { transform: scale(.93); }
+.issue-tile[aria-pressed="true"] .issue-ico { background: var(--accent); color: #fff; box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--accent) 75%, transparent), 0 0 0 .5px var(--accent); }
+.issue-tile[aria-pressed="true"] .issue-check { transform: scale(1); }
+.issue-tile[aria-pressed="true"] .issue-lbl { color: var(--accent); }
+.sheet-photo-add { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--surface); box-shadow: 0 1px 2px rgba(10, 20, 28, .06), 0 0 0 1px var(--line) inset; font-weight: 600; font-size: 15px; color: var(--accent); cursor: pointer; }
+.sheet-photo-add .icon { width: 20px; height: 20px; }
+.sheet-photo-add small { margin-left: auto; color: var(--ink-2); font-weight: 500; font-size: 13px; }
+.sheet-photo { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--line) inset; }
+.sheet-photo img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; }
+.sheet-photo .ghost { margin-left: auto; }
+.field-send, .field-actions .primary { width: 100%; min-height: 54px; font-size: 16.5px; font-weight: 600; border-radius: 14px; letter-spacing: -.005em; }
+.sent-title { margin-top: 6px; margin-bottom: -8px; }
+.presta-sheet .field-sent { border: 0; border-radius: 14px; box-shadow: 0 0 0 1px var(--line) inset; }
+.presta-sheet .field-sent-hint { margin: -10px 4px 0; }
+@media (min-width: 721px) {
+  .presta-sheet { bottom: auto; top: 50%; border-radius: 22px; max-height: min(88dvh, 860px); transform: translateY(calc(-50% + 40px)) scale(.97); opacity: 0; transition: transform 360ms cubic-bezier(.32, .72, 0, 1), opacity 220ms ease; }
+  .presta-sheet.on { transform: translateY(-50%); opacity: 1; }
+  .presta-sheet:not(.on) { transition: transform 260ms ease, opacity 200ms ease, visibility 0s 260ms; }
+  .sheet-grab { display: none; }
+  .sheet-head { padding-top: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .presta-sheet, .presta-sheet:not(.on) { transition: opacity 200ms ease, visibility 0s linear 200ms; transform: none !important; opacity: 0; }
+  .presta-sheet.on { opacity: 1; transition: opacity 200ms ease; }
+  .issue-check, .issue-ico { transition: none; }
+}
+.sheet-b > * { flex-shrink: 0; }
 </style>
