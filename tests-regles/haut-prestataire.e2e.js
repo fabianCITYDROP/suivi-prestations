@@ -39,6 +39,7 @@ async function seed(thumbs) {
   await put('demandes/v4', { ...sent, ...sc, service: 'lavage', plaque: 'EZ-655-LM', modele: 'Citroën Jumper', cubage: 17, date: day(4), debut: '14:00', fin: '17:00',
     retour: { etat: 'autre-date', date: day(5), debut: '10:00', par: 'khalid@lavage.fr', at: new Date().toISOString(), vu: false } });
   await put('demandes/t1', { ...sent, statut: 'confirmee', ...sc, service: 'lavage', plaque: 'GA-731-PM', modele: 'Renault Master 2023', cubage: 20, date: day(0), debut: '09:00', fin: '12:00' });
+  await put('comptes/equipe@city-drop.com', { role: 'admin', email: 'equipe@city-drop.com' }); await signUp('equipe@city-drop.com');
   await signUp('khalid@lavage.fr'); await signUp('vide@lavage.fr');
 }
 
@@ -74,7 +75,7 @@ async function seed(thumbs) {
     await p.goto('http://localhost:8765/'); await p.waitForSelector('#login input');
     await p.fill('#login input[type=email]', email); await p.fill('#login input[type=password]', 'secret123'); await p.click('#login button');
     await p.waitForTimeout(1800);
-    await p.click('[data-tab="validate"]'); await p.waitForTimeout(400);
+    if (!email.startsWith('equipe')) { await p.click('[data-tab="validate"]'); await p.waitForTimeout(400); }
     return { p, ctx };
   }
   const phone = { locale: 'fr-FR', timezoneId: 'Europe/Paris', viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true };
@@ -120,6 +121,19 @@ async function seed(thumbs) {
       await p.fill('[data-asheet] [data-note]', 'Pièce indisponible'); await p.click('[data-asend]'); await p.waitForTimeout(1500);
       if (etat(await get('demandes/v3')) !== 'refuse') errors.push('Pas possible non enregistré');
       await p.screenshot({ path: `${OUT}/ordi-3-apres-reponses.png` });
+    }
+    await ctx.close();
+  }
+  // Côté équipe : la barre reste en haut en défilant, la barre d'onglets du bas reste en bas (téléphone).
+  for (const [name, opts] of [['equipe-tel', { ...phone, colorScheme: 'light' }], ['equipe-tel-sombre', { ...phone, colorScheme: 'dark' }], ['equipe-ordi', desk]]) {
+    const { p, ctx } = await open('equipe@city-drop.com', opts);
+    await p.screenshot({ path: `${OUT}/${name}-1.png` });
+    await p.evaluate(() => scrollTo(0, 400)); await p.waitForTimeout(400);
+    await p.screenshot({ path: `${OUT}/${name}-2-defile.png` });
+    if (!BEFORE) {
+      const top = await p.evaluate(() => document.querySelector('header.top').getBoundingClientRect().top);
+      if (top > 1) errors.push(name + ' : barre du haut pas fixe');
+      if (name.includes('tel')) { const nb = await p.evaluate(() => innerHeight - document.querySelector('nav.tabs').getBoundingClientRect().bottom); if (Math.abs(nb) > 1) errors.push(name + ' : barre du bas décrochée ' + nb); }
     }
     await ctx.close();
   }
