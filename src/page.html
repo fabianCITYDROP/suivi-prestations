@@ -260,17 +260,20 @@
   </section>
 
   <!-- HISTORY -->
-  <section id="view-historique" hidden>
-    <div class="tools">
-      <input type="search" id="q" placeholder="Rechercher une plaque, un site, un modèle…" aria-label="Rechercher">
-      <select id="h-prest" aria-label="Prestataire"></select>
-      <select id="h-site" aria-label="Site"></select>
-      <select id="h-statut" aria-label="Statut"></select>
-      <select id="h-svc" aria-label="Prestation"></select>
-      <select id="h-mois" aria-label="Période"></select>
+  <section id="view-historique" class="hist" hidden>
+    <header class="plan-top hist-top">
+      <div class="plan-title"><p class="plan-kicker" id="h-kicker">15 derniers jours et en cours</p><h1>Historique</h1></div>
+      <button type="button" class="hist-export" id="h-export"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span>Exporter</span></button>
+    </header>
+    <label class="plate-find hist-find"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="q" placeholder="Plaque, site, modèle, note…" aria-label="Rechercher une plaque, un site, un modèle" autocomplete="off" spellcheck="false" enterkeyhint="search"></label>
+    <div class="hist-periods" id="h-periods" role="group" aria-label="Période"></div>
+    <div class="hist-filters" id="h-filters" role="group" aria-label="Filtres"></div>
+    <div class="plan-hidden" aria-hidden="true">
+      <select id="h-prest" tabindex="-1"></select><select id="h-site" tabindex="-1"></select><select id="h-statut" tabindex="-1"></select>
+      <select id="h-svc" tabindex="-1"></select><select id="h-mois" tabindex="-1"></select>
     </div>
     <div id="histWrap"></div>
-    <p id="h-older" class="hint older-note" hidden></p>
+    <p id="h-older" class="hint older-note hist-older" hidden></p>
   </section>
 
   <!-- TRASH -->

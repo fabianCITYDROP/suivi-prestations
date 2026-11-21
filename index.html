@@ -1710,6 +1710,118 @@ body.team-sheet-open .toast { z-index: 45; }
   .hy-search { max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) { .hy-tile, .hy-btn, .hy-paste-btn, .hy-gauge i { transition: none; } .hy-tile:active, .hy-btn:active { transform: none; } }
+/* ===== Équipe « Historique » façon iPhone (2026-11-21). Tout est préfixé .hist- (ou rangé sous #view-historique / .hist-sheet).
+   Reprend les briques du Planning (.plan-row, .plan-list, .plan-prov, feuille .team-sheet) sans les modifier.
+   Statut = point + mot : orange à envoyer, vert réalisée, gris le reste. Pas de bande de couleur. ===== */
+.hist-top { align-items: flex-end; flex-wrap: nowrap; }
+.hist-export { flex: none; min-height: 40px; padding: 0 16px 0 13px; gap: 7px; border: 0; border-radius: 999px; background: var(--surface); color: var(--accent); font: 600 14.5px var(--f-body);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 1px rgba(10, 20, 28, .06), 0 4px 10px -5px rgba(10, 20, 28, .3); transition: transform 140ms var(--ease-out); }
+.hist-export .icon { width: 17px; height: 17px; }
+.hist-export:active { transform: scale(.96); }
+.hist-export:disabled { color: var(--ink-2); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1); background: transparent; }
+#view-historique .hist-find { display: flex; margin-bottom: 12px; }
+#view-historique .hist-find input { width: 100%; min-height: 42px; border: 0; border-radius: 12px; background: color-mix(in srgb, var(--ink) 7%, transparent); box-shadow: none; }
+#view-historique .hist-find input:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
+.hist-periods, .hist-filters { display: flex; align-items: center; gap: 8px; overflow-x: auto; margin: 0 -16px 10px; padding: 2px 16px 4px; scrollbar-width: none; }
+.hist-periods::-webkit-scrollbar, .hist-filters::-webkit-scrollbar { display: none; }
+.hist-filters { margin-bottom: 16px; }
+.hist-periods .plan-prov { padding: 0 14px; }
+.hist-periods .plan-prov .icon { width: 14px; height: 14px; margin: 0 -4px 0 -2px; }
+.hist-st i { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); margin-right: -1px; }
+.hist-st.todo i { background: var(--st-todo); }
+.hist-st.ok i { background: var(--st-done); }
+.hist-st.off i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.hist-st[aria-pressed="true"] i { box-shadow: 0 0 0 1.5px var(--bg); }
+.hist-more, .hist-chip { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 999px; font: 600 14px var(--f-body); white-space: nowrap; cursor: pointer;
+  transition: transform 140ms var(--ease-out); -webkit-tap-highlight-color: transparent; }
+.hist-more { background: var(--surface); color: var(--accent); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .12), 0 1px 2px rgba(10, 20, 28, .06); }
+.hist-more .icon { width: 16px; height: 16px; }
+.hist-more em { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; display: grid; place-items: center; font: 700 12px var(--f-body); font-style: normal; background: var(--accent); color: #fff; }
+.hist-chip { background: var(--ink); color: var(--bg); padding-right: 9px; }
+.hist-chip .icon { width: 14px; height: 14px; opacity: .8; }
+.hist-more:active, .hist-chip:active { transform: scale(.95); }
+.hist-sep { flex: none; width: .5px; height: 22px; background: var(--line-strong); margin: 0 2px; }
+.hist-count { margin: 0 6px 10px; font: 500 13.5px var(--f-body); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hist-day + .hist-day { margin-top: 18px; }
+.hist-day-head { display: flex; align-items: center; gap: 8px; margin: 0 6px 8px; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.hist-day-head em { font-style: normal; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.hist-c, .hist-cols { display: none; }
+.hist-where { color: var(--ink-2); }
+.hist-older { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 18px 6px 0; font-size: 13px; color: var(--ink-2); }
+.hist-older .plan-link { padding: 4px 0; }
+/* Ordinateur : un tableau fin façon macOS (colonnes alignées, lignes séparées par un filet), toujours groupé par jour */
+@media (min-width: 900px) {
+  .hist-periods, .hist-filters { margin: 0 0 10px; padding: 2px 0 4px; flex-wrap: wrap; }
+  .hist-filters { margin-bottom: 18px; }
+  #view-historique .hist-find { max-width: 420px; }
+  .hist-cols, .hist-row { grid-template-columns: 38px minmax(220px, 2.2fr) minmax(110px, 1fr) minmax(120px, 1fr) 118px 92px 16px; gap: 14px; }
+  .hist-cols { display: grid; padding: 0 12px 10px 14px; margin-bottom: 8px; border-bottom: .5px solid var(--line-strong); font: 600 12px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+  .hist-cols span:last-child { grid-column: span 2; }
+  .hist-row { align-items: center; padding: 9px 12px 9px 14px; }
+  .hist-row + .hist-row::before { left: 66px; }
+  .hist-row .plan-row-main { gap: 1px; }
+  .hist-row .plan-row-line { margin: 0; }
+  .hist-where, .hist-end .plan-st { display: none; }
+  .hist-c { display: block; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-c-sent { color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: 13.5px; }
+  .hist-end { padding: 0; }
+  .hist-count { margin-bottom: 6px; }
+  .hist-day-head { margin-top: 0; }
+}
+.hist-slot-m { display: none; }
+@media (max-width: 640px) {
+  .hist-row .plan-row-line .plan-time { display: none; }
+  .hist-slot-m { display: block; font: 600 14px var(--f-body); font-variant-numeric: tabular-nums; margin-bottom: 1px; }
+  .hist-top h1 { font-size: 32px; }
+  .hist-export span { display: none; }
+  .hist-export { width: 40px; padding: 0; justify-content: center; }
+}
+/* La frise des modifications, dans la fiche de la demande */
+.hist-log { display: flex; flex-direction: column; gap: 8px; }
+.hist-log .sheet-label { margin: 0; }
+.hist-tl { list-style: none; margin: 0; padding: 14px 14px 4px; border-radius: 18px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.hist-tl > li { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 12px; padding-bottom: 14px; }
+.hist-tl > li::before { content: ""; position: absolute; left: 6px; top: 16px; bottom: 0; width: 1.5px; background: var(--line-strong); }
+.hist-tl > li:last-child::before { display: none; }
+.hist-tl > li > i { width: 13px; height: 13px; margin-top: 3px; border-radius: 50%; background: var(--surface); box-shadow: inset 0 0 0 2.5px var(--ink-2); z-index: 1; }
+.hist-tl > li.ok > i { box-shadow: inset 0 0 0 2.5px var(--st-done); background: var(--st-done-bg); }
+.hist-tl > li.bad > i { box-shadow: inset 0 0 0 2.5px var(--danger); }
+.hist-tl > li.start > i { background: var(--ink-2); }
+.hist-tl-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0; }
+.hist-tl-head b { font-size: 15px; }
+.hist-tl-head small { flex: none; font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hist-tl-who { margin: 1px 0 0; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.hist-tl ul { list-style: none; margin: 6px 0 0; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 4px; }
+.hist-tl ul li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 13.5px; }
+.hist-tl ul li > span { color: var(--ink-2); }
+.hist-tl ul li > span::after { content: " :"; }
+.hist-tl ul s { color: var(--ink-2); }
+.hist-tl ul .icon { width: 12px; height: 12px; color: var(--ink-2); }
+.hist-log-note { margin: 0 4px; font-size: 12.5px; color: var(--ink-2); }
+/* Feuilles « Filtres », « Choisir un mois », « Exporter » */
+.hist-sheet .sheet-b { gap: 16px; }
+.hist-sheet section { display: flex; flex-direction: column; gap: 8px; }
+.hist-sheet .sheet-label { margin: 0 4px; }
+.hist-opts { border-radius: 16px; background: var(--surface); overflow: hidden; box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.hist-opt { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 8px 14px; border: 0; border-radius: 0; background: none; color: var(--ink); font: 500 15.5px var(--f-body); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.hist-sheet > .sheet-b > .hist-opt { border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.hist-opt + .hist-opt::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--line-strong); }
+.hist-opt:active { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.hist-opt > span:not(.svc-tile) { flex: 1; }
+.hist-opt > .icon { width: 18px; height: 18px; color: var(--accent); opacity: 0; }
+.hist-opt[aria-pressed="true"] > .icon { opacity: 1; }
+.hist-opt[aria-pressed="true"] { font-weight: 650; }
+.hist-opt .svc-tile.xs { width: 32px; height: 32px; border-radius: 9px; }
+.hist-opt .svc-tile.xs .svc-art { width: 25px; height: 25px; }
+.hist-months { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.hist-month { min-height: 44px; padding: 0 4px; border: 0; border-radius: 12px; background: var(--surface); color: var(--ink); font: 600 14px var(--f-body); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1); transition: transform 140ms var(--ease-out); }
+.hist-month:active { transform: scale(.96); }
+.hist-month[aria-pressed="true"] { background: var(--ink); color: var(--bg); box-shadow: none; }
+.hist-export-head { grid-template-columns: auto minmax(0, 1fr); }
+.hist-export-head b { font-size: 18px; }
+.hist-export-head p { margin-top: 2px; }
+.hist-sheet .plan-cta .icon, .hist-sheet .plan-soft .icon { width: 18px; height: 18px; }
+@media (prefers-reduced-motion: reduce) { .hist-export:active, .hist-more:active, .hist-chip:active, .hist-month:active { transform: none; } }
 </style>
 </head>
 <body>
@@ -1970,17 +2082,20 @@ body.team-sheet-open .toast { z-index: 45; }
   </section>
 
   <!-- HISTORY -->
-  <section id="view-historique" hidden>
-    <div class="tools">
-      <input type="search" id="q" placeholder="Rechercher une plaque, un site, un modèle…" aria-label="Rechercher">
-      <select id="h-prest" aria-label="Prestataire"></select>
-      <select id="h-site" aria-label="Site"></select>
-      <select id="h-statut" aria-label="Statut"></select>
-      <select id="h-svc" aria-label="Prestation"></select>
-      <select id="h-mois" aria-label="Période"></select>
+  <section id="view-historique" class="hist" hidden>
+    <header class="plan-top hist-top">
+      <div class="plan-title"><p class="plan-kicker" id="h-kicker">15 derniers jours et en cours</p><h1>Historique</h1></div>
+      <button type="button" class="hist-export" id="h-export"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span>Exporter</span></button>
+    </header>
+    <label class="plate-find hist-find"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="q" placeholder="Plaque, site, modèle, note…" aria-label="Rechercher une plaque, un site, un modèle" autocomplete="off" spellcheck="false" enterkeyhint="search"></label>
+    <div class="hist-periods" id="h-periods" role="group" aria-label="Période"></div>
+    <div class="hist-filters" id="h-filters" role="group" aria-label="Filtres"></div>
+    <div class="plan-hidden" aria-hidden="true">
+      <select id="h-prest" tabindex="-1"></select><select id="h-site" tabindex="-1"></select><select id="h-statut" tabindex="-1"></select>
+      <select id="h-svc" tabindex="-1"></select><select id="h-mois" tabindex="-1"></select>
     </div>
     <div id="histWrap"></div>
-    <p id="h-older" class="hint older-note" hidden></p>
+    <p id="h-older" class="hint older-note hist-older" hidden></p>
   </section>
 
   <!-- TRASH -->
@@ -4091,6 +4206,15 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
   ICONS["act-restore"] = ground(24, 42.6, 15, 2.1) + BIN +
     `<circle cx="35.4" cy="31.8" r="8.4" fill="url(#i3-grip)" ${S}/><ellipse cx="33.2" cy="28" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".55"/>` +
     `<path d="M35.4 36.6v-8.4M31.8 31.6l3.6-3.6 3.6 3.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // Historique vide : une fiche et une loupe en volume (verre bleuté, manche sombre).
+  ICONS["hist-vide"] = ground(24, 42.6, 17, 2.1) +
+    solid("M9 8.5a3 3 0 0 1 3-3h18a3 3 0 0 1 3 3v29a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3Z") +
+    `<path d="M11.4 7.6h19.6" stroke="#fff" stroke-opacity=".5" stroke-width="1" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="2" stroke-linecap="round"><path d="M14 13h14"/><path d="M14 18h10"/><path d="M14 23h8"/></g>` +
+    `<path d="M35.4 35.6l6.4 6.4" stroke="url(#i3-dark)" stroke-width="5" stroke-linecap="round"/>` +
+    `<circle cx="29" cy="29" r="9" fill="url(#i3-mglass)" stroke="url(#i3-steel)" stroke-width="2.8"/>` +
+    `<circle cx="29" cy="29" r="10.4" fill="none" stroke="${O}" stroke-opacity=".55" stroke-width=".8"/>` +
+    `<path d="M24.6 26.4a5 5 0 0 1 4.2-3" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.8" stroke-linecap="round"/>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
@@ -5597,7 +5721,7 @@ function page(texte) {
   }
 
   // ---------- the request's card, in a sheet: details, provider answer, status in one tap, « Modifier » for the full form ----------
-  const planSheet = { kind: "", id: "" };
+  const planSheet = { kind: "", id: "", log: false }; // log: the Historique page adds the change timeline
   const PLAN_STEPS = ["a_envoyer", "envoyee", "confirmee", "realisee"];
   function ficheBody(d) {
     const answer = planAnswer(d);
@@ -5644,18 +5768,18 @@ function page(texte) {
       ${state.canWrite && toSend.length ? `<section class="plan-box mid"><p class="plan-box-text">Message envoyé ?<small>${plural(toSend.length, "véhicule")} encore « À envoyer ».</small></p>
         <div class="plan-box-actions"><button type="button" data-plan-mark-sent>${icon("check")}Passer en « Envoyée »</button></div></section>` : ""}`;
   }
-  function openPlanSheet(kind, id = "") {
-    planSheet.kind = kind; planSheet.id = id;
+  function openPlanSheet(kind, id = "", log = false) {
+    planSheet.kind = kind; planSheet.id = id; planSheet.log = log;
     refreshPlanSheet(true);
   }
   function refreshPlanSheet(opening = false) {
     if (!opening && !teamSheet.isOpen) return;
-    const closed = () => { planSheet.kind = ""; planSheet.id = ""; };
+    const closed = () => { planSheet.kind = ""; planSheet.id = ""; planSheet.log = false; };
     if (planSheet.kind === "fiche") {
       const d = demandeById(planSheet.id);
       if (!d) { teamSheet.close(); return; }
       if (!opening && teamSheet.body.contains(document.activeElement) && document.activeElement.matches("input, textarea")) return;
-      teamSheet.open(d.plaque ? `Demande ${d.plaque}` : "Demande", ficheBody(d), { cls: "plan-sheet side-sheet", closed });
+      teamSheet.open(d.plaque ? `Demande ${d.plaque}` : "Demande", ficheBody(d) + (planSheet.log ? histLogHtml() : ""), { cls: "plan-sheet side-sheet", closed });
     } else if (planSheet.kind === "send") {
       if (!opening) return; // the folded message stays as the user left it
       teamSheet.open("Liste du jour à envoyer", sendBody(), { cls: "plan-sheet side-sheet", closed });
@@ -5792,7 +5916,7 @@ function page(texte) {
       } else if (b.dataset.planAccept) { await state.store.acceptProposedDate(d); toast(`Date changée pour ${d.plaque}`); }
       else await state.store.markAnswerSeen(d);
     } catch (err) { reportWriteError(err); }
-    finally { b.disabled = false; refreshPlanSheet(); }
+    finally { b.disabled = false; refreshPlanSheet(); if (planSheet.log) setTimeout(() => planSheet.log && loadHistLog(planSheet.id), 900); }
   });
 
   // ================= request form =================
@@ -6304,48 +6428,198 @@ function page(texte) {
     saveBlob(Promise.resolve(new Blob([D.toCsv(exportRows())], { type: "text/csv" })), filename);
   };
 
-  // ================= history =================
+  // ================= history (façon iPhone, 2026-11-21) =================
+  // Big title, grey search field, period and status in pills, the other filters in a sheet; the list is grouped by day
+  // (a fine table on computer). A tap opens the request's card in a sheet, with its change history as a timeline.
+  // The hidden selects (#h-prest…#h-mois) stay the source of truth, so links from the Planning keep working.
   const HISTORY_STATUS_FILTERS = { "": () => true, ouvert: D.isOpen };
-  function renderHistory() {
-    const query = $("#q").value, provider = $("#h-prest").value, status = $("#h-statut").value, service = $("#h-svc").value, site = $("#h-site").value;
-    const statusFilter = HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
-    const month = $("#h-mois").value, from = month && month + "-01", to = month && D.nextMonthStart(from);
-    const loading = month && needOlder(from, to);
-    renderOlderNote();
-    const rows = state.demandes.filter((d) => (!month || (d.date && d.date < to && D.lastDay(d) >= from)) &&
+  const HIST_STATUS_PILLS = [["", "Toutes"], ["ouvert", "En cours"], ["a_envoyer", "À envoyer"], ["realisee", "Réalisées"], ["annulee", "Annulées"]];
+  const HIST_TONE = { a_envoyer: "todo", realisee: "ok", annulee: "off" };
+  const hv = (id) => $("#h-" + id).value;
+  const setHist = (id, value) => { $("#h-" + id).value = value; renderHistory(); };
+  const histMonthLabel = (m) => capFirst(D.monthLabel(m));
+  function historyRows({ ignoreStatus = false } = {}) {
+    const query = $("#q").value, provider = hv("prest"), status = hv("statut"), service = hv("svc"), site = hv("site");
+    const statusFilter = ignoreStatus ? () => true : HISTORY_STATUS_FILTERS[status] || ((d) => d.statut === status);
+    const month = hv("mois"), from = month && month + "-01", to = month && D.nextMonthStart(from);
+    return state.demandes.filter((d) => (!month || (d.date && d.date < to && D.lastDay(d) >= from)) &&
       (!provider || d.prestataire === provider) && (!service || d.service === service) && (!site || d.site === site) && statusFilter(d) &&
-      D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire], query)
+      D.matchesSearch([d.plaque, D.vehicleLabel(d), d.site, d.adresse, d.notes, d.prestataire, d.tache], query)
     ).sort((a, b) => (b.date || "").localeCompare(a.date || "") || D.byStartTime(a, b));
+  }
+  function renderHistoryPills(all) {
+    const month = hv("mois"), now = today().slice(0, 7);
+    const prev = D.toIsoDate((() => { const d = D.parseIsoDate(now + "-01"); d.setMonth(d.getMonth() - 1); return d; })()).slice(0, 7);
+    const other = month && month !== now && month !== prev;
+    const per = (value, label) => `<button type="button" class="plan-prov" data-h-mois="${value}" aria-pressed="${month === value}">${esc(label)}</button>`;
+    $("#h-periods").innerHTML = per("", "Récentes") + per(now, histMonthLabel(now).replace(/ \d{4}$/, "")) + per(prev, histMonthLabel(prev).replace(/ \d{4}$/, ""))
+      + `<button type="button" class="plan-prov" data-h-other aria-pressed="${!!other}">${other ? esc(histMonthLabel(month)) : "Autre mois…"}${icon("chev-d")}</button>`;
+    const status = hv("statut");
+    const count = (value) => all.filter(HISTORY_STATUS_FILTERS[value] || ((d) => d.statut === value)).length;
+    const pills = HIST_STATUS_PILLS.slice();
+    if (status && !pills.some(([v]) => v === status)) pills.push([status, D.statusOf(status).label]);
+    const extra = [["prest", hv("prest")], ["site", hv("site")], ["svc", hv("svc") && D.SERVICES.find((s) => s.id === hv("svc"))?.label]].filter(([, v]) => v);
+    $("#h-filters").innerHTML = `<button type="button" class="hist-more${extra.length ? " on" : ""}" data-h-more aria-label="Filtres : prestataire, site, prestation">${icon("list")}<span>Filtres</span>${extra.length ? `<em>${extra.length}</em>` : ""}</button>`
+      + extra.map(([id, label]) => `<button type="button" class="hist-chip" data-h-clear="${id}" aria-label="Retirer le filtre ${esc(label)}">${esc(label)}${icon("x")}</button>`).join("")
+      + `<span class="hist-sep" aria-hidden="true"></span>`
+      + pills.map(([v, label]) => `<button type="button" class="plan-prov hist-st ${HIST_TONE[v] || ""}" data-h-statut="${v}" aria-pressed="${status === v}">${v && v !== "ouvert" ? `<i aria-hidden="true"></i>` : ""}${esc(label)}<em>${count(v)}</em></button>`).join("");
+  }
+  function renderHistory() {
+    const month = hv("mois"), from = month && month + "-01", to = month && D.nextMonthStart(from);
+    const loading = month && needOlder(from, to);
+    $("#h-kicker").textContent = month ? histMonthLabel(month) : "15 derniers jours et en cours";
+    renderOlderNote();
+    const all = historyRows({ ignoreStatus: true });
+    renderHistoryPills(all);
+    const rows = historyRows();
+    $("#h-export").disabled = !rows.length;
     if (loading && !rows.length) {
-      $("#histWrap").innerHTML = `<div class="empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les choisis.</span></div>`;
+      $("#histWrap").innerHTML = `<div class="plan-empty" aria-busy="true"><b>Chargement de ${esc(D.monthLabel(month))}…</b><span>Les mois anciens sont lus seulement quand tu les choisis.</span></div>`;
       return;
     }
     if (!rows.length) {
-      $("#histWrap").innerHTML = `<div class="empty"><b>${state.demandes.length ? "Aucune demande ne correspond à ces filtres." : "Aucune demande enregistrée pour l'instant."}</b><span>Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée.</span></div>`;
+      const filtered = $("#q").value || hv("prest") || hv("site") || hv("svc") || hv("statut");
+      $("#histWrap").innerHTML = `<div class="plan-empty"><span class="svc-tile lg" aria-hidden="true">${self.IssueArt?.art("hist-vide", "svc-art") || ""}</span>
+        <b>${state.demandes.length ? (filtered ? "Aucune demande ne correspond" : "Aucune demande sur cette période") : "Aucune demande enregistrée pour l'instant"}</b>
+        <span>${filtered ? "Essaie une autre plaque, ou retire un filtre." : "Chaque demande saisie dans « Nouvelle demande » est listée ici, avec la date à laquelle elle a été envoyée."}</span>
+        ${filtered ? `<button type="button" class="plan-link" data-h-reset>Effacer la recherche et les filtres</button>` : ""}</div>`;
       return;
     }
-    $("#histWrap").innerHTML = `<div class="tablewrap"><table class="wide hist"><thead><tr><th>Dispo</th><th>Créneau</th><th>Plaque</th><th>Modèle</th><th>Site</th><th>Prestataire</th><th>Statut</th><th>Envoyée le</th></tr></thead><tbody>${rows.map(historyLine).join("")}</tbody></table></div>`;
+    const groups = [];
+    rows.forEach((d) => { const key = d.date || ""; const g = groups[groups.length - 1]; g && g.key === key ? g.items.push(d) : groups.push({ key, items: [d] }); });
+    const year = today().slice(0, 4);
+    const dayName = (iso) => !iso ? "Sans date" : capFirst(D.dayLabel(iso)) + (iso.slice(0, 4) !== year ? " " + iso.slice(0, 4) : "");
+    $("#histWrap").innerHTML = `<p class="hist-count">${plural(rows.length, "demande")}${rows.length < all.length ? ` sur ${all.length}` : ""}</p>
+      <div class="hist-cols" aria-hidden="true"><span></span><span>Véhicule</span><span>Site</span><span>Prestataire</span><span>Statut</span><span>Envoyée le</span></div>`
+      + groups.map((g) => `<section class="hist-day"><h3 class="hist-day-head">${esc(dayName(g.key))}<em>${g.items.length}</em></h3>
+        <div class="plan-list hist-list">${g.items.map(historyLine).join("")}</div></section>`).join("");
   }
   // Below the history: older requests stay unread until asked for, to spare the free plan's daily reads.
   function renderOlderNote() {
     const note = $("#h-older");
     const loading = state.olderRanges.some((r) => !r.ready && r.from === D.OLDEST_DAY);
-    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded() || !!$("#h-mois").value;
+    note.hidden = !state.store?.olderOnDemand?.() || allOlderLoaded() || !!hv("mois");
     if (note.hidden) return;
-    note.innerHTML = `Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours ou en retard, quel que soit leur âge, et les contrôles hayon des 8 derniers mois. Pour un mois plus ancien, choisis-le dans la liste des périodes en haut (une semaine : dans le Planning).
-      <button type="button" class="ghost small-btn" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
+    note.innerHTML = `<span>Ici : les demandes depuis le ${esc(D.numericDate(state.recentFrom))}, plus toutes celles encore en cours ou en retard, et les contrôles hayon des 8 derniers mois. Pour un mois plus ancien, choisis-le dans « Autre mois ».</span>
+      <button type="button" class="plan-link" id="h-older-btn" ${loading ? "disabled aria-busy=\"true\"" : ""}>${loading ? "Chargement…" : "Afficher aussi les plus anciennes"}</button>`;
   }
   $("#h-older").addEventListener("click", (e) => { if (e.target.closest("#h-older-btn")) { needOlder(D.OLDEST_DAY, null); renderHistory(); } });
   function historyLine(d) {
-    const span = D.isMultiDay(d) ? `${D.shortDate(d.date)} → ${D.shortDate(D.lastDay(d))}` : D.shortDate(d.date);
-    const slot = esc(D.timeSlotLabel(d));
-    // data-slot / data-provider let the phone layout show a compact card without a second markup.
-    return `<tr class="click" data-open="${esc(d.id)}"><td class="date" data-slot="· ${slot}">${esc(span)}</td><td class="date">${slot}</td><td>${plateTag(d.plaque)}</td>
-      <td>${esc(D.vehicleLabel(d))}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</td><td data-provider="${esc(d.prestataire)}">${esc(D.siteOf(d))}</td><td>${esc(d.prestataire)}</td>
-      <td>${statusChip(d.statut)}</td><td class="date muted">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</td></tr>`;
+    const slot = D.timeSlotLabel(d).replace(/^de /, "");
+    const span = D.isMultiDay(d) ? ` → ${D.shortDate(D.lastDay(d))}` : "";
+    const what = [D.vehicleLabel(d) || "Modèle non précisé", D.jobLabel(d)].filter(Boolean).join(" · ");
+    return `<button type="button" class="plan-row hist-row${D.isActive(d) ? "" : " cancel"}" data-open="${esc(d.id)}">
+      ${serviceTile(d)}
+      <span class="plan-row-main hist-veh">
+        <span class="plan-row-line">${plateTag(d.plaque)}<span class="plan-time">${esc(slot + span)}</span></span>
+        <span class="plan-what"><b class="hist-slot-m">${esc(slot + span)}</b>${esc(what)}</span>
+        <span class="plan-sub hist-where">${esc(D.siteOf(d))}<span class="hist-who"> · ${esc(d.prestataire || "")}</span></span>
+      </span>
+      <span class="hist-c hist-c-site">${esc(D.siteOf(d))}</span>
+      <span class="hist-c hist-c-prov">${esc(d.prestataire || "")}</span>
+      <span class="hist-c hist-c-st">${planStatus(d)}</span>
+      <span class="hist-c hist-c-sent">${d.sentAt ? esc(D.shortDate(d.sentAt.slice(0, 10))) : "—"}</span>
+      <span class="plan-row-end hist-end">${planStatus(d)}${icon("chev-r")}</span>
+    </button>`;
   }
-  ["#q", "#h-prest", "#h-statut", "#h-svc", "#h-site", "#h-mois"].forEach((s) => $(s).addEventListener("input", renderHistory));
-  $("#histWrap").addEventListener("click", (e) => { const r = e.target.closest("[data-open]"); if (r) openDemande(r.dataset.open); });
+  $("#q").addEventListener("input", renderHistory);
+  $("#q").addEventListener("keydown", (e) => { if (e.key === "Escape" && e.target.value) { e.target.value = ""; renderHistory(); } });
+  ["#h-prest", "#h-statut", "#h-svc", "#h-site", "#h-mois"].forEach((s) => $(s).addEventListener("input", renderHistory));
+  $("#histWrap").addEventListener("click", (e) => {
+    if (e.target.closest("[data-h-reset]")) { $("#q").value = ""; ["prest", "site", "svc", "statut"].forEach((id) => ($("#h-" + id).value = "")); renderHistory(); return; }
+    const r = e.target.closest("[data-open]"); if (r) openHistorySheet(r.dataset.open);
+  });
+  $("#view-historique").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-h-mois], [data-h-statut], [data-h-clear], [data-h-more], [data-h-other]");
+    if (!b) return;
+    if (b.dataset.hMois !== undefined) return setHist("mois", b.dataset.hMois);
+    if (b.dataset.hStatut !== undefined) return setHist("statut", hv("statut") === b.dataset.hStatut ? "" : b.dataset.hStatut);
+    if (b.dataset.hClear) return setHist(b.dataset.hClear, "");
+    if (b.dataset.hMore !== undefined) return openHistFilters();
+    if (b.dataset.hOther !== undefined) return openHistMonths();
+  });
+
+  // ---------- sheets: other month, filters, export ----------
+  const histChoice = (attr, value, label, on, art = "") => `<button type="button" class="hist-opt" ${attr}="${esc(value)}" aria-pressed="${on}">${art}<span>${esc(label)}</span>${icon("check")}</button>`;
+  function histMonthsBody() {
+    const months = Array.from($("#h-mois").options).map((o) => o.value).filter(Boolean);
+    const years = [...new Set(months.map((m) => m.slice(0, 4)))];
+    return `<p class="sheet-sub">Un mois ancien est lu seulement quand tu le choisis.</p>
+      ${histChoice("data-hs-mois", "", "15 derniers jours et en cours", !hv("mois"))}
+      ${years.map((y) => `<section><p class="sheet-label">${y}</p><div class="hist-months">${months.filter((m) => m.startsWith(y)).map((m) =>
+        `<button type="button" class="hist-month" data-hs-mois="${m}" aria-pressed="${hv("mois") === m}">${esc(capFirst(D.monthLabel(m).replace(/ \d{4}$/, "")))}</button>`).join("")}</div></section>`).join("")}`;
+  }
+  const histOpen = (title, html, cls) => { teamSheet.open(title, html, { cls }); teamSheet.body.scrollTop = 0; };
+  const openHistMonths = () => histOpen("Choisir un mois", histMonthsBody(), "hist-sheet");
+  function histFiltersBody() {
+    const group = (title, id, list) => `<section><p class="sheet-label">${title}</p><div class="hist-opts">${list.map(([v, label, art]) => histChoice("data-hs-" + id, v, label, hv(id) === v, art)).join("")}</div></section>`;
+    const n = historyRows().length;
+    return group("Prestataire", "prest", [["", "Tous les prestataires"], ...state.providers.map((p) => [p, p])])
+      + group("Prestation", "svc", [["", "Toutes les prestations"], ...D.SERVICES.map((s) => [s.id, s.label, serviceTile({ service: s.id })])])
+      + (siteNames().length ? group("Site", "site", [["", "Tous les sites"], ...siteNames().map((s) => [s, s])]) : "")
+      + group("Statut", "statut", [["", "Tous les statuts"], ["ouvert", "En cours (hors réalisées / annulées)"], ...D.STATUSES.map((s) => [s.id, s.label])])
+      + `<div class="plan-fiche-actions"><button type="button" class="primary plan-cta" data-team-sheet-close>Voir ${plural(n, "demande")}</button>
+        <button type="button" class="plan-soft" data-hs-reset>Tout effacer</button></div>`;
+  }
+  const openHistFilters = () => histOpen("Filtres", histFiltersBody(), "hist-sheet side-sheet");
+  function histExportBody() {
+    const rows = historyRows();
+    const what = [hv("mois") ? histMonthLabel(hv("mois")) : "15 derniers jours et en cours", hv("prest"), hv("site"), hv("svc") && D.SERVICES.find((s) => s.id === hv("svc"))?.label,
+      hv("statut") && (hv("statut") === "ouvert" ? "En cours" : D.statusOf(hv("statut")).label), $("#q").value && `« ${$("#q").value} »`].filter(Boolean).join(" · ");
+    return `<div class="plan-fiche-head hist-export-head"><span class="svc-tile sm" aria-hidden="true">${self.IssueArt?.art("ask-inbox", "svc-art") || ""}</span><div><b>${plural(rows.length, "demande")}</b><p>${esc(what)}</p></div></div>
+      <p class="sheet-sub">Exactement la liste affichée, avec les dates, la plaque, le modèle, le site, le prestataire, le statut et les dates d'envoi et de réalisation.</p>
+      <div class="plan-fiche-actions"><button type="button" class="primary plan-cta" data-hs-tsv>${icon("copy")}Copier pour Google Sheets</button>
+        <button type="button" class="plan-soft" data-hs-csv>${icon("download")}Télécharger le fichier (CSV)</button></div>`;
+  }
+  $("#h-export").addEventListener("click", () => histOpen("Exporter la liste", histExportBody(), "hist-sheet"));
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest(".hist-sheet [data-hs-mois], .hist-sheet [data-hs-prest], .hist-sheet [data-hs-svc], .hist-sheet [data-hs-site], .hist-sheet [data-hs-statut], .hist-sheet [data-hs-reset], .hist-sheet [data-hs-tsv], .hist-sheet [data-hs-csv]");
+    if (!b) return;
+    if (b.dataset.hsMois !== undefined) { teamSheet.close(); return setHist("mois", b.dataset.hsMois); }
+    const exportRows = () => [D.EXPORT_HEADER, ...historyRows().slice().reverse().map(D.exportRow)];
+    if (b.dataset.hsTsv !== undefined) {
+      const rows = exportRows();
+      if (await copyText(D.toTsv(rows))) { teamSheet.close(); toast(`${plural(rows.length - 1, "ligne")} copiée${rows.length > 2 ? "s" : ""} : colle-les dans une feuille Google Sheets`); }
+      return;
+    }
+    if (b.dataset.hsCsv !== undefined) {
+      const name = `historique-prestations-${hv("mois") || today()}${hv("prest") ? "-" + hv("prest").replace(/[^\w-]+/g, "-") : ""}.csv`;
+      saveBlob(Promise.resolve(new Blob([D.toCsv(exportRows())], { type: "text/csv" })), name); teamSheet.close(); return;
+    }
+    if (b.dataset.hsReset !== undefined) ["prest", "site", "svc", "statut"].forEach((id) => ($("#h-" + id).value = ""));
+    else for (const id of ["prest", "svc", "site", "statut"]) if (b.dataset["hs" + capFirst(id)] !== undefined) $("#h-" + id).value = b.dataset["hs" + capFirst(id)];
+    renderHistory();
+    teamSheet.body.innerHTML = histFiltersBody();
+  });
+
+  // ---------- the request's card + its change history as a timeline (read once per opening: free plan's reads) ----------
+  const histLog = { id: "", lines: null, failed: false };
+  function openHistorySheet(id) {
+    histLog.id = id; histLog.lines = null; histLog.failed = false;
+    openPlanSheet("fiche", id, true); teamSheet.body.scrollTop = 0;
+    loadHistLog(id);
+  }
+  function loadHistLog(id) {
+    if (!state.store?.loadHistory) return;
+    const d = demandeById(id);
+    state.store.loadHistory(id).then((entries) => { if (histLog.id === id) histLog.lines = D.historyLines(entries, d); })
+      .catch(() => { if (histLog.id === id) histLog.failed = true; })
+      .finally(() => { if (histLog.id === id && planSheet.log && planSheet.id === id) refreshPlanSheet(); });
+  }
+  function histLogHtml() {
+    const lines = histLog.lines;
+    const body = histLog.failed ? `<p class="sheet-sub">L'historique n'est pas encore lisible : les règles Firebase doivent être publiées.</p>`
+      : !lines ? `<p class="sheet-sub" aria-busy="true">Chargement…</p>`
+      : !lines.length ? `<p class="sheet-sub">Aucune modification notée pour l'instant.</p>`
+      : `<ol class="hist-tl">${lines.map((l) => {
+          const tone = /annul|suppr/i.test(l.action) ? "bad" : /Réalisée|fait/i.test(l.changes.map((c) => c.apres).join(" ")) ? "ok" : /Création/.test(l.action) ? "start" : "";
+          const changes = l.changes.map((c) => `<li><span>${esc(c.label)}</span>${c.avant != null ? `<s>${esc(c.avant)}</s>${icon("chev-r")}` : ""}<b>${esc(c.apres)}</b></li>`).join("");
+          return `<li class="${tone}"><i aria-hidden="true"></i><div><p class="hist-tl-head"><b>${esc(l.action)}</b><small>${esc(l.when)}</small></p>
+            <p class="hist-tl-who">${esc(l.who || "avant le suivi des modifications")}</p>${changes ? `<ul>${changes}</ul>` : ""}</div></li>`;
+        }).join("")}</ol>`;
+    return `<section class="hist-log"><p class="sheet-label">Modifications</p>${body}
+      <p class="hist-log-note">Chaque changement est noté avec son auteur et l'heure du serveur. Personne ne peut modifier ni effacer cette liste.</p></section>`;
+  }
 
   // ================= settings =================
   const currentSettings = () => ({ sites: state.sites, flotte: state.fleet, prestataires: state.providers, contacts: state.contacts, sheetUrl: state.sheetUrl });

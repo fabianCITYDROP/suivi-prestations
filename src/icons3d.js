@@ -248,6 +248,15 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
   ICONS["act-restore"] = ground(24, 42.6, 15, 2.1) + BIN +
     `<circle cx="35.4" cy="31.8" r="8.4" fill="url(#i3-grip)" ${S}/><ellipse cx="33.2" cy="28" rx="4.6" ry="2.3" fill="url(#i3-shine)" opacity=".55"/>` +
     `<path d="M35.4 36.6v-8.4M31.8 31.6l3.6-3.6 3.6 3.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // Historique vide : une fiche et une loupe en volume (verre bleuté, manche sombre).
+  ICONS["hist-vide"] = ground(24, 42.6, 17, 2.1) +
+    solid("M9 8.5a3 3 0 0 1 3-3h18a3 3 0 0 1 3 3v29a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3Z") +
+    `<path d="M11.4 7.6h19.6" stroke="#fff" stroke-opacity=".5" stroke-width="1" stroke-linecap="round"/>` +
+    `<g stroke="#c3ced6" stroke-width="2" stroke-linecap="round"><path d="M14 13h14"/><path d="M14 18h10"/><path d="M14 23h8"/></g>` +
+    `<path d="M35.4 35.6l6.4 6.4" stroke="url(#i3-dark)" stroke-width="5" stroke-linecap="round"/>` +
+    `<circle cx="29" cy="29" r="9" fill="url(#i3-mglass)" stroke="url(#i3-steel)" stroke-width="2.8"/>` +
+    `<circle cx="29" cy="29" r="10.4" fill="none" stroke="${O}" stroke-opacity=".55" stroke-width=".8"/>` +
+    `<path d="M24.6 26.4a5 5 0 0 1 4.2-3" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.8" stroke-linecap="round"/>`;
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
