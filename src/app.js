@@ -565,8 +565,10 @@
       return;
     }
     closeFormSheet();
+    const before = baseView && !$("#view-" + baseView).hidden ? baseView : null;
     baseView = view;
     VIEWS.forEach((v) => v !== "demande" && ($("#view-" + v).hidden = v !== view));
+    if (before && before !== view) enterView($("#view-" + view));
     markCurrentNav(view);
     if (view === "corbeille") openTrash();
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
@@ -581,6 +583,30 @@
     $("#navMore").classList.toggle("current", !!inMore);
     $("#navMore").open = false;
   }
+  // Changing page: the new page rises in quickly (a short fade), as on an iPhone. Off with « réduire les animations » (CSS).
+  function enterView(section) {
+    section.classList.remove("view-enter"); void section.offsetWidth; section.classList.add("view-enter");
+    section.addEventListener("animationend", () => section.classList.remove("view-enter"), { once: true });
+  }
+  // « Plus »: each page has its icon in volume. On a phone the menu opens as a sheet from the bottom, on a computer as a popover.
+  document.querySelectorAll("#navMore .more-art").forEach((s) => { s.innerHTML = window.IssueArt?.art(s.dataset.art, "more-ico") || ""; });
+  const phoneNav = () => matchMedia("(max-width: 720px)").matches;
+  function openMoreSheet() {
+    const rows = [...document.querySelectorAll("#navMore .nav-menu [data-view]")].map((b) => {
+      const badge = b.querySelector(".menu-badge");
+      const current = b.hasAttribute("aria-current");
+      return `<button type="button" class="more-row" data-more-view="${b.dataset.view}"${current ? ' aria-current="page"' : ""}>
+        <span class="more-tile">${b.querySelector(".more-art").innerHTML}</span><span class="more-lbl">${esc(b.querySelector(".menu-label").textContent)}</span>
+        ${badge && !badge.hidden ? `<span class="more-badge">${esc(badge.textContent)}</span>` : ""}${current ? `<span class="more-here">${icon("check")}</span>` : `<span class="more-chev">${icon("chev-r")}</span>`}</button>`;
+    }).join("");
+    teamSheet.open("Plus", `<div class="more-list">${rows}</div>`, { cls: "more-sheet" });
+  }
+  $("#navMore summary").addEventListener("click", (e) => { if (!phoneNav()) return; e.preventDefault(); $("#navMore").open = false; openMoreSheet(); });
+  document.addEventListener("click", (e) => {
+    const row = e.target.closest(".more-sheet [data-more-view]");
+    if (!row) return;
+    teamSheet.close(); show(row.dataset.moreView);
+  });
   navButtons().forEach((tab) => tab.addEventListener("click", () => show(tab.dataset.view)));
   document.addEventListener("click", (e) => { if (!e.target.closest("#navMore")) $("#navMore").open = false; });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#navMore").open) { $("#navMore").open = false; $("#navMore summary").focus(); } });
