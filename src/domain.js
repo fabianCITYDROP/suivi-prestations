@@ -466,11 +466,13 @@
       let row = rows.find((r) => garageKey(r.garage) === garageKey(d.garageMail));
       if (!row) rows.push(row = { garage: String(d.garageMail).trim(), prestataire: "", site: "", saved: false, count: 0 });
       row.count++;
+      row.hayon = (row.hayon ?? true) && d.service === "hayon";
     });
     return rows.map((r) => {
       const prov = providerNames.includes(r.prestataire) ? r.prestataire : providerFromGarage(r.garage, providerNames);
       const site = r.site && sites.some((s) => s.nom === r.site) ? r.site : siteFromGarage(r.garage, prov, sites)?.nom || "";
-      return { ...r, guessProvider: prov, guessSite: site, missing: !prov || !site };
+      // The site is not needed for tailgate controls (DHOLLIANDA has no app access), nor once the team saved « no site ».
+      return { ...r, guessProvider: prov, guessSite: site, missing: !prov || (!site && !r.saved && !r.hayon) };
     }).sort((a, b) => b.missing - a.missing || a.garage.localeCompare(b.garage, "fr"));
   }
   const MAIL_MARKERS = ["source", "mailId", "garageMail", "modeleMail", "km"];

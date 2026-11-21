@@ -2408,7 +2408,7 @@
   const pickOptions = (values, chosen, empty) => `<option value="">${esc(empty)}</option>` + values.map((v) => `<option value="${esc(v)}" ${v === chosen ? "selected" : ""}>${esc(v)}</option>`).join("");
   // Liste calme façon Réglages de l'iPhone : un groupe par prestataire, une ligne par garage (site en gras, nom du mail
   // en gris), le réglage s'ouvre en feuille. Les garages pas encore réglés passent en haut, avec un point orange.
-  const garageLine = (r) => rgRow({ open: "garage:" + r.garage, title: r.missing ? r.garage : r.guessSite, sub: r.missing ? (r.guessProvider ? "Site à choisir" : "Prestataire à choisir") : r.garage, cls: "rg-garage",
+  const garageLine = (r) => rgRow({ open: "garage:" + r.garage, title: r.missing || !r.guessSite ? r.garage : r.guessSite, sub: r.missing ? (r.guessProvider ? "Site à choisir" : "Prestataire à choisir") : r.guessSite ? r.garage : "Sans site", cls: "rg-garage",
     value: r.missing ? `<span class="rg-val"><i class="rg-dot todo" aria-hidden="true"></i></span>` : "" });
   function garagesSheet() {
     const rows = garageRows();
@@ -2432,7 +2432,7 @@
         : `<div class="rg-hero"><div><b>${esc(r.garage)}</b>${r.count ? `<small>${esc(plural(r.count, "demande"))}</small>` : ""}</div></div>`}
       <section class="rg-group"><div class="rg-list">
         <label class="rg-row rg-static rg-pick"><span class="rg-txt"><b>Prestataire</b></span><select id="g-prov" ${w ? "" : "disabled"}>${pickOptions(state.providers, r?.guessProvider || "", "Choisir")}</select></label>
-        <label class="rg-row rg-static rg-pick"><span class="rg-txt"><b>Site</b></span><select id="g-site" ${w ? "" : "disabled"}>${pickOptions(siteNames(), r?.guessSite || "", "Choisir")}</select></label>
+        <label class="rg-row rg-static rg-pick"><span class="rg-txt"><b>Site</b></span><select id="g-site" ${w ? "" : "disabled"}>${pickOptions(siteNames(), r?.guessSite || "", "Aucun")}</select></label>
       </div></section>
       ${w ? `<button type="button" class="rg-btn primary big" data-rg-act="save-garage" data-i="${esc(isNew ? "" : r.garage)}">Enregistrer</button>` : ""}
       ${w && r?.saved ? rgSection("", `<button type="button" class="rg-row rg-action rg-danger" data-rg-act="remove-garage" data-i="${esc(r.garage)}"><span class="rg-txt"><b>Retirer ce garage</b></span></button>`) : ""}
@@ -2703,8 +2703,8 @@
     if (act === "save-garage") {
       const garage = b.dataset.i || rgValue("#g-new");
       if (!garage) return toast("Indique le nom du garage, comme dans le mail");
-      if (!$("#g-prov").value || !$("#g-site").value) return toast("Choisis le prestataire et le site");
-      await saveGarage(garage, $("#g-prov").value, $("#g-site").value, `${garage} : ${$("#g-site").value}`);
+      if (!$("#g-prov").value) return toast("Choisis le prestataire");
+      await saveGarage(garage, $("#g-prov").value, $("#g-site").value, `${garage} : ${$("#g-site").value || $("#g-prov").value}`);
       return openRg("garages");
     }
     if (act === "remove-garage") {

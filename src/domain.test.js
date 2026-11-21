@@ -442,6 +442,9 @@ test("the garages list shows every garage seen in mails and what is missing", ()
   const rows = D.garageList(demandes, [{ garage: "Du Sol au Toit", prestataire: "DSAT", site: "La Défense" }], { providerNames: ["DSAT", "DSAT (du sol au toit)"], sites });
   assert.deepEqual(rows.map((r) => [r.garage, r.guessProvider, r.guessSite, r.count, r.missing]),
     [["Du Sol au Toit", "DSAT", "La Défense", 2, false], ["Du sol au toit Lille", "DSAT (du sol au toit)", "Lille", 1, false]]);
+  const hayon = D.garageList([{ source: "mail", garageMail: "DHOLLIANDA", service: "hayon" }], [], { providerNames: ["DHOLLIANDA"], sites });
+  assert.equal(hayon[0].missing, false, "a tailgate control needs no site");
+  assert.equal(D.garageList([], [{ garage: "X", prestataire: "DSAT" }], { providerNames: ["DSAT"], sites })[0].missing, false, "saved without a site on purpose");
   assert.deepEqual(D.normalizeGarages([{ garage: " A " }, { garage: "a" }, { garage: "" }, null]), [{ garage: "A", prestataire: "", site: "" }]);
 });
 
