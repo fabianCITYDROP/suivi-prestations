@@ -181,3 +181,22 @@ test("textes du rappel du matin", () => {
   assert.ok(long.texte.endsWith("\n…"));
   assert.ok(!N.messageRappel({ pasFaites: ["1", "2", "3", "4", "5", "6"], sansReponse: [] }).texte.endsWith("…"));
 });
+
+test("rappel du matin : chaque prestataire ne reçoit que ses véhicules", () => {
+  const auj = "2026-11-20", maintenant = "2026-11-20T07:00:00.000Z";
+  const allo = { ...base, prestataireId: "allo", prestataire: "ALLO", service: "pare-brise", plaque: "AL-001-LO", date: "2026-11-19" };
+  const k1 = { ...base, plaque: "KK-001-KK", date: "2026-11-18" };
+  const k2 = { ...base, plaque: "KK-002-KK", date: "2026-11-25", createdAt: "2026-11-18T07:00:00.000Z" };
+  const fait = { ...base, plaque: "KK-003-KK", date: "2026-11-18", retour: { etat: "fait", at: "2026-11-18T10:00:00.000Z" } };
+  const r = N.rappelsPrestataires([allo, k1, k2, fait, { ...k1, prestataireId: undefined }], auj, maintenant);
+  assert.deepEqual(Object.keys(r).sort(), ["allo", base.prestataireId].sort());
+  assert.equal(r.allo.titre, "Rappel : 1 véhicule sans « Prestation réalisée »");
+  assert.ok(!r.allo.texte.includes("KK-"), "rien des autres prestataires");
+  const k = r[base.prestataireId];
+  assert.equal(k.titre, "Rappel : 1 véhicule sans « Prestation réalisée » · 1 demande à valider");
+  assert.equal(k.texte, "Pas faite : KK-001-KK · Lavage · Saint-Cloud · 18/11\nÀ valider : KK-002-KK · Lavage · Saint-Cloud · 25/11");
+  assert.deepEqual(N.rappelsPrestataires([fait], auj, maintenant), {});
+  for (const etat of ["autre-date", "absent", "refuse"]) {
+    assert.deepEqual(N.rappelsPrestataires([{ ...k1, retour: { etat, at: "2026-11-18T10:00:00.000Z" } }], auj, maintenant), {}, etat + " : déjà répondu, l'équipe s'en charge");
+  }
+});
