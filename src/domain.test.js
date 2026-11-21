@@ -176,8 +176,28 @@ test("monthlyReport counts requested, done, cancelled, overdue and upcoming", ()
     demande({ date: "2026-11-02" }),
   ];
   const r = D.monthlyReport(list, { month: "2026-10", provider: "", todayIso: "2026-10-20" });
-  assert.deepEqual(r.total, { requested: 4, done: 1, cancelled: 1, overdue: 1, upcoming: 1, amount: 0 });
+  assert.deepEqual(r.total, { requested: 4, done: 1, cancelled: 1, overdue: 1, upcoming: 1, amountHT: 0, flat: 0, unpriced: 1 });
   assert.deepEqual(r.bySite.map(([k]) => k).sort(), ["La Défense", D.NO_SITE].sort());
+});
+
+test("monthlyReport adds up the HT price of done jobs; a tailgate without price is the monthly flat fee", () => {
+  const list = [
+    demande({ date: "2026-10-05", statut: "realisee", service: "lavage", prixHT: 37 }),
+    demande({ date: "2026-10-06", statut: "realisee", service: "lavage", prixHT: 37 }),
+    demande({ date: "2026-10-07", statut: "realisee", service: "pare-brise", prixHT: 360 }),
+    demande({ date: "2026-10-08", statut: "realisee", service: "lavage", prixHT: null }),
+    demande({ date: "2026-10-09", statut: "realisee", service: "hayon", prixHT: null }),
+    demande({ date: "2026-10-10", statut: "envoyee", service: "lavage", prixHT: 37 }),
+  ];
+  const r = D.monthlyReport(list, { month: "2026-10", provider: "", todayIso: "2026-10-20" });
+  assert.equal(r.total.amountHT, 434);
+  assert.equal(r.total.flat, 1);
+  assert.equal(r.total.unpriced, 1);
+  const lines = D.invoiceLines(r.rows.filter((d) => d.statut === "realisee"));
+  assert.deepEqual(lines[0], { label: D.jobLabel({ service: "pare-brise" }), unit: 360, flat: false, count: 1, total: 360 });
+  assert.deepEqual(lines[1], { label: "Lavage complet", unit: 37, flat: false, count: 2, total: 74 });
+  assert.ok(lines.some((l) => l.flat && l.count === 1));
+  assert.ok(lines.some((l) => l.unit === null && !l.flat && l.count === 1));
 });
 
 test("CSV and TSV exports escape separators", () => {
