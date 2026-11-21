@@ -32,3 +32,15 @@ test("ajoute et met à jour, garde un absent 60 jours, puis le retire", () => {
     ZZ999ZZ: ["MAX - 20", "20M3", "Toulouse", "2026-11-21"],  // nouveau
   });                                                         // EF456GH absent depuis 81 jours : retiré
 });
+
+test("CSV du mail Metabase : modèle et catégorie de chaque VU, immobilisés compris ; le site reste celui de la feuille", () => {
+  const T = ["﻿Vehicule ID", "Statut", "Cd Vehicules - Vehicule → Immatriculation", "Cd Vehicules - Vehicule → Modele", "Cd Vehicules - Vehicule → Categorie", "Cd Vehicules - Vehicule → Sous Statut"];
+  const csv = F.vehiculesDuCsv([T,
+    ["404", "IMPRODUCTIF", "GM-149-EA", "MOV - 12", "12M3", "4"],
+    ["405", "ROUTE", "HK-382-ML", "MOV - 17", "17M3", "1"],
+    ["", "PROVINCE", "", "", "", ""]]);
+  assert.deepEqual(csv, { GM149EA: ["MOV - 12", "12M3"], HK382ML: ["MOV - 17", "17M3"] });
+  assert.deepEqual(F.completerAvecCsv({ HK382ML: ["MOV - 12", "12M3", "Paris-Centre"], ZZ999ZZ: ["VIVA - 6", "5M3", "Aulnay"] }, csv), {
+    HK382ML: ["MOV - 17", "17M3", "Paris-Centre"], ZZ999ZZ: ["VIVA - 6", "5M3", "Aulnay"], GM149EA: ["MOV - 12", "12M3", ""] });
+  assert.throws(() => F.vehiculesDuCsv([["a", "b"]]), /colonnes/);
+});
