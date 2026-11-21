@@ -224,6 +224,15 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     `<g stroke="#c3ced6" stroke-width="1.6" stroke-linecap="round"><path d="M16.6 14.8h14.8"/><path d="M16.6 18.8h14.8"/><path d="M16.6 22.8h9.8"/></g>` +
     solid("M5.5 27.5h10.2l2.2 4.3h12.2l2.2-4.3h10.2V36a3 3 0 0 1-3 3H8.5a3 3 0 0 1-3-3Z") +
     `<path d="M7.2 29h7.6" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".9"/>`;
+  // Retours de l'équipe : passage fait (pastille verte), pris en charge (pastille bleue City-Drop), « fait » annulé (pastille orange, flèche retour).
+  const badge = (grad, inner) => ground(24, 42.6, 15, 2.1) +
+    `<circle cx="24" cy="23" r="16" fill="url(#i3-${grad})" ${S}/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeR)"/><circle cx="24" cy="23" r="16" fill="url(#i3-shadeB)"/>` +
+    `<ellipse cx="20" cy="13.4" rx="8" ry="3.6" fill="url(#i3-shine)" opacity=".6"/>` + inner;
+  const TICK = `<path d="M16.6 23.4l5 5 9.6-10.2" fill="none" stroke="#0a141c" stroke-opacity=".18" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 1)"/><path d="M16.6 23.4l5 5 9.6-10.2" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
+  ICONS["ret-fait"] = badge("spg", TICK);
+  ICONS["ret-confirme"] = badge("grip", TICK);
+  ICONS["ret-erreur"] = badge("ora",
+    `<path d="M30.4 30.2a9 9 0 1 0-12.6-.6" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/><path d="M13.4 25.8l4.6 5.2 5-4.6" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>`);
   let ready = false;
   const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
   const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
