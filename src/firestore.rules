@@ -85,11 +85,12 @@ service cloud.firestore {
     // (the team app links it, adds site, model and price). The id is fixed by the mail, so a mail is never imported twice.
     function validMailRequest(d) {
       return d.keys().hasOnly(['source', 'mailId', 'statut', 'service', 'plaque', 'modeleMail', 'km', 'date', 'debut', 'dateFin', 'fin',
-                               'tache', 'garageMail', 'sentAt', 'createdAt', 'updatedAt'])
+                               'tache', 'garageMail', 'notes', 'sentAt', 'createdAt', 'updatedAt'])
         && d.source == 'mail' && d.statut == 'envoyee' && d['service'] in ['pare-brise', 'lavage', 'intervention', 'hayon']
         && d.plaque is string && d.plaque.size() > 0 && d.plaque.size() <= 20
         && d.garageMail is string && d.garageMail.size() <= 80
-        && d.tache is string && d.tache.size() <= 500;
+        && d.tache is string && d.tache.size() <= 500
+        && (!('notes' in d) || (d.notes is string && d.notes.size() <= 500));
     }
     // "Annulation de rendez-vous" mail: only the status changes.
     function robotCancels() {
@@ -100,7 +101,8 @@ service cloud.firestore {
     function robotReplans() {
       return resource.data.statut == 'annulee' && request.resource.data.statut == 'envoyee'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'mailId', 'source', 'service', 'plaque', 'modeleMail', 'km',
-             'date', 'debut', 'dateFin', 'fin', 'tache', 'garageMail', 'sentAt', 'updatedAt'])
+             'date', 'debut', 'dateFin', 'fin', 'tache', 'garageMail', 'notes', 'sentAt', 'updatedAt'])
+        && (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 500))
         && request.resource.data.plaque == resource.data.plaque && request.resource.data.date == resource.data.date;
     }
     // A provider answer: what was done, when, by whom; never the team's own marks (vu, applique).

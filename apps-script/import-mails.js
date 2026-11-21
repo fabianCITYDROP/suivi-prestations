@@ -53,7 +53,7 @@ function lireMail(sujet, html) {
   const creneau = texte.match(/notre\s+(.*?)\s+entre le\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2})\s+et le\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2})/i);
   const vehicule = texte.match(/immatricul\S*\s*:\s*([A-Z0-9-]+)\s*(?:\((\d[\d\s.]*)\s*km\))?/i);
   const garage = (texte.match(/Nom du garage\s*:\s*(.+)/i) || [])[1];
-  const bloc = (texte.match(/intervention pour\s*:([\s\S]*?)(?:Nom du garage|$)/i) || [])[1] || '';
+  const bloc = (texte.match(/intervention pour\s*:([\s\S]*?)(?:Commentaire\s*:|Nom du garage|$)/i) || [])[1] || '';
   const taches = bloc.split('\n').map((l) => l.replace(/^\s*[-•*]\s*/, '').trim()).filter(Boolean);
   if (!creneau || !vehicule || !garage) return null;
   const plaque = vehicule[1].toUpperCase();
@@ -67,7 +67,15 @@ function lireMail(sujet, html) {
     dateFin: dateIso(creneau[4]), fin: creneau[5].padStart(5, '0'),
     tache: taches.join(' + '),
     garageMail: garage.trim(),
+    ...(commentaireDe(texte) ? { notes: commentaireDe(texte) } : {}),
   };
+}
+
+// « Commentaire : … » ajouté par l'équipe dans le mail (ex. pourquoi faire un diag) : le prestataire le voit sur sa fiche.
+// Il s'arrête au nom du garage ou à la formule de politesse ; vide ou absent = rien.
+function commentaireDe(texte) {
+  const brut = (String(texte).match(/Commentaire\s*:([\s\S]*?)(?:Nom du garage\s*:|Nous vous remercions|Cordialement|$)/i) || [])[1] || '';
+  return brut.split('\n').map((l) => l.trim()).filter(Boolean).join(' ').slice(0, 500);
 }
 
 // « Annulation de rendez-vous » : même plaque, même créneau que la prise de rendez-vous qu'il annule.
@@ -247,4 +255,4 @@ function installer() {
   importer();
 }
 
-if (typeof module === 'object' && module.exports) module.exports = { texteDuMail, lireMail, lireAnnulation, idDemande, serviceDe, vientDeCityDrop, versFirestore, etatSuivant, traceAEcrire, alerteAEnvoyer, champsTrace };
+if (typeof module === 'object' && module.exports) module.exports = { texteDuMail, lireMail, lireAnnulation, idDemande, serviceDe, commentaireDe, vientDeCityDrop, versFirestore, etatSuivant, traceAEcrire, alerteAEnvoyer, champsTrace };

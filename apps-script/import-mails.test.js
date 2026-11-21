@@ -98,3 +98,19 @@ test("la trace envoyée à l'appli n'a que les champs autorisés par les règles
   const e = { ...M.etatSuivant({}, new Date("2026-11-18T12:00:00Z"), null, null), ecrit: "x", alerte: "y" };
   assert.deepEqual(Object.keys(M.champsTrace(e)), ["passage", "dernierMail", "erreur", "erreurDepuis", "nonCompris", "nonComprisLe"]);
 });
+
+test("le « Commentaire : » du mail devient la remarque que voit le prestataire", () => {
+  const avec = CORPS.replace("- Lavage intérieur<br/>", "- Lavage intérieur<br/>- Diag<br/></p><p>Commentaire : Voyant moteur allumé,<br/>merci de regarder &amp; nous dire</p><p>")
+  const d = M.lireMail("Prise de rendez-vous GS-487-PR", avec);
+  assert.equal(d.notes, "Voyant moteur allumé, merci de regarder & nous dire");
+  assert.equal(d.tache, "Lavage extérieur + Lavage intérieur + Diag", "le commentaire n'est pas une ligne d'intervention");
+  assert.equal(d.service, "intervention");
+  assert.equal(d.garageMail, "Du sol au toit 78&92");
+  const apres = CORPS.replace("Du sol au toit 78&amp;92</p>", "Du sol au toit 78&amp;92</p><p>Commentaire : Passer avant 10 h</p>");
+  assert.equal(M.lireMail("Prise de rendez-vous GS-487-PR", apres).notes, "Passer avant 10 h", "commentaire placé après le garage");
+  assert.equal(M.lireMail("Prise de rendez-vous GS-487-PR", apres).garageMail, "Du sol au toit 78&92");
+  const vide = CORPS.replace("<p>Nom du garage", "<p>Commentaire : </p><p>Nom du garage");
+  assert.ok(!("notes" in M.lireMail("Prise de rendez-vous GS-487-PR", vide)), "commentaire vide = rien");
+  assert.ok(!("notes" in M.lireMail("Prise de rendez-vous GS-487-PR", CORPS)), "pas de commentaire = rien");
+  assert.equal(M.commentaireDe("Commentaire : " + "x".repeat(800)).length, 500);
+});
