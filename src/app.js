@@ -556,6 +556,7 @@
   function show(view) {
     if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
+    if (view !== "reglages" && document.querySelector(".team-sheet.rg-sheet-b.on")) teamSheet.close(); // a Réglages sheet never stays over another page
     if (view === "demande") {
       VIEWS.forEach((v) => v !== "demande" && ($("#view-" + v).hidden = v !== baseView));
       markCurrentNav(baseView);
@@ -2200,120 +2201,289 @@
     if (!requireStore()) return;
     try { await state.store.saveSettings(currentSettings()); if (message) toast(message); } catch (err) { reportWriteError(err); }
   }
-  const removeButton = (attr, i, label) => `<button type="button" class="ghost" ${attr}="${i}" aria-label="Retirer ${esc(label)}">${icon("x")}</button>`;
-  function renderSettings() {
-    $("#s-sites").innerHTML = state.sites.map((s, i) => `<div class="item"><b>${esc(s.nom)}</b>
-      <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}">${removeButton("data-remove-site", i, s.nom)}</div>`).join("");
-    $("#s-fleet").innerHTML = state.fleet.map((f, i) => `<div class="item"><span>${esc(f.modele)}</span><span class="muted">${f.cubage ? esc(f.cubage) + " m³" : ""}</span>${removeButton("data-remove-model", i, D.fleetLabel(f))}</div>`).join("");
-    const provFlag = (p, flag, label) => `<label class="check"><input type="checkbox" data-prov-flag="${flag}" data-prov="${esc(p)}" ${D.offers(state.providerDocs.get(D.providerId(p)), flag, p) ? "checked" : ""}>${label}</label>`;
-    $("#s-provs").innerHTML = state.providers.map((p, i) => `<div class="item"><div class="prov-name"><b>${esc(p)}</b>${alertChip(D.providerAlertStatus(state.alertDevices, state.accounts, D.providerId(p)), true)}</div>
-      <div class="prov-flags">${provFlag(p, "lavage", "Lavage")}${provFlag(p, "pareBrise", "Pare-brise")}${provFlag(p, "interventions", "Interventions")}${provFlag(p, "hayon", "Contrôle hayon")}</div>${removeButton("data-remove-provider", i, p)}</div>`).join("");
-    $("#s-sheeturl").value = state.sheetUrl;
-    renderPrices(); renderAccounts(); renderAlertSummary();
-  }
-  // Who receives the alerts on a closed app: green = on, orange = not on (or app not opened for 2 months).
-  const ALERT_CHIP = { on: "st-realisee", stale: "st-a_envoyer", none: "st-a_envoyer", nobody: "st-annulee" };
-  const alertChip = (st, short) => (st ? `<span class="chip alert-chip ${ALERT_CHIP[st.level]}" title="${esc(st.title)}">${esc(short ? st.short : st.text)}</span>` : "");
-  function renderAlertSummary() {
-    const box = $("#al-who");
-    if (!box) return;
+  // ================= « Réglages » façon Réglages de l'iPhone (2026-11-21) =================
+  // Listes groupées ; chaque ligne ouvre une feuille (par le bas sur téléphone, à droite sur ordinateur).
+  // Les écritures n'ont pas changé : config/reglages, prestataires/*, comptes/*, réglages des alertes. Aucune règle Firebase touchée.
+  const rg = { open: null, armed: "" };
+  const rgArt = (key) => self.IssueArt?.art(key, "rg-art") || "";
+  const rgIco = (key, size = "") => `<span class="rg-ico ${size}" aria-hidden="true">${rgArt(key)}</span>`;
+  const RG_FLAGS = [
+    { flag: "lavage", label: "Lavage", sub: "Complet ou intérieur", art: "Véhicule sale", service: "lavage" },
+    { flag: "pareBrise", label: "Pare-brise", sub: "Seulement ceux qui changent les pare-brise", art: "Pare-brise", service: "pare-brise" },
+    { flag: "interventions", label: "Interventions", sub: "Vérification, ampoule, AdBlue…", art: "svc-intervention", service: "intervention" },
+    { flag: "hayon", label: "Contrôle hayon", sub: "Celui qui contrôle les hayons", art: "svc-hayon", service: "hayon" },
+  ];
+  const provOffers = (p) => RG_FLAGS.filter((f) => D.offers(state.providerDocs.get(D.providerId(p)), f.flag, p));
+  // Statuts : vert = ça marche, orange = à regarder, rouge = arrêté ; gris = rien à signaler (pas de compte, pas installé).
+  const RG_TONE = { ok: "ok", on: "ok", warn: "todo", stale: "todo", none: "todo", alert: "bad", off: "off", nobody: "off" };
+  const rgVal = (tone, text) => `<span class="rg-val">${tone ? `<i class="rg-dot ${tone}" aria-hidden="true"></i>` : ""}${esc(text)}</span>`;
+  const rgRow = ({ open, art, title, sub = "", value = "", cls = "", badge = "" }) => `<button type="button" class="rg-row ${cls}" data-rg-open="${esc(open)}">
+      ${art ? rgIco(art) : ""}<span class="rg-txt"><b>${esc(title)}${badge}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>${value}<span class="rg-chev" aria-hidden="true">${icon("chev-r")}</span></button>`;
+  const rgSection = (title, inner, foot = "") => `<section class="rg-group">${title ? `<h2 class="rg-gh">${title}</h2>` : ""}<div class="rg-list">${inner}</div>${foot ? `<p class="rg-foot">${foot}</p>` : ""}</section>`;
+  const rgRemove = (act, i, label) => `<button type="button" class="rg-x" data-rg-act="${act}" data-i="${esc(i)}" aria-label="Retirer ${esc(label)}">${icon("x")}</button>`;
+  const ROBOT_SHORT = { ok: "Tourne bien", warn: "À vérifier", alert: "Arrêté", off: "Pas installé" };
+  const ALERT_SHORT = { on: "Alertes", stale: "À vérifier", none: "Sans alertes", nobody: "Sans compte" };
+  const accountsOf = (p) => state.accounts.filter((a) => a.role === "prestataire" && a.prestataireId === D.providerId(p));
+  const alertsWired = () => !!state.alerts?.settings?.url;
+  function alertCounts() {
     const devices = state.alertDevices;
-    box.hidden = !devices;
-    if (!devices) return;
+    if (!devices) return null;
     const people = state.accounts.filter((a) => a.role === "prestataire" || a.role === "admin");
-    const count = (role) => {
-      const list = people.filter((a) => a.role === role);
-      return [list.filter((a) => D.alertStatus(devices, a.id).level === "on").length, list.length];
-    };
-    const [provOn, provAll] = count("prestataire");
-    const [teamOn, teamAll] = count("admin");
-    const names = (level) => [...new Set(people.filter((a) => a.role === "prestataire" && D.alertStatus(devices, a.id).level === level)
-      .map((a) => providerName(a.prestataireId) || a.id))].join(", ");
-    const missing = names("none"), stale = names("stale");
-    $("#al-who-text").innerHTML = `Alertes actives : <b>${provOn} compte${provOn > 1 ? "s" : ""} prestataire sur ${provAll}</b>, ${teamOn} de l'équipe sur ${teamAll}.`
-      + (missing ? ` Pas encore activées chez : ${esc(missing)}.` : "") + (stale ? ` À vérifier (appli pas ouverte depuis 2 mois) : ${esc(stale)}.` : "")
-      + (provAll && provOn === provAll ? " Tous les prestataires les reçoivent." : "");
+    const count = (role) => { const list = people.filter((a) => a.role === role); return [list.filter((a) => D.alertStatus(devices, a.id).level === "on").length, list.length]; };
+    const names = (level) => [...new Set(people.filter((a) => a.role === "prestataire" && D.alertStatus(devices, a.id).level === level).map((a) => providerName(a.prestataireId) || a.id))].join(", ");
+    const [provOn, provAll] = count("prestataire"), [teamOn, teamAll] = count("admin");
+    return { provOn, provAll, teamOn, teamAll, missing: names("none"), stale: names("stale") };
+  }
+  function alertSummaryText(c) {
+    return `Alertes actives : <b>${c.provOn} compte${c.provOn > 1 ? "s" : ""} prestataire sur ${c.provAll}</b>, ${c.teamOn} de l'équipe sur ${c.teamAll}.`
+      + (c.missing ? ` Pas encore activées chez : ${esc(c.missing)}.` : "") + (c.stale ? ` À vérifier (appli pas ouverte depuis 2 mois) : ${esc(c.stale)}.` : "")
+      + (c.provAll && c.provOn === c.provAll ? " Tous les prestataires les reçoivent." : "");
+  }
+  // Ce qui demande une action, en haut de la page (comme « Terminer la configuration » sur l'iPhone).
+  function rgTodo() {
+    const items = [];
+    const health = D.robotHealth(state.robot);
+    if (health.level === "alert" || health.level === "warn")
+      items.push(`<button type="button" class="rg-todo-row" data-rg-open="robot"><i class="rg-dot ${RG_TONE[health.level]}" aria-hidden="true"></i><span><b>Robot des mails : ${esc(ROBOT_SHORT[health.level].toLowerCase())}</b><small>${esc(health.text)}</small></span><span class="rg-chev" aria-hidden="true">${icon("chev-r")}</span></button>`);
+    if (state.canWrite) {
+      const missing = D.missingKnownPrices(state.providers, pricesOf);
+      const count = missing.reduce((n, m) => n + m.add.length, 0);
+      if (count) items.push(`<div class="rg-todo-row"><i class="rg-dot todo" aria-hidden="true"></i><span><b>Tarifs connus à ajouter</b><small id="t-known-text">${esc(`${plural(count, "tarif")} à ajouter pour ${missing.map((m) => m.name).join(", ")}.`)}</small></span><button type="button" class="rg-pill" id="t-known" data-rg-act="known-prices">Remplir</button></div>`);
+      const toLink = D.accessMigration(state.demandes, pricesOf).length;
+      const meMissing = ownAccountMissing();
+      if (toLink || meMissing) items.push(`<div class="rg-todo-row" id="a-prepare"><i class="rg-dot todo" aria-hidden="true"></i><span><b>Accès à préparer</b><small id="a-prepare-text">${esc([
+        toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire ou à chiffrer avec les nouveaux tarifs` : "",
+        meMissing ? `ton propre accès (${state.userEmail}) à créer en équipe City-Drop` : "",
+      ].filter(Boolean).join(" et ") + ".")}</small></span><button type="button" class="rg-pill" id="a-prepare-btn" data-rg-act="prepare">Préparer</button></div>`);
+    }
+    return items.length ? `<section class="rg-group rg-todo"><h2 class="rg-gh">À regarder</h2><div class="rg-list">${items.join("")}</div></section>` : "";
+  }
+  function renderSettings() {
+    const root = $("#view-reglages");
+    if (!root || state.providerMode) return;
+    const provRows = state.providers.map((p, i) => {
+      const offers = provOffers(p);
+      const st = D.providerAlertStatus(state.alertDevices, state.accounts, D.providerId(p));
+      const prices = pricesOf(D.providerId(p)).length;
+      const sub = [i === 0 ? "Par défaut" : "", offers.length ? offers.map((f) => f.label).join(" · ") : "Aucune prestation cochée", prices ? plural(prices, "tarif") : ""].filter(Boolean).join(" · ");
+      return rgRow({ open: "prov:" + p, art: offers[0]?.art || "svc-intervention", title: p, sub, cls: "rg-prov",
+        value: st ? `<span class="rg-val alert-chip" title="${esc(st.title)}"><i class="rg-dot ${RG_TONE[st.level]}" aria-hidden="true"></i><span class="rg-val-t">${esc(ALERT_SHORT[st.level])}</span></span>` : "" });
+    }).join("") + (state.canWrite ? `<button type="button" class="rg-row rg-add" data-rg-open="prov-new"><span class="rg-ico plus" aria-hidden="true">${icon("plus")}</span><span class="rg-txt"><b>Ajouter un prestataire</b></span></button>` : "");
+    const noAddress = state.sites.filter((s) => !s.adresse).length;
+    const health = D.robotHealth(state.robot);
+    const counts = alertCounts();
+    const alertValue = !alertsWired() && state.alerts && state.alerts.state === "off" ? rgVal("todo", "Pas branché")
+      : counts ? rgVal(counts.provAll && counts.provOn === counts.provAll ? "ok" : "todo", `${counts.provOn} sur ${counts.provAll}`) : "";
+    const signOut = $("#signOutBtn");
+    root.innerHTML = `<header class="rg-head"><p class="rg-kicker">Équipe City-Drop</p><h1 class="rg-title">Réglages</h1></header>
+      ${rgTodo()}
+      <div class="rg-cols"><div class="rg-col">
+        ${rgSection(`Prestataires <em>${state.providers.length}</em>`, `<div id="s-provs">${provRows}</div>`, "Le premier de la liste est choisi par défaut dans une nouvelle demande. Touche un prestataire pour ses prestations, ses tarifs HT et ses comptes.")}
+      </div><div class="rg-col">
+        ${rgSection("Terrain",
+          rgRow({ open: "sites", art: "rg-pin", title: "Sites et adresses", value: noAddress ? rgVal("todo", `${noAddress} sans adresse`) : rgVal("", plural(state.sites.length, "site")) }) +
+          rgRow({ open: "fleet", art: "rg-van", title: "Flotte", sub: "Modèles proposés dans la demande", value: rgVal("", plural(state.fleet.length, "modèle")) }))}
+        ${rgSection("Accès",
+          rgRow({ open: "accounts", art: "rg-key", title: "Accès à l'appli", sub: "Qui peut se connecter, et à quoi", value: rgVal("", plural(state.accounts.length, "compte")) }) +
+          rgRow({ open: "alerts", art: "rg-bell", title: "Alertes sur les téléphones", sub: "Prestataires prévenus même appli fermée", value: alertValue }))}
+        ${rgSection("Connexions",
+          rgRow({ open: "robot", art: "rg-mail", title: "Robot des mails", sub: "Ajoute les demandes reçues par mail", value: `<span class="rg-val" id="s-robot" data-level="${health.level}"><i class="rg-dot ${RG_TONE[health.level]}" aria-hidden="true"></i>${esc(ROBOT_SHORT[health.level])}</span>` }) +
+          rgRow({ open: "gsheet", art: "rg-sheet", title: "Google Sheet pare-brise", sub: "Coche « OK confirmé » des plaques", value: state.sheetUrl ? rgVal("ok", "Branché") : rgVal("off", "Pas branché") }))}
+        ${signOut && !signOut.hidden ? rgSection("", `<button type="button" class="rg-row rg-danger" data-rg-open="logout"><span class="rg-ico" aria-hidden="true">${rgArt("rg-power")}</span><span class="rg-txt"><b>Se déconnecter</b>${state.userEmail ? `<small>${esc(state.userEmail)}</small>` : ""}</span></button>`) : ""}
+      </div></div>`;
+    refreshRgSheet();
   }
 
-  // ----- prices (HT), per provider -----
-  const pricesProvider = () => $("#t-prov").value || defaultProvider();
-  function renderPrices() {
-    setSelectOptions($("#t-prov"), options(state.providers));
-    setSelectOptions($("#t-svc"), priceKinds().map(([value, line]) => `<option value="${value}">${esc(D.jobLabel(line))}</option>`).join(""));
-    const lines = pricesOf(D.providerId(pricesProvider()));
-    $("#t-list").innerHTML = lines.length
-      ? lines.map((line, i) => `<div class="item price"><span>${esc(D.priceLineLabel(line))}</span>
-          <b>${esc(D.euros(+line.prixHT))} HT</b><span class="muted">${esc(D.euros(D.withVat(+line.prixHT)))} TTC</span>${removeButton("data-remove-price", i, D.priceLineLabel(line))}</div>`).join("")
-      : `<p class="hint">Aucun tarif pour ce prestataire : ses demandes n'auront pas de montant.</p>`;    const missing = D.missingKnownPrices(state.providers, pricesOf);
-    const count = missing.reduce((n, m) => n + m.add.length, 0);
-    $("#t-known-box").hidden = !count || !state.canWrite;
-    $("#t-known-text").textContent = count ? `${plural(count, "tarif")} à ajouter pour ${missing.map((m) => m.name).join(", ")}.` : "";
+  // ----- feuilles -----
+  const rgForm = (inner) => (state.canWrite ? `<div class="rg-form">${inner}</div>` : "");
+  const rgAddBtn = (id, act, label = "Ajouter") => `<button type="button" class="rg-btn primary" id="${id}" data-rg-act="${act}">${icon("plus")}${label}</button>`;
+  const roleShort = (role) => D.roleOf(role)?.label.split(" (")[0] || role;
+  function provSheet(p) {
+    const i = state.providers.indexOf(p);
+    if (i < 0) return null;
+    const w = state.canWrite, id = D.providerId(p), offers = provOffers(p);
+    const doc = state.providerDocs.get(id);
+    const flags = RG_FLAGS.map((f) => `<label class="rg-row rg-switchrow">${rgIco(f.art, "sm")}<span class="rg-txt"><b>${f.label}</b><small>${esc(f.sub)}</small></span>
+        <input type="checkbox" role="switch" class="rg-switch" data-prov-flag="${f.flag}" data-prov="${esc(p)}" ${D.offers(doc, f.flag, p) ? "checked" : ""} ${w ? "" : "disabled"} aria-label="${esc(p)} : ${f.label}"></label>`).join("");
+    const lines = pricesOf(id);
+    const priceRows = lines.length
+      ? lines.map((line, n) => `<div class="rg-row rg-static rg-price"><span class="rg-txt"><b>${esc(D.priceLineLabel(line))}</b><small>${esc(D.euros(D.withVat(+line.prixHT)))} TTC</small></span>
+          <span class="rg-amount">${esc(D.euros(+line.prixHT))} <small>HT</small></span>${w ? rgRemove("remove-price", n, D.priceLineLabel(line)) : ""}</div>`).join("")
+      : `<p class="rg-empty">Aucun tarif : ses demandes n'auront pas de montant.</p>`;
+    const offered = new Set(offers.map((f) => f.service));
+    const kinds = priceKinds().filter(([, line]) => !offered.size || offered.has(line.service));
+    const accounts = accountsOf(p);
+    const accRows = accounts.length
+      ? accounts.map((a) => { const st = D.alertStatus(state.alertDevices, a.id); return `<div class="rg-row rg-static"><span class="rg-txt"><b class="rg-mail">${esc(a.id)}</b>${st ? `<small class="rg-sub-st"><i class="rg-dot ${RG_TONE[st.level]}" aria-hidden="true"></i>${esc(st.text)}</small>` : ""}</span>${w ? rgRemove("remove-account", a.id, a.id) : ""}</div>`; }).join("")
+      : `<p class="rg-empty">Personne de chez ${esc(p)} n'a encore d'accès à l'appli.</p>`;
+    const st = D.providerAlertStatus(state.alertDevices, state.accounts, id);
+    return ["Prestataire", `<div class="rg-sheet">
+      <div class="rg-hero">${rgIco(offers[0]?.art || "svc-intervention", "lg")}<div><b>${esc(p)}</b><small>${i === 0 ? "Choisi par défaut dans une nouvelle demande" : "Prestataire"}</small>${st ? `<small class="rg-sub-st"><i class="rg-dot ${RG_TONE[st.level]}" aria-hidden="true"></i>${esc(st.level === "on" ? "Reçoit les alertes" : st.level === "nobody" ? "Aucun compte dans l'appli" : st.level === "stale" ? "Alertes à vérifier" : "Alertes pas activées")}</small>` : ""}</div></div>
+      ${rgSection("Ce qu'il fait", flags, "Une prestation décochée ne peut jamais lui être envoyée.")}
+      ${rgSection("Tarifs hors taxe", `<div id="t-list">${priceRows}</div>`, "Le prix est figé sur chaque demande quand elle est enregistrée : changer un tarif ne modifie pas les demandes déjà faites. Cubage vide = toutes tailles.")}
+      ${rgForm(`<select id="t-svc" aria-label="Prestation">${kinds.map(([value, line]) => `<option value="${value}">${esc(D.jobLabel(line))}</option>`).join("")}</select>
+        <div class="rg-form-line"><input id="t-min" type="number" min="0" inputmode="numeric" placeholder="de m³" aria-label="Cubage minimum"><input id="t-max" type="number" min="0" inputmode="numeric" placeholder="à m³" aria-label="Cubage maximum"><input id="t-prix" inputmode="decimal" placeholder="€ HT" aria-label="Prix hors taxe"></div>
+        ${rgAddBtn("t-add", "add-price", "Ajouter le tarif")}`)}
+      ${rgSection("Comptes", accRows, "Crée d'abord son compte dans Firebase (Authentication), puis ajoute son adresse ici. Un prestataire ne voit que ses demandes.")}
+      ${rgForm(`<input id="pa-email" type="email" placeholder="adresse e-mail" aria-label="Adresse e-mail du compte">${rgAddBtn("pa-add", "add-prov-account", "Ajouter le compte")}`)}
+      ${w ? rgSection("", (i > 0 ? `<button type="button" class="rg-row rg-action" data-rg-act="make-default"><span class="rg-txt"><b>Choisir par défaut</b><small>Le mettre en premier dans la liste</small></span></button>` : "")
+        + `<button type="button" class="rg-row rg-action rg-danger ${rg.armed === "prov" ? "armed" : ""}" data-rg-act="remove-provider"><span class="rg-txt"><b>${rg.armed === "prov" ? "Toucher encore pour retirer" : "Retirer ce prestataire"}</b><small>Ses demandes et ses comptes restent</small></span></button>`) : ""}
+    </div>`];
   }
+  function rgSheet(key) {
+    const w = state.canWrite;
+    if (key.startsWith("prov:")) return provSheet(key.slice(5));
+    if (key === "prov-new") return ["Nouveau prestataire", `<div class="rg-sheet">
+      <p class="rg-intro">Ajoute-le ici, puis coche ce qu'il fait et ses tarifs dans sa fiche. Il reçoit les lavages par défaut.</p>
+      <div class="rg-form"><input id="s-newprov" placeholder="Nom du prestataire" aria-label="Nom du prestataire" autocomplete="off">${rgAddBtn("s-addprov", "add-provider")}</div></div>`];
+    if (key === "sites") return ["Sites et adresses", `<div class="rg-sheet">
+      <p class="rg-intro">L'adresse se remplit toute seule dans la demande quand on choisit le site.</p>
+      ${rgSection(plural(state.sites.length, "site"), `<div id="s-sites">${state.sites.map((s, i) => `<div class="rg-row rg-static rg-site"><span class="rg-txt"><b>${esc(s.nom)}</b>
+        <input data-site-address="${i}" value="${esc(s.adresse)}" placeholder="Adresse du site" aria-label="Adresse de ${esc(s.nom)}" ${w ? "" : "disabled"}></span>${w ? rgRemove("remove-site", i, s.nom) : ""}</div>`).join("") || `<p class="rg-empty">Aucun site.</p>`}</div>`)}
+      ${rgForm(`<input id="s-newsite" placeholder="Nom du nouveau site" aria-label="Nom du nouveau site">${rgAddBtn("s-addsite", "add-site")}`)}
+      ${w ? `<details class="rg-more" id="s-pastebox"><summary>${icon("list")}Coller une liste</summary>
+        <p class="rg-foot">Copie les deux colonnes (nom, adresse) depuis ton tableau et colle-les ici. Les sites déjà présents gardent leur nom, leur adresse est mise à jour.</p>
+        <textarea id="s-paste" rows="6" placeholder="Paris - Centre&#9;Parking Indigo, 75007 Paris" aria-label="Liste des sites à coller"></textarea>
+        <button type="button" class="rg-btn primary" id="s-importsites" data-rg-act="import-sites">Importer</button></details>` : ""}</div>`];
+    if (key === "fleet") return ["Flotte", `<div class="rg-sheet">
+      <p class="rg-intro">Modèles proposés dans la demande. Choisir un modèle remplit le cubage.</p>
+      ${rgSection(plural(state.fleet.length, "modèle"), `<div id="s-fleet">${state.fleet.map((f, i) => `<div class="rg-row rg-static"><span class="rg-txt"><b>${esc(f.modele)}</b></span>${f.cubage ? rgVal("", f.cubage + " m³") : ""}${w ? rgRemove("remove-model", i, D.fleetLabel(f)) : ""}</div>`).join("") || `<p class="rg-empty">Aucun modèle.</p>`}</div>`)}
+      ${rgForm(`<div class="rg-form-line"><input id="s-newmodel" placeholder="Modèle, ex. Opel Movano 2025" aria-label="Modèle"><input id="s-newcub" type="number" min="1" inputmode="numeric" placeholder="m³" aria-label="Cubage en m³" class="rg-narrow"></div>${rgAddBtn("s-addmodel", "add-model")}`)}</div>`];
+    if (key === "accounts") {
+      const sorted = state.accounts.slice().sort((a, b) => a.id.localeCompare(b.id));
+      const groups = D.ROLES.map((r) => [r, sorted.filter((a) => a.role === r.id)]).filter(([, list]) => list.length);
+      const others = sorted.filter((a) => !D.roleOf(a.role));
+      if (others.length) groups.push([{ id: "", label: "Autres" }, others]);
+      const me = D.emailKey(state.userEmail);
+      const row = (a) => { const st = ["prestataire", "admin"].includes(a.role) ? D.alertStatus(state.alertDevices, a.id) : null;
+        return `<div class="rg-row rg-static"><span class="rg-txt"><b class="rg-mail">${esc(a.id)}${a.id === me ? ` <span class="rg-tag">Toi</span>` : ""}</b>
+          <small class="rg-sub-st">${a.role === "prestataire" ? `${esc(providerName(a.prestataireId))}${st ? " · " : ""}` : ""}${st ? `<i class="rg-dot ${RG_TONE[st.level]}" aria-hidden="true"></i><span class="alert-chip" title="${esc(st.title)}">${esc(st.text)}</span>` : ""}</small></span>
+          ${w && a.id !== me ? rgRemove("remove-account", a.id, a.id) : ""}</div>`; };
+      return ["Accès à l'appli", `<div class="rg-sheet">
+        <p class="rg-intro">Chaque personne se connecte avec sa propre adresse. Un prestataire ne voit que ses demandes ; l'équipe City-Drop voit tout ; « lecture » voit tout sans rien modifier.</p>
+        <div id="a-list">${groups.map(([r, list]) => rgSection(esc(roleShort(r.id) || r.label) + ` <em>${list.length}</em>`, list.map(row).join(""))).join("") || `<p class="rg-empty">Aucun accès enregistré pour l'instant.</p>`}</div>
+        ${w ? `<section class="rg-group"><h2 class="rg-gh">Ajouter un accès</h2><div class="rg-form">
+          <input id="a-email" type="email" placeholder="adresse e-mail" aria-label="Adresse e-mail">
+          <div class="rg-form-line"><select id="a-role" aria-label="Rôle">${D.ROLES.map((r) => `<option value="${r.id}">${esc(roleShort(r.id))}</option>`).join("")}</select>
+          <select id="a-prov" aria-label="Prestataire du compte" disabled>${options(state.providers)}</select></div>
+          ${rgAddBtn("a-add", "add-account")}</div>
+          <p class="rg-foot">Crée d'abord son compte dans Firebase (Authentication), puis ajoute son adresse ici.</p></section>` : ""}</div>`];
+    }
+    if (key === "alerts") {
+      const counts = alertCounts();
+      const rows = state.providers.map((p) => { const st = D.providerAlertStatus(state.alertDevices, state.accounts, D.providerId(p));
+        return st ? `<div class="rg-row rg-static"><span class="rg-txt"><b>${esc(p)}</b></span>${rgVal(RG_TONE[st.level], ALERT_SHORT[st.level])}</div>` : ""; }).join("");
+      return ["Alertes sur les téléphones", `<div class="rg-sheet">
+        <div class="rg-hero">${rgIco("rg-bell", "lg")}<div><b>${counts ? `${counts.provOn} prestataire${counts.provOn > 1 ? "s" : ""} sur ${counts.provAll}` : "Alertes appli fermée"}</b><small id="al-status" role="status">${esc(rgAlertStatus())}</small></div></div>
+        ${counts ? `<p class="rg-note" id="al-who"><span id="al-who-text">${alertSummaryText(counts)}</span></p>` : ""}
+        ${rows ? rgSection("Par prestataire", rows) : ""}
+        <section class="rg-group"><h2 class="rg-gh">Script Google des alertes</h2>
+          <p class="rg-foot">Les prestataires sont prévenus d'une nouvelle demande, et l'équipe d'un retour, même appli fermée. Le script s'installe une fois (mode d'emploi : <a href="https://github.com/fabianCITYDROP/suivi-prestations/blob/main/apps-script/LISEZMOI.md#alertes-appli-fermée" target="_blank" rel="noopener">LISEZMOI</a>), puis on colle ici son adresse.</p>
+          ${rgForm(`<input id="al-url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Adresse du script des alertes" value="${esc(state.alerts?.settings?.url || "")}"><button type="button" class="rg-btn primary" id="al-save" data-rg-act="save-alerts">Enregistrer</button>`)}</section></div>`];
+    }
+    if (key === "robot") {
+      const health = D.robotHealth(state.robot);
+      return ["Robot des mails", `<div class="rg-sheet">
+        <div class="rg-status ${RG_TONE[health.level]}">${rgIco("rg-mail", "lg")}<div><b><i class="rg-dot ${RG_TONE[health.level]}" aria-hidden="true"></i>${esc(ROBOT_SHORT[health.level])}</b><span class="robot-state ${health.level}">${esc(health.text)}</span></div></div>
+        <section class="rg-group"><h2 class="rg-gh">Comment ça marche</h2><div class="rg-card"><p>Le robot ajoute tout seul les demandes reçues par mail. S'il s'arrête (mot de passe changé, blocage Google), un bandeau rouge s'affiche en haut de l'appli et le robot envoie un mail d'alerte quand il le peut.</p></div></section>
+        <section class="rg-group"><h2 class="rg-gh">Pour le remettre en route</h2><ol class="rg-steps">
+          <li>Ouvrir le script Apps Script de la boîte du robot, puis <b>Exécutions</b> pour voir l'erreur.</li>
+          <li>Corriger : souvent <b>ROBOT_MOT_DE_PASSE</b> dans les Propriétés du script.</li>
+          <li>Relancer <b>installer</b>.</li></ol></section></div>`];
+    }
+    if (key === "gsheet") return ["Google Sheet pare-brise", `<div class="rg-sheet">
+      <div class="rg-hero">${rgIco("rg-sheet", "lg")}<div><b>${state.sheetUrl ? "Branché" : "Pas encore branché"}</b><small>Un bouton « Cocher dans le Google Sheet » coche la colonne « OK confirmé » des plaques confirmées.</small></div></div>
+      <section class="rg-group"><h2 class="rg-gh">À installer une seule fois</h2><ol class="rg-steps">
+        <li>Dans ton Google Sheet pare-brise : <b>Extensions › Apps Script</b>.</li>
+        <li>Remplace tout le code par le script ci-dessous, puis enregistre.</li>
+        <li>Ajuste si besoin les 3 réglages en haut du script.</li>
+        <li><b>Déployer › Nouveau déploiement</b>, Application Web, exécuter en tant que <b>Moi</b>, accès <b>city-drop.com</b>.</li>
+        <li>Colle ici l'URL qui finit par /exec.</li></ol></section>
+      ${rgForm(`<input id="s-sheeturl" placeholder="https://script.google.com/macros/s/…/exec" aria-label="URL du script du Google Sheet" value="${esc(state.sheetUrl)}"><button type="button" class="rg-btn primary" id="s-savesheet" data-rg-act="save-sheet">Enregistrer l'URL</button>`)}
+      <details class="rg-more"><summary>${icon("list")}Voir le script</summary>
+        <button type="button" class="rg-btn" id="s-copyscript" data-rg-act="copy-script">${icon("copy")}Copier le script</button>
+        <pre class="code" id="s-script">${esc(SHEET_SCRIPT)}</pre></details></div>`];
+    if (key === "logout") return ["Se déconnecter", `<div class="rg-sheet">
+      <p class="rg-intro">Tu seras déconnecté de cet appareil${state.userEmail ? ` (${esc(state.userEmail)})` : ""}. Pour revenir, il faudra ton adresse et ton mot de passe.</p>
+      <button type="button" class="rg-btn danger big" data-rg-act="logout">Se déconnecter</button>
+      <button type="button" class="rg-btn big" data-team-sheet-close>Annuler</button></div>`];
+    return null;
+  }
+  const rgSheetOpen = () => teamSheet.isOpen && !!document.querySelector(".team-sheet.rg-sheet-b");
+  function openRg(key) {
+    rg.armed = "";
+    const s = rgSheet(key);
+    if (!s) return;
+    rg.open = key;
+    teamSheet.open(s[0], s[1], { cls: "rg-sheet-b side-sheet", closed: () => { rg.open = null; rg.armed = ""; } });
+    if (key === "prov-new") setTimeout(() => $("#s-newprov")?.focus(), 380);
+  }
+  // Un nouvel instantané de la base redessine la feuille ouverte, sans perdre ce qui est en train d'être saisi.
+  function refreshRgSheet() {
+    if (!rg.open || !rgSheetOpen()) return;
+    const body = teamSheet.body;
+    if (body.contains(document.activeElement) && document.activeElement.matches("input, textarea, select")) return;
+    const s = rgSheet(rg.open);
+    if (!s) return teamSheet.close();
+    const kept = [...body.querySelectorAll("input[id], select[id], textarea[id]")].map((el) => [el.id, el.value]);
+    const opened = [...body.querySelectorAll("details[id]")].filter((d) => d.open).map((d) => d.id);
+    teamSheet.setTitle(s[0]); body.innerHTML = s[1];
+    kept.forEach(([id, value]) => { const el = body.querySelector("#" + id); if (el && value && el.value !== value && !el.disabled) el.value = value; });
+    opened.forEach((id) => { const d = body.querySelector("#" + id); if (d) d.open = true; });
+    syncAccountRole();
+  }
+  const syncAccountRole = () => { const role = $("#a-role"); if (role && $("#a-prov")) $("#a-prov").disabled = role.value !== "prestataire"; };
+  const rgValue = (sel) => ($(sel)?.value || "").trim();
+  const undoable = (text, undo) => toast(text, { label: "Annuler", run: undo });
+
+  // ----- prices (HT), per provider: the provider is the one whose sheet is open -----
+  const pricesProvider = () => (rg.open?.startsWith("prov:") ? rg.open.slice(5) : defaultProvider());
   // One choice per price kind: windshield, complete wash, inside wash, intervention.
   const priceKinds = () => D.SERVICES.flatMap((x) => (x.id === "lavage" ? D.WASH_KINDS.map((k) => ({ service: x.id, formule: k.id })) : [{ service: x.id }]))
     .map((line) => [[line.service, line.formule].filter(Boolean).join(":"), line]);
-  async function savePrices(providerName, tarifs, message) {
+  async function savePrices(providerName, tarifs, message, undo) {
     if (!requireStore()) return;
-    try { await state.store.saveProvider(D.providerId(providerName), { nom: providerName, tarifs }); toast(message); }
+    try { await state.store.saveProvider(D.providerId(providerName), { nom: providerName, tarifs }); undo ? undoable(message, undo) : toast(message); }
     catch (err) { reportWriteError(err); }
   }
-  $("#t-prov").addEventListener("change", renderPrices);
   // One click fills the prices agreed with Allo and the washers (see D.KNOWN_PRICES); lines already there are kept.
-  $("#t-known").onclick = async () => {
+  async function fillKnownPrices() {
     if (!requireStore()) return;
     const missing = D.missingKnownPrices(state.providers, pricesOf);
     try {
       for (const m of missing) await state.store.saveProvider(D.providerId(m.name), { nom: m.name, tarifs: [...pricesOf(D.providerId(m.name)), ...m.add] });
       toast(`${plural(missing.reduce((n, m) => n + m.add.length, 0), "tarif")} ajouté(s)`);
     } catch (err) { reportWriteError(err); }
-  };
-  $("#t-add").onclick = () => {
-    const prix = parseFloat($("#t-prix").value.replace(",", "."));
+  }
+  function addPrice() {
+    const prix = parseFloat(rgValue("#t-prix").replace(",", "."));
     if (!Number.isFinite(prix) || prix < 0) return toast("Indique le prix hors taxe, par exemple 266,67");
-    const bound = (sel) => ($(sel).value === "" ? null : +$(sel).value);
-    const kind = priceKinds().find(([value]) => value === $("#t-svc").value)[1];
+    const bound = (sel) => (rgValue(sel) === "" ? null : +rgValue(sel));
+    const kind = priceKinds().find(([value]) => value === $("#t-svc").value)?.[1];
+    if (!kind) return;
     const line = { ...kind, cubageMin: bound("#t-min"), cubageMax: bound("#t-max"), prixHT: Math.round(prix * 100) / 100 };
     if (line.cubageMin != null && line.cubageMax != null && line.cubageMin > line.cubageMax) return toast("Le cubage « de » doit être plus petit que « à »");
     const name = pricesProvider();
-    savePrices(name, [...pricesOf(D.providerId(name)), line], "Tarif ajouté");
     ["#t-min", "#t-max", "#t-prix"].forEach((sel) => ($(sel).value = ""));
-  };
+    savePrices(name, [...pricesOf(D.providerId(name)), line], "Tarif ajouté");
+  }
 
   // ----- who can open the app -----
   const providerName = (id) => state.providers.find((p) => D.providerId(p) === id) || state.providerDocs.get(id)?.nom || id || "";
   const ownAccountMissing = () => !!state.userEmail && !state.accounts.some((a) => a.id === D.emailKey(state.userEmail));
-  function renderAccounts() {
-    setSelectOptions($("#a-prov"), options(state.providers));
-    $("#a-prov").disabled = $("#a-role").value !== "prestataire";
-    const sorted = state.accounts.slice().sort((a, b) => (a.role || "").localeCompare(b.role || "") || a.id.localeCompare(b.id));
-    $("#a-list").innerHTML = sorted.length
-      ? sorted.map((a) => `<div class="item account"><span>${esc(a.id)}</span>
-          <span class="account-meta"><span class="muted">${esc(a.role === "prestataire" ? providerName(a.prestataireId) : D.roleOf(a.role)?.label.split(" (")[0] || a.role)}</span>${["prestataire", "admin"].includes(a.role) ? alertChip(D.alertStatus(state.alertDevices, a.id)) : ""}</span>
-          ${removeButton("data-remove-account", esc(a.id), a.id)}</div>`).join("")
-      : `<p class="hint">Aucun accès enregistré pour l'instant.</p>`;
-    const toLink = D.accessMigration(state.demandes, pricesOf).length;
-    const meMissing = ownAccountMissing();
-    $("#a-prepare").hidden = !toLink && !meMissing;
-    $("#a-prepare-text").textContent = [
-      toLink ? `${plural(toLink, "demande")} à rattacher à leur prestataire ou à chiffrer avec les nouveaux tarifs` : "",
-      meMissing ? `ton propre accès (${state.userEmail}) à créer en équipe City-Drop` : "",
-    ].filter(Boolean).join(" et ") + ".";
-  }
-  $("#a-role").addEventListener("change", renderAccounts);
-  $("#a-add").onclick = async () => {
-    const email = D.emailKey($("#a-email").value);
-    if (!D.isEmail(email)) return toast("Adresse e-mail invalide");
-    const role = $("#a-role").value;
-    const fields = role === "prestataire" ? { role, prestataireId: D.providerId($("#a-prov").value) } : { role };
-    if (role === "prestataire" && !fields.prestataireId) return toast("Choisis le prestataire de ce compte");
-    if (!requireStore()) return;
+  async function addAccount(email, role, provider) {
+    email = D.emailKey(email);
+    if (!D.isEmail(email)) return toast("Adresse e-mail invalide"), false;
+    const fields = role === "prestataire" ? { role, prestataireId: D.providerId(provider) } : { role };
+    if (role === "prestataire" && !fields.prestataireId) return toast("Choisis le prestataire de ce compte"), false;
+    if (!requireStore()) return false;
     try {
-      if (role === "prestataire") await state.store.saveProvider(fields.prestataireId, { nom: $("#a-prov").value });
+      if (role === "prestataire") await state.store.saveProvider(fields.prestataireId, { nom: provider });
       await state.store.saveAccount(email, fields);
-      $("#a-email").value = ""; toast("Accès enregistré");
-    } catch (err) { reportWriteError(err); }
-  };
-  $("#a-prepare-btn").onclick = async () => {
+      toast("Accès enregistré"); return true;
+    } catch (err) { reportWriteError(err); return false; }
+  }
+  async function prepareAccess() {
     if (!requireStore()) return;
     try {
       for (const name of state.providers) {
@@ -2325,63 +2495,110 @@
       await state.store.linkRequests(updates);
       toast(`Accès préparés : ${plural(updates.length, "demande")} rattachée${updates.length > 1 ? "s" : ""}`);
     } catch (err) { reportWriteError(err); }
-  };
-  function addFromInput(input, list, make, message) {
-    const value = $(input).value.trim();
-    if (!value) return;
-    list.push(make(value)); $(input).value = ""; renderAll(); persistSettings(message);
   }
-  $("#s-addsite").onclick = () => !siteNames().includes($("#s-newsite").value.trim()) && addFromInput("#s-newsite", state.sites, (nom) => ({ nom, adresse: "" }), "Site ajouté");
-  $("#s-importsites").onclick = () => {
-    const incoming = D.parseSiteList($("#s-paste").value);
-    if (!incoming.length) return toast("Aucun site reconnu : colle le nom puis l'adresse de chaque site");
-    const { sites, added, updated } = D.mergeSites(state.sites, incoming);
-    state.sites = sites; $("#s-paste").value = ""; $("#s-pastebox").open = false; renderAll();
-    persistSettings(added || updated ? `${plural(added, "site")} ajouté${added > 1 ? "s" : ""}, ${updated} mis à jour` : "Tous ces sites étaient déjà à jour");
-  };
-  $("#s-provs").addEventListener("change", async (e) => {
+  // A removed site, model or price comes back with « Annuler » in the bubble.
+  // state.sites / state.fleet are replaced by each new snapshot: always splice the current list.
+  function removeWithUndo(key, index, text) {
+    const [item] = state[key].splice(index, 1);
+    renderAll(); persistSettings();
+    undoable(text, () => { const list = state[key]; list.splice(Math.min(index, list.length), 0, item); renderAll(); persistSettings("Remis"); });
+  }
+  async function rgAct(act, b) {
+    if (act === "logout") { const out = $("#signOutBtn"); if (out) { out.classList.add("armed"); out.click(); } return; }
+    if (act === "copy-script") { if (await copyText(SHEET_SCRIPT)) toast("Script copié"); return; }
+    if (!state.canWrite) return toast("Accès en lecture : tu ne peux rien modifier ici");
+    if (act === "known-prices") return fillKnownPrices();
+    if (act === "prepare") return prepareAccess();
+    if (act === "add-price") return addPrice();
+    if (act === "remove-price") {
+      const name = pricesProvider(), lines = pricesOf(D.providerId(name)), n = +b.dataset.i;
+      return savePrices(name, lines.filter((_, i) => i !== n), "Tarif retiré", () => savePrices(name, lines, "Tarif remis"));
+    }
+    if (act === "add-prov-account") { if (await addAccount(rgValue("#pa-email"), "prestataire", pricesProvider()) && $("#pa-email")) { $("#pa-email").value = ""; refreshRgSheet(); } return; }
+    if (act === "add-account") { if (await addAccount(rgValue("#a-email"), $("#a-role").value, $("#a-prov").value) && $("#a-email")) { $("#a-email").value = ""; refreshRgSheet(); } return; }
+    if (act === "remove-account") {
+      if (b.dataset.i === D.emailKey(state.userEmail)) return toast("Tu ne peux pas retirer ton propre accès");
+      return requireStore() && state.store.deleteAccount(b.dataset.i).then(() => toast("Accès retiré"), reportWriteError);
+    }
+    if (act === "add-provider") {
+      const name = rgValue("#s-newprov");
+      if (!name) return toast("Indique le nom du prestataire");
+      if (state.providers.includes(name)) return toast(`${name} est déjà dans la liste`);
+      state.providers.push(name); renderAll(); persistSettings("Prestataire ajouté");
+      return openRg("prov:" + name);
+    }
+    if (act === "make-default") {
+      const name = pricesProvider(), i = state.providers.indexOf(name);
+      if (i > 0) { state.providers.splice(i, 1); state.providers.unshift(name); renderAll(); persistSettings(`${name} est choisi par défaut`); }
+      return;
+    }
+    if (act === "remove-provider") {
+      if (rg.armed !== "prov") { rg.armed = "prov"; refreshRgSheet(); setTimeout(() => { if (rg.armed === "prov") { rg.armed = ""; refreshRgSheet(); } }, 4000); return; }
+      const name = pricesProvider(), i = state.providers.indexOf(name);
+      rg.armed = ""; teamSheet.close();
+      if (i >= 0) { state.providers.splice(i, 1); renderAll(); persistSettings(`${name} retiré de la liste`); }
+      return;
+    }
+    if (act === "add-site") {
+      const nom = rgValue("#s-newsite");
+      if (!nom) return toast("Indique le nom du site");
+      if (siteNames().includes(nom)) return toast(`${nom} est déjà dans la liste`);
+      $("#s-newsite").value = ""; state.sites.push({ nom, adresse: "" }); renderAll(); persistSettings("Site ajouté");
+      return setTimeout(() => teamSheet.body.querySelector(`[data-site-address="${state.sites.length - 1}"]`)?.focus(), 50);
+    }
+    if (act === "remove-site") return removeWithUndo("sites", +b.dataset.i, "Site retiré");
+    if (act === "import-sites") {
+      const incoming = D.parseSiteList($("#s-paste").value);
+      if (!incoming.length) return toast("Aucun site reconnu : colle le nom puis l'adresse de chaque site");
+      const { sites, added, updated } = D.mergeSites(state.sites, incoming);
+      state.sites = sites; $("#s-paste").value = ""; $("#s-pastebox").open = false; renderAll();
+      return persistSettings(added || updated ? `${plural(added, "site")} ajouté${added > 1 ? "s" : ""}, ${updated} mis à jour` : "Tous ces sites étaient déjà à jour");
+    }
+    if (act === "add-model") {
+      const modele = rgValue("#s-newmodel");
+      if (!modele) return toast("Indique le modèle");
+      const cubage = +rgValue("#s-newcub") || null;
+      $("#s-newmodel").value = ""; $("#s-newcub").value = "";
+      state.fleet.push({ modele, cubage }); renderAll(); return persistSettings("Modèle ajouté");
+    }
+    if (act === "remove-model") return removeWithUndo("fleet", +b.dataset.i, "Modèle retiré");
+    if (act === "save-sheet") {
+      const url = rgValue("#s-sheeturl");
+      if (url && !/^https:\/\/script\.google\.com\/.+\/exec/.test(url)) return toast("L'URL doit commencer par https://script.google.com/ et finir par /exec");
+      state.sheetUrl = url; persistSettings(url ? "URL enregistrée" : "Liaison retirée"); return renderAll();
+    }
+    if (act === "save-alerts") return saveAlertScript();
+  }
+  const inRg = (el) => el.closest("#view-reglages, .team-sheet.rg-sheet-b");
+  document.addEventListener("click", (e) => {
+    if (!inRg(e.target)) return;
+    const o = e.target.closest("[data-rg-open]");
+    if (o) return openRg(o.dataset.rgOpen);
+    const b = e.target.closest("[data-rg-act]");
+    if (b && !b.disabled) rgAct(b.dataset.rgAct, b);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || !inRg(e.target) || !e.target.matches("input:not([type=checkbox])")) return;
+    const btn = e.target.closest(".rg-form")?.querySelector("[data-rg-act]");
+    if (btn) { e.preventDefault(); btn.click(); }
+  });
+  document.addEventListener("change", async (e) => {
+    if (!inRg(e.target)) return;
+    if (e.target.id === "a-role") return syncAccountRole();
     const box = e.target.closest("[data-prov-flag]");
-    if (!box || !requireStore()) return;
-    const nom = box.dataset.prov, flag = box.dataset.provFlag;
-    const what = { hayon: "des contrôles hayon", pareBrise: "des pare-brise", lavage: "des lavages" }[flag] || "des interventions";
-    try { await state.store.saveProvider(D.providerId(nom), { nom, [flag]: box.checked }); toast(box.checked ? `${nom} peut recevoir ${what}` : `${nom} ne reçoit plus ${what.replace(/^des /, "de ")}`); }
-    catch (err) { box.checked = !box.checked; reportWriteError(err); }
-  });
-  $("#s-addprov").onclick = () => !state.providers.includes($("#s-newprov").value.trim()) && addFromInput("#s-newprov", state.providers, (p) => p, "Prestataire ajouté");
-  $("#s-addmodel").onclick = () => {
-    const cubage = +$("#s-newcub").value || null;
-    addFromInput("#s-newmodel", state.fleet, (modele) => ({ modele, cubage }), "Modèle ajouté");
-    $("#s-newcub").value = "";
-  };
-  function removeAt(list, index) { list.splice(index, 1); renderAll(); persistSettings(); }
-  $("#view-reglages").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-remove-site], [data-remove-model], [data-remove-provider], [data-remove-price], [data-remove-account]");
-    if (!b) return;
-    if (b.dataset.removePrice) {
-      const name = pricesProvider();
-      return savePrices(name, pricesOf(D.providerId(name)).filter((_, i) => i !== +b.dataset.removePrice), "Tarif retiré");
+    if (box) {
+      if (!requireStore()) return;
+      const nom = box.dataset.prov, flag = box.dataset.provFlag;
+      const what = { hayon: "des contrôles hayon", pareBrise: "des pare-brise", lavage: "des lavages" }[flag] || "des interventions";
+      try { await state.store.saveProvider(D.providerId(nom), { nom, [flag]: box.checked }); toast(box.checked ? `${nom} peut recevoir ${what}` : `${nom} ne reçoit plus ${what.replace(/^des /, "de ")}`); }
+      catch (err) { box.checked = !box.checked; reportWriteError(err); }
+      return;
     }
-    if (b.dataset.removeAccount) {
-      if (b.dataset.removeAccount === D.emailKey(state.userEmail)) return toast("Tu ne peux pas retirer ton propre accès");
-      return requireStore() && state.store.deleteAccount(b.dataset.removeAccount).then(() => toast("Accès retiré"), reportWriteError);
-    }
-    if (b.dataset.removeSite) removeAt(state.sites, +b.dataset.removeSite);
-    else if (b.dataset.removeModel) removeAt(state.fleet, +b.dataset.removeModel);
-    else removeAt(state.providers, +b.dataset.removeProvider);
-  });
-  $("#view-reglages").addEventListener("change", (e) => {
     const address = e.target.closest("[data-site-address]");
-    const phone = e.target.closest("[data-phone]");
-    if (address) { state.sites[+address.dataset.siteAddress].adresse = address.value.trim(); persistSettings("Adresse enregistrée"); }
-    if (phone) { state.contacts = { ...state.contacts, [phone.dataset.phone]: phone.value.trim() }; persistSettings("Numéro enregistré"); }
+    if (address && state.sites[+address.dataset.siteAddress]) { state.sites[+address.dataset.siteAddress].adresse = address.value.trim(); persistSettings("Adresse enregistrée"); renderSettings(); }
   });
-  $("#s-savesheet").onclick = () => {
-    const url = $("#s-sheeturl").value.trim();
-    if (url && !/^https:\/\/script\.google\.com\/.+\/exec/.test(url)) return toast("L'URL doit commencer par https://script.google.com/ et finir par /exec");
-    state.sheetUrl = url; persistSettings(url ? "URL enregistrée" : "Liaison retirée"); renderAll();
-  };
-  $("#s-script").textContent = SHEET_SCRIPT;
-  $("#s-copyscript").onclick = async () => { if (await copyText(SHEET_SCRIPT)) toast("Script copié"); };
+  // The red robot banner's « Que faire ? » opens the robot's sheet.
+  $("#robotAlert a")?.addEventListener("click", (e) => { e.preventDefault(); show("reglages"); openRg("robot"); });
 
   // ================= provider answers (team side) =================
   // A "done" answer closes the request on its own; every answer is listed until someone marks it seen.
@@ -2682,24 +2899,27 @@
     $("#notifBtn").hidden = pushable ? !["ask", "error"].includes(a.state) : !("Notification" in window) || Notification.permission !== "default";
     const hint = pushable && window.SuiviAlertes.TEXTS[a.state];
     $("#alertHint").hidden = !hint; $("#alertHint").textContent = hint || "";
-    const status = !a || a.state === "off" ? (a?.settings?.url ? "" : "Pas encore branché : colle l'adresse du script.") : window.SuiviAlertes.TEXTS[a.state] || ALERT_TEAM_TEXTS[a.state] || "";
-    $("#al-status").textContent = status;
-    if (a?.settings?.url && document.activeElement !== $("#al-url")) $("#al-url").value = a.settings.url;
+    if ($("#al-status")) $("#al-status").textContent = rgAlertStatus();
+    if (a?.settings?.url && $("#al-url") && !$("#al-url").value && document.activeElement !== $("#al-url")) $("#al-url").value = a.settings.url;
+  }
+  function rgAlertStatus() {
+    const a = state.alerts;
+    return !a || a.state === "off" ? (a?.settings?.url ? "" : "Pas encore branché : colle l'adresse du script.") : window.SuiviAlertes.TEXTS[a.state] || ALERT_TEAM_TEXTS[a.state] || "";
   }
   $("#notifBtn").onclick = () => {
     if (state.alerts && state.alerts.state !== "off") return state.alerts.activate().then(() => { if (state.alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
     Notification.requestPermission().then((p) => { renderAnswers(); toast(p === "granted" ? "Notifications activées sur cet ordinateur" : "Notifications refusées par le navigateur"); });
   };
-  $("#al-save").onclick = async () => {
+  async function saveAlertScript() {
     if (!requireStore()) return;
     const url = $("#al-url").value.trim();
     if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) return toast("L'adresse doit commencer par https://script.google.com/macros/s/ et finir par /exec");
     let cle = "";
     try { cle = (await (await fetch(url + "?action=cle", { cache: "no-store" })).json()).cle || ""; } catch {}
     if (!/^[\w-]{80,100}$/.test(cle)) return toast("Le script ne répond pas : vérifie qu'il est déployé en « Application Web », accès « Tout le monde »");
-    try { await state.store.saveAlertSettings({ url, cle }); await state.alerts?.reload(); toast("Script des alertes branché"); renderAnswers(); }
+    try { await state.store.saveAlertSettings({ url, cle }); await state.alerts?.reload(); toast("Script des alertes branché"); renderAnswers(); renderSettings(); }
     catch (err) { reportWriteError(err); }
-  };
+  }
   // ================= « Retours » page (2026-11-21, façon iPhone) =================
   // Grouped by what the team has to do: problems on a vehicle, answers to decide (other date, not possible, absent,
   // cancelled « fait »), things seen in passing, then answers already applied (done, taken) that only need « Vu ».
@@ -2934,8 +3154,7 @@
     $("#robotAlert").hidden = !loud || state.providerMode;
     $("#robotAlert").classList.toggle("alert", health.level === "alert");
     $("#robotAlertText").textContent = health.text;
-    $("#s-robot").textContent = health.text;
-    $("#s-robot").className = "robot-state " + health.level;
+    if ($("#s-robot")?.dataset.level !== health.level || rgSheetOpen()) renderSettings();
   }
   setInterval(() => state.robot && renderRobot(), 5 * 60000); // the alert also appears when the page stays open without new data
 

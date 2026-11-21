@@ -354,81 +354,8 @@
     <div id="trashList"></div>
   </section>
 
-  <!-- SETTINGS -->
-  <section id="view-reglages" hidden>
-    <div class="settings">
-      <div class="panel">
-        <h2>Prestataires</h2>
-        <p class="hint">Le premier de la liste est choisi par défaut. Tous peuvent recevoir des lavages. Coche « Pare-brise » seulement pour ceux qui changent les pare-brise : les autres ne pourront jamais en recevoir. « Interventions » : vérification, ampoule, AdBlue… « Contrôle hayon » : celui qui contrôle les hayons.</p>
-        <div class="list-edit" id="s-provs"></div>
-        <div class="row"><input id="s-newprov" placeholder="Nom du prestataire" style="flex:1 1 200px"><button type="button" id="s-addprov"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
-      </div>
-      <div class="panel">
-        <h2>Tarifs hors taxe</h2>
-        <p class="hint">Le prix est figé sur chaque demande au moment où elle est enregistrée : changer un tarif ne modifie pas les demandes déjà faites. Laisse le cubage vide pour « toutes tailles ».</p>
-        <div class="row" id="t-known-box" hidden><span class="hint" id="t-known-text" style="flex:1 1 220px"></span><button type="button" class="primary" id="t-known">Remplir les tarifs connus</button></div>
-        <label class="field"><span>Prestataire</span><select id="t-prov"></select></label>
-        <div class="list-edit" id="t-list"></div>
-        <div class="row"><select id="t-svc" aria-label="Prestation" style="flex:1 1 120px"></select><input id="t-min" type="number" min="0" placeholder="de m³" aria-label="Cubage minimum" style="flex:0 1 80px"><input id="t-max" type="number" min="0" placeholder="à m³" aria-label="Cubage maximum" style="flex:0 1 80px"><input id="t-prix" inputmode="decimal" placeholder="€ HT" aria-label="Prix hors taxe" style="flex:0 1 90px"><button type="button" id="t-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
-      </div>
-      <div class="panel">
-        <h2>Accès à l'appli</h2>
-        <p class="hint">Chaque personne se connecte avec sa propre adresse. Un prestataire ne voit que ses demandes ; l'équipe City-Drop voit tout ; « lecture » voit tout sans rien modifier. Crée d'abord son compte dans Firebase (Authentication), puis ajoute son adresse ici.</p>
-        <div class="list-edit" id="a-list"></div>
-        <div class="row"><input id="a-email" type="email" placeholder="adresse e-mail" aria-label="Adresse e-mail" style="flex:2 1 200px">
-          <select id="a-role" aria-label="Rôle" style="flex:1 1 140px"><option value="admin">Équipe City-Drop</option><option value="prestataire">Prestataire</option><option value="lecture">Lecture</option><option value="robot">Robot des mails</option></select>
-          <select id="a-prov" aria-label="Prestataire du compte" style="flex:1 1 140px"></select>
-          <button type="button" id="a-add"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
-        <div id="a-prepare" class="row" hidden style="margin-top:12px"><p class="hint" style="flex:1 1 220px">À faire une fois avant de publier les nouvelles règles : <span id="a-prepare-text"></span></p><button type="button" class="primary" id="a-prepare-btn">Préparer les accès</button></div>
-      </div>
-      <div class="panel">
-        <h2>Alertes sur les téléphones</h2>
-        <p class="hint">Les prestataires sont prévenus d'une nouvelle demande, et l'équipe d'un retour, même appli fermée. Le script Google qui les envoie s'installe une fois (mode d'emploi : <a href="https://github.com/fabianCITYDROP/suivi-prestations/blob/main/apps-script/LISEZMOI.md#alertes-appli-fermée" target="_blank" rel="noopener">LISEZMOI</a>), puis on colle ici son adresse.</p>
-        <div class="row"><input id="al-url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Adresse du script des alertes" style="flex:1 1 260px"><button type="button" class="primary" id="al-save">Enregistrer</button></div>
-        <p class="hint" id="al-status" role="status"></p>
-        <p class="al-who" id="al-who" hidden><span id="al-who-text"></span> Le détail est à côté de chaque compte dans « Accès à l'appli ».</p>
-      </div>
-      <div class="panel">
-        <h2>Robot des mails</h2>
-        <p class="robot-state" id="s-robot"></p>
-        <p class="hint">Le robot ajoute tout seul les demandes reçues par mail. S'il s'arrête (mot de passe changé, blocage Google), un bandeau rouge s'affiche en haut de l'appli et le robot envoie un mail d'alerte quand il le peut.
-          Pour le remettre en route : ouvrir le script Apps Script de la boîte du robot › Exécutions pour voir l'erreur, corriger (souvent ROBOT_MOT_DE_PASSE dans les Propriétés du script), puis relancer <b>installer</b>.</p>
-      </div>
-      <div class="panel">
-        <h2>Sites et adresses</h2>
-        <p class="hint">L'adresse se remplit toute seule dans la demande quand on choisit le site.</p>
-        <div class="list-edit" id="s-sites"></div>
-        <div class="row"><input id="s-newsite" placeholder="Nom du nouveau site" style="flex:1 1 200px"><button type="button" id="s-addsite"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
-        <details class="more" id="s-pastebox"><summary><svg class="icon"><use href="#i-list"/></svg>Coller une liste</summary>
-          <p class="hint">Copie les deux colonnes (nom, adresse) depuis ton tableau et colle-les ici. Les sites déjà présents gardent leur nom, leur adresse est mise à jour.</p>
-          <textarea id="s-paste" rows="6" placeholder="Paris - Centre&#9;Parking Indigo, 75007 Paris"></textarea>
-          <div class="row"><button type="button" class="primary" id="s-importsites">Importer</button></div>
-        </details>
-      </div>
-      <div class="panel">
-        <h2>Flotte</h2>
-        <p class="hint">Modèles proposés dans la demande. Choisir un modèle remplit le cubage.</p>
-        <div class="list-edit" id="s-fleet"></div>
-        <div class="row"><input id="s-newmodel" placeholder="Modèle, ex. Opel Movano 2025" style="flex:2 1 200px"><input id="s-newcub" type="number" min="1" placeholder="m³" aria-label="Cubage en m³" style="flex:0 1 90px"><button type="button" id="s-addmodel"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button></div>
-      </div>
-      <div class="panel">
-        <h2>Liaison avec le Google Sheet</h2>
-        <p class="hint">Un bouton « Cocher dans le Google Sheet » coche la colonne « OK confirmé » des plaques confirmées. À installer une seule fois :</p>
-        <ol class="steps small">
-          <li>Dans ton Google Sheet pare-brise : <b>Extensions › Apps Script</b>.</li>
-          <li>Remplace tout le code par le script ci-dessous, puis enregistre.</li>
-          <li>Ajuste si besoin les 3 réglages en haut du script.</li>
-          <li><b>Déployer › Nouveau déploiement</b>, Application Web, exécuter en tant que <b>Moi</b>, accès <b>city-drop.com</b>.</li>
-          <li>Colle ici l'URL qui finit par /exec.</li>
-        </ol>
-        <div class="row"><input id="s-sheeturl" placeholder="https://script.google.com/macros/s/…/exec" style="flex:1 1 260px"><button type="button" class="primary" id="s-savesheet">Enregistrer l'URL</button></div>
-        <details class="more"><summary><svg class="icon"><use href="#i-list"/></svg>Voir le script</summary>
-          <div class="row" style="margin-bottom:8px"><button type="button" id="s-copyscript"><svg class="icon"><use href="#i-copy"/></svg>Copier le script</button></div>
-          <pre class="code" id="s-script"></pre>
-        </details>
-      </div>
-    </div>
-  </section>
+  <!-- SETTINGS (façon Réglages de l'iPhone : listes groupées, chaque ligne ouvre une feuille ; rempli par app.js) -->
+  <section id="view-reglages" hidden></section>
   <!-- PROVIDER SCREEN (filled by presta.js) -->
   <section id="view-presta" hidden></section>
 </main>
