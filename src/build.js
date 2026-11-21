@@ -6,7 +6,7 @@ const read = (f) => fs.readFileSync(__dirname + "/" + f, "utf8");
 const sheet = read("sheet-script.txt").replace("const SCRIPT = `", "const SHEET_SCRIPT = `");
 const app = read("app.js").replace("/*@SHEET_SCRIPT*/", sheet.trim());
 const inline = (code) => `<script>\n${code}</script>`;
-const appScripts = ["domain.js", "store.js", "notifs.js", "presta.js"].map((f) => inline(read(f))).join("\n") + "\n" + inline(app) + "\n";
+const appScripts = ["domain.js", "store.js", "notifs.js", "icons3d.js", "presta.js"].map((f) => inline(read(f))).join("\n") + "\n" + inline(app) + "\n";
 const body = (scripts) => read("page.html").replace("<!--@style-->", read("style.css").trim()).replace("<!--@scripts-->", () => scripts);
 
 const artifact = body(appScripts);

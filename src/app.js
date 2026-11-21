@@ -1425,10 +1425,12 @@
     const open = D.openProblems(D.problemsOfPlate(state.problems, plate));
     return open.length && D.plateKey(plate) ? `Problème signalé par ${providerOfProblem(open[0])} le ${D.shortDate(open[0].at.slice(0, 10))} : ${D.problemSummary(open[0])}` : "";
   }
+  // Petites icônes des anomalies cochées par le prestataire (pare-brise, pneu…), les mêmes que sur son écran.
+  const problemArts = (p) => { const arts = (p.quoi || []).filter((q) => self.IssueArt?.has(q)).slice(0, 4).map((q) => self.IssueArt.art(q, "mini-art")).join(""); return arts ? `<span class="mini-arts">${arts}</span>` : ""; };
   function problemRow(p, { handled = false } = {}) {
     const d = demandeById(p.demandeId);
     return `<div class="answer-row problem-row${handled ? " seen" : ""}">${plateTag(p.plaque)}
-      <span><span class="problem-type">${D.isFieldReport(p) ? "Vu en passant" : "Problème"}</span> · ${esc(D.problemSummary(p))}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
+      <span><span class="problem-type">${D.isFieldReport(p) ? "Vu en passant" : "Problème"}</span> · ${problemArts(p)}${esc(D.problemSummary(p))}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
       <span class="row">${p.photo ? `<button type="button" data-proof="${esc(p.photo)}">${icon("image")}Photo</button>` : ""}
       ${state.canWrite ? (handled ? `<button type="button" class="ghost" data-problem-undo="${esc(p.id)}">Rouvrir</button>` : `<button type="button" data-problem-done="${esc(p.id)}">${icon("check")}Traité</button>`) : ""}
       ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : state.canWrite ? `<button type="button" class="ghost" data-problem-new="${esc(p.plaque)}">${icon("plus")}Créer une demande</button>` : ""}</span></div>`;

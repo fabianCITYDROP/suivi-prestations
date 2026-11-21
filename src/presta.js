@@ -205,17 +205,12 @@
     const fd = () => (state.fd ||= emptyField());
     const editable = (p) => p.statut !== "traite" && p.par === email;
     // One drawn icon per anomaly (same 24px grid and stroke as the app's icons): quicker to spot than words.
-    const ISSUE_ICONS = {
-      "Pare-brise": '<path d="M3.5 8.5c5.5-2 11.5-2 17 0l-2 9.5c-4.3-1-8.7-1-13 0z"/><path d="m12.5 8-1.6 3.2 2.3 1.4-1.3 3.4"/>',
-      "Véhicule sale": '<path d="M9 3.5s4 4.6 4 7.5a4 4 0 0 1-8 0c0-2.9 4-7.5 4-7.5z"/><path d="M17 11.5s2.5 2.8 2.5 4.5a2.5 2.5 0 0 1-5 0c0-1.7 2.5-4.5 2.5-4.5z"/>',
-      "Pneu avant": '<path d="M2.5 15.5V8.5a2 2 0 0 1 2-2h9.5l4.5 4.5h1.5a1.5 1.5 0 0 1 1.5 1.5v3"/><circle cx="7" cy="16.5" r="2.2"/><circle cx="17" cy="16.5" r="2.8" class="hot"/>',
-      "Pneu arrière": '<path d="M2.5 15.5V8.5a2 2 0 0 1 2-2h9.5l4.5 4.5h1.5a1.5 1.5 0 0 1 1.5 1.5v3"/><circle cx="7" cy="16.5" r="2.8" class="hot"/><circle cx="17" cy="16.5" r="2.2"/>',
-      "Rétro cassé": '<path d="M4 6.5a2 2 0 0 1 2-2h8.5a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="m11 4.5-1.5 3.5 2.5 1.5-1.5 5"/><path d="M16.5 10H20v8"/>',
-      "Carrosserie": '<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="m12 8.3 1 2.3 2.4-.6-1.3 2.1 2 1.5-2.5.3.2 2.5-1.8-1.6-1.8 1.6.2-2.5-2.5-.3 2-1.5-1.3-2.1 2.4.6z"/>',
-      "Voyant allumé": '<path d="M5 10h2V8h4V6.5h-2M11 6.5h2M7 8h8l2 2h2v5h-2l-2 2H8l-1-2H5z"/><path d="M3 11v3"/>',
-      "Autre": '<circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/>',
-    };
-    const issueIcon = (q) => `<svg class="issue-svg" viewBox="0 0 24 24" aria-hidden="true">${ISSUE_ICONS[q] || ""}</svg>`;
+    // Icônes en volume (src/icons3d.js). popQ : la tuile qu'on vient de choisir, qui fait un petit rebond.
+    const issueIcon = (q) => self.IssueArt?.art(q) || "";
+    const miniIcons = (quoi) => (quoi || []).filter((q) => self.IssueArt?.has(q)).slice(0, 4).map((q) => self.IssueArt.art(q, "mini-art")).join("");
+    // Le bouton reste gris tant qu'il manque l'immatriculation ou un choix ; un appui explique quand même ce qui manque.
+    const fieldReady = () => { const r = fd(); return !D.fieldReport({ ...r, photo: r.photo ? "new" : r.photoKey }, account.prestataireId, email, "").error; };
+    const syncSend = () => sheetEl.querySelector("[data-fsend]")?.setAttribute("aria-disabled", String(!fieldReady()));
     const sheetTitle = () => (fd().editId ? "Modifier le signalement" : "Signaler une anomalie");
     function sheetBody() {
       const r = fd(), editing = !!r.editId;
@@ -231,17 +226,17 @@
         <datalist id="fieldPlates">${plates.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
         <label class="sheet-group"><span class="sheet-label">Immatriculation</span><input class="field-plate" data-fplate data-keep="fplate" value="${esc(r.plaque)}" placeholder="AB-123-CD" autocapitalize="characters" autocomplete="off" spellcheck="false" list="fieldPlates" maxlength="12"></label>
         <fieldset class="issue-set"><legend class="sheet-label">Anomalies constatées</legend><div class="issue-grid">
-          ${D.FIELD_ISSUES.map((q) => { const on = r.quoi.includes(q); return `<button type="button" class="issue-tile" data-fissue data-q="${esc(q)}" aria-pressed="${on}"><span class="issue-ico">${issueIcon(q)}<span class="issue-check" aria-hidden="true">${icon("check")}</span></span><span class="issue-lbl">${esc(q)}</span></button>`; }).join("")}
+          ${D.FIELD_ISSUES.map((q) => { const on = r.quoi.includes(q); return `<button type="button" class="issue-tile${state.popQ === q ? " pop" : ""}" data-fissue data-q="${esc(q)}" aria-pressed="${on}"><span class="issue-ico">${issueIcon(q)}<span class="issue-check" aria-hidden="true">${icon("check")}</span></span><span class="issue-lbl">${esc(q)}</span></button>`; }).join("")}
         </div></fieldset>
         <label class="sheet-group"><span class="sheet-label">${r.quoi.includes("Autre") ? "Précision (obligatoire pour « Autre »)" : "Précision (facultatif)"}</span><input class="sheet-input" data-ftext data-keep="ftext" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche usé"></label>
         ${photo}
         ${state.fieldBusy ? busyLine : editing
-          ? `<div class="field-actions"><button type="button" class="primary big" data-fsend>Enregistrer</button><div class="field-actions-row"><button type="button" class="ghost" data-fcancel>Annuler</button>${del}</div></div>`
-          : `<button type="button" class="primary big field-send" data-fsend>Transmettre à City-Drop</button>`}
+          ? `<div class="field-actions"><button type="button" class="primary big" data-fsend aria-disabled="${!fieldReady()}">Enregistrer</button><div class="field-actions-row"><button type="button" class="ghost" data-fcancel>Annuler</button>${del}</div></div>`
+          : `<button type="button" class="primary big field-send" data-fsend aria-disabled="${!fieldReady()}">Transmettre à City-Drop</button>`}
         ${mine.length && !editing ? `<h3 class="sheet-label sent-title">Signalements récents</h3><ul class="field-sent">${mine.map(sentRow).join("")}</ul><p class="field-sent-hint">Modifiable tant que City-Drop ne l'a pas traité.</p>` : ""}`;
     }
     function sentRow(p) {
-      const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}${p.modifieAt ? " · modifié" : ""}</small></span>
+      const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${miniIcons(p.quoi) ? `<span class="mini-arts">${miniIcons(p.quoi)}</span>` : ""}${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}${p.modifieAt ? " · modifié" : ""}</small></span>
         <span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${p.statut === "traite" ? "Traité" : "Transmis"}</span>`;
       return editable(p)
         ? `<li><button type="button" class="sent-row${fd().editId === p.id ? " current" : ""}" data-fedit="${esc(p.id)}" aria-label="Modifier ou supprimer le signalement ${esc(p.plaque)}">${body}${icon("chev-r")}</button></li>`
@@ -256,7 +251,7 @@
       try {
         const fields = { plaque: r.plaque, quoi: r.quoi, texte: r.texte, par: email };
         if (r.editId) { await store.updateField(state.problems.find((p) => p.id === r.editId), fields, r.photo?.full, r.photoKey); toast(`Signalement ${D.normalizePlate(r.plaque)} modifié`); }
-        else { await store.reportField(account.prestataireId, fields, r.photo?.full); toast(`Signalement ${D.normalizePlate(r.plaque)} transmis, merci`); }
+        else { await store.reportField(account.prestataireId, fields, r.photo?.full); sentFlash(D.normalizePlate(r.plaque)); }
         state.fd = emptyField();
         sheetEl.querySelector(".sheet-b").scrollTop = 0;
       } catch (err) {
@@ -265,6 +260,14 @@
         state.fieldBusy = false; render();
         if (!state.fd.editId && state.sheetOpen) sheetEl.querySelector("[data-fplate]")?.focus({ preventScroll: true });
       }
+    }
+    // Après un envoi : une grande coche verte par-dessus la feuille pendant un peu plus d'une seconde.
+    function sentFlash(plate) {
+      sheetEl.querySelector(".sent-flash")?.remove();
+      sheetEl.insertAdjacentHTML("beforeend", `<div class="sent-flash" role="status"><span class="sent-flash-card"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Transmis à City-Drop</b><small>${esc(plate)}</small></span></div>`);
+      navigator.vibrate?.([10, 60, 14]);
+      const f = sheetEl.querySelector(".sent-flash");
+      setTimeout(() => { f.classList.add("out"); setTimeout(() => f.remove(), 260); }, 1300);
     }
     function editField(id) {
       const p = state.problems.find((x) => x.id === id);
@@ -431,8 +434,8 @@
     }
     view.addEventListener("input", (e) => {
       if (e.target.matches("[data-note]")) state.draft.note = e.target.value;
-      else if (e.target.matches("[data-fplate]")) fd().plaque = e.target.value;
-      else if (e.target.matches("[data-ftext]")) fd().texte = e.target.value;
+      else if (e.target.matches("[data-fplate]")) { fd().plaque = e.target.value; syncSend(); }
+      else if (e.target.matches("[data-ftext]")) { fd().texte = e.target.value; syncSend(); }
       else if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); }
     });
     view.addEventListener("click", (e) => {
@@ -444,7 +447,10 @@
       else if ((b = el("[data-sheet-close]"))) closeSheet();
       else if ((b = el("[data-fissue]"))) {
         const r = fd(), q = b.dataset.q;
-        r.quoi = r.quoi.includes(q) ? r.quoi.filter((x) => x !== q) : [...r.quoi, q]; render();
+        const adding = !r.quoi.includes(q);
+        r.quoi = adding ? [...r.quoi, q] : r.quoi.filter((x) => x !== q);
+        if (adding) { state.popQ = q; navigator.vibrate?.(8); }
+        render(); state.popQ = null;
         if (q === "Autre" && r.quoi.includes("Autre")) sheetEl.querySelector("[data-ftext]")?.focus({ preventScroll: true });
       }
       else if ((b = el("[data-fphoto-remove]"))) { fd().photo = null; fd().photoKey = ""; render(); }
