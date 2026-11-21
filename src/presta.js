@@ -96,7 +96,7 @@
     const actOf = () => { const [kind, id] = (state.openForm || "").split(":"); return { kind, d: byId(id) }; };
     const actTitle = (kind, d) => (kind === "date" && d && !D.isAccepted(d) ? "Proposer une autre date" : ACTS[kind]?.title || "");
     // Secondary actions: round raised buttons with an icon in volume (same family as « Signaler »), label underneath.
-    const ACT_ART = { date: "act-date", absent: "act-absent", problem: "act-problem", refuse: "act-problem" };
+    const ACT_ART = { date: "act-date", absent: "act-absent", problem: "act-problem", refuse: "act-refuse" };
     const actBtn = (kind, id, label) => `<button type="button" class="act-btn" data-act="${kind}" data-id="${esc(id)}"><span class="act-ico" aria-hidden="true">${self.IssueArt?.art(ACT_ART[kind], "act-art") || ""}</span><span class="act-lbl">${label}</span></button>`;
     // The next days as one-tap choices; any other day stays in the date field.
     function nextDays(n) {
@@ -133,12 +133,36 @@
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
 
     // ---------- cards per tab ----------
+    // « À valider » : la date et le site d'abord (c'est ce qui décide), le véhicule ensuite.
+    const relDay = (iso) => { const n = Math.round((new Date(iso + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5); return n === 0 ? "Aujourd'hui" : n === 1 ? "Demain" : ""; };
+    function calTile(iso) {
+      const x = new Date((iso || today()) + "T12:00:00");
+      return `<span class="cal-tile" aria-hidden="true"><small>${esc(x.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", ""))}</small><b>${x.getDate()}</b></span>`;
+    }
+    function askWhen(d) {
+      const rel = !D.isMultiDay(d) && d.date ? relDay(d.date) : "";
+      const dm = (iso, month = true) => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", month ? { day: "numeric", month: "short" } : { day: "numeric" });
+      const last = D.lastDay(d);
+      const day = !d.date ? "Date à préciser"
+        : D.isMultiDay(d) ? `Du ${dm(d.date, d.date.slice(0, 7) !== last.slice(0, 7))} au ${dm(last)}` // la tuile donne déjà le jour de la semaine
+        : rel ? `${rel} · ${dm(d.date)}` : cap(D.shortDate(d.date));
+      return `<header class="ask-when">${calTile(d.date)}
+        <div class="ask-when-txt"><p class="ask-day"><b>${esc(day)}</b><span class="job-time">${esc(slot(d))}</span></p>
+        <p class="ask-site">${icon("pin")}<span><b>${esc(d.site || "Site à préciser")}</b>${d.adresse ? `<small>${esc(d.adresse)}</small>` : ""}</span></p></div></header>`;
+    }
+    // Réponse déjà envoyée (autre date, pas possible…) : pastille orange en haut de la carte, l'équipe n'a pas encore tranché.
+    function askAnswer(d) {
+      const r = d.retour;
+      if (!r || ["fait", "confirme", "erreur"].includes(r.etat)) return "";
+      return `<p class="ask-answer">${icon("clock")}<span><b>${esc(D.answerSummary(r))}</b>${r.vu ? "Vu par l'équipe" : "En attente de l'équipe"}</span></p>`;
+    }
     function validateCard(d) {
-      return `<article class="job" data-job="${esc(d.id)}">${jobHead(d)}${jobMeta(d)}${photosStrip(d)}${answerLine(d)}
-        ${state.busy.has(d.id) ? busyLine : `<div class="job-actions">
+      const flying = state.accepting === d.id;
+      return `<article class="job ask${flying ? " accepting" : ""}" data-job="${esc(d.id)}">${askWhen(d)}<div class="ask-veh">${jobHead(d)}</div>${d.tache ? `<p class="job-task">${icon("check")}<span><b>À faire :</b> ${esc(d.tache)}</span></p>` : ""}${d.notes ? `<p class="job-note">${esc(d.notes)}</p>` : ""}${photosStrip(d)}${askAnswer(d)}
+        ${state.busy.has(d.id) && !flying ? busyLine : `<div class="job-actions">
           <button type="button" class="primary big ok-btn" data-take="${esc(d.id)}"><span class="ok-badge" aria-hidden="true">${icon("check")}</span>Accepter</button>
           <div class="act-row two">${actBtn("date", d.id, "Autre date")}${actBtn("refuse", d.id, "Pas possible")}</div></div>`}
-      </article>`;
+      ${flying ? `<div class="job-done-flash ask-flash" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Acceptée</b><small>Rangée dans ${esc(state.acceptTo === "today" ? "Aujourd'hui" : "À venir")}</small></div>` : ""}</article>`;
     }
     // early: a vehicle of « À venir » done ahead of time (date and site shown, the section does not give them).
     function doCard(d, { early = false } = {}) {
@@ -183,10 +207,15 @@
         return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
     }
-    function validateTab(list) {
-      return list.length
-        ? `<p class="tab-intro">Accepte chaque demande, ou propose une autre date.</p>${list.map(validateCard).join("")}`
-        : empty("Aucune demande à valider", "Les nouvelles demandes de City-Drop arrivent ici.");
+    // En tête : combien de demandes attendent une réponse, et combien attendent l'équipe (réponse déjà envoyée).
+    function validateTab(all) {
+      const list = all.filter((d) => d.id !== state.gone);
+      if (!list.length) return `<div class="job-empty ask-empty"><span class="svc-tile lg" aria-hidden="true">${self.IssueArt?.art("empty-inbox", "svc-art") || ""}</span><b>Aucune demande à valider</b><span>Les nouvelles demandes de City-Drop arrivent ici.</span></div>`;
+      const waiting = list.filter((d) => d.retour && !["fait", "confirme", "erreur"].includes(d.retour.etat)).length;
+      const todo = list.length - waiting;
+      const head = todo ? `<b>${todo}</b> demande${todo > 1 ? "s" : ""} à valider` : `<b>${icon("check")}Tu as répondu à tout</b>`;
+      return `<div class="ask-sum"><p>${head}${waiting ? `<span class="ask-sum-wait"> · ${waiting} en attente de l'équipe</span>` : ""}</p>
+        <p class="ask-sum-sub">${todo ? "Accepte chaque demande, ou propose une autre date." : "L'équipe City-Drop te répond ici."}</p></div>${list.map(validateCard).join("")}`;
     }
     // The day at a glance: what is left, what is already done today (green bar = done only).
     function daySummary(left) {
@@ -493,7 +522,7 @@
       else if ((b = el("[data-fcancel]"))) { state.fd = emptyField(); state.pdelArmed = null; render(); }
       else if ((b = el("[data-pdel]"))) deleteReport(b.dataset.pdel);
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
-      else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
+      else if ((b = el("[data-take]"))) acceptRequest(byId(b.dataset.take));
       else if ((b = el("[data-act]"))) {
         state.openForm = `${b.dataset.act}:${b.dataset.id}`; state.draft = {};
         openSheet("act");
@@ -526,6 +555,37 @@
       // The bubble offers « Corriger » for a slip of the finger (same 10 minutes as in « Faits »).
       await send(d, { etat: "fait", ...withNote }, `${d.plaque} réalisé, merci !`,
         { label: "Corriger", run: () => { if (byId(d.id) && D.canUndoDone(byId(d.id), email, Date.now())) { state.openForm = "undo:" + d.id; state.draft = {}; openSheet("act"); } } });
+    }
+
+    // « Accepter » : coche verte sur la carte, puis la carte part vers l'onglet où elle est rangée (Aujourd'hui ou À venir),
+    // les cartes du dessous remontent et le compteur de l'onglet rebondit. Sans animation si « réduire les animations ».
+    async function acceptRequest(d) {
+      if (!d || state.accepting) return;
+      const to = d.date && d.date <= today() ? "today" : "upcoming";
+      const label = to === "today" ? "Aujourd'hui" : "À venir";
+      if (!reduceMotion()) {
+        state.accepting = d.id; state.acceptTo = to; render(); navigator.vibrate?.(10);
+        await new Promise((r) => setTimeout(r, 560));
+        const card = main.querySelector(`[data-job="${CSS.escape(d.id)}"]`);
+        const tab = main.querySelector(`[data-tab="${to}"]`);
+        if (card && tab) {
+          const c = card.getBoundingClientRect(), t = tab.getBoundingClientRect();
+          const dx = t.left + t.width / 2 - (c.left + c.width / 2), dy = t.top + t.height / 2 - (c.top + c.height / 2);
+          const fly = card.animate([{ transform: "none", opacity: 1 }, { transform: `translate(${dx}px, ${dy}px) scale(.12)`, opacity: 0 }],
+            { duration: 420, easing: "cubic-bezier(.55, 0, .75, .2)", fill: "forwards" });
+          const gap = parseFloat(getComputedStyle(card.parentElement).rowGap) || 0;
+          card.style.height = c.height + "px";
+          const shut = card.animate([{ height: c.height + "px", marginBottom: "0px" }, { height: "0px", marginBottom: -gap + "px" }],
+            { duration: 300, delay: 260, easing: "cubic-bezier(.32, .72, 0, 1)", fill: "forwards" });
+          await Promise.all([fly.finished, shut.finished]).catch(() => {});
+        }
+        state.gone = d.id; // la carte reste cachée pendant l'envoi ; elle revient seulement si l'envoi échoue
+      }
+      state.accepting = null;
+      await send(d, { etat: "confirme" }, `${d.plaque} acceptée : dans ${label}`);
+      if (state.gone && !reduceMotion()) main.querySelector(`[data-tab="${to}"] .count`)?.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(1.45)" }, { transform: "scale(.92)" }, { transform: "scale(1)" }], { duration: 420, easing: "ease-out" });
+      state.gone = null; render();
     }
 
     alerts?.listen(() => render());
