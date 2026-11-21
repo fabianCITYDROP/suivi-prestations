@@ -141,9 +141,9 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
 .ret-open { grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; }
 .ret-ico, .ret-card.done .ret-ico { position: relative; width: 32px; height: 32px; border-radius: 9px; }
 .ret-ico .ret-art, .ret-card.done .ret-ico .ret-art { width: 25px; height: 25px; }
-.ret-acts { align-items: center; }
-.ret-badge { display: grid; place-items: center; margin-left: auto; width: 26px; height: 26px; flex: none; }
-.ret-badge .ret-badge-art { width: 24px; height: 24px; overflow: visible; }
+.ret-badge { position: absolute; right: -5px; bottom: -5px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 6px; background: var(--surface);
+  box-shadow: 0 0 0 .5px rgba(10, 20, 28, .14), 0 1px 3px rgba(10, 20, 28, .18); }
+.ret-badge .ret-badge-art { width: 15px; height: 15px; overflow: visible; }
 .ret-main { gap: 1px; }
 .ret-line { justify-content: flex-start; gap: 8px; margin-bottom: 0; min-width: 0; }
 .ret-line .plate { flex: none; font-size: 12.5px; }
