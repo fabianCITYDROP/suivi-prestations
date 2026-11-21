@@ -62,26 +62,30 @@
   <div class="banner robot-alert" id="robotAlert" role="alert" hidden><span id="robotAlertText"></span> <a href="#reglages">Que faire ?</a></div>
 
   <!-- PLANNING -->
-  <section id="view-planning">
-    <div class="daybar">
-      <h1 id="dayTitle">Aujourd'hui</h1>
-      <label class="plate-find"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="plateFind" placeholder="Chercher une plaque" aria-label="Chercher une plaque" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search"></label>
-      <button class="ghost" id="prevDay" aria-label="Jour précédent"><svg class="icon"><use href="#i-chev-l"/></svg></button>
-      <button id="todayBtn">Aujourd'hui</button>
-      <button class="ghost" id="nextDay" aria-label="Jour suivant"><svg class="icon"><use href="#i-chev-r"/></svg></button>
-      <input type="date" id="dayPick" aria-label="Choisir une date">
-      <select id="provFilter" aria-label="Prestataire"></select>
-    </div>
+  <section id="view-planning" class="plan">
+    <header class="plan-top">
+      <div class="plan-title"><p class="plan-kicker" id="dayKicker"></p><h1 id="dayTitle">Aujourd'hui</h1></div>
+      <div class="plan-tools">
+        <label class="plate-find"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="plateFind" placeholder="Chercher une plaque" aria-label="Chercher une plaque" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search"></label>
+        <div class="plan-nav" role="group" aria-label="Changer de jour">
+          <button type="button" class="plan-round" id="prevDay" aria-label="Jour précédent"><svg class="icon"><use href="#i-chev-l"/></svg></button>
+          <button type="button" class="plan-today" id="todayBtn">Aujourd'hui</button>
+          <button type="button" class="plan-round" id="nextDay" aria-label="Jour suivant"><svg class="icon"><use href="#i-chev-r"/></svg></button>
+          <label class="plan-round plan-date" title="Choisir une date"><svg class="icon" aria-hidden="true"><use href="#i-cal"/></svg><input type="date" id="dayPick" aria-label="Choisir une date"></label>
+        </div>
+      </div>
+    </header>
     <div class="plate-results" id="plateResults" aria-live="polite" hidden></div>
-    <div class="strip" id="strip"></div>
-    <div class="work">
-      <div id="dayList"></div>
+    <div class="plan-strip" id="strip" aria-label="Jours de la semaine"></div>
+    <div class="plan-provs" id="provPills" role="group" aria-label="Prestataire"></div>
+    <select id="provFilter" aria-label="Prestataire" class="plan-hidden" tabindex="-1"></select>
+    <div class="work plan-work">
+      <div class="plan-main">
+        <div id="daySum"></div>
+        <div id="dayList"></div>
+      </div>
       <div class="side sticky">
         <aside class="panel retours-side" id="retoursSide" aria-label="Retours des prestataires"></aside>
-        <aside class="panel" aria-labelledby="dayShareTitle">
-          <div class="panel-head"><h2 id="dayShareTitle">Liste du jour à envoyer</h2></div>
-          <div id="dayShare"></div>
-        </aside>
       </div>
     </div>
   </section>

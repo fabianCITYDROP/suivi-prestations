@@ -423,52 +423,251 @@
   $("#svcSeg").innerHTML = D.SERVICES.map((s, i) => `<label><input type="radio" name="svc" id="svc-${s.id}" value="${s.id}" ${i === 0 ? "checked" : ""}><span>${s.label}</span></label>`).join("");
   $("#washSeg").innerHTML = D.WASH_KINDS.map((k, i) => `<label><input type="radio" name="wash" id="wash-${k.id}" value="${k.id}" ${i === 0 ? "checked" : ""}><span>${k.label.replace("Lavage ", "")}</span></label>`).join("");
 
+  // ================= team sheet: a card over the screen (bottom on phone, right-hand panel on computer) =================
+  // Same look as the providers' sheets (.presta-sheet). Built once; open() swaps its content. Drag the grabber down to close.
+  const teamSheet = (() => {
+    let el = null, scrim = null, lastFocus = null, onClose = null;
+    function build() {
+      if (el) return;
+      document.body.insertAdjacentHTML("beforeend", `<div class="sheet-scrim team-scrim" data-team-sheet-close></div>
+        <section class="presta-sheet team-sheet" role="dialog" aria-modal="true" aria-labelledby="teamSheetTitle" aria-hidden="true">
+          <div class="sheet-grab" aria-hidden="true"><span></span></div>
+          <header class="sheet-head"><h2 id="teamSheetTitle"></h2><button type="button" class="sheet-x" data-team-sheet-close aria-label="Fermer">${icon("x")}</button></header>
+          <div class="sheet-b"></div>
+        </section>`);
+      el = document.querySelector(".team-sheet"); scrim = document.querySelector(".team-scrim");
+      document.addEventListener("click", (e) => { if (e.target.closest("[data-team-sheet-close]")) close(); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape" && api.isOpen) close(); });
+      let startY = 0, lastY = 0, lastT = 0, v = 0, dragging = false;
+      el.addEventListener("pointerdown", (e) => {
+        if (!e.target.closest(".sheet-grab, .sheet-head") || e.target.closest("button") || matchMedia("(min-width: 900px)").matches) return;
+        dragging = true; startY = lastY = e.clientY; lastT = e.timeStamp; v = 0; el.setPointerCapture(e.pointerId); el.classList.add("dragging");
+      });
+      el.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        const dy = e.clientY - startY;
+        v = (e.clientY - lastY) / Math.max(1, e.timeStamp - lastT); lastY = e.clientY; lastT = e.timeStamp;
+        el.style.transform = `translateY(${dy > 0 ? dy : dy / 6}px)`;
+      });
+      const end = (e) => { if (!dragging) return; dragging = false; el.classList.remove("dragging"); if (e.clientY - startY > 120 || v > 0.6) close(); else el.style.transform = ""; };
+      el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+    }
+    function open(title, html, { cls = "", closed } = {}) {
+      build();
+      el.className = "presta-sheet team-sheet" + (cls ? " " + cls : "") + (api.isOpen ? " on" : "");
+      el.querySelector("#teamSheetTitle").textContent = title;
+      el.querySelector(".sheet-b").innerHTML = html;
+      onClose = closed || null;
+      if (api.isOpen) return;
+      api.isOpen = true; lastFocus = document.activeElement; el.style.transform = "";
+      document.body.classList.add("sheet-open", "team-sheet-open"); el.setAttribute("aria-hidden", "false");
+      requestAnimationFrame(() => el.classList.add("on"));
+      setTimeout(() => el.querySelector(".sheet-x")?.focus({ preventScroll: true }), 50);
+    }
+    function close() {
+      if (!api.isOpen) return;
+      api.isOpen = false; el.style.transform = ""; el.classList.remove("on");
+      document.body.classList.remove("sheet-open", "team-sheet-open"); el.setAttribute("aria-hidden", "true");
+      const done = onClose; onClose = null; done?.();
+      lastFocus?.focus?.({ preventScroll: true });
+    }
+    const api = { open, close, isOpen: false, get body() { build(); return el.querySelector(".sheet-b"); }, setTitle: (t) => { build(); el.querySelector("#teamSheetTitle").textContent = t; } };
+    return api;
+  })();
+
   // ================= planning =================
+  // Status = a dot and a word. Orange: still to send; green: done; red: a problem; grey: sent / confirmed / cancelled.
+  const PLAN_TONE = { a_envoyer: "todo", realisee: "ok", annulee: "off" };
+  const planStatus = (d) => `<span class="plan-st ${PLAN_TONE[d.statut] || "mid"}"><i aria-hidden="true"></i>${esc(D.statusOf(d.statut).label)}</span>`;
+  const SERVICE_ART = { lavage: "Véhicule sale", "pare-brise": "Pare-brise", intervention: "svc-intervention", hayon: "svc-hayon" };
+  const serviceTile = (d, size = "xs") => `<span class="svc-tile ${size}" aria-hidden="true">${self.IssueArt?.art(SERVICE_ART[d.service || "pare-brise"] || "svc-intervention", "svc-art") || ""}</span>`;
+  const capFirst = (s) => s.replace(/^./, (c) => c.toUpperCase());
+  const PLAN_FILTERS = {
+    todo: { label: "À envoyer", test: (d) => d.statut === "a_envoyer" },
+    pending: { label: "En cours", test: (d) => d.statut === "envoyee" || d.statut === "confirmee" },
+    done: { label: "Réalisés", test: (d) => d.statut === "realisee" },
+    problem: { label: "À regarder", test: (d) => planAlert(d) === "bad" },
+  };
+  // A provider answer the team should see right on the line: red when the job cannot happen, orange for a new date, green when done.
+  function planAnswer(d) {
+    const r = d.retour;
+    if (!r?.etat || r.etat === "confirme") return null;
+    const tone = r.etat === "fait" ? "ok" : r.etat === "autre-date" ? "todo" : "bad";
+    return { tone, text: D.answerSummary(r), unseen: !r.vu };
+  }
+  const openProblemsOf = (d) => D.openProblems(D.problemsOfRequest(state.problems || [], d.id));
+  const planAlert = (d) => (openProblemsOf(d).length || planAnswer(d)?.tone === "bad" ? "bad" : "");
+
+  function dayHeading(day) {
+    const gap = D.daysBetween ? D.daysBetween(today(), day) : Math.round((D.parseIsoDate(day) - D.parseIsoDate(today())) / 864e5);
+    const names = { 0: "Aujourd'hui", 1: "Demain", "-1": "Hier" };
+    const full = capFirst(D.dayLabel(day));
+    if (names[gap] !== undefined) return { title: names[gap], kicker: full };
+    return { title: full, kicker: gap > 0 ? `Dans ${gap} jours` : `Il y a ${-gap} jours` };
+  }
   function renderPlanning() {
     const { day, providerFilter } = state;
-    $("#dayTitle").textContent = (day === today() ? "Aujourd'hui · " : "") + D.dayLabel(day);
+    const head = dayHeading(day);
+    $("#dayTitle").textContent = head.title;
+    $("#dayKicker").textContent = head.kicker;
+    $("#todayBtn").disabled = day === today();
     $("#dayPick").value = day;
     const monday = D.mondayOf(day);
     needOlder(D.addDays(monday, -7), D.addDays(monday, 7)); // the week shown, and the one before for jobs spread over several days
     renderWeekStrip();
+    renderProviderPills();
     const ofDay = state.demandes.filter((d) => D.isAvailableOn(d, day) && (!providerFilter || d.prestataire === providerFilter));
-    $("#dayList").innerHTML = ofDay.length
-      ? D.groupBySite(ofDay, siteNames()).map(([site, items]) => siteBlockHtml(site, items)).join("")
-      : `<div class="empty"><b>Aucun véhicule prévu ce jour-là.</b><span>Les véhicules disponibles ce jour apparaissent ici, classés par site, avec la liste prête à envoyer.</span></div>`;
     const active = ofDay.filter(D.isActive);
-    $("#dayShare").innerHTML = active.length
-      ? `<p class="share-sum">${dayShareSummary(active, providerFilter)}</p>`
-        + shareBlock({ text: D.dayListMessage(state.demandes, { date: day, provider: providerFilter, sites: state.sites }) + appLink(providerFilter || defaultProvider()), vehicles: active.filter(D.isWindshield), folded: true })
-      : `<p class="muted">Rien à envoyer pour ce jour.</p>`;
+    if (state.planFilter && !PLAN_FILTERS[state.planFilter]) state.planFilter = "";
+    const shown = state.planFilter ? ofDay.filter(PLAN_FILTERS[state.planFilter].test) : ofDay;
+    $("#daySum").innerHTML = daySummary(active);
+    $("#dayList").innerHTML = shown.length
+      ? D.groupBySite(shown, siteNames()).map(([site, items]) => siteBlockHtml(site, items)).join("")
+      : state.planFilter ? `<div class="plan-empty slim"><b>Aucun véhicule « ${esc(PLAN_FILTERS[state.planFilter].label.toLowerCase())} » ce jour-là.</b><button type="button" class="plan-link" data-plan-filter="">Tout afficher</button></div>`
+      : `<div class="plan-empty"><span class="svc-tile lg" aria-hidden="true">${self.IssueArt?.art("empty-inbox", "svc-art") || ""}</span><b>Aucun véhicule prévu ce jour-là</b><span>Les véhicules disponibles ce jour apparaissent ici, classés par site.</span>${state.canWrite ? `<button type="button" class="plan-link" data-plan-new>${icon("plus")}Nouvelle demande ce jour</button>` : ""}</div>`;
     renderPlateFind();
+    if (teamSheet.isOpen && planSheet.kind) refreshPlanSheet();
   }
-  function dayShareSummary(active, providerFilter) {
+  // The day card: how many vehicles, what is left to do; each count filters the list. The WhatsApp list is one tap away.
+  function daySummary(active) {
+    if (!active.length) return "";
+    const n = (key) => active.filter(PLAN_FILTERS[key].test).length;
+    const done = n("done"), todo = n("todo"), pending = n("pending"), alerts = n("problem");
     const sites = new Set(active.map((d) => d.site)).size;
-    return `${plural(active.length, "véhicule")} sur ${plural(sites, "site")}${providerFilter ? ` pour ${esc(providerFilter)}` : ""}, en un seul message WhatsApp.`;
+    const stat = (key, count, tone) => `<button type="button" class="plan-count ${tone}" data-plan-filter="${state.planFilter === key ? "" : key}" aria-pressed="${state.planFilter === key}">
+        <b>${count}</b><span>${PLAN_FILTERS[key].label}</span></button>`;
+    const pct = Math.round((done / active.length) * 100);
+    return `<section class="plan-sum" aria-label="Résumé du jour">
+      <div class="plan-sum-top">
+        <p class="plan-sum-main"><b>${active.length}</b><span>${active.length > 1 ? "véhicules" : "véhicule"}<small>${plural(sites, "site")}${state.providerFilter ? ` · ${esc(state.providerFilter)}` : ""}</small></span></p>
+        <button type="button" class="plan-send" data-plan-send>${icon("wa")}<span>Envoyer la liste</span></button>
+      </div>
+      <div class="plan-bar" role="img" aria-label="${pct} % réalisés"><i style="width:${pct}%"></i></div>
+      <div class="plan-counts">${stat("todo", todo, "todo")}${stat("pending", pending, "mid")}${stat("done", done, "ok")}${alerts ? stat("problem", alerts, "bad") : ""}</div>
+    </section>`;
   }
   function renderWeekStrip() {
     const monday = D.mondayOf(state.day);
-    $("#strip").innerHTML = Array.from({ length: 7 }, (_, i) => {
+    const strip = $("#strip");
+    const before = strip.querySelector('[aria-current="true"]');
+    const oldX = before && strip.dataset.monday === monday ? before.offsetLeft : null;
+    strip.dataset.monday = monday;
+    strip.innerHTML = `<span class="plan-strip-pill" aria-hidden="true"></span>` + Array.from({ length: 7 }, (_, i) => {
       const iso = D.addDays(monday, i);
       const date = D.parseIsoDate(iso);
       const count = D.vehiclesOnDay(state.demandes, iso, state.providerFilter).length;
-      return `<button data-day="${iso}" aria-current="${iso === state.day}" class="${iso === today() ? "today" : ""}"><small>${date.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")}</small><b>${date.getDate()}</b><span class="cnt">${count ? count + " véh." : ""}</span></button>`;
+      return `<button type="button" data-day="${iso}" aria-current="${iso === state.day}" class="${iso === today() ? "today" : ""}" aria-label="${esc(D.dayLabel(iso))}, ${plural(count, "véhicule")}">
+        <small>${date.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")}</small><b>${date.getDate()}</b><span class="cnt">${count || ""}</span></button>`;
     }).join("");
+    // The dark pill slides from the day left to the one picked (same week only).
+    const pill = strip.querySelector(".plan-strip-pill"), now = strip.querySelector('[aria-current="true"]');
+    if (!now) return;
+    const place = (x) => { pill.style.width = now.offsetWidth + "px"; pill.style.transform = `translateX(${x}px)`; };
+    if (oldX === null || matchMedia("(prefers-reduced-motion: reduce)").matches) { place(now.offsetLeft); pill.classList.add("still"); return; }
+    pill.classList.add("still"); place(oldX);
+    requestAnimationFrame(() => requestAnimationFrame(() => { pill.classList.remove("still"); place(now.offsetLeft); }));
+  }
+  function renderProviderPills() {
+    const box = $("#provPills");
+    box.hidden = state.providers.length < 2;
+    if (box.hidden) { box.innerHTML = ""; return; }
+    const count = (p) => D.vehiclesOnDay(state.demandes, state.day, p).length;
+    const pill = (value, label) => `<button type="button" class="plan-prov" data-prov="${esc(value)}" aria-pressed="${state.providerFilter === value}">${esc(label)}<em>${count(value)}</em></button>`;
+    box.innerHTML = pill("", "Tous") + state.providers.map((p) => pill(p, p)).join("");
   }
   function siteBlockHtml(site, items) {
     const address = D.siteAddress(state.sites, site);
-    return `<section class="site-block"><div class="site-head"><h3>${esc(site)}</h3>${address ? `<span class="addr">${icon("pin")}${esc(address)}</span>` : ""}<span class="count">${plural(items.filter(D.isActive).length, "véhicule")}</span></div>
-      ${items.map(vehicleRow).join("")}</section>`;
+    return `<section class="plan-site"><header class="plan-site-head"><h3>${esc(site)}<em>${items.filter(D.isActive).length}</em></h3>${address ? `<span>${esc(address)}</span>` : ""}</header>
+      <div class="plan-list">${items.map(vehicleRow).join("")}</div></section>`;
   }
   function vehicleRow(d) {
     const thumb = D.isWindshield(d) ? modelPhotos(d)[0]?.thumb : null;
-    const sub = [d.adresse !== D.siteAddress(state.sites, d.site) ? d.adresse : "", D.isMultiDay(d) ? `dispo ${D.availabilityLabel(d)}` : "", d.notes].filter(Boolean).join(" · ");
-    return `<button class="veh-row ${D.isActive(d) ? "" : "cancel"}" data-open="${esc(d.id)}">
-      ${plateTag(d.plaque)}
-      <span class="what"><span class="model">${esc(D.vehicleLabel(d) || "Modèle non précisé")}${D.isWindshield(d) ? "" : ` <span class="tag">${esc(D.jobLabel(d))}</span>`}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span>
-      <span class="right"><span class="time">${esc(D.timeSlotLabel(d))}</span>${statusChip(d.statut)}${thumb ? `<img class="thumb" src="${safeImageSrc(thumb)}" alt="">` : ""}</span>
+    const what = [D.vehicleLabel(d) || "Modèle non précisé", D.jobLabel(d)].filter(Boolean).join(" · ");
+    const sub = [d.adresse && d.adresse !== D.siteAddress(state.sites, d.site) ? d.adresse : "", D.isMultiDay(d) ? `Dispo jusqu'au ${D.shortDate(D.lastDay(d))}` : "", d.tache && d.service === "intervention" ? d.tache : "", d.notes].filter(Boolean).join(" · ");
+    const answer = planAnswer(d);
+    const problems = openProblemsOf(d);
+    const flags = [
+      problems.length ? `<span class="plan-flag bad">${icon("alert")}${esc(problems.length > 1 ? `${problems.length} problèmes signalés` : D.problemSummary(problems[0]))}</span>` : "",
+      answer ? `<span class="plan-flag ${answer.tone}">${answer.unseen ? `<i class="plan-new" aria-label="nouveau"></i>` : ""}${esc(answer.text)}</span>` : "",
+    ].join("");
+    return `<button type="button" class="plan-row${D.isActive(d) ? "" : " cancel"}" data-open="${esc(d.id)}">
+      ${serviceTile(d)}
+      <span class="plan-row-main">
+        <span class="plan-row-line">${plateTag(d.plaque)}<span class="plan-time">${esc(D.timeSlotLabel(d).replace(/^de /, ""))}</span></span>
+        <span class="plan-what">${esc(what)}${state.providerFilter ? "" : `<span class="plan-who"> · ${esc(d.prestataire || "")}</span>`}</span>
+        ${sub ? `<span class="plan-sub">${esc(sub)}</span>` : ""}
+        ${flags ? `<span class="plan-flags">${flags}</span>` : ""}
+      </span>
+      <span class="plan-row-end">${planStatus(d)}${thumb ? `<img class="plan-thumb" src="${safeImageSrc(thumb)}" alt="">` : ""}${icon("chev-r")}</span>
     </button>`;
   }
+
+  // ---------- the request's card, in a sheet: details, provider answer, status in one tap, « Modifier » for the full form ----------
+  const planSheet = { kind: "", id: "" };
+  const PLAN_STEPS = ["a_envoyer", "envoyee", "confirmee", "realisee"];
+  function ficheBody(d) {
+    const answer = planAnswer(d);
+    const problems = D.problemsOfRequest(state.problems || [], d.id);
+    const photos = D.isWindshield(d) ? modelPhotos(d).slice(0, 3) : [];
+    const price = d.prixHT != null && d.prixHT !== "" ? D.euros(Number(d.prixHT)) + " HT" : "";
+    const line = (label, value) => (value ? `<div class="plan-kv"><dt>${label}</dt><dd>${value}</dd></div>` : "");
+    const address = d.adresse || D.siteAddress(state.sites, d.site);
+    const answerBox = answer || d.retour?.etat === "confirme" ? `<section class="plan-box ${answer?.tone || "mid"}">
+        <p class="sheet-label">Réponse de ${esc(d.prestataire || "du prestataire")}</p>
+        <p class="plan-box-text">${esc(D.answerSummary(d.retour))}<small>${esc(timeOf(d.retour.at || ""))}</small></p>
+        ${state.canWrite ? `<div class="plan-box-actions">${d.retour.etat === "autre-date" && d.retour.date !== d.date ? `<button type="button" class="primary" data-plan-accept="${esc(d.id)}">${icon("check")}Accepter la date</button>` : ""}
+          ${d.retour.vu ? "" : `<button type="button" data-plan-seen="${esc(d.id)}">Marquer comme vu</button>`}</div>` : ""}
+      </section>` : "";
+    const problemBox = problems.length ? `<section class="plan-box bad"><p class="sheet-label">Signalé sur le véhicule</p>
+        ${problems.map((p) => `<p class="plan-box-text"><span>${problemArts(p)}${esc(D.problemSummary(p))}</span><small>${esc(providerOfProblem(p))} · ${esc(atLabel(p.at))}${p.statut === "traite" ? " · traité" : ""}</small></p>`).join("")}
+        <a class="plan-link" href="#retours" data-team-sheet-close>Voir dans Retours</a></section>` : "";
+    const steps = state.canWrite && d.statut !== "annulee" ? `<section><p class="sheet-label">Statut</p>
+        <div class="plan-steps" role="group" aria-label="Statut">${PLAN_STEPS.map((s) => `<button type="button" data-plan-status="${s}" aria-pressed="${d.statut === s}" class="${PLAN_TONE[s] || "mid"}"><i aria-hidden="true"></i>${esc(D.statusOf(s).label)}</button>`).join("")}</div></section>` : "";
+    return `<div class="plan-fiche-head">${serviceTile(d, "sm")}<div>${plateTag(d.plaque)}<p>${esc([D.vehicleLabel(d), D.jobLabel(d)].filter(Boolean).join(" · "))}</p></div>${planStatus(d)}</div>
+      ${problemBox}${answerBox}
+      <dl class="plan-kvs">
+        ${line("Quand", esc(capFirst(D.isMultiDay(d) ? D.availabilityLabel(d) : D.dayLabel(d.date))) + `<br><span>${esc(D.timeSlotLabel(d))}</span>`)}
+        ${line("Où", esc(D.siteOf(d)) + (address ? `<br><span>${esc(address)}</span>` : ""))}
+        ${line("Prestataire", esc(d.prestataire || ""))}
+        ${line(d.service === "intervention" ? "À faire" : "", esc(d.tache || ""))}
+        ${line("Note", esc(d.notes || ""))}
+        ${line("Prix", esc(price))}
+      </dl>
+      ${photos.length ? `<div class="plan-photos">${photos.map((ph) => `<img src="${safeImageSrc(ph.thumb)}" data-zoom="${esc(ph.key)}" alt="Pare-brise ${esc(d.plaque)}">`).join("")}</div>` : ""}
+      ${steps}
+      <div class="plan-fiche-actions">
+        <button type="button" class="primary plan-cta" data-plan-edit="${esc(d.id)}">${icon("list")}${state.canWrite ? "Modifier la demande" : "Voir la demande complète"}</button>
+        <button type="button" class="plan-soft" data-pf-history="${esc(d.plaque)}">Historique de la plaque</button>
+      </div>`;
+  }
+  // The day's WhatsApp list, then « mark them as sent » once it has gone out.
+  function sendBody() {
+    const active = D.vehiclesOnDay(state.demandes, state.day, state.providerFilter);
+    if (!active.length) return `<p class="sheet-sub">Rien à envoyer pour ce jour.</p>`;
+    const toSend = active.filter((d) => d.statut === "a_envoyer");
+    return `<p class="sheet-sub">${plural(active.length, "véhicule")} sur ${plural(new Set(active.map((d) => d.site)).size, "site")}${state.providerFilter ? ` pour ${esc(state.providerFilter)}` : ""}, en un seul message WhatsApp.</p>
+      <div id="dayShare" class="plan-share">${shareBlock({ text: D.dayListMessage(state.demandes, { date: state.day, provider: state.providerFilter, sites: state.sites }) + appLink(state.providerFilter || defaultProvider()), vehicles: active.filter(D.isWindshield), folded: true })}</div>
+      ${state.canWrite && toSend.length ? `<section class="plan-box mid"><p class="plan-box-text">Message envoyé ?<small>${plural(toSend.length, "véhicule")} encore « À envoyer ».</small></p>
+        <div class="plan-box-actions"><button type="button" data-plan-mark-sent>${icon("check")}Passer en « Envoyée »</button></div></section>` : ""}`;
+  }
+  function openPlanSheet(kind, id = "") {
+    planSheet.kind = kind; planSheet.id = id;
+    refreshPlanSheet(true);
+  }
+  function refreshPlanSheet(opening = false) {
+    if (!opening && !teamSheet.isOpen) return;
+    const closed = () => { planSheet.kind = ""; planSheet.id = ""; };
+    if (planSheet.kind === "fiche") {
+      const d = demandeById(planSheet.id);
+      if (!d) { teamSheet.close(); return; }
+      if (!opening && teamSheet.body.contains(document.activeElement) && document.activeElement.matches("input, textarea")) return;
+      teamSheet.open(d.plaque ? `Demande ${d.plaque}` : "Demande", ficheBody(d), { cls: "plan-sheet side-sheet", closed });
+    } else if (planSheet.kind === "send") {
+      if (!opening) return; // the folded message stays as the user left it
+      teamSheet.open("Liste du jour à envoyer", sendBody(), { cls: "plan-sheet side-sheet", closed });
+    }
+  }
+  const openDemandeFromPlanning = (id) => openPlanSheet("fiche", id);
 
   // ---------- plate search: today, the next and the last request of a vehicle, without leaving the Planning ----------
   const plateReads = new Map(); // full plate -> "loading" | "done": its older requests are read once
@@ -532,28 +731,75 @@
     const all = e.target.closest("[data-pf-history]");
     if (all) { $("#q").value = all.dataset.pfHistory; show("historique"); renderHistory(); return; }
     const row = e.target.closest("[data-open]");
-    if (row) openDemande(row.dataset.open);
+    if (row) openDemandeFromPlanning(row.dataset.open);
   });
   const goToDay = (day) => { state.day = day; renderPlanning(); };
   $("#strip").addEventListener("click", (e) => { const b = e.target.closest("[data-day]"); if (b) goToDay(b.dataset.day); });
+  // Phone: a sideways swipe on the week moves one week back or forward.
+  (function swipeWeeks() {
+    let x0 = null, y0 = 0;
+    $("#strip").addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    $("#strip").addEventListener("touchend", (e) => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) goToDay(D.addDays(state.day, dx < 0 ? 7 : -7));
+    });
+  })();
   $("#prevDay").onclick = () => goToDay(D.addDays(state.day, -1));
   $("#nextDay").onclick = () => goToDay(D.addDays(state.day, 1));
   $("#todayBtn").onclick = () => goToDay(today());
   $("#dayPick").onchange = (e) => e.target.value && goToDay(e.target.value);
-  $("#provFilter").onchange = (e) => {
-    state.providerFilter = e.target.value;
+  const setProviderFilter = (value) => {
+    state.providerFilter = value;
+    $("#provFilter").value = value;
     try { localStorage.setItem("suivi.provFilter", state.providerFilter); } catch {}
     renderPlanning();
   };
+  $("#provFilter").onchange = (e) => setProviderFilter(e.target.value);
+  $("#provPills").addEventListener("click", (e) => { const b = e.target.closest("[data-prov]"); if (b) setProviderFilter(b.dataset.prov); });
   // From the planning, a new request starts on the day being looked at.
-  $("#newOnDay").onclick = () => {
+  const newOnPlanningDay = () => {
     const fromPlanning = !$("#view-planning").hidden;
     resetForm();
     if (fromPlanning) setAvailability(state.day);
     renderFormSide();
     show("demande");
   };
-  $("#dayList").addEventListener("click", (e) => { const row = e.target.closest("[data-open]"); if (row) openDemande(row.dataset.open); });
+  $("#newOnDay").onclick = newOnPlanningDay;
+  $("#view-planning").addEventListener("click", (e) => {
+    const el = e.target.closest("[data-plan-filter], [data-plan-send], [data-plan-new]");
+    if (!el) return;
+    if (el.dataset.planNew !== undefined) return newOnPlanningDay();
+    if (el.dataset.planSend !== undefined) return openPlanSheet("send");
+    state.planFilter = el.dataset.planFilter; renderPlanning();
+  });
+  $("#dayList").addEventListener("click", (e) => { const row = e.target.closest("[data-open]"); if (row) openDemandeFromPlanning(row.dataset.open); });
+  // Buttons inside the planning sheet (request card, day list).
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest(".plan-sheet [data-plan-status], .plan-sheet [data-plan-edit], .plan-sheet [data-pf-history], .plan-sheet [data-plan-accept], .plan-sheet [data-plan-seen], .plan-sheet [data-plan-mark-sent]");
+    if (!b) return;
+    if (b.dataset.planEdit) { teamSheet.close(); return openDemande(b.dataset.planEdit); }
+    if (b.dataset.pfHistory) { teamSheet.close(); $("#q").value = b.dataset.pfHistory; show("historique"); renderHistory(); return; }
+    if (!requireStore()) return;
+    b.disabled = true;
+    try {
+      if (b.dataset.planMarkSent !== undefined) {
+        const targets = D.vehiclesOnDay(state.demandes, state.day, state.providerFilter).filter((d) => d.statut === "a_envoyer");
+        for (const d of targets) await state.store.setStatus(d, "envoyee");
+        toast(`${plural(targets.length, "véhicule")} passé${targets.length > 1 ? "s" : ""} en « Envoyée »`);
+        teamSheet.close(); return;
+      }
+      const d = demandeById(b.dataset.planAccept || b.dataset.planSeen || planSheet.id);
+      if (!d) return;
+      if (b.dataset.planStatus) {
+        if (b.dataset.planStatus === d.statut) return;
+        await state.store.setStatus(d, b.dataset.planStatus);
+        toast(`${d.plaque} : « ${D.statusOf(b.dataset.planStatus).label} »`);
+      } else if (b.dataset.planAccept) { await state.store.acceptProposedDate(d); toast(`Date changée pour ${d.plaque}`); }
+      else await state.store.markAnswerSeen(d);
+    } catch (err) { reportWriteError(err); }
+    finally { b.disabled = false; refreshPlanSheet(); }
+  });
 
   // ================= request form =================
   const field = (name) => $("#f-" + name);
@@ -1489,7 +1735,7 @@
       state.canWrite ? `<button type="button" class="ghost icon-btn" data-seen="${esc(d.id)}" aria-label="Marquer comme vu">${icon("check")}</button>` : "",
     ].join("");
     return `<li class="side-row"><button type="button" class="side-open" data-open="${esc(d.id)}">
-        <span class="side-line"><b>${esc(d.plaque)}</b><span class="muted">${esc(timeOf(r.at))}</span></span>
+        <span class="side-line"><b>${esc(d.plaque)}</b><span class="muted side-time">${esc(timeOf(r.at))}</span></span>
         <span class="side-what">${esc(d.prestataire)} · ${esc(D.answerSummary(r))}</span></button>
       <span class="side-quick">${quick}</span></li>`;
   }
@@ -1555,7 +1801,7 @@
     const b = e.target.closest("[data-seen], [data-accept-date], [data-open]");
     const d = b && demandeById(b.dataset.seen || b.dataset.acceptDate || b.dataset.open);
     if (!d) return;
-    if (b.dataset.open) return openDemande(d.id);
+    if (b.dataset.open) return sel === "#retoursSide" ? openDemandeFromPlanning(d.id) : openDemande(d.id);
     if (!requireStore()) return;
     (b.dataset.seen ? state.store.markAnswerSeen(d) : state.store.acceptProposedDate(d))
       .then(() => b.dataset.acceptDate && toast(`Date changée pour ${d.plaque}`), reportWriteError);
@@ -1640,7 +1886,7 @@
       onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); completeMailRequests(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
-      onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderFormSide(); },
+      onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderPlanning(); renderFormSide(); },
       onRobot: (etat) => { state.robot = etat; renderRobot(); },
       onDevices: (rows) => { state.alertDevices = rows; renderSettings(); },
       onError: (err) => {
