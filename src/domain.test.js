@@ -725,7 +725,18 @@ test("« Signaler » : remontée terrain sur n'importe quel véhicule", () => {
   assert.equal(D.problemSummary(r), r.texte);
   assert.ok(D.isFieldReport(r));
   assert.equal(D.fieldReport({ plaque: "AB-123-CD", texte: "rétro cassé" }, "k", "e", "t").texte, "rétro cassé");
-  assert.match(D.fieldReport({ plaque: "", quoi: ["Pare-brise"] }, "k", "e", "t").error, /plaque/);
+  assert.match(D.fieldReport({ plaque: "", quoi: ["Pare-brise"] }, "k", "e", "t").error, /Immatriculation/);
   assert.match(D.fieldReport({ plaque: "AB1", quoi: ["Pare-brise"] }, "k", "e", "t").error, /incomplète/);
-  assert.match(D.fieldReport({ plaque: "AB-123-CD" }, "k", "e", "t").error, /Coche/);
+  assert.match(D.fieldReport({ plaque: "AB-123-CD" }, "k", "e", "t").error, /Cochez/);
+});
+
+test("« Signaler » : Autre demande des mots, et on retrouve les mots pour modifier", () => {
+  assert.match(D.fieldReport({ plaque: "AB-123-CD", quoi: ["Autre"] }, "k", "e", "t").error, /Autre/);
+  const r = D.fieldReport({ plaque: "AB-123-CD", quoi: ["Autre", "Pare-brise"], texte: "antenne pliée" }, "k", "e", "t");
+  assert.equal(r.texte, "Pare-brise – antenne pliée");
+  assert.equal(D.fieldNoteOf(r), "antenne pliée");
+  assert.equal(D.fieldNoteOf({ quoi: ["Pneu avant"], texte: "Pneu avant" }), "");
+  assert.equal(D.fieldNoteOf({ quoi: [], texte: "rétro" }), "rétro");
+  const p = D.fieldEditPatch({ ...r, at: "t0" }, { plaque: "ef456gh", quoi: ["Véhicule sale"], texte: "" }, "t1");
+  assert.deepEqual(p, { plaque: "EF-456-GH", quoi: ["Véhicule sale"], texte: "Véhicule sale", photo: "", modifieAt: "t1" });
 });

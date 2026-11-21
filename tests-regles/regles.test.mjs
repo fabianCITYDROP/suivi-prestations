@@ -246,7 +246,16 @@ test("« Signaler » : un prestataire remonte ce qu'il voit sur n'importe quel v
   await assertFails(setDoc(doc(khalid, "signalements/t3"), { ...field, champ: "x" }));
   await assertFails(setDoc(doc(as("jerome"), "signalements/t3"), { ...field, prestataireId: "" }), "l'équipe en lecture n'écrit pas");
   await assertFails(getDoc(doc(as("allo"), "signalements/t1")), "un autre prestataire ne le voit pas");
-  await assertFails(updateDoc(doc(khalid, "signalements/t1"), { texte: "autre chose" }));
+  // Its author changes it while the team has not handled it; nobody else, and never the status or the name.
+  await assertSucceeds(updateDoc(doc(khalid, "signalements/t1"), { plaque: "ZZ-998-ZZ", quoi: ["Pare-brise"], texte: "Pare-brise", photo: "", modifieAt: "2026-11-21T10:00:00Z" }));
+  await assertFails(updateDoc(doc(khalid, "signalements/t1"), { statut: "traite" }));
+  await assertFails(updateDoc(doc(khalid, "signalements/t1"), { prestataireId: ALLO, modifieAt: "x" }));
+  await assertFails(updateDoc(doc(khalid, "signalements/t1"), { plaque: "AB", modifieAt: "x" }));
+  await assertFails(updateDoc(doc(as("allo"), "signalements/t1"), { texte: "x", modifieAt: "x" }));
+  await assertSucceeds(updateDoc(doc(as("fabian"), "signalements/t1"), { statut: "traite", traiteAt: "2026-11-21T11:00:00Z", traitePar: people.fabian.email }));
+  await assertFails(updateDoc(doc(khalid, "signalements/t1"), { texte: "trop tard", modifieAt: "x" }), "déjà traité : plus de modification");
+  await assertFails(deleteDoc(doc(khalid, "signalements/t1")), "déjà traité : plus de suppression");
+  await assertSucceeds(deleteDoc(doc(khalid, "signalements/t2")), "pas encore traité : il le supprime");
   await assertSucceeds(getDocs(collection(as("jerome"), "signalements")));
 });
 
@@ -270,12 +279,14 @@ test("un prestataire signale un problème sur ses véhicules, et seulement les s
   await assertFails(getDoc(doc(as("allo"), "signalements/s1")));
   await assertFails(updateDoc(doc(khalid, "signalements/s1"), { texte: "autre chose" }));
   await assertFails(updateDoc(doc(khalid, "signalements/s1"), { statut: "traite" }));
-  await assertFails(deleteDoc(doc(khalid, "signalements/s1")));
   // The team reads everything; only an admin marks it handled, and only that.
   await assertSucceeds(getDocs(collection(as("jerome"), "signalements")));
   await assertFails(updateDoc(doc(as("jerome"), "signalements/s1"), { statut: "traite" }));
   await assertSucceeds(updateDoc(doc(as("fabian"), "signalements/s1"), { statut: "traite", traiteAt: "2026-11-18T11:00:00Z", traitePar: people.fabian.email }));
   await assertFails(updateDoc(doc(as("fabian"), "signalements/s1"), { texte: "réécrit" }));
+  await assertFails(deleteDoc(doc(khalid, "signalements/s1")), "déjà traité : plus de suppression");
+  await assertFails(deleteDoc(doc(as("allo"), "signalements/s2")), "jamais celui d'un autre");
+  await assertSucceeds(deleteDoc(doc(khalid, "signalements/s2")), "envoyé par erreur, pas encore traité : il le supprime");
   await assertFails(setDoc(doc(as("robot"), "signalements/s9"), report));
   await assertFails(updateDoc(doc(khalid, "signalements/s2"), { texte: "Rayure, pas le pneu", modifieAt: "2026-11-18T10:10:00Z" }), "pas de correction : il en renvoie un");
   // The robot reads the reports (to alert the team's phones) but never changes them.

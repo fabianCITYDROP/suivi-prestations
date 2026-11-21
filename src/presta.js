@@ -8,7 +8,8 @@
 // For 10 minutes after « OK prestation réalisée », the provider can take it back (wrong vehicle): it goes back to its list.
 // To add something, it simply reports again.
 // 5. "Signaler" (+): what the provider saw on ANY vehicle, even one it was not sent to (dirty, windscreen, tyres…),
-//    several vehicles at once. The team gets it in « Retours »; the provider only sees its own reports.
+//    one after the other. The team gets it in « Retours »; the provider only sees its own reports, and changes or
+//    deletes one until the team has handled it.
 (function (root) {
   const TABS = [
     { id: "validate", label: "À valider", icon: "bell" },
@@ -21,7 +22,7 @@
   function start({ store, account, email, D, ui, alerts }) {
     const { $, esc, toast, icon, plateTag, safeImageSrc, prepareImage } = ui;
     // draft: what the provider is typing in the open form, kept across re-renders (a new request arriving redraws the screen).
-    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "", month: "", monthLoading: false, field: [] }; // month: "AAAA-MM" of an older report asked for in « Faits », "" = last 40 days
+    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "", month: "", monthLoading: false, fd: null }; // month: "AAAA-MM" of an older report asked for in « Faits », "" = last 40 days
     const today = () => D.toIsoDate(new Date());
     const recentFrom = D.recentWindowStart(today()); // older requests are read only when asked for (free plan's daily reads)
     const view = $("#view-presta");
@@ -57,9 +58,17 @@
     }
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
+    // A report sent by mistake: its author removes it until the team has handled it (two taps: the first one asks).
+    function deleteReportBtn(p) {
+      if (p.statut === "traite" || p.par !== email) return "";
+      if (state.busy.has("pdel:" + p.id)) return `<span class="spinner" aria-hidden="true"></span>`;
+      return state.pdelArmed === p.id
+        ? `<button type="button" class="del-report armed" data-pdel="${esc(p.id)}">${icon("trash")}Supprimer ?</button>`
+        : `<button type="button" class="del-report" data-pdel="${esc(p.id)}" aria-label="Supprimer ce signalement">${icon("trash")}</button>`;
+    }
     // Problems already reported on this request: the provider sees the team got them, and does not send them twice.
     function problemLines(d) {
-      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${p.photo ? " · avec photo" : ""}</small></span></div>`).join("");
+      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${p.photo ? " · avec photo" : ""}</small></span>${deleteReportBtn(p)}</div>`).join("");
     }
     function answerLine(d) {
       const r = d.retour;
@@ -152,6 +161,8 @@
       return TABS.map((t) => {
         const n = lists[t.id]?.length || 0; // « Faits » and « Signaler » show no count
         const badge = n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : "";
+        // « Signaler »: the round blue + in the middle of the bar, like the team's « Nouvelle demande ».
+        if (t.id === "report") return `<button type="button" class="tab-plus" data-sheet-open aria-haspopup="dialog" aria-label="Signaler une anomalie">${icon(t.icon)}<span>${t.label}</span></button>`;
         return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
     }
@@ -187,67 +198,99 @@
         (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici.")) +
         `<p class="tab-intro">Ici : les 40 derniers jours.</p>` + picker;
     }
-    // ---------- « Signaler »: field reports on any vehicle, several at once ----------
-    let fieldSeq = 0;
-    const newFieldRow = () => ({ id: ++fieldSeq, plaque: "", quoi: [], texte: "", photo: null, photoBusy: false });
-    const fieldRow = (id) => state.field.find((r) => r.id === +id);
-    function fieldCard(r, i, many) {
+    // ---------- « Signaler »: field reports on any vehicle ----------
+    // One vehicle at a time: « Envoyer » clears the form for the next one (several vehicles = several quick sends).
+    // A report of the list is touched to change or delete it, until the team has handled it.
+    const emptyField = () => ({ plaque: "", quoi: [], texte: "", photo: null, photoKey: "", photoBusy: false, editId: null });
+    const fd = () => (state.fd ||= emptyField());
+    const editable = (p) => p.statut !== "traite" && p.par === email;
+    // One drawn icon per anomaly (same 24px grid and stroke as the app's icons): quicker to spot than words.
+    // Icônes en volume (src/icons3d.js). popQ : la tuile qu'on vient de choisir, qui fait un petit rebond.
+    const issueIcon = (q) => self.IssueArt?.art(q) || "";
+    const miniIcons = (quoi) => (quoi || []).filter((q) => self.IssueArt?.has(q)).slice(0, 4).map((q) => self.IssueArt.art(q, "mini-art")).join("");
+    // Le bouton reste gris tant qu'il manque l'immatriculation ou un choix ; un appui explique quand même ce qui manque.
+    const fieldReady = () => { const r = fd(); return !D.fieldReport({ ...r, photo: r.photo ? "new" : r.photoKey }, account.prestataireId, email, "").error; };
+    const syncSend = () => sheetEl.querySelector("[data-fsend]")?.setAttribute("aria-disabled", String(!fieldReady()));
+    const sheetTitle = () => (fd().editId ? "Modifier le signalement" : "Signaler une anomalie");
+    function sheetBody() {
+      const r = fd(), editing = !!r.editId;
       const photo = r.photoBusy ? `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`
-        : r.photo ? `<div class="problem-photo"><img src="${safeImageSrc(r.photo.thumb)}" alt="Photo"><button type="button" class="ghost" data-fphoto-remove="${r.id}">${icon("x")}Retirer la photo</button></div>`
-        : `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-fphoto="${r.id}" hidden></label>`;
-      return `<article class="job field-card">
-        <div class="field-card-head"><b>Véhicule ${i + 1}</b>${many ? `<button type="button" class="ghost field-remove" data-fremove="${r.id}" aria-label="Retirer le véhicule ${i + 1}">${icon("x")}Retirer</button>` : ""}</div>
-        <label class="field"><span>Plaque</span><input data-fplate="${r.id}" data-keep="plate-${r.id}" value="${esc(r.plaque)}" placeholder="AB-123-CD" autocapitalize="characters" autocomplete="off" spellcheck="false" list="fieldPlates" maxlength="12"></label>
-        <div class="field"><span>Ce que tu as vu</span><div class="issue-chips" role="group" aria-label="Ce que tu as vu">
-          ${D.FIELD_ISSUES.map((q) => `<button type="button" class="issue-chip" data-fissue="${r.id}" data-q="${esc(q)}" aria-pressed="${r.quoi.includes(q)}">${r.quoi.includes(q) ? icon("check") : ""}${esc(q)}</button>`).join("")}
-        </div></div>
-        <label class="field"><span>Précisions (facultatif)</span><input data-ftext="${r.id}" data-keep="text-${r.id}" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche lisse"></label>
-        ${photo}
-      </article>`;
-    }
-    function reportTab() {
-      if (!state.field.length) state.field.push(newFieldRow());
-      const ready = state.field.filter((r) => D.plateKey(r.plaque)).length;
+        : r.photo || r.photoKey ? `<div class="sheet-photo">${r.photo ? `<img src="${safeImageSrc(r.photo.thumb)}" alt="Photo">` : `<span class="photo-kept">${icon("image")}Photo jointe</span>`}<button type="button" class="ghost" data-fphoto-remove>${icon("x")}Retirer</button></div>`
+        : `<label class="sheet-photo-add">${icon("camera")}<span>Ajouter une photo</span><small>facultatif</small><input type="file" accept="image/*" capture="environment" data-fphoto hidden></label>`;
+      const del = state.pdelArmed === r.editId
+        ? `<button type="button" class="field-del armed" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer ?</button>`
+        : `<button type="button" class="field-del" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer</button>`;
       const plates = [...new Set(state.demandes.map((d) => d.plaque).filter(Boolean))];
       const mine = state.problems.filter(D.isFieldReport).sort((a, b) => (b.at || "").localeCompare(a.at || "")).slice(0, 15);
-      const sent = mine.length ? `<h2 class="field-sent-title">Tes derniers signalements</h2><ul class="done-list field-sent">${mine.map((p) => `<li class="done-row">${plateTag(p.plaque)}<span><b>${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}</small></span><span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé"}</span></li>`).join("")}</ul>` : "";
-      return `<p class="tab-intro">Tu as vu un souci sur un véhicule, même s'il n'est pas dans tes demandes ? Dis-le à l'équipe. Tu peux en mettre plusieurs.</p>
+      return `<p class="sheet-sub">${editing ? "City-Drop verra la nouvelle version." : "Sur n'importe quel véhicule de la flotte, même hors de vos interventions."}</p>
         <datalist id="fieldPlates">${plates.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
-        ${state.field.map((r, i) => fieldCard(r, i, state.field.length > 1)).join("")}
-        <button type="button" class="add-veh field-add" data-fadd>${icon("plus")}Ajouter un autre véhicule</button>
-        ${state.fieldBusy ? busyLine : `<button type="button" class="primary big field-send" data-fsend>${icon("check")}Envoyer à l'équipe${ready > 1 ? ` (${ready} véhicules)` : ""}</button>`}
-        ${sent}`;
+        <label class="sheet-group"><span class="sheet-label">Immatriculation</span><input class="field-plate" data-fplate data-keep="fplate" value="${esc(r.plaque)}" placeholder="AB-123-CD" autocapitalize="characters" autocomplete="off" spellcheck="false" list="fieldPlates" maxlength="12"></label>
+        <fieldset class="issue-set"><legend class="sheet-label">Anomalies constatées</legend><div class="issue-grid">
+          ${D.FIELD_ISSUES.map((q) => { const on = r.quoi.includes(q); return `<button type="button" class="issue-tile${state.popQ === q ? " pop" : ""}" data-fissue data-q="${esc(q)}" aria-pressed="${on}"><span class="issue-ico">${issueIcon(q)}<span class="issue-check" aria-hidden="true">${icon("check")}</span></span><span class="issue-lbl">${esc(q)}</span></button>`; }).join("")}
+        </div></fieldset>
+        <label class="sheet-group"><span class="sheet-label">${r.quoi.includes("Autre") ? "Précision (obligatoire pour « Autre »)" : "Précision (facultatif)"}</span><input class="sheet-input" data-ftext data-keep="ftext" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche usé"></label>
+        ${photo}
+        ${state.fieldBusy ? busyLine : editing
+          ? `<div class="field-actions"><button type="button" class="primary big" data-fsend aria-disabled="${!fieldReady()}">Enregistrer</button><div class="field-actions-row"><button type="button" class="ghost" data-fcancel>Annuler</button>${del}</div></div>`
+          : `<button type="button" class="primary big field-send" data-fsend aria-disabled="${!fieldReady()}">Transmettre à City-Drop</button>`}
+        ${mine.length && !editing ? `<h3 class="sheet-label sent-title">Signalements récents</h3><ul class="field-sent">${mine.map(sentRow).join("")}</ul><p class="field-sent-hint">Modifiable tant que City-Drop ne l'a pas traité.</p>` : ""}`;
     }
-    // Every vehicle is checked first; then each is sent. One that fails stays on screen with what was typed.
+    function sentRow(p) {
+      const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${miniIcons(p.quoi) ? `<span class="mini-arts">${miniIcons(p.quoi)}</span>` : ""}${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}${p.modifieAt ? " · modifié" : ""}</small></span>
+        <span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${p.statut === "traite" ? "Traité" : "Transmis"}</span>`;
+      return editable(p)
+        ? `<li><button type="button" class="sent-row${fd().editId === p.id ? " current" : ""}" data-fedit="${esc(p.id)}" aria-label="Modifier ou supprimer le signalement ${esc(p.plaque)}">${body}${icon("chev-r")}</button></li>`
+        : `<li><div class="sent-row">${body}<span></span></div></li>`;
+    }
     async function sendField() {
-      const rows = state.field.filter((r) => D.plateKey(r.plaque) || r.quoi.length || r.texte.trim() || r.photo);
-      if (!rows.length) return toast("Écris la plaque du véhicule");
-      for (const r of rows) {
-        const check = D.fieldReport(r, account.prestataireId, email, "");
-        if (check.error) return toast(check.error);
-      }
+      const r = fd();
+      const photo = r.photo ? "new" : r.photoKey;
+      const check = D.fieldReport({ ...r, photo }, account.prestataireId, email, "");
+      if (check.error) return toast(check.error);
       state.fieldBusy = true; render();
-      const failed = [];
-      for (const r of rows) {
-        try { await store.reportField(account.prestataireId, { plaque: r.plaque, quoi: r.quoi, texte: r.texte, par: email }, r.photo?.full); }
-        catch { failed.push(r); }
+      try {
+        const fields = { plaque: r.plaque, quoi: r.quoi, texte: r.texte, par: email };
+        if (r.editId) { await store.updateField(state.problems.find((p) => p.id === r.editId), fields, r.photo?.full, r.photoKey); toast(`Signalement ${D.normalizePlate(r.plaque)} modifié`); }
+        else { await store.reportField(account.prestataireId, fields, r.photo?.full); sentFlash(D.normalizePlate(r.plaque)); }
+        state.fd = emptyField();
+        sheetEl.querySelector(".sheet-b").scrollTop = 0;
+      } catch (err) {
+        toast(err?.code === "permission-denied" && r.editId ? "Déjà traité par City-Drop : faites un nouveau signalement" : "Envoi impossible : vérifie ta connexion et réessaie");
+      } finally {
+        state.fieldBusy = false; render();
+        if (!state.fd.editId && state.sheetOpen) sheetEl.querySelector("[data-fplate]")?.focus({ preventScroll: true });
       }
-      state.fieldBusy = false;
-      state.field = failed.length ? failed : [newFieldRow()];
-      const ok = rows.length - failed.length;
-      toast(failed.length ? `${failed.length} véhicule${failed.length > 1 ? "s" : ""} pas envoyé${failed.length > 1 ? "s" : ""} : vérifie ta connexion et réessaie`
-        : ok > 1 ? `${ok} véhicules envoyés à l'équipe, merci !` : "Envoyé à l'équipe, merci !");
-      render();
-      if (!failed.length) window.scrollTo({ top: 0 });
     }
-    async function addFieldPhoto(r, file) {
-      r.photoBusy = true; render();
-      try { r.photo = await prepareImage(file); }
+    // Après un envoi : une grande coche verte par-dessus la feuille pendant un peu plus d'une seconde.
+    function sentFlash(plate) {
+      sheetEl.querySelector(".sent-flash")?.remove();
+      sheetEl.insertAdjacentHTML("beforeend", `<div class="sent-flash" role="status"><span class="sent-flash-card"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Transmis à City-Drop</b><small>${esc(plate)}</small></span></div>`);
+      navigator.vibrate?.([10, 60, 14]);
+      const f = sheetEl.querySelector(".sent-flash");
+      setTimeout(() => { f.classList.add("out"); setTimeout(() => f.remove(), 260); }, 1300);
+    }
+    function editField(id) {
+      const p = state.problems.find((x) => x.id === id);
+      if (!p || !editable(p)) return;
+      state.fd = { ...emptyField(), editId: p.id, plaque: p.plaque, quoi: [...(p.quoi || [])], texte: D.fieldNoteOf(p), photoKey: p.photo || "" };
+      state.pdelArmed = null; render();
+      sheetEl.querySelector(".sheet-b").scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }
+    async function deleteReport(id) {
+      if (state.pdelArmed !== id) { state.pdelArmed = id; render(); return; }
+      state.pdelArmed = null; state.busy.add("pdel:" + id); state.fieldBusy = state.fd?.editId === id; render();
+      try { await store.deleteProblem(id); toast("Signalement supprimé"); if (state.fd?.editId === id) state.fd = emptyField(); }
+      catch (err) { toast(err?.code === "permission-denied" ? "Déjà vu par l'équipe : appelle-la pour corriger" : "Suppression impossible : vérifie ta connexion et réessaie"); }
+      finally { state.busy.delete("pdel:" + id); state.fieldBusy = false; render(); }
+    }
+    async function addFieldPhoto(file) {
+      const r = fd(); r.photoBusy = true; render();
+      try { r.photo = await prepareImage(file); r.photoKey = ""; }
       catch { toast("Photo illisible : essaie avec une autre"); }
       finally { r.photoBusy = false; render(); }
     }
 
-    const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab, report: reportTab };
+    const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
     // Until alerts work on this phone: one card above the tabs, with the one thing to do.
     function alertCard() {
@@ -260,6 +303,57 @@
           ${st === "ask" || st === "error" ? `<button type="button" class="primary big" data-alerts>Activer les alertes</button>` : ""}
         </div>`;
     }
+    // ---------- the « Signaler » sheet: slides up over the screen (iPhone-style), never a new page ----------
+    // Built once; render() only refreshes its content, so it never re-animates. Drag the grabber down to close.
+    view.innerHTML = `<div class="presta-main"></div>
+      <div class="sheet-scrim" data-sheet-close></div>
+      <section class="presta-sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" aria-hidden="true">
+        <div class="sheet-grab" aria-hidden="true"><span></span></div>
+        <header class="sheet-head"><h2 id="sheetTitle">Signaler une anomalie</h2><button type="button" class="sheet-x" data-sheet-close aria-label="Fermer">${icon("x")}</button></header>
+        <div class="sheet-b"></div>
+      </section>`;
+    const main = view.querySelector(".presta-main");
+    const sheetEl = view.querySelector(".presta-sheet");
+    let lastFocus = null;
+    function openSheet() {
+      if (state.sheetOpen) return;
+      state.sheetOpen = true; lastFocus = document.activeElement; render();
+      sheetEl.style.transform = "";
+      document.body.classList.add("sheet-open"); sheetEl.setAttribute("aria-hidden", "false");
+      requestAnimationFrame(() => sheetEl.classList.add("on"));
+      setTimeout(() => sheetEl.querySelector(".sheet-x")?.focus({ preventScroll: true }), 50);
+    }
+    function closeSheet() {
+      if (!state.sheetOpen) return;
+      state.sheetOpen = false; state.pdelArmed = null;
+      if (state.fd?.editId) state.fd = null; // an edit left half-way is dropped; a new report being typed is kept
+      sheetEl.style.transform = ""; sheetEl.classList.remove("on");
+      document.body.classList.remove("sheet-open"); sheetEl.setAttribute("aria-hidden", "true");
+      lastFocus?.focus?.({ preventScroll: true });
+    }
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.sheetOpen) closeSheet(); });
+    // Drag to dismiss: follows the finger 1:1 from the grabber or the title, closes past 120 px or on a quick flick.
+    (function dragToClose() {
+      let startY = 0, lastY = 0, lastT = 0, v = 0, dragging = false;
+      sheetEl.addEventListener("pointerdown", (e) => {
+        if (!e.target.closest(".sheet-grab, .sheet-head") || e.target.closest("button")) return;
+        dragging = true; startY = lastY = e.clientY; lastT = e.timeStamp; v = 0;
+        sheetEl.setPointerCapture(e.pointerId); sheetEl.classList.add("dragging");
+      });
+      sheetEl.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        const dy = e.clientY - startY;
+        v = (e.clientY - lastY) / Math.max(1, e.timeStamp - lastT); lastY = e.clientY; lastT = e.timeStamp;
+        sheetEl.style.transform = `translateY(${dy > 0 ? dy : dy / 6}px)`; // resists upwards
+      });
+      const end = (e) => {
+        if (!dragging) return;
+        dragging = false; sheetEl.classList.remove("dragging");
+        if (e.clientY - startY > 120 || v > 0.6) closeSheet(); else sheetEl.style.transform = "";
+      };
+      sheetEl.addEventListener("pointerup", end); sheetEl.addEventListener("pointercancel", end);
+    })();
+
     // Re-renders the whole screen, keeping the cursor in the search box while the provider types.
     function render() {
       const lists = D.providerLists(state.demandes, today());
@@ -267,7 +361,7 @@
       const body = state.loaded ? TAB_BODY[state.tab](lists[state.tab]) : loadingHtml;
       const a = document.activeElement;
       const typing = a?.matches?.("[data-keep]") ? `[data-keep="${a.dataset.keep}"]` : a?.matches?.("[data-search], [data-note]") ? (a.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
-      view.innerHTML = `<header class="presta-top">
+      main.innerHTML = `<header class="presta-top">
           <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
           <h1>${esc(cap(D.dayLabel(today())))}</h1>
         </header>
@@ -275,6 +369,8 @@
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
+      sheetEl.querySelector("#sheetTitle").textContent = sheetTitle();
+      sheetEl.querySelector(".sheet-b").innerHTML = sheetBody();
       scheduleUndoEnd();
       const input = typing && view.querySelector(typing);
       if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
@@ -326,9 +422,8 @@
     view.addEventListener("change", (e) => {
       if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]);
       if (e.target.matches("[data-month]")) showMonth(e.target.value);
-      if (e.target.matches("[data-fphoto]") && e.target.files[0] && fieldRow(e.target.dataset.fphoto)) addFieldPhoto(fieldRow(e.target.dataset.fphoto), e.target.files[0]);
-      if (e.target.matches("[data-fplate]") && fieldRow(e.target.dataset.fplate)) { // tidy the plate when the field is left: AB123CD -> AB-123-CD
-        const r = fieldRow(e.target.dataset.fplate); r.plaque = D.normalizePlate(r.plaque); e.target.value = r.plaque; }
+      if (e.target.matches("[data-fphoto]") && e.target.files[0]) addFieldPhoto(e.target.files[0]);
+      if (e.target.matches("[data-fplate]")) { fd().plaque = D.normalizePlate(fd().plaque); e.target.value = fd().plaque; } // AB123CD -> AB-123-CD
     });
     // An older month's report: only that month is read (free plan's daily reads), then it stays loaded.
     function showMonth(month) {
@@ -339,8 +434,8 @@
     }
     view.addEventListener("input", (e) => {
       if (e.target.matches("[data-note]")) state.draft.note = e.target.value;
-      else if (e.target.matches("[data-fplate]")) { const r = fieldRow(e.target.dataset.fplate); if (r) r.plaque = e.target.value; }
-      else if (e.target.matches("[data-ftext]")) { const r = fieldRow(e.target.dataset.ftext); if (r) r.texte = e.target.value; }
+      else if (e.target.matches("[data-fplate]")) { fd().plaque = e.target.value; syncSend(); }
+      else if (e.target.matches("[data-ftext]")) { fd().texte = e.target.value; syncSend(); }
       else if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); }
     });
     view.addEventListener("click", (e) => {
@@ -348,17 +443,21 @@
       let b;
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
       else if ((b = el("[data-month-reset]"))) { state.month = ""; render(); }
+      else if ((b = el("[data-sheet-open]"))) openSheet();
+      else if ((b = el("[data-sheet-close]"))) closeSheet();
       else if ((b = el("[data-fissue]"))) {
-        const r = fieldRow(b.dataset.fissue), q = b.dataset.q;
-        if (r) { r.quoi = r.quoi.includes(q) ? r.quoi.filter((x) => x !== q) : [...r.quoi, q]; render(); }
+        const r = fd(), q = b.dataset.q;
+        const adding = !r.quoi.includes(q);
+        r.quoi = adding ? [...r.quoi, q] : r.quoi.filter((x) => x !== q);
+        if (adding) { state.popQ = q; navigator.vibrate?.(8); }
+        render(); state.popQ = null;
+        if (q === "Autre" && r.quoi.includes("Autre")) sheetEl.querySelector("[data-ftext]")?.focus({ preventScroll: true });
       }
-      else if ((b = el("[data-fadd]"))) {
-        const r = newFieldRow(); state.field.push(r); render();
-        view.querySelector(`[data-fplate="${r.id}"]`)?.focus();
-      }
-      else if ((b = el("[data-fremove]"))) { state.field = state.field.filter((r) => r.id !== +b.dataset.fremove); render(); }
-      else if ((b = el("[data-fphoto-remove]"))) { const r = fieldRow(b.dataset.fphotoRemove); if (r) { r.photo = null; render(); } }
+      else if ((b = el("[data-fphoto-remove]"))) { fd().photo = null; fd().photoKey = ""; render(); }
       else if ((b = el("[data-fsend]"))) sendField();
+      else if ((b = el("[data-fedit]"))) editField(b.dataset.fedit);
+      else if ((b = el("[data-fcancel]"))) { state.fd = emptyField(); state.pdelArmed = null; render(); }
+      else if ((b = el("[data-pdel]"))) deleteReport(b.dataset.pdel);
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
       else if ((b = el("[data-form]"))) {

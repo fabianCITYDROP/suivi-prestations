@@ -47,7 +47,7 @@
   --st-ok: #6a3fb0;     --st-ok-bg: #ebe1f7;
   --st-done: #1d7340;   --st-done-bg: #d7efe0;
   --st-off: #5f6b75;    --st-off-bg: #e3e7ea;
-  --danger: #b3261e;
+  --danger: #b3261e; --tile-hi: rgba(255, 255, 255, .9);
   --shadow: 0 1px 2px rgba(18, 33, 43, .06), 0 6px 18px -8px rgba(18, 33, 43, .18);
   --f-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -62,7 +62,7 @@
   --eu: #3557b8; --plate-bg: #f4f4f0; --plate-ink: #111111;
   --st-todo: #f0a54a; --st-todo-bg: #382812; --st-sent: #7fb0f0; --st-sent-bg: #162943;
   --st-ok: #b79af0; --st-ok-bg: #282040; --st-done: #6fcf92; --st-done-bg: #142e1e;
-  --st-off: #94a1ab; --st-off-bg: #222d35; --danger: #f2827a;
+  --st-off: #94a1ab; --st-off-bg: #222d35; --danger: #f2827a; --tile-hi: rgba(255, 255, 255, .07);
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 22px -10px rgba(0, 0, 0, .6); color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #0c151b; --surface: #142029; --surface-2: #1a2933; --line: #263845; --line-strong: #36505f;
@@ -71,7 +71,7 @@
   --eu: #3557b8; --plate-bg: #f4f4f0; --plate-ink: #111111;
   --st-todo: #f0a54a; --st-todo-bg: #382812; --st-sent: #7fb0f0; --st-sent-bg: #162943;
   --st-ok: #b79af0; --st-ok-bg: #282040; --st-done: #6fcf92; --st-done-bg: #142e1e;
-  --st-off: #94a1ab; --st-off-bg: #222d35; --danger: #f2827a;
+  --st-off: #94a1ab; --st-off-bg: #222d35; --danger: #f2827a; --tile-hi: rgba(255, 255, 255, .07);
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 22px -10px rgba(0, 0, 0, .6); color-scheme: dark; }
 
 * { box-sizing: border-box; }
@@ -413,7 +413,7 @@ ol.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 .side-problems .icon { width: 17px; height: 17px; }
 .answer-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
 .answer-row:first-of-type { border-top: 0; padding-top: 0; }
-@media (max-width: 640px) { .answer-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } .answer-row > .plate { justify-self: start; } .answer-row > .row { margin-left: -12px; } }
+@media (max-width: 640px) { .answer-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } .answer-row > .plate { justify-self: start; } .answer-row > .row { margin-left: 0; } .problem-row > .row > button { flex: 1 1 0; justify-content: center; } }
 
 /* ---------- provider screen (phone first, used outdoors on car parks) ---------- */
 :root { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); }
@@ -665,27 +665,151 @@ button.pf-line:hover { background: var(--accent-soft); }
 /* Provider « Faits »: older month report on demand */
 .presta-body .month-pick { margin: 12px 0; max-width: 260px; }
 .presta-body .month-back { width: 100%; min-height: 48px; justify-content: center; gap: 8px; margin: 4px 0 14px; font-weight: 600; color: var(--accent); border: 1px solid var(--line-strong); background: var(--surface); }
-/* « Signaler »: field reports on any vehicle. Neutral chips (ink when ticked): colour stays for status only. */
-.field-card { gap: 14px; }
-.field-card-head { display: flex; align-items: center; justify-content: space-between; min-height: 28px; font-size: 15px; }
-.field-card .field input { min-height: 46px; font-size: 16px; }
-.field-card [data-fplate] { font: 700 17px var(--f-body); letter-spacing: .06em; text-transform: uppercase; }
-.field-card [data-fplate]::placeholder { font-weight: 500; letter-spacing: .04em; }
-.field-remove { min-height: 36px; padding: 0 10px; font-size: 13px; color: var(--ink-2); border: 1px solid var(--line); }
-.field-remove .icon { width: 15px; height: 15px; }
-.issue-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.issue-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: 600 14px var(--f-body); cursor: pointer; transition: transform 140ms var(--ease-out), background-color .15s ease, color .15s ease, border-color .15s ease; }
-.issue-chip .icon { width: 16px; height: 16px; }
-.issue-chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
-.issue-chip:active { transform: scale(.96); }
-.field-add { align-self: stretch; justify-content: center; min-height: 48px; border-radius: 12px; border: 1.5px dashed var(--line-strong); background: transparent; color: var(--ink); font-weight: 600; }
-.field-send { width: 100%; min-height: 54px; font-size: 16px; border-radius: 12px; }
-.field-send .icon { width: 21px; height: 21px; }
-.field-sent-title { margin: 18px 2px 0; font: 600 15px var(--f-body); color: var(--ink-2); text-transform: none; letter-spacing: 0; }
-.field-sent .done-row b { font-weight: 600; font-size: 14.5px; white-space: normal; overflow: visible; text-overflow: clip; }
+/* « Signaler »: blue + button. Wide screens: a blue pill at the end of the tabs. Phones: round, raised, in the middle of the bar. */
+.presta-tabs .tab-plus, .presta-tabs .tab-plus[aria-selected="true"] { background: var(--accent); color: #fff; box-shadow: none; }
+.presta-tabs .tab-plus .icon { display: block; width: 18px; height: 18px; }
+@media (max-width: 720px) {
+  .presta-tabs .tab-plus { order: 3; align-self: center; justify-self: center; width: 56px; height: 56px; min-height: 0; padding: 0; margin-top: -26px; border-radius: 50%; border: 4px solid var(--surface); box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--accent) 70%, transparent); }
+  .presta-tabs .tab-plus, .presta-tabs .tab-plus[aria-selected="true"] { background: var(--accent); color: #fff; }
+  .presta-tabs .tab-plus .icon { width: 26px; height: 26px; }
+  .presta-tabs .tab-plus span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .presta-tabs button[data-tab="upcoming"] { order: 4; }
+  .presta-tabs button[data-tab="done"] { order: 5; }
+}
+/* Delete a report sent by mistake: a quiet bin, red « Supprimer ? » once armed. */
+.problem-row > .row > button.ghost { border: 1px solid var(--line-strong); white-space: nowrap; }
+.del-report { min-height: 36px; min-width: 36px; padding: 0 8px; gap: 6px; border: 1px solid transparent; background: none; color: var(--ink-2); font-size: 13px; font-weight: 600; border-radius: 9px; flex: none; }
+.del-report .icon { width: 17px; height: 17px; }
+.del-report:hover { color: var(--danger); }
+.del-report.armed { color: #fff; background: var(--danger); border-color: var(--danger); }
+/* « Signaler » (2026-11-21 redo): one vehicle at a time, an even 2-column grid of choices, neutral (ink when ticked).
+   Colour stays for status only: orange « Envoyé », green « Vu par l'équipe », red only for deleting. */
+.photo-kept { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.photo-kept .icon { width: 18px; height: 18px; }
+.field-send .icon, .field-actions .primary .icon { width: 21px; height: 21px; }
+.field-actions { display: flex; flex-direction: column; gap: 8px; }
+.field-actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.field-actions-row button { min-height: 46px; border-radius: 10px; justify-content: center; }
+.field-actions-row .ghost { border: 1px solid var(--line-strong); }
+.field-del { gap: 8px; background: var(--surface); border: 1.5px solid var(--danger); color: var(--danger); font-weight: 600; }
+.field-del .icon { width: 17px; height: 17px; }
+.field-del.armed { background: var(--danger); color: #fff; }
+.field-sent-title { margin: 22px 2px 0; font: 600 16px var(--f-body); color: var(--ink); text-transform: none; letter-spacing: 0; }
+.field-sent-hint { margin: 0 2px 2px; font-size: 13.5px; color: var(--ink-2); }
+.field-sent { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.field-sent li + li { border-top: 1px solid var(--line); }
+.sent-row { width: 100%; display: grid; grid-template-columns: auto 1fr auto 18px; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; min-height: 0; border: 0; border-radius: 0; background: none; color: var(--ink); font: inherit; text-align: left; }
+button.sent-row { cursor: pointer; transition: background-color .15s ease; }
+button.sent-row:hover, button.sent-row.current { background: var(--surface-2); }
+button.sent-row:active { background: var(--surface-2); }
+.sent-row .icon { width: 18px; height: 18px; color: var(--ink-2); }
+.sent-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sent-text b { font-weight: 600; font-size: 14.5px; line-height: 1.3; }
+.sent-text small { color: var(--ink-2); font-size: 13px; }
 .seen-pill { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; color: var(--st-todo); background: var(--st-todo-bg, var(--surface-2)); }
 .seen-pill.ok { color: var(--st-done); background: var(--st-done-bg); }
-@media (prefers-reduced-motion: reduce) { .issue-chip:active { transform: none; } }
+@media (max-width: 420px) {
+  .sent-row { grid-template-columns: auto 1fr 18px; grid-template-areas: "plate text chev" "plate pill chev"; row-gap: 6px; }
+  .sent-row > .plate { grid-area: plate; align-self: start; }
+  .sent-row > .sent-text { grid-area: text; }
+  .sent-row > .seen-pill { grid-area: pill; justify-self: start; }
+  .sent-row > .icon, .sent-row > span:last-child:empty { grid-area: chev; }
+}
+/* ===== « Signaler » sheet (2026-11-21): iPhone-style sheet over the screen, icon tiles that light up. =====
+   Brand blue = selection; status colours stay orange / green / red. Depth from soft shadows, no gradients. */
+body.sheet-open { overflow: hidden; }
+.sheet-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(10, 20, 28, .32); opacity: 0; pointer-events: none; transition: opacity 280ms ease; }
+.presta-sheet { position: fixed; z-index: 41; left: 0; right: 0; bottom: 0; margin: 0 auto; width: 100%; max-width: 560px; max-height: calc(100dvh - 44px - env(safe-area-inset-top, 0px));
+  display: flex; flex-direction: column; background: var(--bg); border-radius: 22px 22px 0 0;
+  box-shadow: 0 0 0 .5px rgba(0, 0, 0, .06), 0 -12px 48px -12px rgba(10, 20, 28, .35);
+  transform: translateY(105%); transition: transform 460ms cubic-bezier(.32, .72, 0, 1); visibility: hidden; }
+.presta-sheet.on { transform: none; visibility: visible; }
+body.sheet-open .sheet-scrim { opacity: 1; pointer-events: auto; }
+.presta-sheet.dragging { transition: none; }
+.presta-sheet:not(.on) { transition: transform 360ms cubic-bezier(.32, .72, 0, 1), visibility 0s 360ms; }
+.sheet-grab { flex: none; display: grid; place-items: center; height: 18px; cursor: grab; touch-action: none; }
+.sheet-grab span { width: 38px; height: 5px; border-radius: 3px; background: var(--line-strong); }
+.sheet-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 2px 16px 4px 20px; touch-action: none; }
+.sheet-head h2 { flex: 1; margin: 0; font: 700 21px/1.2 var(--f-body); letter-spacing: -.015em; text-transform: none; color: var(--ink); }
+.sheet-x { width: 32px; height: 32px; min-height: 0; padding: 0; border-radius: 50%; border: 0; background: var(--surface-2); color: var(--ink-2); display: grid; place-items: center; }
+.sheet-x .icon { width: 16px; height: 16px; }
+.sheet-b { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 18px; }
+.sheet-sub { margin: 0 4px; font-size: 14px; color: var(--ink-2); line-height: 1.4; }
+.sheet-label { display: block; margin: 0 4px 8px; padding: 0; font: 600 12.5px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.sheet-group { display: block; }
+.field-plate, .sheet-input { width: 100%; min-height: 52px; border-radius: 14px; border: 0; background: var(--surface); box-shadow: 0 1px 2px rgba(10, 20, 28, .06), 0 0 0 1px var(--line) inset; padding: 0 16px; font-size: 16px; color: var(--ink); }
+.field-plate { font: 700 22px var(--f-mono, var(--f-body)) !important; letter-spacing: .1em; text-transform: uppercase; text-align: center; }
+.field-plate::placeholder { font-weight: 500; color: var(--ink-2); opacity: .45; }
+.field-plate::-webkit-calendar-picker-indicator { display: none !important; }
+.field-plate:focus, .sheet-input:focus { outline: none; box-shadow: 0 0 0 2px var(--accent) inset, 0 0 0 4px var(--accent-soft); }
+.issue-set { border: 0; margin: 0; padding: 0; min-width: 0; }
+.issue-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 8px; }
+.issue-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 7px; min-height: 0; padding: 0; border: 0; background: none; color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.issue-ico { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; max-width: 76px; border-radius: 20px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 94%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 6px 14px -5px rgba(10, 20, 28, .28), 0 0 0 .5px rgba(10, 20, 28, .08);
+  transition: transform 140ms var(--ease-out), box-shadow 180ms ease; }
+.issue-art { width: 54px; height: 54px; overflow: visible; }
+.issue-tile .issue-art { width: 70%; height: 70%; max-width: 54px; max-height: 54px; }
+.issue-lbl { font: 600 12.5px/1.2 var(--f-body); text-align: center; color: var(--ink); max-width: 84px; }
+.issue-check { position: absolute; top: -5px; right: -5px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; box-shadow: 0 0 0 2.5px var(--bg); opacity: 0; transform: scale(.6); }
+.issue-check .icon { width: 13px; height: 13px; stroke-width: 3; }
+.issue-tile:active .issue-ico { transform: scale(.94); }
+/* Choisi : la tuile s'entoure du bleu City-Drop, l'icône garde ses couleurs (sur fond bleu plein elles disparaîtraient). */
+.issue-tile[aria-pressed="true"] .issue-ico { background: color-mix(in srgb, var(--accent) 13%, var(--surface)); box-shadow: inset 0 0 0 2px var(--accent), 0 6px 14px -5px color-mix(in srgb, var(--accent) 60%, transparent); }
+.issue-tile[aria-pressed="true"] .issue-check { opacity: 1; transform: none; }
+.issue-tile[aria-pressed="true"] .issue-lbl { color: var(--accent); }
+/* Voyant : éteint tant qu'il n'est pas choisi, allumé ailleurs (listes, Retours). */
+.issue-art .i3-off { display: none; }
+.issue-tile[aria-pressed="false"] .i3-on { display: none; }
+.issue-tile[aria-pressed="false"] .i3-off { display: inline; }
+/* La tuile qu'on vient de choisir : petit rebond, coche qui arrive, voyant qui s'allume. */
+.issue-tile.pop .issue-ico { animation: issue-pop 260ms var(--ease-out); }
+.issue-tile.pop .issue-check { animation: check-in 200ms var(--ease-out); }
+.issue-tile.pop .i3-on { animation: light-on 320ms var(--ease-out); }
+@keyframes issue-pop { 0% { transform: scale(.94); } 55% { transform: scale(1.04); } 100% { transform: none; } }
+@keyframes check-in { from { opacity: 0; transform: scale(.6); } }
+@keyframes light-on { 0% { opacity: 0; } 40% { opacity: 1; } 60% { opacity: .55; } 100% { opacity: 1; } }
+.field-send[aria-disabled="true"], .field-actions .primary[aria-disabled="true"] { background: color-mix(in srgb, var(--ink-2) 30%, var(--surface)); color: var(--ink-2); border-color: transparent; box-shadow: none; filter: none; }
+/* Petites icônes devant le texte d'un signalement (liste du prestataire et Retours équipe). */
+.mini-arts { display: inline-flex; gap: 2px; vertical-align: -6px; margin-right: 6px; }
+.mini-art { width: 24px; height: 24px; overflow: visible; }
+/* Après un envoi : grande coche verte par-dessus la feuille. */
+.sent-flash { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 55%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-radius: inherit; animation: fade-in 180ms var(--ease-out); }
+.sent-flash.out { opacity: 0; transition: opacity 220ms var(--ease-out); }
+.sent-flash-card { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px 34px 22px; border-radius: 24px; background: var(--surface); box-shadow: 0 20px 50px -18px rgba(10, 20, 28, .45), 0 0 0 .5px rgba(10, 20, 28, .08); animation: flash-in 240ms var(--ease-out); }
+.sent-flash-card svg { width: 64px; height: 64px; fill: none; stroke: var(--st-done); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.sent-flash-card circle { fill: var(--st-done-bg); stroke: none; }
+.sent-flash-card path { stroke-dasharray: 36; stroke-dashoffset: 0; animation: draw-check 340ms 90ms var(--ease-out) backwards; }
+.sent-flash-card b { font-size: 17px; font-weight: 700; }
+.sent-flash-card small { color: var(--ink-2); font: 600 14px var(--f-mono, var(--f-body)); letter-spacing: .08em; }
+@keyframes flash-in { from { opacity: 0; transform: scale(.94); } }
+@keyframes draw-check { from { stroke-dashoffset: 36; } }
+@keyframes fade-in { from { opacity: 0; } }
+.sheet-photo-add { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--surface); box-shadow: 0 1px 2px rgba(10, 20, 28, .06), 0 0 0 1px var(--line) inset; font-weight: 600; font-size: 15px; color: var(--accent); cursor: pointer; }
+.sheet-photo-add .icon { width: 20px; height: 20px; }
+.sheet-photo-add small { margin-left: auto; color: var(--ink-2); font-weight: 500; font-size: 13px; }
+.sheet-photo { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--line) inset; }
+.sheet-photo img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; }
+.sheet-photo .ghost { margin-left: auto; }
+.field-send, .field-actions .primary { width: 100%; min-height: 54px; font-size: 16.5px; font-weight: 600; border-radius: 14px; letter-spacing: -.005em; }
+.sent-title { margin-top: 6px; margin-bottom: -8px; }
+.presta-sheet .field-sent { border: 0; border-radius: 14px; box-shadow: 0 0 0 1px var(--line) inset; }
+.presta-sheet .field-sent-hint { margin: -10px 4px 0; }
+@media (min-width: 721px) {
+  .presta-sheet { bottom: auto; top: 50%; border-radius: 22px; max-height: min(88dvh, 860px); transform: translateY(calc(-50% + 40px)) scale(.97); opacity: 0; transition: transform 360ms cubic-bezier(.32, .72, 0, 1), opacity 220ms ease; }
+  .presta-sheet.on { transform: translateY(-50%); opacity: 1; }
+  .presta-sheet:not(.on) { transition: transform 260ms ease, opacity 200ms ease, visibility 0s 260ms; }
+  .sheet-grab { display: none; }
+  .sheet-head { padding-top: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .presta-sheet, .presta-sheet:not(.on) { transition: opacity 200ms ease, visibility 0s linear 200ms; transform: none !important; opacity: 0; }
+  .presta-sheet.on { opacity: 1; transition: opacity 200ms ease; }
+  .issue-check, .issue-ico { transition: none; }
+  .issue-tile.pop .issue-ico, .issue-tile.pop .issue-check, .sent-flash-card, .sent-flash-card path { animation: none; }
+}
+.sheet-b > * { flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -1818,19 +1942,35 @@ window.SUIVI_FIREBASE_CONFIG = {
   // ---------- field reports (« Signaler » tab): a provider walking by tells the team what it saw on ANY vehicle ----------
   // Same collection as above, with no request: {demandeId: "", source: "terrain", plaque, quoi: [...], texte, photo?, …}.
   // Several vehicles are sent at once, one report each. Ticks are quicker than typing on a parking lot.
-  const FIELD_ISSUES = ["Pare-brise", "Véhicule sale", "Pneu avant", "Pneu arrière", "Rétro cassé", "Choc / carrosserie", "Voyant allumé"];
+  // 8 choices so they sit in an even 2-column grid; « Autre » needs a few words.
+  const FIELD_ISSUES = ["Pare-brise", "Véhicule sale", "Pneu avant", "Pneu arrière", "Rétro cassé", "Carrosserie", "Voyant allumé", "Autre"];
   const isFieldReport = (s) => s.source === "terrain";
   const fieldPlateOk = (plate) => { const k = plateKey(plate); return k.length >= 5 && k.length <= 10; };
+  const fieldTicksText = (ticks) => ticks.filter((q) => q !== "Autre").join(", ");
   function fieldReport({ plaque, quoi = [], texte = "", photo } = {}, prestataireId, email, nowIso) {
     const plate = normalizePlate(plaque);
     const ticks = FIELD_ISSUES.filter((q) => quoi.includes(q));
     const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
-    if (!plateKey(plate)) return { error: "Écris la plaque du véhicule" };
-    if (!fieldPlateOk(plate)) return { error: `Plaque ${plate} incomplète : vérifie-la` };
-    if (!ticks.length && !text) return { error: `Coche ce que tu as vu sur ${plate}, ou écris-le` };
+    if (!plateKey(plate)) return { error: "Immatriculation à renseigner" };
+    if (!fieldPlateOk(plate)) return { error: `Immatriculation ${plate} incomplète` };
+    if (!ticks.length && !text) return { error: `Cochez au moins une anomalie pour ${plate}, ou ajoutez une précision` };
+    if (ticks.includes("Autre") && !text) return { error: "« Autre » : précisez l'anomalie" };
     return { demandeId: "", source: "terrain", plaque: plate, prestataireId, type: "autre", quoi: ticks,
-      texte: [ticks.join(", "), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...(photo ? { photo } : {}),
+      texte: [fieldTicksText(ticks), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...(photo ? { photo } : {}),
       statut: "nouveau", at: nowIso, par: email };
+  }
+  // The words the provider typed, without the ticks in front (to edit a report).
+  function fieldNoteOf(s) {
+    const head = fieldTicksText(s.quoi || []);
+    const t = String(s.texte || "");
+    if (!head) return t;
+    return t.startsWith(head + " – ") ? t.slice(head.length + 3) : t === head ? "" : t;
+  }
+  // What an edit may change (the access rules allow only these, while the team has not handled it).
+  function fieldEditPatch(report, fields, nowIso) {
+    const r = fieldReport({ ...fields, photo: fields.photo }, report.prestataireId, report.par, report.at);
+    if (r.error) return r;
+    return { plaque: r.plaque, quoi: r.quoi, texte: r.texte, photo: fields.photo || "", modifieAt: nowIso };
   }
 
   // What a provider's answer writes. A "fait" or an acceptance also moves the request's status right away, so the
@@ -2217,7 +2357,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
-    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport, fieldNoteOf, fieldEditPatch,
     TRASH_DAYS, trashPurgeDate, trashDaysLeft, groupTrash,
   };
 });
@@ -2558,6 +2698,21 @@ window.SUIVI_FIREBASE_CONFIG = {
       await db.collection("signalements").doc().set(report);
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
+    // Its author changes a « vu en passant » report until the team has handled it. A new photo replaces the old one.
+    async function updateField(report, fields, photoFull, keptPhoto) {
+      let photo = keptPhoto || "";
+      if (photoFull) {
+        photo = `sig_${D.plateKey(fields.plaque)}_${Date.now().toString(36)}`;
+        await db.doc("preuves/" + photo).set({ prestataireId: report.prestataireId, plaque: D.normalizePlate(fields.plaque), data: photoFull, at: new Date().toISOString() });
+        photoCache.set("preuve:" + photo, photoFull);
+      }
+      const patch = D.fieldEditPatch(report, { ...fields, photo }, new Date().toISOString());
+      if (patch.error) throw { code: "invalid", message: patch.error };
+      await db.doc("signalements/" + report.id).update(patch);
+      changed();
+    }
+    // Its author takes back a report sent by mistake (the access rules allow it until the team has handled it).
+    const deleteProblem = (id) => db.doc("signalements/" + id).delete();
     const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
       handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
     async function loadProof(key) {
@@ -2678,7 +2833,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -2792,6 +2947,162 @@ window.SUIVI_FIREBASE_CONFIG = {
 })(typeof self !== "undefined" ? self : this);
 </script>
 <script>
+// Icônes en volume des anomalies « Signaler » (pare-brise, éponge, pneus…), dessinées en SVG (viewBox 48).
+// Une seule lumière, en haut à gauche : chaque pièce a son dégradé, un reflet clair en haut et une ombre à droite et en bas.
+// Les dégradés sont déclarés une seule fois dans la page (DEFS), puis chaque icône s'y réfère.
+// Voyant allumé : deux calques, .i3-off (éteint) et .i3-on (allumé) ; la tuile n'allume le voyant que quand il est choisi.
+(function (root) {
+  const O = "#24333e"; // contour
+  const RED = "#e0392b";
+  const lin = (id, stops, x2 = 0, y2 = 1) => `<linearGradient id="i3-${id}" x1="0" y1="0" x2="${x2}" y2="${y2}">${stops.map(([o, c, a = 1]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${a}"/>`).join("")}</linearGradient>`;
+  const rad = (id, stops, cx = 0.35, cy = 0.3, r = 0.75) => `<radialGradient id="i3-${id}" cx="${cx}" cy="${cy}" r="${r}">${stops.map(([o, c, a = 1]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${a}"/>`).join("")}</radialGradient>`;
+  const DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+${lin("body", [[0, "#ffffff"], [0.55, "#e9eef2"], [1, "#bcc8d1"]])}
+${lin("cab", [[0, "#f7f9fb"], [0.5, "#dfe6eb"], [1, "#aebbc6"]])}
+${lin("shadeR", [[0, "#0a141c", 0], [0.62, "#0a141c", 0], [1, "#0a141c", 0.2]], 1, 0)}
+${lin("shadeB", [[0, "#0a141c", 0], [0.6, "#0a141c", 0], [1, "#0a141c", 0.22]])}
+${lin("shine", [[0, "#ffffff", 0.95], [1, "#ffffff", 0]])}
+${lin("glass", [[0, "#7a9cb3"], [0.45, "#34526a"], [1, "#142330"]], 1, 1)}
+${lin("mglass", [[0, "#e2eff7"], [0.45, "#9dbdd2"], [1, "#4f7590"]], 1, 1)}
+${lin("dark", [[0, "#56636e"], [0.5, "#323e48"], [1, "#1b242b"]])}
+${rad("tyre", [[0, "#3c464e"], [0.7, "#1d252b"], [1, "#0c1115"]], 0.4, 0.35, 0.65)}
+${rad("rim", [[0, "#ffffff"], [0.55, "#cfd7dd"], [1, "#7e8b96"]], 0.35, 0.3, 0.8)}
+${lin("spy", [[0, "#ffe27a"], [0.5, "#fbc935"], [1, "#e19a00"]])}
+${lin("spy-side", [[0, "#e7a70e"], [1, "#b47300"]])}
+${lin("spg", [[0, "#4fc272"], [1, "#1c7d41"]])}
+${lin("spg-top", [[0, "#a6ecb9"], [1, "#55c677"]], 1, 1)}
+${rad("foam", [[0, "#ffffff"], [0.6, "#f1f6f9"], [1, "#b8cad8"]], 0.35, 0.3, 0.8)}
+${rad("drop", [[0, "#d9f1ff"], [1, "#4aa3d8"]], 0.35, 0.3, 0.8)}
+${lin("bezel", [[0, "#eef2f5"], [0.45, "#8996a1"], [0.55, "#5d6a75"], [1, "#d3dbe1"]], 0.3, 1)}
+${rad("dash", [[0, "#33414c"], [1, "#0b1217"]], 0.5, 0.3, 0.8)}
+${rad("amber", [[0, "#ffe2a0"], [0.5, "#ffb53d"], [1, "#e87b00"]], 0.45, 0.35, 0.75)}
+${rad("ground", [[0, "#0a141c", 0.34], [1, "#0a141c", 0]], 0.5, 0.5, 0.5)}
+${rad("dent", [[0, "#7f8d98"], [0.6, "#b9c4cc", 0.6], [1, "#e4e9ed", 0]], 0.42, 0.4, 0.6)}
+${lin("btn", [[0, "#ffffff"], [1, "#d3dbe1"]])}
+<filter id="i3-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="1.6"/></filter>
+</defs></svg>`;
+  const S = `stroke="${O}" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"`;
+  const ground = (cx, cy, rx, ry = 2.2) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#i3-ground)"/>`;
+  // Une pièce en volume : dégradé, puis ombre à droite et en bas par-dessus, puis contour.
+  const solid = (d, fill = "body") => `<path d="${d}" fill="url(#i3-${fill})"/><path d="${d}" fill="url(#i3-shadeR)"/><path d="${d}" fill="url(#i3-shadeB)"/><path d="${d}" fill="none" ${S}/>`;
+  const wheel = (cx, cy, hot) =>
+    `<ellipse cx="${cx}" cy="${cy + 5}" rx="4.8" ry="1.1" fill="#0a141c" opacity=".3"/>` +
+    (hot ? `<circle cx="${cx}" cy="${cy}" r="7" fill="${RED}" fill-opacity=".1" stroke="${RED}" stroke-width="1.8"/><path d="M${cx - 6.3} ${cy + 6.5}l-1.4 1.4M${cx} ${cy + 8.8}v1.8M${cx + 6.3} ${cy + 6.5}l1.4 1.4" stroke="${RED}" stroke-width="1.6" stroke-linecap="round"/>` : "") +
+    `<circle cx="${cx}" cy="${cy}" r="5" fill="url(#i3-tyre)" ${S}/><circle cx="${cx}" cy="${cy}" r="3.9" fill="none" stroke="#46525b" stroke-width=".6"/>` +
+    `<circle cx="${cx}" cy="${cy}" r="2.7" fill="url(#i3-rim)" stroke="#5d6a74" stroke-width=".5"/>` +
+    [0, 72, 144, 216, 288].map((a) => { const r = (a - 90) * Math.PI / 180; return `<circle cx="${(cx + 1.6 * Math.cos(r)).toFixed(2)}" cy="${(cy + 1.6 * Math.sin(r)).toFixed(2)}" r=".42" fill="#6b7883"/>`; }).join("") +
+    `<circle cx="${cx}" cy="${cy}" r=".7" fill="#3d4952"/><path d="M${cx - 3.6} ${cy - 2.2}a4.2 4.2 0 0 1 3-2" stroke="#fff" stroke-opacity=".35" stroke-width=".7" fill="none" stroke-linecap="round"/>`;
+  const van = (front) => ground(24, 41.6, 22, 2.1) +
+    // caisse : volume, nervures, logo City-Drop, poignée de porte arrière
+    solid("M3.5 11a2.5 2.5 0 0 1 2.5-2.5h22a2.5 2.5 0 0 1 2.5 2.5v22h-27Z") +
+    `<path d="M5 9.9h23" stroke="url(#i3-shine)" stroke-width="1.2" stroke-linecap="round"/><path d="M5.2 10.2h22.6" stroke="#fff" stroke-width=".8" stroke-linecap="round"/>` +
+    `<path d="M12 11.5v17M19.5 11.5v17" stroke="#b7c3cc" stroke-width=".5"/><path d="M12.4 11.5v17M19.9 11.5v17" stroke="#fff" stroke-width=".4" opacity=".8"/>` +
+    `<path d="M3.5 29.2h27" stroke="#a9b6c0" stroke-width=".9"/>` +
+    `<path d="M5.4 19.6v4.6" stroke="#7d8a95" stroke-width="1.2" stroke-linecap="round"/>` +
+    `<rect x="13.6" y="14" width="10.6" height="4.4" rx="1.3" fill="#0f6f8f"/><path d="M13.9 14.6h10" stroke="#fff" stroke-opacity=".3" stroke-width=".6" stroke-linecap="round"/><circle cx="22.1" cy="16.2" r="1.05" fill="#ffd23f"/><path d="M15.4 16.2h4.1" stroke="#fff" stroke-width=".95" stroke-linecap="round"/>` +
+    // cabine : nez arrondi, vitre avec reflet, porte, rétro, phare
+    solid("M30.5 15h7.6c1 0 1.9.5 2.4 1.3l3.6 5.6c.5.8.9 1.8.9 2.8V33H30.5Z", "cab") +
+    `<path d="M33.2 17.6h4.8c.5 0 1 .3 1.3.7l2.8 4.7h-8.9Z" fill="url(#i3-glass)" ${S}/>` +
+    `<path d="M34.6 17.9h1.9l-2.4 4.8h-1.1ZM37.3 17.9h.7l-2.4 4.8h-.6Z" fill="#fff" opacity=".4"/>` +
+    `<path d="M32.4 17.4v14.9" stroke="#9aa7b2" stroke-width=".7"/><path d="M33.7 26.4h2.7" stroke="${O}" stroke-width="1.1" stroke-linecap="round"/>` +
+    `<path d="M41.9 19.1l1.8-.5v3.8l-1.8-.2Z" fill="url(#i3-dark)" ${S}/>` +
+    `<rect x="42.6" y="25.4" width="2.4" height="2.8" rx=".9" fill="#ffe08a" stroke="${O}" stroke-width=".7"/><path d="M43.1 26h.9" stroke="#fff" stroke-width=".5" stroke-linecap="round"/>` +
+    // bas de caisse et passages de roue
+    `<path d="M3 32.6h42.2v1.9c0 .6-.5 1.1-1.1 1.1H4.1A1.1 1.1 0 0 1 3 34.5Z" fill="url(#i3-dark)" ${S}/><path d="M4 33.2h40" stroke="#7d8a95" stroke-width=".5"/>` +
+    `<path d="M6.4 33a6 6 0 0 1 12 0M30.7 33a6 6 0 0 1 12 0" fill="#151c21"/>` +
+    wheel(12.4, 35.4, !front) + wheel(36.7, 35.4, front);
+  const ENG = "M7 8h8.5l2 2.2H19V8.6h2v7.8h-2v-1.6h-1.5l-2.6 3.2H9.6L7 15.6Z";
+  const PIPES = "M9.5 5.5h5M12 5.5v2.5M7 12.2H4.6M4.6 9.7v5";
+  const CAR = "M4 16.5H2.6a.8.8 0 0 1-.8-.8v-2.3c0-.9.6-1.6 1.5-1.8l3.5-.8 2.9-3a2.4 2.4 0 0 1 1.7-.8h5.1c.8 0 1.5.4 2 1l2.3 2.9 1.7.4c.9.2 1.6 1 1.6 2v2.4a.8.8 0 0 1-.8.8H20a2.5 2.5 0 0 0-5 0H9a2.5 2.5 0 0 0-5 0Z";
+  const ICONS = {
+    "Pare-brise": ground(24, 43.4, 18.5, 2.3) +
+      `<path d="M9.4 19.6H6.6M38.6 19.6h2.8" stroke="${O}" stroke-width="1.5" stroke-linecap="round"/>` +
+      solid("M3.4 17.9a1.6 1.6 0 0 1 1.6-1.6h1.6a1.6 1.6 0 0 1 1.6 1.6v3.6a1.6 1.6 0 0 1-1.6 1.6H5a1.6 1.6 0 0 1-1.6-1.6Z", "cab") +
+      solid("M39.8 17.9a1.6 1.6 0 0 1 1.6-1.6H43a1.6 1.6 0 0 1 1.6 1.6v3.6A1.6 1.6 0 0 1 43 23.1h-1.6a1.6 1.6 0 0 1-1.6-1.6Z", "cab") +
+      `<rect x="10.8" y="36" width="6.4" height="5.8" rx="1.7" fill="url(#i3-tyre)" ${S}/><rect x="30.8" y="36" width="6.4" height="5.8" rx="1.7" fill="url(#i3-tyre)" ${S}/>` +
+      solid("M8.8 21.5c0-6.3 3.2-9.9 8.8-10.4h12.8c5.6.5 8.8 4.1 8.8 10.4V34H8.8Z") +
+      `<path d="M12.2 12.6c1.6-.9 3.3-1.3 5.4-1.4h12.8" stroke="#fff" stroke-width="1" stroke-linecap="round" fill="none"/>` +
+      // pare-brise : verre, reflets, joint
+      `<path d="M12.4 14.8Q24 12.7 35.6 14.8L37.2 25.7Q24 24.2 10.8 25.7Z" fill="url(#i3-glass)" stroke="#121c24" stroke-width="1.3" stroke-linejoin="round"/>` +
+      `<path d="M15.6 14.3l4.6-.6-5.6 11.4-3 .3Z" fill="#fff" opacity=".28"/><path d="M21.8 13.5l1.7-.1-5.2 11.5-1.7.1Z" fill="#fff" opacity=".16"/>` +
+      `<path d="M13.8 25l8.2-4.5" stroke="#0b141a" stroke-width="1.4" stroke-linecap="round"/><circle cx="13.8" cy="25" r=".9" fill="#0b141a"/>` +
+      `<g stroke-linecap="round" fill="none"><path d="M30.9 18.3l3.1-2.4M31.2 20.2l3.9 1.1M29.8 21.2l.6 2.7M27.6 20.3l-2.7 1.5M28.4 17.7l-.9-2.3" stroke="#fff" stroke-width="2" stroke-opacity=".35"/><circle cx="29.3" cy="19.4" r="1.9" stroke="${RED}" stroke-width="1.5" fill="#fff" fill-opacity=".35"/><path d="M30.9 18.3l3.1-2.4M31.2 20.2l3.9 1.1M29.8 21.2l.6 2.7M27.6 20.3l-2.7 1.5M28.4 17.7l-.9-2.3" stroke="${RED}" stroke-width="1.15"/></g>` +
+      // capot, phares, calandre, pare-chocs, plaque
+      `<path d="M10.2 27.3q13.8-1.5 27.6 0" stroke="#fff" stroke-width=".9" fill="none" opacity=".9"/><path d="M10.2 27.9q13.8-1.5 27.6 0" stroke="#aab7c1" stroke-width=".6" fill="none"/>` +
+      `<path d="M11 28.6h6.6l-1.2 3.3h-4.7a.8.8 0 0 1-.8-.8Z" fill="#eaf3f9" ${S}/><path d="M37 28.6h-6.6l1.2 3.3h4.7c.4 0 .8-.4.8-.8Z" fill="#eaf3f9" ${S}/>` +
+      `<path d="M12 29.6h4.4M31.6 29.6H36" stroke="#ffc53d" stroke-width="1.1" stroke-linecap="round"/><circle cx="13.2" cy="30.8" r=".6" fill="#fff"/><circle cx="34.8" cy="30.8" r=".6" fill="#fff"/>` +
+      `<rect x="19" y="28.3" width="10" height="4" rx="1.4" fill="url(#i3-dark)" ${S}/><path d="M20.6 29.7h6.8M20.6 31h6.8" stroke="#77848f" stroke-width=".6" stroke-linecap="round"/><rect x="22.6" y="29.3" width="2.8" height="2" rx=".6" fill="#0f6f8f" stroke="#fff" stroke-width=".35"/>` +
+      `<rect x="7.8" y="33.2" width="32.4" height="4.8" rx="2.1" fill="url(#i3-dark)" ${S}/><path d="M9.4 33.9h29.2" stroke="#8a97a2" stroke-width=".6" stroke-linecap="round"/>` +
+      `<rect x="19.8" y="34.5" width="8.4" height="2.5" rx=".6" fill="#fff" stroke="#9aa6b0" stroke-width=".5"/><path d="M20.3 34.8v1.9" stroke="#2f62c8" stroke-width="1"/><path d="M21.6 35.75h5.6" stroke="#4a5864" stroke-width=".7" stroke-dasharray="1 .6"/>`,
+    "Véhicule sale": ground(23.5, 42.4, 19, 2.3) +
+      // bloc jaune
+      solid("M7 26h27v11.2a1.8 1.8 0 0 1-1.8 1.8H8.8A1.8 1.8 0 0 1 7 37.2Z", "spy") +
+      `<path d="M34 26l6-5.5v11.2c0 .6-.2 1.1-.6 1.4L34 38.2Z" fill="url(#i3-spy-side)" ${S}/>` +
+      `<g fill="#b67600" opacity=".55"><ellipse cx="10.6" cy="30.1" rx="1.2" ry=".85"/><ellipse cx="15.4" cy="33.9" rx="1" ry=".75"/><ellipse cx="20.2" cy="29.7" rx="1.35" ry=".9"/><ellipse cx="25.6" cy="34.2" rx="1.1" ry=".8"/><ellipse cx="29.9" cy="30.4" rx=".85" ry=".65"/><ellipse cx="11.8" cy="35.8" rx=".7" ry=".5"/><ellipse cx="21.2" cy="36.3" rx=".8" ry=".55"/><ellipse cx="31.4" cy="35.9" rx=".7" ry=".5"/><ellipse cx="17.4" cy="31.2" rx=".55" ry=".4"/><ellipse cx="36.4" cy="27.6" rx=".55" ry=".85"/><ellipse cx="37.8" cy="32" rx=".5" ry=".8"/></g>` +
+      `<g fill="#fff3c4" opacity=".9"><path d="M9.6 30.7a1.2 .6 0 0 0 2 0"/><path d="M19 30.4a1.3 .6 0 0 0 2.4 0"/><path d="M24.6 34.8a1.1 .5 0 0 0 2 0"/><path d="M14.5 34.5a1 .5 0 0 0 1.8 0"/></g>` +
+      `<path d="M8.4 27.2h24.4" stroke="#fff6cf" stroke-width="1" stroke-linecap="round" opacity=".9"/>` +
+      // grattoir vert
+      `<path d="M7 26v-3.6h27V26Z" fill="url(#i3-spg)" ${S}/><path d="M34 26v-3.6l6-5.5V20.5Z" fill="#1d7a40" ${S}/>` +
+      `<path d="M7 22.4l6-5.5h27l-6 5.5Z" fill="url(#i3-spg-top)" ${S}/>` +
+      `<g fill="#1f8a48" opacity=".45"><circle cx="14.6" cy="20.8" r=".45"/><circle cx="30.8" cy="19.3" r=".45"/><circle cx="36.6" cy="18.5" r=".45"/><circle cx="19" cy="21.5" r=".35"/></g>` +
+      `<path d="M8.3 23.3h25" stroke="#9be7b1" stroke-width=".7" stroke-linecap="round"/>` +
+      // mousse et bulles
+      `<g fill="url(#i3-foam)" ${S}><circle cx="13.6" cy="17.6" r="4.7"/><circle cx="35" cy="18.3" r="3.5"/><circle cx="29.4" cy="15.8" r="5.1"/><circle cx="21.4" cy="13.9" r="6.2"/></g>` +
+      `<g fill="#fff"><ellipse cx="19.2" cy="11" rx="2" ry="1.3" transform="rotate(-25 19.2 11)"/><ellipse cx="27.6" cy="13.3" rx="1.4" ry=".9" transform="rotate(-25 27.6 13.3)"/><ellipse cx="11.9" cy="15.9" rx="1.2" ry=".8" transform="rotate(-25 11.9 15.9)"/><circle cx="34" cy="16.8" r=".7"/></g>` +
+      `<g fill="url(#i3-foam)" ${S}><circle cx="39.4" cy="9.6" r="2.7"/><circle cx="34.4" cy="5.9" r="1.7"/><circle cx="42.6" cy="15.1" r="1.3"/></g>` +
+      `<g fill="#fff"><circle cx="38.5" cy="8.6" r=".85"/><circle cx="33.9" cy="5.4" r=".5"/></g>` +
+      `<path d="M4.6 29.4c0-1.3 1.6-3.4 1.6-3.4s1.6 2.1 1.6 3.4a1.6 1.6 0 0 1-3.2 0Z" fill="url(#i3-drop)" stroke="#2f6f97" stroke-width=".7"/><circle cx="5.7" cy="29.2" r=".45" fill="#fff"/>`,
+    "Pneu avant": van(true),
+    "Pneu arrière": van(false),
+    "Rétro cassé": ground(24, 43.4, 16.5, 2.1) +
+      // bras et platine
+      solid("M35.6 20.6h5.9a3 3 0 0 1 3 3v13h-4V25.1h-4.9Z", "cab") +
+      `<path d="M38.4 36.4h8l-1 4.5h-6.2Z" fill="url(#i3-dark)" ${S}/><path d="M39 37.1h6.8" stroke="#8a97a2" stroke-width=".5"/>` +
+      // coque : épaisseur, face, reflet
+      `<path d="M7.6 20c0-7 3.9-10.6 10.1-10.6h14c6.1 0 9.6 4.1 9.6 9.6v6.1c0 6.6-4.1 10.6-10.1 10.6h-13.1c-6.4 0-10.5-4.1-10.5-10.6Z" fill="#9eacb7" ${S}/>` +
+      solid("M5 18.5C5 12 8.8 8 15 8h14c6 0 10 4 10 9.5v6c0 6.5-4 10.5-10.5 10.5h-12C9 34 5 30 5 23.5Z") +
+      `<path d="M7.4 13.4C9 10.6 11.6 9.3 15 9.3h13" stroke="#fff" stroke-width="1.1" stroke-linecap="round" fill="none"/>` +
+      // glace, reflets, fissure (inchangée)
+      `<path d="M8.6 18.8c0-4.6 2.6-7.4 7-7.4h12.6c4.3 0 7.3 2.8 7.3 6.6v5.6c0 4.6-3 7.5-7.6 7.5H16c-4.6 0-7.4-2.9-7.4-7.6Z" fill="url(#i3-mglass)" stroke="#33434f" stroke-width="1.2" stroke-linejoin="round"/>` +
+      `<path d="M11.8 12.4l6-1-6.7 16.6-2-2.2Z" fill="#fff" opacity=".42"/><path d="M19.6 11.4l1.6-.1-6.8 19.4h-1.4Z" fill="#fff" opacity=".2"/><path d="M35.4 21v2.6c0 4.6-3 7.5-7.6 7.5h-4" stroke="#2d4a5e" stroke-opacity=".35" stroke-width="1.2" fill="none" stroke-linecap="round"/>` +
+      `<g fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="#fff" stroke-width="2.1" opacity=".45"><path d="M20.5 11.6l-2.6 5.6 3.8 2.6-3.2 4.8 2.2 3-1.4 3.6"/><path d="M21.7 19.8l5.6-2.2 2.8-5"/><path d="M20.4 24.6l6.6 1.4 3.4 4"/><path d="M27.3 17.6l7 .8"/></g><g stroke="#14212b" stroke-width="1.15"><path d="M20.5 11.6l-2.6 5.6 3.8 2.6-3.2 4.8 2.2 3-1.4 3.6"/><path d="M21.7 19.8l5.6-2.2 2.8-5"/><path d="M20.4 24.6l6.6 1.4 3.4 4"/><path d="M27.3 17.6l7 .8"/></g></g>`,
+    "Carrosserie": ground(24, 39.8, 22, 1.9) +
+      `<g transform="scale(2)">` +
+      `<path d="${CAR}" fill="url(#i3-body)"/><path d="${CAR}" fill="url(#i3-shadeR)"/><path d="${CAR}" fill="url(#i3-shadeB)"/>` +
+      `<path d="M2 14.4h20.2v1.3a.8.8 0 0 1-.8.8H20a2.5 2.5 0 0 0-5 0H9a2.5 2.5 0 0 0-5 0H2.6a.8.8 0 0 1-.8-.8Z" fill="#0a141c" opacity=".12"/>` +
+      `<path d="${CAR}" fill="none" stroke="${O}" stroke-width=".5" stroke-linejoin="round"/>` +
+      `<path d="M2.4 13.3h19.4" stroke="#fff" stroke-width=".5" stroke-linecap="round"/><path d="M2.6 13.7h19.2" stroke="#a6b3bd" stroke-width=".25"/>` +
+      `<path d="M4.3 16.5a2.2 2.2 0 0 1 4.4 0ZM15.3 16.5a2.2 2.2 0 0 1 4.4 0Z" fill="#151c21"/><path d="M4.7 16.3a1.8 1.8 0 0 1 3.6 0M15.7 16.3a1.8 1.8 0 0 1 3.6 0" stroke="#3a4752" stroke-width=".35" fill="none"/>` +
+      `<path d="M8.6 11.3l1.9-2.1c.2-.2.5-.4.8-.4h1.6v2.5ZM14.2 8.8h2c.4 0 .7.2.9.5l1.6 2h-4.5Z" fill="url(#i3-glass)" stroke="${O}" stroke-width=".45" stroke-linejoin="round"/>` +
+      `<path d="M10.5 9.4l1-.6-1.6 2.5H9.1ZM15.1 8.9h.9l-1.1 2.4h-.7Z" fill="#fff" opacity=".42"/>` +
+      `<path d="M13.6 11.3v5M8.5 11.5c-.2 1.6-.2 3.3 0 4.8M18.4 11.4c.3 1.6.3 3.3 0 4.9" stroke="#9aa8b2" stroke-width=".3" fill="none"/>` +
+      `<path d="M9.7 12.6h1.1M14.6 12.6h1.1" stroke="${O}" stroke-width=".5" stroke-linecap="round"/>` +
+      `<path d="M8 11.8l-.9-.4v1.2h1Z" fill="url(#i3-dark)"/>` +
+      `<path d="M1.8 15.2h2.4M19.8 15.2h2.4" stroke="#2e3a43" stroke-width="1.1" stroke-linecap="round"/>` +
+      `<rect x="20.5" y="12.2" width="1.4" height="1" rx=".35" fill="#ffe08a" stroke="${O}" stroke-width=".2"/><rect x="1.85" y="12.3" width="1.05" height=".9" rx=".3" fill="${RED}"/>` +
+      `</g>` +
+      `<ellipse cx="22.6" cy="27.1" rx="4.4" ry="2.7" fill="url(#i3-dent)"/><path d="M18.6 28.6c1.4 1.2 6.2 1.4 8 0" stroke="#fff" stroke-width=".9" fill="none" stroke-linecap="round" opacity=".9"/>` +
+      `<g stroke="${RED}" stroke-width="1.15" stroke-linecap="round" fill="none"><path d="M18.6 25.4l7.6 1.6M19.4 27.4l5.8 1.2"/></g>`,
+    "Voyant allumé":
+      `<circle cx="24" cy="24" r="19.6" fill="url(#i3-bezel)" ${S}/>` +
+      `<circle cx="24" cy="24" r="16.8" fill="url(#i3-dash)" stroke="#05090c" stroke-width="1"/>` +
+      `<g transform="translate(5.6 5.8) scale(1.53)"><g class="i3-off"><path d="${ENG}" fill="#36434e" stroke="#5a6874" stroke-width=".7" stroke-linejoin="round"/><path d="${PIPES}" fill="none" stroke="#5a6874" stroke-width="1.3" stroke-linecap="round"/></g>` +
+      `<g class="i3-on"><g filter="url(#i3-glow)" opacity=".9"><path d="${ENG} ${PIPES}" fill="#ff9d1a" stroke="#ff9d1a" stroke-width="1.4"/></g>` +
+      `<path d="${ENG}" fill="url(#i3-amber)" stroke="#ffd27a" stroke-width=".7" stroke-linejoin="round"/><path d="${PIPES}" fill="none" stroke="#ffb53d" stroke-width="1.3" stroke-linecap="round"/></g></g>` +
+      `<path d="M11.4 17.2A14 14 0 0 1 36.6 17.2C33 14.6 28.8 13.4 24 13.4s-9 1.2-12.6 3.8Z" fill="#fff" opacity=".1"/>`,
+    "Autre": ground(24, 42.6, 14, 2) +
+      `<circle cx="24" cy="23.4" r="16" fill="url(#i3-btn)" ${S}/><circle cx="24" cy="23.4" r="16" fill="url(#i3-shadeR)"/>` +
+      `<ellipse cx="22" cy="14.6" rx="10" ry="4.4" fill="url(#i3-shine)" opacity=".9"/>` +
+      `<g fill="#2a3945"><circle cx="16.5" cy="23.6" r="2.5"/><circle cx="24" cy="23.6" r="2.5"/><circle cx="31.5" cy="23.6" r="2.5"/></g>` +
+      `<g fill="#fff" opacity=".55"><circle cx="15.8" cy="22.8" r=".7"/><circle cx="23.3" cy="22.8" r=".7"/><circle cx="30.8" cy="22.8" r=".7"/></g>`,
+  };
+  let ready = false;
+  const ensureDefs = () => { if (!ready && typeof document !== "undefined" && document.body) { document.body.insertAdjacentHTML("afterbegin", DEFS); ready = true; } };
+  const art = (q, cls = "issue-art") => { ensureDefs(); return ICONS[q] ? `<svg class="${cls}" viewBox="0 0 48 48" aria-hidden="true" focusable="false">${ICONS[q]}</svg>` : ""; };
+  root.IssueArt = { art, has: (q) => !!ICONS[q], DEFS, ICONS };
+})(typeof self !== "undefined" ? self : this);
+</script>
+<script>
 // Provider screen: what a provider sees after signing in. Only its own requests are loaded
 // (the access rules refuse anything else).
 // 1. "À valider": a new request is accepted, refused, or answered with another date.
@@ -2802,7 +3113,8 @@ window.SUIVI_FIREBASE_CONFIG = {
 // For 10 minutes after « OK prestation réalisée », the provider can take it back (wrong vehicle): it goes back to its list.
 // To add something, it simply reports again.
 // 5. "Signaler" (+): what the provider saw on ANY vehicle, even one it was not sent to (dirty, windscreen, tyres…),
-//    several vehicles at once. The team gets it in « Retours »; the provider only sees its own reports.
+//    one after the other. The team gets it in « Retours »; the provider only sees its own reports, and changes or
+//    deletes one until the team has handled it.
 (function (root) {
   const TABS = [
     { id: "validate", label: "À valider", icon: "bell" },
@@ -2815,7 +3127,7 @@ window.SUIVI_FIREBASE_CONFIG = {
   function start({ store, account, email, D, ui, alerts }) {
     const { $, esc, toast, icon, plateTag, safeImageSrc, prepareImage } = ui;
     // draft: what the provider is typing in the open form, kept across re-renders (a new request arriving redraws the screen).
-    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "", month: "", monthLoading: false, field: [] }; // month: "AAAA-MM" of an older report asked for in « Faits », "" = last 40 days
+    const state = { demandes: [], models: new Map(), problems: [], providerName: "", tab: null, openForm: null, draft: {}, busy: new Set(), query: "", month: "", monthLoading: false, fd: null }; // month: "AAAA-MM" of an older report asked for in « Faits », "" = last 40 days
     const today = () => D.toIsoDate(new Date());
     const recentFrom = D.recentWindowStart(today()); // older requests are read only when asked for (free plan's daily reads)
     const view = $("#view-presta");
@@ -2851,9 +3163,17 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     const photosStrip = (d) => (D.isWindshield(d) && modelPhotos(d).length
       ? `<div class="job-photos">${modelPhotos(d).slice(0, 4).map((p) => `<img src="${safeImageSrc(p.thumb)}" data-zoom="${esc(p.key)}" alt="Photo du pare-brise">`).join("")}</div>` : "");
+    // A report sent by mistake: its author removes it until the team has handled it (two taps: the first one asks).
+    function deleteReportBtn(p) {
+      if (p.statut === "traite" || p.par !== email) return "";
+      if (state.busy.has("pdel:" + p.id)) return `<span class="spinner" aria-hidden="true"></span>`;
+      return state.pdelArmed === p.id
+        ? `<button type="button" class="del-report armed" data-pdel="${esc(p.id)}">${icon("trash")}Supprimer ?</button>`
+        : `<button type="button" class="del-report" data-pdel="${esc(p.id)}" aria-label="Supprimer ce signalement">${icon("trash")}</button>`;
+    }
     // Problems already reported on this request: the provider sees the team got them, and does not send them twice.
     function problemLines(d) {
-      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${p.photo ? " · avec photo" : ""}</small></span></div>`).join("");
+      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${p.photo ? " · avec photo" : ""}</small></span>${deleteReportBtn(p)}</div>`).join("");
     }
     function answerLine(d) {
       const r = d.retour;
@@ -2946,6 +3266,8 @@ window.SUIVI_FIREBASE_CONFIG = {
       return TABS.map((t) => {
         const n = lists[t.id]?.length || 0; // « Faits » and « Signaler » show no count
         const badge = n ? `<span class="count${t.id === "validate" ? " hot" : ""}">${n}</span>` : "";
+        // « Signaler »: the round blue + in the middle of the bar, like the team's « Nouvelle demande ».
+        if (t.id === "report") return `<button type="button" class="tab-plus" data-sheet-open aria-haspopup="dialog" aria-label="Signaler une anomalie">${icon(t.icon)}<span>${t.label}</span></button>`;
         return `<button role="tab" data-tab="${t.id}" aria-selected="${state.tab === t.id}">${icon(t.icon)}<span>${t.label}</span>${badge}</button>`;
       }).join("");
     }
@@ -2981,67 +3303,99 @@ window.SUIVI_FIREBASE_CONFIG = {
         (list.length ? `<ul class="done-list">${list.map(doneRow).join("")}</ul>` : empty("Aucun véhicule fait", "Chaque prestation réalisée s'ajoute ici.")) +
         `<p class="tab-intro">Ici : les 40 derniers jours.</p>` + picker;
     }
-    // ---------- « Signaler »: field reports on any vehicle, several at once ----------
-    let fieldSeq = 0;
-    const newFieldRow = () => ({ id: ++fieldSeq, plaque: "", quoi: [], texte: "", photo: null, photoBusy: false });
-    const fieldRow = (id) => state.field.find((r) => r.id === +id);
-    function fieldCard(r, i, many) {
+    // ---------- « Signaler »: field reports on any vehicle ----------
+    // One vehicle at a time: « Envoyer » clears the form for the next one (several vehicles = several quick sends).
+    // A report of the list is touched to change or delete it, until the team has handled it.
+    const emptyField = () => ({ plaque: "", quoi: [], texte: "", photo: null, photoKey: "", photoBusy: false, editId: null });
+    const fd = () => (state.fd ||= emptyField());
+    const editable = (p) => p.statut !== "traite" && p.par === email;
+    // One drawn icon per anomaly (same 24px grid and stroke as the app's icons): quicker to spot than words.
+    // Icônes en volume (src/icons3d.js). popQ : la tuile qu'on vient de choisir, qui fait un petit rebond.
+    const issueIcon = (q) => self.IssueArt?.art(q) || "";
+    const miniIcons = (quoi) => (quoi || []).filter((q) => self.IssueArt?.has(q)).slice(0, 4).map((q) => self.IssueArt.art(q, "mini-art")).join("");
+    // Le bouton reste gris tant qu'il manque l'immatriculation ou un choix ; un appui explique quand même ce qui manque.
+    const fieldReady = () => { const r = fd(); return !D.fieldReport({ ...r, photo: r.photo ? "new" : r.photoKey }, account.prestataireId, email, "").error; };
+    const syncSend = () => sheetEl.querySelector("[data-fsend]")?.setAttribute("aria-disabled", String(!fieldReady()));
+    const sheetTitle = () => (fd().editId ? "Modifier le signalement" : "Signaler une anomalie");
+    function sheetBody() {
+      const r = fd(), editing = !!r.editId;
       const photo = r.photoBusy ? `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`
-        : r.photo ? `<div class="problem-photo"><img src="${safeImageSrc(r.photo.thumb)}" alt="Photo"><button type="button" class="ghost" data-fphoto-remove="${r.id}">${icon("x")}Retirer la photo</button></div>`
-        : `<label class="problem-photo-add">${icon("camera")}<span>Ajouter une photo (facultatif)</span><input type="file" accept="image/*" capture="environment" data-fphoto="${r.id}" hidden></label>`;
-      return `<article class="job field-card">
-        <div class="field-card-head"><b>Véhicule ${i + 1}</b>${many ? `<button type="button" class="ghost field-remove" data-fremove="${r.id}" aria-label="Retirer le véhicule ${i + 1}">${icon("x")}Retirer</button>` : ""}</div>
-        <label class="field"><span>Plaque</span><input data-fplate="${r.id}" data-keep="plate-${r.id}" value="${esc(r.plaque)}" placeholder="AB-123-CD" autocapitalize="characters" autocomplete="off" spellcheck="false" list="fieldPlates" maxlength="12"></label>
-        <div class="field"><span>Ce que tu as vu</span><div class="issue-chips" role="group" aria-label="Ce que tu as vu">
-          ${D.FIELD_ISSUES.map((q) => `<button type="button" class="issue-chip" data-fissue="${r.id}" data-q="${esc(q)}" aria-pressed="${r.quoi.includes(q)}">${r.quoi.includes(q) ? icon("check") : ""}${esc(q)}</button>`).join("")}
-        </div></div>
-        <label class="field"><span>Précisions (facultatif)</span><input data-ftext="${r.id}" data-keep="text-${r.id}" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche lisse"></label>
-        ${photo}
-      </article>`;
-    }
-    function reportTab() {
-      if (!state.field.length) state.field.push(newFieldRow());
-      const ready = state.field.filter((r) => D.plateKey(r.plaque)).length;
+        : r.photo || r.photoKey ? `<div class="sheet-photo">${r.photo ? `<img src="${safeImageSrc(r.photo.thumb)}" alt="Photo">` : `<span class="photo-kept">${icon("image")}Photo jointe</span>`}<button type="button" class="ghost" data-fphoto-remove>${icon("x")}Retirer</button></div>`
+        : `<label class="sheet-photo-add">${icon("camera")}<span>Ajouter une photo</span><small>facultatif</small><input type="file" accept="image/*" capture="environment" data-fphoto hidden></label>`;
+      const del = state.pdelArmed === r.editId
+        ? `<button type="button" class="field-del armed" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer ?</button>`
+        : `<button type="button" class="field-del" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer</button>`;
       const plates = [...new Set(state.demandes.map((d) => d.plaque).filter(Boolean))];
       const mine = state.problems.filter(D.isFieldReport).sort((a, b) => (b.at || "").localeCompare(a.at || "")).slice(0, 15);
-      const sent = mine.length ? `<h2 class="field-sent-title">Tes derniers signalements</h2><ul class="done-list field-sent">${mine.map((p) => `<li class="done-row">${plateTag(p.plaque)}<span><b>${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}</small></span><span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé"}</span></li>`).join("")}</ul>` : "";
-      return `<p class="tab-intro">Tu as vu un souci sur un véhicule, même s'il n'est pas dans tes demandes ? Dis-le à l'équipe. Tu peux en mettre plusieurs.</p>
+      return `<p class="sheet-sub">${editing ? "City-Drop verra la nouvelle version." : "Sur n'importe quel véhicule de la flotte, même hors de vos interventions."}</p>
         <datalist id="fieldPlates">${plates.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
-        ${state.field.map((r, i) => fieldCard(r, i, state.field.length > 1)).join("")}
-        <button type="button" class="add-veh field-add" data-fadd>${icon("plus")}Ajouter un autre véhicule</button>
-        ${state.fieldBusy ? busyLine : `<button type="button" class="primary big field-send" data-fsend>${icon("check")}Envoyer à l'équipe${ready > 1 ? ` (${ready} véhicules)` : ""}</button>`}
-        ${sent}`;
+        <label class="sheet-group"><span class="sheet-label">Immatriculation</span><input class="field-plate" data-fplate data-keep="fplate" value="${esc(r.plaque)}" placeholder="AB-123-CD" autocapitalize="characters" autocomplete="off" spellcheck="false" list="fieldPlates" maxlength="12"></label>
+        <fieldset class="issue-set"><legend class="sheet-label">Anomalies constatées</legend><div class="issue-grid">
+          ${D.FIELD_ISSUES.map((q) => { const on = r.quoi.includes(q); return `<button type="button" class="issue-tile${state.popQ === q ? " pop" : ""}" data-fissue data-q="${esc(q)}" aria-pressed="${on}"><span class="issue-ico">${issueIcon(q)}<span class="issue-check" aria-hidden="true">${icon("check")}</span></span><span class="issue-lbl">${esc(q)}</span></button>`; }).join("")}
+        </div></fieldset>
+        <label class="sheet-group"><span class="sheet-label">${r.quoi.includes("Autre") ? "Précision (obligatoire pour « Autre »)" : "Précision (facultatif)"}</span><input class="sheet-input" data-ftext data-keep="ftext" value="${esc(r.texte)}" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact côté passager, pneu avant gauche usé"></label>
+        ${photo}
+        ${state.fieldBusy ? busyLine : editing
+          ? `<div class="field-actions"><button type="button" class="primary big" data-fsend aria-disabled="${!fieldReady()}">Enregistrer</button><div class="field-actions-row"><button type="button" class="ghost" data-fcancel>Annuler</button>${del}</div></div>`
+          : `<button type="button" class="primary big field-send" data-fsend aria-disabled="${!fieldReady()}">Transmettre à City-Drop</button>`}
+        ${mine.length && !editing ? `<h3 class="sheet-label sent-title">Signalements récents</h3><ul class="field-sent">${mine.map(sentRow).join("")}</ul><p class="field-sent-hint">Modifiable tant que City-Drop ne l'a pas traité.</p>` : ""}`;
     }
-    // Every vehicle is checked first; then each is sent. One that fails stays on screen with what was typed.
+    function sentRow(p) {
+      const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${miniIcons(p.quoi) ? `<span class="mini-arts">${miniIcons(p.quoi)}</span>` : ""}${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}${p.modifieAt ? " · modifié" : ""}</small></span>
+        <span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${p.statut === "traite" ? "Traité" : "Transmis"}</span>`;
+      return editable(p)
+        ? `<li><button type="button" class="sent-row${fd().editId === p.id ? " current" : ""}" data-fedit="${esc(p.id)}" aria-label="Modifier ou supprimer le signalement ${esc(p.plaque)}">${body}${icon("chev-r")}</button></li>`
+        : `<li><div class="sent-row">${body}<span></span></div></li>`;
+    }
     async function sendField() {
-      const rows = state.field.filter((r) => D.plateKey(r.plaque) || r.quoi.length || r.texte.trim() || r.photo);
-      if (!rows.length) return toast("Écris la plaque du véhicule");
-      for (const r of rows) {
-        const check = D.fieldReport(r, account.prestataireId, email, "");
-        if (check.error) return toast(check.error);
-      }
+      const r = fd();
+      const photo = r.photo ? "new" : r.photoKey;
+      const check = D.fieldReport({ ...r, photo }, account.prestataireId, email, "");
+      if (check.error) return toast(check.error);
       state.fieldBusy = true; render();
-      const failed = [];
-      for (const r of rows) {
-        try { await store.reportField(account.prestataireId, { plaque: r.plaque, quoi: r.quoi, texte: r.texte, par: email }, r.photo?.full); }
-        catch { failed.push(r); }
+      try {
+        const fields = { plaque: r.plaque, quoi: r.quoi, texte: r.texte, par: email };
+        if (r.editId) { await store.updateField(state.problems.find((p) => p.id === r.editId), fields, r.photo?.full, r.photoKey); toast(`Signalement ${D.normalizePlate(r.plaque)} modifié`); }
+        else { await store.reportField(account.prestataireId, fields, r.photo?.full); sentFlash(D.normalizePlate(r.plaque)); }
+        state.fd = emptyField();
+        sheetEl.querySelector(".sheet-b").scrollTop = 0;
+      } catch (err) {
+        toast(err?.code === "permission-denied" && r.editId ? "Déjà traité par City-Drop : faites un nouveau signalement" : "Envoi impossible : vérifie ta connexion et réessaie");
+      } finally {
+        state.fieldBusy = false; render();
+        if (!state.fd.editId && state.sheetOpen) sheetEl.querySelector("[data-fplate]")?.focus({ preventScroll: true });
       }
-      state.fieldBusy = false;
-      state.field = failed.length ? failed : [newFieldRow()];
-      const ok = rows.length - failed.length;
-      toast(failed.length ? `${failed.length} véhicule${failed.length > 1 ? "s" : ""} pas envoyé${failed.length > 1 ? "s" : ""} : vérifie ta connexion et réessaie`
-        : ok > 1 ? `${ok} véhicules envoyés à l'équipe, merci !` : "Envoyé à l'équipe, merci !");
-      render();
-      if (!failed.length) window.scrollTo({ top: 0 });
     }
-    async function addFieldPhoto(r, file) {
-      r.photoBusy = true; render();
-      try { r.photo = await prepareImage(file); }
+    // Après un envoi : une grande coche verte par-dessus la feuille pendant un peu plus d'une seconde.
+    function sentFlash(plate) {
+      sheetEl.querySelector(".sent-flash")?.remove();
+      sheetEl.insertAdjacentHTML("beforeend", `<div class="sent-flash" role="status"><span class="sent-flash-card"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg><b>Transmis à City-Drop</b><small>${esc(plate)}</small></span></div>`);
+      navigator.vibrate?.([10, 60, 14]);
+      const f = sheetEl.querySelector(".sent-flash");
+      setTimeout(() => { f.classList.add("out"); setTimeout(() => f.remove(), 260); }, 1300);
+    }
+    function editField(id) {
+      const p = state.problems.find((x) => x.id === id);
+      if (!p || !editable(p)) return;
+      state.fd = { ...emptyField(), editId: p.id, plaque: p.plaque, quoi: [...(p.quoi || [])], texte: D.fieldNoteOf(p), photoKey: p.photo || "" };
+      state.pdelArmed = null; render();
+      sheetEl.querySelector(".sheet-b").scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }
+    async function deleteReport(id) {
+      if (state.pdelArmed !== id) { state.pdelArmed = id; render(); return; }
+      state.pdelArmed = null; state.busy.add("pdel:" + id); state.fieldBusy = state.fd?.editId === id; render();
+      try { await store.deleteProblem(id); toast("Signalement supprimé"); if (state.fd?.editId === id) state.fd = emptyField(); }
+      catch (err) { toast(err?.code === "permission-denied" ? "Déjà vu par l'équipe : appelle-la pour corriger" : "Suppression impossible : vérifie ta connexion et réessaie"); }
+      finally { state.busy.delete("pdel:" + id); state.fieldBusy = false; render(); }
+    }
+    async function addFieldPhoto(file) {
+      const r = fd(); r.photoBusy = true; render();
+      try { r.photo = await prepareImage(file); r.photoKey = ""; }
       catch { toast("Photo illisible : essaie avec une autre"); }
       finally { r.photoBusy = false; render(); }
     }
 
-    const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab, report: reportTab };
+    const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
     // Until alerts work on this phone: one card above the tabs, with the one thing to do.
     function alertCard() {
@@ -3054,6 +3408,57 @@ window.SUIVI_FIREBASE_CONFIG = {
           ${st === "ask" || st === "error" ? `<button type="button" class="primary big" data-alerts>Activer les alertes</button>` : ""}
         </div>`;
     }
+    // ---------- the « Signaler » sheet: slides up over the screen (iPhone-style), never a new page ----------
+    // Built once; render() only refreshes its content, so it never re-animates. Drag the grabber down to close.
+    view.innerHTML = `<div class="presta-main"></div>
+      <div class="sheet-scrim" data-sheet-close></div>
+      <section class="presta-sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" aria-hidden="true">
+        <div class="sheet-grab" aria-hidden="true"><span></span></div>
+        <header class="sheet-head"><h2 id="sheetTitle">Signaler une anomalie</h2><button type="button" class="sheet-x" data-sheet-close aria-label="Fermer">${icon("x")}</button></header>
+        <div class="sheet-b"></div>
+      </section>`;
+    const main = view.querySelector(".presta-main");
+    const sheetEl = view.querySelector(".presta-sheet");
+    let lastFocus = null;
+    function openSheet() {
+      if (state.sheetOpen) return;
+      state.sheetOpen = true; lastFocus = document.activeElement; render();
+      sheetEl.style.transform = "";
+      document.body.classList.add("sheet-open"); sheetEl.setAttribute("aria-hidden", "false");
+      requestAnimationFrame(() => sheetEl.classList.add("on"));
+      setTimeout(() => sheetEl.querySelector(".sheet-x")?.focus({ preventScroll: true }), 50);
+    }
+    function closeSheet() {
+      if (!state.sheetOpen) return;
+      state.sheetOpen = false; state.pdelArmed = null;
+      if (state.fd?.editId) state.fd = null; // an edit left half-way is dropped; a new report being typed is kept
+      sheetEl.style.transform = ""; sheetEl.classList.remove("on");
+      document.body.classList.remove("sheet-open"); sheetEl.setAttribute("aria-hidden", "true");
+      lastFocus?.focus?.({ preventScroll: true });
+    }
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.sheetOpen) closeSheet(); });
+    // Drag to dismiss: follows the finger 1:1 from the grabber or the title, closes past 120 px or on a quick flick.
+    (function dragToClose() {
+      let startY = 0, lastY = 0, lastT = 0, v = 0, dragging = false;
+      sheetEl.addEventListener("pointerdown", (e) => {
+        if (!e.target.closest(".sheet-grab, .sheet-head") || e.target.closest("button")) return;
+        dragging = true; startY = lastY = e.clientY; lastT = e.timeStamp; v = 0;
+        sheetEl.setPointerCapture(e.pointerId); sheetEl.classList.add("dragging");
+      });
+      sheetEl.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        const dy = e.clientY - startY;
+        v = (e.clientY - lastY) / Math.max(1, e.timeStamp - lastT); lastY = e.clientY; lastT = e.timeStamp;
+        sheetEl.style.transform = `translateY(${dy > 0 ? dy : dy / 6}px)`; // resists upwards
+      });
+      const end = (e) => {
+        if (!dragging) return;
+        dragging = false; sheetEl.classList.remove("dragging");
+        if (e.clientY - startY > 120 || v > 0.6) closeSheet(); else sheetEl.style.transform = "";
+      };
+      sheetEl.addEventListener("pointerup", end); sheetEl.addEventListener("pointercancel", end);
+    })();
+
     // Re-renders the whole screen, keeping the cursor in the search box while the provider types.
     function render() {
       const lists = D.providerLists(state.demandes, today());
@@ -3061,7 +3466,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       const body = state.loaded ? TAB_BODY[state.tab](lists[state.tab]) : loadingHtml;
       const a = document.activeElement;
       const typing = a?.matches?.("[data-keep]") ? `[data-keep="${a.dataset.keep}"]` : a?.matches?.("[data-search], [data-note]") ? (a.matches("[data-search]") ? "[data-search]" : "[data-note]") : null;
-      view.innerHTML = `<header class="presta-top">
+      main.innerHTML = `<header class="presta-top">
           <p class="presta-who">${esc(state.providerName || "Mon espace prestataire")}</p>
           <h1>${esc(cap(D.dayLabel(today())))}</h1>
         </header>
@@ -3069,6 +3474,8 @@ window.SUIVI_FIREBASE_CONFIG = {
         <nav class="presta-tabs" role="tablist" aria-label="Mes demandes">${tabsHtml(lists)}</nav>
         <div class="presta-body">${body}</div>
 `;
+      sheetEl.querySelector("#sheetTitle").textContent = sheetTitle();
+      sheetEl.querySelector(".sheet-b").innerHTML = sheetBody();
       scheduleUndoEnd();
       const input = typing && view.querySelector(typing);
       if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
@@ -3120,9 +3527,8 @@ window.SUIVI_FIREBASE_CONFIG = {
     view.addEventListener("change", (e) => {
       if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]);
       if (e.target.matches("[data-month]")) showMonth(e.target.value);
-      if (e.target.matches("[data-fphoto]") && e.target.files[0] && fieldRow(e.target.dataset.fphoto)) addFieldPhoto(fieldRow(e.target.dataset.fphoto), e.target.files[0]);
-      if (e.target.matches("[data-fplate]") && fieldRow(e.target.dataset.fplate)) { // tidy the plate when the field is left: AB123CD -> AB-123-CD
-        const r = fieldRow(e.target.dataset.fplate); r.plaque = D.normalizePlate(r.plaque); e.target.value = r.plaque; }
+      if (e.target.matches("[data-fphoto]") && e.target.files[0]) addFieldPhoto(e.target.files[0]);
+      if (e.target.matches("[data-fplate]")) { fd().plaque = D.normalizePlate(fd().plaque); e.target.value = fd().plaque; } // AB123CD -> AB-123-CD
     });
     // An older month's report: only that month is read (free plan's daily reads), then it stays loaded.
     function showMonth(month) {
@@ -3133,8 +3539,8 @@ window.SUIVI_FIREBASE_CONFIG = {
     }
     view.addEventListener("input", (e) => {
       if (e.target.matches("[data-note]")) state.draft.note = e.target.value;
-      else if (e.target.matches("[data-fplate]")) { const r = fieldRow(e.target.dataset.fplate); if (r) r.plaque = e.target.value; }
-      else if (e.target.matches("[data-ftext]")) { const r = fieldRow(e.target.dataset.ftext); if (r) r.texte = e.target.value; }
+      else if (e.target.matches("[data-fplate]")) { fd().plaque = e.target.value; syncSend(); }
+      else if (e.target.matches("[data-ftext]")) { fd().texte = e.target.value; syncSend(); }
       else if (e.target.matches("[data-search]")) { state.query = e.target.value; render(); }
     });
     view.addEventListener("click", (e) => {
@@ -3142,17 +3548,21 @@ window.SUIVI_FIREBASE_CONFIG = {
       let b;
       if ((b = el("[data-alerts]"))) alerts.activate().then(() => { if (alerts.state === "on") toast("Alertes activées : une alerte d'essai arrive"); });
       else if ((b = el("[data-month-reset]"))) { state.month = ""; render(); }
+      else if ((b = el("[data-sheet-open]"))) openSheet();
+      else if ((b = el("[data-sheet-close]"))) closeSheet();
       else if ((b = el("[data-fissue]"))) {
-        const r = fieldRow(b.dataset.fissue), q = b.dataset.q;
-        if (r) { r.quoi = r.quoi.includes(q) ? r.quoi.filter((x) => x !== q) : [...r.quoi, q]; render(); }
+        const r = fd(), q = b.dataset.q;
+        const adding = !r.quoi.includes(q);
+        r.quoi = adding ? [...r.quoi, q] : r.quoi.filter((x) => x !== q);
+        if (adding) { state.popQ = q; navigator.vibrate?.(8); }
+        render(); state.popQ = null;
+        if (q === "Autre" && r.quoi.includes("Autre")) sheetEl.querySelector("[data-ftext]")?.focus({ preventScroll: true });
       }
-      else if ((b = el("[data-fadd]"))) {
-        const r = newFieldRow(); state.field.push(r); render();
-        view.querySelector(`[data-fplate="${r.id}"]`)?.focus();
-      }
-      else if ((b = el("[data-fremove]"))) { state.field = state.field.filter((r) => r.id !== +b.dataset.fremove); render(); }
-      else if ((b = el("[data-fphoto-remove]"))) { const r = fieldRow(b.dataset.fphotoRemove); if (r) { r.photo = null; render(); } }
+      else if ((b = el("[data-fphoto-remove]"))) { fd().photo = null; fd().photoKey = ""; render(); }
       else if ((b = el("[data-fsend]"))) sendField();
+      else if ((b = el("[data-fedit]"))) editField(b.dataset.fedit);
+      else if ((b = el("[data-fcancel]"))) { state.fd = emptyField(); state.pdelArmed = null; render(); }
+      else if ((b = el("[data-pdel]"))) deleteReport(b.dataset.pdel);
       else if ((b = el("[data-tab]"))) { state.tab = b.dataset.tab; state.openForm = null; state.query = ""; render(); window.scrollTo({ top: 0 }); }
       else if ((b = el("[data-take]"))) send(byId(b.dataset.take), { etat: "confirme" }, "Demande acceptée : elle est dans ton planning");
       else if ((b = el("[data-form]"))) {
@@ -4661,13 +5071,15 @@ function page(texte) {
     const open = D.openProblems(D.problemsOfPlate(state.problems, plate));
     return open.length && D.plateKey(plate) ? `Problème signalé par ${providerOfProblem(open[0])} le ${D.shortDate(open[0].at.slice(0, 10))} : ${D.problemSummary(open[0])}` : "";
   }
+  // Petites icônes des anomalies cochées par le prestataire (pare-brise, pneu…), les mêmes que sur son écran.
+  const problemArts = (p) => { const arts = (p.quoi || []).filter((q) => self.IssueArt?.has(q)).slice(0, 4).map((q) => self.IssueArt.art(q, "mini-art")).join(""); return arts ? `<span class="mini-arts">${arts}</span>` : ""; };
   function problemRow(p, { handled = false } = {}) {
     const d = demandeById(p.demandeId);
     return `<div class="answer-row problem-row${handled ? " seen" : ""}">${plateTag(p.plaque)}
-      <span><span class="problem-type">${D.isFieldReport(p) ? "Vu en passant" : "Problème"}</span> · ${esc(D.problemSummary(p))}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
+      <span><span class="problem-type">${D.isFieldReport(p) ? "Vu en passant" : "Problème"}</span> · ${problemArts(p)}${esc(D.problemSummary(p))}<br><span class="muted">${esc([providerOfProblem(p), d && D.vehicleLabel(d), d && D.siteOf(d)].filter(Boolean).join(" · "))} · ${esc(atLabel(p.at))}${handled && p.traitePar ? ` · traité par ${esc(p.traitePar.split("@")[0])}` : ""}</span></span>
       <span class="row">${p.photo ? `<button type="button" data-proof="${esc(p.photo)}">${icon("image")}Photo</button>` : ""}
       ${state.canWrite ? (handled ? `<button type="button" class="ghost" data-problem-undo="${esc(p.id)}">Rouvrir</button>` : `<button type="button" data-problem-done="${esc(p.id)}">${icon("check")}Traité</button>`) : ""}
-      ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : ""}</span></div>`;
+      ${d ? `<button type="button" class="ghost" data-open="${esc(d.id)}">Ouvrir</button>` : state.canWrite ? `<button type="button" class="ghost" data-problem-new="${esc(p.plaque)}">${icon("plus")}Créer une demande</button>` : ""}</span></div>`;
   }
   function renderProblems() {
     const open = D.openProblems(state.problems);
@@ -4769,9 +5181,10 @@ function page(texte) {
     catch (err) { reportWriteError(err); }
   };
   ["#problems", "#problemsHandled"].forEach((sel) => $(sel).addEventListener("click", (e) => {
-    const b = e.target.closest("[data-problem-done], [data-problem-undo], [data-open]");
+    const b = e.target.closest("[data-problem-done], [data-problem-undo], [data-open], [data-problem-new]");
     if (!b) return;
     if (b.dataset.open) return openDemande(b.dataset.open);
+    if (b.dataset.problemNew) return newDemandeFor({ plaque: b.dataset.problemNew }); // seen in passing: book the job (windscreen → Allo, wash…)
     const p = state.problems.find((x) => x.id === (b.dataset.problemDone || b.dataset.problemUndo));
     if (!p || !requireStore()) return;
     state.store.markProblemHandled(p, state.userEmail, !!b.dataset.problemDone)
