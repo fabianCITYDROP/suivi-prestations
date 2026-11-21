@@ -16,13 +16,6 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Nunito:wght@800;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 [hidden]{display:none!important}
-#login{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:100;padding:16px}
-.login-card{width:min(380px,100%);display:grid;gap:14px}
-.login-error{color:var(--danger);font-size:13px}
-.login-sent{font-size:14px;line-height:1.45;color:var(--ink);background:var(--st-done-bg);border-radius:var(--r-sm);padding:10px 12px;margin:0}
-.login-link{justify-self:center;background:none;border:0;padding:6px 8px;color:var(--ink-2);font:inherit;font-size:14px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;border-radius:var(--r-sm)}
-.login-link:hover{color:var(--ink)}
-.login-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .account{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:14px;color:var(--ink-2)}
 
 /* Layout: full-width work surface. App bar with underline tabs; each view uses a main column plus a sticky "send" column on wide screens. */
@@ -2129,6 +2122,153 @@ body.vf-bar-on:not(.presta-mode) .toast { bottom: calc(100px + env(safe-area-ins
   .vf-tick, .vf-tick svg, .vf-row, .vf-prov, .vf-seg button, .vf-kind span { transition: none; }
 }
 @media (prefers-reduced-transparency: reduce) { .vf-bar-in { background: var(--surface); } }
+/* ===== Connexion et navigation façon iPhone (2026-11-21). Fichier à part (ajouté à la fin de style.css par build.js) :
+   écran de connexion (#login, .login-*), menu « Plus » (.nav-menu, .more-*), onglets sur ordinateur, passage d'une page à l'autre.
+   Bleu City-Drop pour les actions ; vert / orange / rouge seulement pour les statuts ; ni bande de couleur, ni dégradé multicolore. ===== */
+
+/* ---------- Écran de connexion ---------- */
+#login { position: fixed; inset: 0; z-index: 100; overflow-y: auto; background: var(--bg); display: grid; place-items: center;
+  padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+#login.login-out { opacity: 0; transform: scale(1.02); transition: opacity 240ms ease, transform 260ms var(--ease-out); pointer-events: none; }
+.login-stage { width: min(400px, 100%); }
+.login-card { display: flex; flex-direction: column; gap: 14px; }
+@media (min-width: 721px) {
+  .login-stage { width: 440px; padding: 36px 36px 26px; border-radius: 26px; background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+    box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 24px 60px -28px rgba(10, 20, 28, .35); }
+}
+.login-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; margin-bottom: 10px; }
+.login-logo { width: 88px; height: 88px; display: block; margin-bottom: 12px; filter: drop-shadow(0 10px 18px rgba(0, 59, 102, .28)); }
+.login-tile { display: grid; place-items: center; width: 88px; height: 88px; margin-bottom: 12px; border-radius: 24px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), inset 0 -2px 0 rgba(10, 20, 28, .05), 0 1px 1px rgba(10, 20, 28, .06), 0 10px 22px -8px rgba(10, 20, 28, .32), 0 0 0 .5px rgba(10, 20, 28, .08); }
+.login-tile .login-art { width: 62px; height: 62px; overflow: visible; }
+.login-title { margin: 0; font: 800 28px/1.15 var(--f-body); letter-spacing: -.025em; color: var(--ink); text-wrap: balance; }
+.login-title b { font-weight: 800; color: #009fe3; }
+.login-title i { font-style: normal; font-weight: 700; font-size: .7em; color: #f2b400; }
+.login-title em { font-style: normal; }
+:root[data-theme="dark"] .login-title b { color: #fff; }
+:root[data-theme="dark"] .login-title i { color: #ffc21a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .login-title b { color: #fff; } :root:not([data-theme="light"]) .login-title i { color: #ffc21a; } }
+.login-sub { margin: 0; max-width: 34ch; font-size: 15px; line-height: 1.4; color: var(--ink-2); text-wrap: pretty; }
+
+/* Liste groupée : deux lignes dans une seule carte blanche, filet fin décalé après le libellé. */
+.login-group { border-radius: 14px; background: var(--surface); overflow: hidden;
+  box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 2px rgba(10, 20, 28, .06); }
+.login-row { position: relative; display: grid; grid-template-columns: 122px minmax(0, 1fr); align-items: center; min-height: 52px; padding: 0 16px; cursor: text; }
+.login-row + .login-row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: .5px; background: color-mix(in srgb, var(--ink) 18%, transparent); }
+.login-row > span { font: 500 16px var(--f-body); color: var(--ink); }
+.login-row input { width: 100%; min-height: 50px; padding: 0; border: 0; background: none; box-shadow: none; outline: none; font: 400 16px var(--f-body); color: var(--ink); }
+.login-row input::placeholder { color: var(--ink-2); opacity: .6; }
+.login-row:focus-within > span { color: var(--accent); }
+.login-group:focus-within { box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1), 0 0 0 3px var(--accent-soft), 0 1px 2px rgba(10, 20, 28, .06); }
+@media (max-width: 360px) { .login-row { grid-template-columns: 108px minmax(0, 1fr); } .login-row > span { font-size: 15px; } }
+.login-group.shake { animation: login-shake 420ms cubic-bezier(.36, .07, .19, .97); }
+@keyframes login-shake { 15%, 55% { transform: translateX(-8px); } 35%, 75% { transform: translateX(7px); } 90% { transform: translateX(-2px); } }
+
+.login-error { margin: -4px 4px 0; font-size: 14px; line-height: 1.35; color: var(--danger); }
+.login-sent { display: flex; align-items: flex-start; gap: 12px; margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--surface); font-size: 14px; line-height: 1.45; color: var(--ink);
+  box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 2px rgba(10, 20, 28, .06); }
+.login-sent-ico { flex: none; width: 34px; height: 34px; margin-top: 1px; }
+.login-sent-ico .login-art { width: 34px; height: 34px; overflow: visible; }
+
+/* Bouton capsule, même famille que « OK prestation réalisée ». */
+.login-btn { position: relative; width: 100%; min-height: 54px; margin-top: 6px; padding: 0 20px; border: 0; border-radius: 999px; display: grid; place-items: center;
+  font: 650 17px var(--f-body); letter-spacing: -.01em; color: #fff; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(10, 20, 28, .12), 0 8px 18px -8px color-mix(in srgb, var(--accent) 85%, transparent);
+  transition: transform 140ms var(--ease-out), filter .15s ease, opacity .15s ease; -webkit-tap-highlight-color: transparent; }
+.login-btn:hover { filter: brightness(1.05); }
+.login-btn:active { transform: scale(.97); }
+.login-btn:disabled { opacity: .6; cursor: default; transform: none; filter: none; }
+.login-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.login-link { align-self: center; display: inline-flex; align-items: center; gap: 2px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 999px; background: none;
+  font: 500 15px var(--f-body); color: var(--accent); text-decoration: none; cursor: pointer; }
+.login-link .icon { width: 18px; height: 18px; margin-left: -4px; }
+.login-link:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.login-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.login-foot { margin: 6px 0 0; text-align: center; font-size: 12.5px; color: var(--ink-2); opacity: .85; }
+
+/* Passage connexion ⇄ mot de passe oublié : glisse comme une page d'iPhone. */
+.login-card.login-fwd { animation: login-in-fwd 320ms cubic-bezier(.32, .72, 0, 1); }
+.login-card.login-back { animation: login-in-back 320ms cubic-bezier(.32, .72, 0, 1); }
+@keyframes login-in-fwd { from { opacity: 0; transform: translateX(28px); } }
+@keyframes login-in-back { from { opacity: 0; transform: translateX(-28px); } }
+
+/* ---------- Passage d'une page à l'autre (équipe) ---------- */
+main > section.view-enter { animation: view-enter 240ms var(--ease-out); }
+@keyframes view-enter { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---------- Onglets sur ordinateur : capsules, page ouverte dans une pastille grise ---------- */
+@media (min-width: 721px) {
+  body:not(.presta-mode) nav.tabs { align-items: center; gap: 2px; }
+  body:not(.presta-mode) nav.tabs > button:not(.nav-new), body:not(.presta-mode) .nav-more > summary {
+    min-height: 36px; padding: 0 13px; border: 0; border-radius: 999px; gap: 7px; font: 600 14px var(--f-body); color: var(--ink-2);
+    transition: background-color .18s ease, color .18s ease, transform 140ms var(--ease-out); }
+  body:not(.presta-mode) nav.tabs > button:not(.nav-new) > .icon, body:not(.presta-mode) .nav-more > summary > .icon:first-child { display: block; width: 17px; height: 17px; }
+  body:not(.presta-mode) nav.tabs > button:not(.nav-new):hover, body:not(.presta-mode) .nav-more > summary:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  body:not(.presta-mode) nav.tabs > button[aria-current], body:not(.presta-mode) .nav-more.current > summary { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  body:not(.presta-mode) nav.tabs > button[aria-current] > .icon, body:not(.presta-mode) .nav-more.current > summary > .icon:first-child { color: var(--accent); }
+  body:not(.presta-mode) nav.tabs > button:not(.nav-new):active, body:not(.presta-mode) .nav-more > summary:active { transform: scale(.96); }
+  body:not(.presta-mode) .nav-more { align-self: center; }
+  body:not(.presta-mode) nav.tabs .tab-badge { margin-left: 1px; }
+  /* « Nouvelle demande » : capsule bleue en relief, comme les boutons principaux. */
+  body:not(.presta-mode) .nav-new { min-height: 40px; padding: 0 18px 0 14px; border: 0; border-radius: 999px; gap: 7px; font: 650 14.5px var(--f-body); color: #fff;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(10, 20, 28, .12), 0 6px 14px -7px color-mix(in srgb, var(--accent) 85%, transparent);
+    transition: transform 140ms var(--ease-out), filter .15s ease; }
+  body:not(.presta-mode) .nav-new:hover { filter: brightness(1.06); }
+  body:not(.presta-mode) .nav-new:active { transform: scale(.97); }
+  body:not(.presta-mode) .nav-new .icon { stroke-width: 2.4; }
+
+  /* Menu « Plus » : fenêtre flottante translucide, une tuile d'icône en volume par page. */
+  body:not(.presta-mode) .nav-menu { top: calc(100% + 8px); left: -6px; min-width: 270px; padding: 6px; gap: 0; border: 0; border-radius: 18px;
+    background: color-mix(in srgb, var(--surface) 95%, transparent); -webkit-backdrop-filter: saturate(180%) blur(24px); backdrop-filter: saturate(180%) blur(24px);
+    box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .12), 0 24px 48px -16px rgba(10, 20, 28, .38);
+    animation: more-pop 220ms var(--ease-out); transform-origin: top left; }
+  body:not(.presta-mode) .nav-menu button { min-height: 48px; padding: 0 12px 0 7px; gap: 12px; border-radius: 12px; font: 500 15px var(--f-body); }
+  body:not(.presta-mode) .nav-menu button:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+  body:not(.presta-mode) .nav-menu button[aria-current] { background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 650; }
+}
+@keyframes more-pop { from { opacity: 0; transform: scale(.94) translateY(-4px); } }
+@media (prefers-reduced-transparency: reduce) { body:not(.presta-mode) .nav-menu { background: var(--surface) !important; -webkit-backdrop-filter: none; backdrop-filter: none; } }
+
+/* Tuile d'icône en volume (même relief que .issue-ico / .svc-tile, en plus petit). */
+.more-art, .more-tile { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px;
+  background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 93%, #0a141c) 100%);
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 1px rgba(10, 20, 28, .06), 0 3px 8px -4px rgba(10, 20, 28, .3); }
+.more-ico { width: 26px; height: 26px; overflow: visible; }
+.nav-menu .menu-label { flex: 1; text-align: left; }
+
+/* ---------- « Plus » sur téléphone : feuille par le bas, liste groupée ---------- */
+.more-list { display: flex; flex-direction: column; border-radius: 16px; background: var(--surface); overflow: hidden;
+  box-shadow: 0 0 0 .5px rgba(10, 20, 28, .1), 0 1px 2px rgba(10, 20, 28, .06); }
+.more-row { position: relative; display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px; padding: 0 14px; border: 0; border-radius: 0; background: none;
+  font: 500 16.5px var(--f-body); color: var(--ink); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.more-row + .more-row::before { content: ""; position: absolute; top: 0; left: 66px; right: 0; height: .5px; background: color-mix(in srgb, var(--ink) 16%, transparent); }
+.more-row:active { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.more-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.more-tile { width: 40px; height: 40px; border-radius: 11px; }
+.more-tile .more-ico { width: 30px; height: 30px; }
+.more-lbl { flex: 1; min-width: 0; }
+.more-row[aria-current] .more-lbl { font-weight: 650; }
+.more-chev, .more-here { display: grid; place-items: center; color: var(--ink-2); opacity: .55; }
+.more-here { color: var(--accent); opacity: 1; }
+.more-here .icon { stroke-width: 2.6; }
+.more-badge { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; display: inline-grid; place-items: center; background: var(--lv-urgent, var(--danger)); color: #fff; font: 700 12.5px var(--f-body); }
+.more-sheet .sheet-b { padding-top: 8px; }
+
+/* Toucher un onglet de la barre du bas : léger enfoncement. */
+@media (max-width: 720px) {
+  body:not(.presta-mode) nav.tabs > button:not(.nav-new):active, body:not(.presta-mode) .nav-more > summary:active { transform: scale(.94); }
+  body:not(.presta-mode) nav.tabs > button:not(.nav-new), body:not(.presta-mode) .nav-more > summary { transition: background-color .2s ease, color .2s ease, transform 140ms var(--ease-out); }
+  body:not(.presta-mode) .nav-new:active { transform: scale(.94); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main > section.view-enter, .login-card.login-fwd, .login-card.login-back, .login-group.shake, body:not(.presta-mode) .nav-menu { animation: none; }
+  #login.login-out { transition: none; }
+  .login-btn:active, .more-row:active, body:not(.presta-mode) nav.tabs > button:active, body:not(.presta-mode) .nav-more > summary:active, body:not(.presta-mode) .nav-new:active { transform: none; }
+}
 </style>
 </head>
 <body>
@@ -2171,12 +2311,12 @@ body.vf-bar-on:not(.presta-mode) .toast { bottom: calc(100px + env(safe-area-ins
       <details class="nav-more" id="navMore">
         <summary><svg class="icon"><use href="#i-dots"/></svg><span id="navMoreLabel">Plus</span><svg class="icon chev"><use href="#i-chev-d"/></svg></summary>
         <div class="nav-menu">
-          <button type="button" data-view="hayon"><svg class="icon"><use href="#i-hayon"/></svg><span class="menu-label">Contrôles hayon</span><span class="menu-badge" id="hayonBadge" hidden></span></button>
-          <button type="button" data-view="bilan"><svg class="icon"><use href="#i-chart"/></svg>Bilan du mois</button>
-          <button type="button" data-view="verif"><svg class="icon"><use href="#i-check"/></svg>Vérification</button>
-          <button type="button" data-view="photos"><svg class="icon"><use href="#i-image"/></svg>Photos</button>
-          <button type="button" data-view="corbeille"><svg class="icon"><use href="#i-trash"/></svg>Corbeille</button>
-          <button type="button" data-view="reglages"><svg class="icon"><use href="#i-gear"/></svg>Réglages</button>
+          <button type="button" data-view="hayon"><span class="more-art" data-art="nav-hayon" aria-hidden="true"></span><span class="menu-label">Contrôles hayon</span><span class="menu-badge" id="hayonBadge" hidden></span></button>
+          <button type="button" data-view="bilan"><span class="more-art" data-art="nav-bilan" aria-hidden="true"></span><span class="menu-label">Bilan du mois</span></button>
+          <button type="button" data-view="verif"><span class="more-art" data-art="nav-verif" aria-hidden="true"></span><span class="menu-label">Vérification</span></button>
+          <button type="button" data-view="photos"><span class="more-art" data-art="nav-photos" aria-hidden="true"></span><span class="menu-label">Photos</span></button>
+          <button type="button" data-view="corbeille"><span class="more-art" data-art="nav-corbeille" aria-hidden="true"></span><span class="menu-label">Corbeille</span></button>
+          <button type="button" data-view="reglages"><span class="more-art" data-art="nav-reglages" aria-hidden="true"></span><span class="menu-label">Réglages</span></button>
         </div>
       </details>
       <button type="button" class="primary nav-new" id="newOnDay"><svg class="icon"><use href="#i-plus"/></svg><span>Nouvelle demande</span></button>
@@ -2583,45 +2723,68 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (document.getElementById("login")) return;
     const box = document.createElement("div");
     box.id = "login";
-    box.innerHTML = `<form class="panel login-card" data-view="login">
-        <img src="assets/logo-full.svg" alt="" width="64" height="64" style="display:block;border-radius:14px">
-        <h2>City-Drop × Presta</h2>
-        <p class="hint">Connecte-toi avec ton adresse et ton mot de passe. C'est demandé une seule fois sur cet ordinateur.</p>
-        <label class="field"><span>Adresse e-mail</span><input type="email" name="email" autocomplete="username" required></label>
-        <label class="field"><span>Mot de passe</span><input type="password" name="password" autocomplete="current-password" required></label>
-        <p class="login-error" hidden>Adresse ou mot de passe incorrect.</p>
-        <button class="primary big" type="submit">Ouvrir</button>
+    // Façon iPhone (21/11/2026) : l'icône de l'appli, une liste groupée de deux lignes, un bouton capsule.
+    const logo = (document.querySelector(".brand-logo")?.outerHTML || "").replace('class="brand-logo"', 'class="login-logo"');
+    box.innerHTML = `<div class="login-stage">
+      <form class="login-card" data-view="login" novalidate>
+        <div class="login-hero">${logo}<h1 class="login-title"><b>City-Drop</b> <i>×</i> <em>Presta</em></h1><p class="login-sub">Suivi des prestations du parc</p></div>
+        <div class="login-group">
+          <label class="login-row"><span>E-mail</span><input type="email" name="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="nom@exemple.fr" required></label>
+          <label class="login-row"><span>Mot de passe</span><input type="password" name="password" autocomplete="current-password" placeholder="Ton mot de passe" required></label>
+        </div>
+        <p class="login-error" role="alert" hidden>Adresse ou mot de passe incorrect.</p>
+        <button class="login-btn" type="submit">Se connecter</button>
         <button class="login-link" type="button" data-go="reset">Mot de passe oublié ?</button>
+        <p class="login-foot">Demandé une seule fois sur cet appareil.</p>
       </form>
-      <form class="panel login-card" data-view="reset" hidden>
-        <img src="assets/logo-full.svg" alt="" width="64" height="64" style="display:block;border-radius:14px">
-        <h2>Mot de passe oublié</h2>
-        <p class="hint">Indique ton adresse e-mail. Tu vas recevoir un lien pour choisir un nouveau mot de passe.</p>
-        <label class="field"><span>Adresse e-mail</span><input type="email" name="email" autocomplete="username" required></label>
-        <p class="login-sent" role="status" hidden>Si cette adresse a un compte, un e-mail vient de partir. Ouvre-le et clique sur le lien (pense à regarder dans les spams). Le lien est valable 1 heure.</p>
-        <p class="login-error" hidden></p>
-        <button class="primary big" type="submit">Recevoir le lien</button>
-        <button class="login-link" type="button" data-go="login">Retour à la connexion</button>
-      </form>`;
+      <form class="login-card" data-view="reset" novalidate hidden>
+        <div class="login-hero"><span class="login-tile" data-art="login-mail"></span><h1 class="login-title">Mot de passe oublié</h1><p class="login-sub">Indique ton adresse e-mail. Tu vas recevoir un lien pour choisir un nouveau mot de passe.</p></div>
+        <div class="login-group">
+          <label class="login-row"><span>E-mail</span><input type="email" name="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="nom@exemple.fr" required></label>
+        </div>
+        <p class="login-sent" role="status" hidden><span class="login-sent-ico" data-art="ret-fait"></span><span>Si cette adresse a un compte, un e-mail vient de partir. Ouvre-le et clique sur le lien (pense à regarder dans les spams). Le lien est valable 1 heure.</span></p>
+        <p class="login-error" role="alert" hidden></p>
+        <button class="login-btn" type="submit">Recevoir le lien</button>
+        <button class="login-link" type="button" data-go="login"><svg class="icon" aria-hidden="true"><use href="#i-chev-l"/></svg>Retour à la connexion</button>
+      </form>
+    </div>`;
+    box.querySelectorAll("[data-art]").forEach((s) => { s.innerHTML = window.IssueArt?.art(s.dataset.art, "login-art") || ""; });
     document.body.append(box);
     const login = box.querySelector('[data-view="login"]');
     const reset = box.querySelector('[data-view="reset"]');
     const show = (view) => {
       login.hidden = view !== "login"; reset.hidden = view !== "reset";
       const form = view === "login" ? login : reset;
+      // Glisse comme une page d'iPhone : vers la gauche en avançant, vers la droite en revenant.
+      form.classList.remove("login-fwd", "login-back"); void form.offsetWidth; form.classList.add(view === "reset" ? "login-fwd" : "login-back");
       const other = view === "login" ? reset : login;
       if (!form.email.value) form.email.value = other.email.value; // keep what was typed
       form.querySelectorAll(".login-error, .login-sent").forEach((p) => { p.hidden = true; });
       form.email.focus();
     };
+    // Mauvais mot de passe : la liste tremble deux fois, comme sur iPhone (coupé si « réduire les animations »).
+    const shake = (form) => { const g = form.querySelector(".login-group"); g.classList.remove("shake"); void g.offsetWidth; g.classList.add("shake"); };
     box.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => show(b.dataset.go)));
     login.email.focus();
     login.addEventListener("submit", async (e) => {
       e.preventDefault();
+      const button = login.querySelector('button[type="submit"]');
+      const error = login.querySelector(".login-error");
+      if (!login.email.value.trim() || !login.password.value) {
+        error.textContent = "Indique ton adresse e-mail et ton mot de passe."; error.hidden = false; shake(login); return;
+      }
+      button.disabled = true; button.textContent = "Connexion…"; error.hidden = true;
       try {
         await auth.signInWithEmailAndPassword(login.email.value.trim(), login.password.value);
-        box.remove();
-      } catch { login.querySelector(".login-error").hidden = false; }
+        box.classList.add("login-out");
+        setTimeout(() => box.remove(), matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 260);
+      } catch (err) {
+        error.textContent = err && err.code === "auth/network-request-failed" ? "Pas de connexion internet. Réessaie dans un instant."
+          : err && err.code === "auth/too-many-requests" ? "Trop d'essais d'un coup. Réessaie dans quelques minutes." : "Adresse ou mot de passe incorrect.";
+        error.hidden = false; shake(login);
+        button.disabled = false; button.textContent = "Se connecter";
+        login.password.select();
+      }
     });
     // Same answer whether the address has an account or not: nobody can use this screen to find out who has access.
     // The button stays off for 60 s after each send, so it cannot be used to flood someone's inbox.
@@ -2631,6 +2794,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       const error = reset.querySelector(".login-error");
       const sent = reset.querySelector(".login-sent");
       const email = reset.email.value.trim();
+      if (!email) { error.textContent = "Indique ton adresse e-mail."; error.hidden = false; shake(reset); return; }
       button.disabled = true; error.hidden = true; sent.hidden = true;
       auth.languageCode = "fr";
       const back = { url: location.origin + location.pathname };
@@ -4602,6 +4766,79 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
 })(typeof self !== "undefined" ? self : this);
 </script>
 <script>
+// Icônes en volume de la navigation de l'équipe (menu « Plus ») et de l'écran de connexion (21/11/2026).
+// Même famille que icons3d.js : une lumière en haut à gauche, dégradés partagés (#i3-…), contour fin, ombre au sol.
+(function (root) {
+  const A = root.IssueArt;
+  if (!A) return;
+  const O = "#24333e";
+  const S = `stroke="${O}" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"`;
+  const ground = (cx, cy, rx, ry = 2.2) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#i3-ground)"/>`;
+  const solid = (d, fill = "body") => `<path d="${d}" fill="url(#i3-${fill})"/><path d="${d}" fill="url(#i3-shadeR)"/><path d="${d}" fill="url(#i3-shadeB)"/><path d="${d}" fill="none" ${S}/>`;
+  const shine = (x, y, rx, ry, o = ".6") => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="url(#i3-shine)" opacity="${o}"/>`;
+  const I = A.ICONS;
+
+  // Contrôles hayon : le même camion à hayon que dans les demandes.
+  if (I["svc-hayon"]) I["nav-hayon"] = I["svc-hayon"];
+
+  // Bilan du mois : socle blanc et trois barres bleu City-Drop.
+  I["nav-bilan"] = ground(24, 42.6, 18, 2.1) +
+    solid("M6 34.5h36a2 2 0 0 1 2 2v1.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.5a2 2 0 0 1 2-2Z") +
+    [[9, 23, 11.5], [19.5, 14, 20.5], [30, 7, 27.5]].map(([x, y, h]) =>
+      solid(`M${x + 1.8} ${y}h5.4a1.8 1.8 0 0 1 1.8 1.8V${y + h}h-9V${y + 1.8}a1.8 1.8 0 0 1 1.8-1.8Z`, "grip") +
+      `<path d="M${x + 1.6} ${y + 1.2}h5.8" stroke="#fff" stroke-opacity=".55" stroke-width=".9" stroke-linecap="round"/>`).join("") +
+    `<path d="M6 35.6h35.6" stroke="#fff" stroke-width=".8" stroke-linecap="round"/>`;
+
+  // Vérification : une feuille de lignes et une loupe posée dessus.
+  I["nav-verif"] = ground(24, 43, 17, 2.1) +
+    solid("M10.5 5.5h20.5l6.5 6.5v26a2 2 0 0 1-2 2h-25a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2Z") +
+    `<path d="M31 5.5V12h6.5" fill="#d3dbe1" ${S}/>` +
+    `<g stroke="#c3ced6" stroke-width="2" stroke-linecap="round"><path d="M14 15h12"/><path d="M14 20h16"/><path d="M14 25h9"/></g>` +
+    `<path d="M33.2 33.4l7.2 7.2" stroke="${O}" stroke-width="5.4" stroke-linecap="round"/><path d="M33.2 33.4l7.2 7.2" stroke="url(#i3-dark)" stroke-width="4" stroke-linecap="round"/>` +
+    `<circle cx="28" cy="28.2" r="8.4" fill="url(#i3-steel)" ${S}/><circle cx="28" cy="28.2" r="6.3" fill="url(#i3-mglass)" ${S}/>` +
+    `<path d="M24.6 26.2a4 4 0 0 1 3-2.6" stroke="#fff" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".9"/>`;
+
+  // Photos des modèles : un tirage photo (ciel, colline verte, soleil).
+  I["nav-photos"] = ground(24, 42.4, 18, 2.1) +
+    `<g transform="rotate(-6 24 24)">` + solid("M6.5 9.5h35a2 2 0 0 1 2 2v25a2 2 0 0 1-2 2h-35a2 2 0 0 1-2-2v-25a2 2 0 0 1 2-2Z") +
+    `<rect x="8.5" y="13" width="31" height="21.5" rx="1.2" fill="url(#i3-mglass)" stroke="#7d8a95" stroke-width=".6"/>` +
+    `<path d="M8.5 34.5V29l8-7.5 7.5 6.8 5-4.3 10.5 9v1.5Z" fill="url(#i3-spg)" stroke="#156334" stroke-width=".6" stroke-linejoin="round"/>` +
+    `<circle cx="31.5" cy="18.6" r="3.2" fill="url(#i3-spy)" stroke="#b47300" stroke-width=".6"/>` +
+    `<path d="M7.8 10.7h32.4" stroke="#fff" stroke-width=".8" stroke-linecap="round"/></g>`;
+
+  // Corbeille : poubelle en acier, couvercle et poignée.
+  I["nav-corbeille"] = ground(24, 43, 13.5, 2) +
+    solid("M12.5 14.5h23l-2 24.5a2.4 2.4 0 0 1-2.4 2.2H16.9a2.4 2.4 0 0 1-2.4-2.2Z", "steel") +
+    `<g stroke="#8a97a2" stroke-width="1.2" stroke-linecap="round"><path d="M19 19.5l.6 16.5"/><path d="M24 19.5v16.5"/><path d="M29 19.5l-.6 16.5"/></g>` +
+    `<g stroke="#fff" stroke-width=".6" stroke-linecap="round" opacity=".8"><path d="M19.8 19.5l.6 16.5"/><path d="M24.8 19.5v16.5"/><path d="M29.8 19.5l-.6 16.5"/></g>` +
+    `<path d="M19.5 9.5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v1.6h-2.2V9.8h-4.6v1.3h-2.2Z" fill="url(#i3-dark)" ${S}/>` +
+    solid("M10 11h28a1.6 1.6 0 0 1 1.6 1.6v1.4a1.6 1.6 0 0 1-1.6 1.6H10A1.6 1.6 0 0 1 8.4 14v-1.4A1.6 1.6 0 0 1 10 11Z", "steel") +
+    `<path d="M10.4 11.8h27" stroke="#fff" stroke-width=".8" stroke-linecap="round"/>`;
+
+  // Réglages : roue dentée en acier, moyeu sombre.
+  const gear = (() => {
+    const cx = 24, cy = 23, R = 16.5, r = 12.8, n = 8, pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2, w = Math.PI / n * 0.52, tw = Math.PI / n * 0.36;
+      [[a - w, r], [a - tw, R], [a + tw, R], [a + w, r]].forEach(([t, rad]) => pts.push(`${(cx + rad * Math.cos(t)).toFixed(2)} ${(cy + rad * Math.sin(t)).toFixed(2)}`));
+    }
+    return "M" + pts.join("L") + "Z";
+  })();
+  I["nav-reglages"] = ground(24, 42.6, 15, 2.1) + solid(gear, "steel") +
+    `<circle cx="24" cy="23" r="10.4" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width=".8"/>` +
+    `<circle cx="24" cy="23" r="5.6" fill="url(#i3-dark)" ${S}/>` + `<path d="M20.6 21.4a3.6 3.6 0 0 1 2.4-2.2" stroke="#fff" stroke-opacity=".45" stroke-width=".9" stroke-linecap="round" fill="none"/>` +
+    shine(19, 11.6, 6.4, 2.6, ".55");
+
+  // Connexion : enveloppe (« Mot de passe oublié ») et cadenas (se connecter).
+  I["login-mail"] = ground(24, 42, 19, 2.1) +
+    solid("M6.5 12h35a2.5 2.5 0 0 1 2.5 2.5v21a2.5 2.5 0 0 1-2.5 2.5h-35A2.5 2.5 0 0 1 4 35.5v-21A2.5 2.5 0 0 1 6.5 12Z") +
+    `<path d="M5 36.6l14.6-12.2M43 36.6L28.4 24.4" stroke="#aebbc6" stroke-width="1" stroke-linecap="round"/>` +
+    `<path d="M4.6 13.4L24 28.6l19.4-15.2" fill="url(#i3-cab)" ${S}/>` +
+    `<circle cx="24" cy="27" r="4.4" fill="url(#i3-grip)" ${S}/><path d="M22.2 25.6a2 2 0 0 1 1.6-1" stroke="#fff" stroke-opacity=".6" stroke-width=".8" stroke-linecap="round" fill="none"/>` +
+    `<path d="M7 13.2h34" stroke="#fff" stroke-width=".8" stroke-linecap="round"/>`;
+})(typeof self !== "undefined" ? self : this);
+</script>
+<script>
 // Provider screen: what a provider sees after signing in. Only its own requests are loaded
 // (the access rules refuse anything else).
 // 1. "À valider": a new request is accepted, refused, or answered with another date.
@@ -5954,7 +6191,9 @@ function page(texte) {
   function show(view) {
     if (state.providerMode) return;
     if (!VIEWS.includes(view)) view = "planning";
+    const before = VIEWS.find((v) => !$("#view-" + v).hidden);
     VIEWS.forEach((v) => ($("#view-" + v).hidden = v !== view));
+    if (before && before !== view) enterView($("#view-" + view));
     markCurrentNav(view);
     if (view === "corbeille") openTrash();
     if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
@@ -5969,6 +6208,30 @@ function page(texte) {
     $("#navMore").classList.toggle("current", !!inMore);
     $("#navMore").open = false;
   }
+  // Changing page: the new page rises in quickly (a short fade), as on an iPhone. Off with « réduire les animations » (CSS).
+  function enterView(section) {
+    section.classList.remove("view-enter"); void section.offsetWidth; section.classList.add("view-enter");
+    section.addEventListener("animationend", () => section.classList.remove("view-enter"), { once: true });
+  }
+  // « Plus »: each page has its icon in volume. On a phone the menu opens as a sheet from the bottom, on a computer as a popover.
+  document.querySelectorAll("#navMore .more-art").forEach((s) => { s.innerHTML = window.IssueArt?.art(s.dataset.art, "more-ico") || ""; });
+  const phoneNav = () => matchMedia("(max-width: 720px)").matches;
+  function openMoreSheet() {
+    const rows = [...document.querySelectorAll("#navMore .nav-menu [data-view]")].map((b) => {
+      const badge = b.querySelector(".menu-badge");
+      const current = b.hasAttribute("aria-current");
+      return `<button type="button" class="more-row" data-more-view="${b.dataset.view}"${current ? ' aria-current="page"' : ""}>
+        <span class="more-tile">${b.querySelector(".more-art").innerHTML}</span><span class="more-lbl">${esc(b.querySelector(".menu-label").textContent)}</span>
+        ${badge && !badge.hidden ? `<span class="more-badge">${esc(badge.textContent)}</span>` : ""}${current ? `<span class="more-here">${icon("check")}</span>` : `<span class="more-chev">${icon("chev-r")}</span>`}</button>`;
+    }).join("");
+    teamSheet.open("Plus", `<div class="more-list">${rows}</div>`, { cls: "more-sheet" });
+  }
+  $("#navMore summary").addEventListener("click", (e) => { if (!phoneNav()) return; e.preventDefault(); $("#navMore").open = false; openMoreSheet(); });
+  document.addEventListener("click", (e) => {
+    const row = e.target.closest(".more-sheet [data-more-view]");
+    if (!row) return;
+    teamSheet.close(); show(row.dataset.moreView);
+  });
   navButtons().forEach((tab) => tab.addEventListener("click", () => show(tab.dataset.view)));
   document.addEventListener("click", (e) => { if (!e.target.closest("#navMore")) $("#navMore").open = false; });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#navMore").open) { $("#navMore").open = false; $("#navMore summary").focus(); } });
