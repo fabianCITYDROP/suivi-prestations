@@ -560,33 +560,10 @@ body:not(.ready)::after { content: ""; position: fixed; left: 50%; top: 45%; wid
 .lv-bientot { --lv: var(--lv-soon); --lv-bg: var(--lv-soon-bg); }
 .lv-ok { --lv: var(--lv-ok); --lv-bg: var(--lv-ok-bg); }
 .lv-inconnu { --lv: var(--ink-2); --lv-bg: var(--surface-2); }
-.hayon-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-bottom: 20px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
-.hy-kpi { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
-.hy-kpi b { font-family: var(--f-display); font-size: 38px; line-height: 1; color: var(--lv); font-variant-numeric: tabular-nums; }
-.hy-kpi span { font-size: 13px; color: var(--ink-2); }
-.hy-list { list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.hy-row { display: grid; grid-template-columns: 170px auto 1fr auto; gap: 8px 16px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; box-shadow: var(--shadow); }
-.hy-days { justify-self: start; font-weight: 700; font-size: 14px; color: var(--lv); background: var(--lv-bg); padding: 4px 10px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.hy-dates { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--ink-2); }
-.hy-dates b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-.hy-warn { flex-basis: 100%; display: inline-flex; align-items: center; gap: 6px; color: var(--lv-urgent); font-weight: 600; }
-.hy-warn .icon { width: 16px; height: 16px; }
-.hy-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
-.hy-rdv { font-weight: 600; }
-.hy-nordv { font-size: 13px; padding: 0 6px; }
 .small-btn { min-height: 32px; padding: 4px 10px; font-size: 13px; }
 .small-btn.confirm { color: var(--danger); border-color: var(--danger); }
-#hy-pastebox textarea { min-height: 120px; margin: 8px 0; }
 .hint.warn, #vehHint.warn { color: var(--lv-urgent); font-weight: 600; }
 .menu-badge { display: inline-block; min-width: 20px; height: 20px; margin-left: auto; padding: 0 6px; border-radius: 999px; background: var(--lv-urgent); color: #fff; font: 700 12px/20px var(--f-body); text-align: center; font-variant-numeric: tabular-nums; }
-@media (max-width: 720px) {
-  .hy-kpi { padding: 12px; }
-  .hy-kpi b { font-size: 32px; }
-  .hy-row { grid-template-columns: auto 1fr; }
-  .hy-row .plate { justify-self: end; }
-  .hy-dates, .hy-actions { grid-column: 1 / -1; }
-  .hy-actions { justify-content: flex-start; }
-}
 /* Change history of a request (who changed what, when) */
 details.history { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
 .history-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 0; }
@@ -1594,4 +1571,117 @@ body.team-sheet-open .lightbox { z-index: 50; }
   .tr-acts .tr-restore { min-height: 40px; }
 }
 @media (prefers-reduced-motion: reduce) { .tr-card, .tr-restore { transition: none; } .tr-restore:active { transform: none; } }
+/* ===== Équipe « Contrôles hayon » (2026-11-21, façon iPhone). Tout est préfixé .hy- (feuille partagée .team-sheet).
+   Compteurs qui filtrent, véhicules groupés (à programmer / rendez-vous posés / à jour), jauge des jours restants.
+   Vert / orange / rouge seulement pour l'échéance, bleu City-Drop pour les actions, pas de bande de couleur. ===== */
+:root[data-theme="dark"] { --lv-urgent: #f2867c; --lv-urgent-bg: #3d1b18; --lv-soon: #f0a54a; --lv-soon-bg: #382812; }
+.lv-rdv { --lv: var(--ink); --lv-bg: var(--surface-2); }
+#view-hayon { max-width: 1120px; }
+.hy-head { margin: 4px 0 14px; }
+.hy-kick-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; margin-bottom: 2px; }
+.hy-kicker { margin: 0; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.hy-title { margin: 0; font: 700 34px/1.1 -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--f-body); letter-spacing: -.025em; color: var(--ink); }
+.hy-paste-btn { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font: 600 14px var(--f-body); white-space: nowrap; transition: transform 140ms var(--ease-out); }
+.hy-paste-btn .icon { width: 17px; height: 17px; }
+.hy-paste-btn:active { transform: scale(.96); }
+/* Compteurs : chiffre coloré, touche = filtre */
+.hy-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.hy-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 0; padding: 12px 14px; border: 0; border-radius: 16px; background: var(--surface); color: var(--ink); text-align: left; font: inherit;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 8px 20px -16px rgba(10, 20, 28, .4); transition: transform 140ms var(--ease-out), box-shadow .2s ease; -webkit-tap-highlight-color: transparent; }
+.hy-tile b { font: 700 30px/1 -apple-system, BlinkMacSystemFont, var(--f-body); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--lv); }
+.hy-tile span { margin-top: 4px; font: 650 14.5px/1.2 var(--f-body); }
+.hy-tile small { font-size: 12.5px; color: var(--ink-2); }
+.hy-tile:active { transform: scale(.97); }
+.hy-tile[aria-pressed="true"] { box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 2px var(--accent), 0 8px 20px -16px rgba(10, 20, 28, .4); }
+.hy-tile:disabled { opacity: .55; cursor: default; }
+.hy-tile:disabled b { color: var(--ink-2); }
+/* Recherche grise façon iPhone */
+.hy-search { display: flex; align-items: center; gap: 8px; max-width: 420px; height: 40px; padding: 0 12px; margin-bottom: 6px; border-radius: 12px; background: color-mix(in srgb, var(--surface-2) 85%, var(--ink) 6%); color: var(--ink-2); }
+.hy-search .icon { width: 17px; height: 17px; flex: none; }
+.hy-search input { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; background: none; box-shadow: none; outline: 0; font-size: 16px; color: var(--ink); }
+.hy-filter-on { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 6px 0; font-size: 14px; color: var(--ink-2); }
+.hy-filter-on b { color: var(--ink); }
+.hy-link { min-height: 30px; padding: 0 4px; border: 0; background: none; color: var(--accent); font: 600 14px var(--f-body); }
+/* Groupes */
+.hy-group { margin-top: 22px; }
+.hy-gh { display: flex; align-items: center; gap: 8px; margin: 0 6px 8px; font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.hy-gh em { font-style: normal; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.hy-gsub { margin: -4px 6px 10px; font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+.hy-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+@media (min-width: 900px) { .hy-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+/* Carte d'un véhicule : toute la carte ouvre la fiche */
+.hy-card { border-radius: 18px; background: var(--surface); overflow: hidden;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .08), 0 1px 2px rgba(10, 20, 28, .05), 0 10px 24px -18px rgba(10, 20, 28, .35); transition: box-shadow .2s ease; }
+.hy-card:hover { box-shadow: inset 0 1px 0 var(--tile-hi), 0 0 0 .5px rgba(10, 20, 28, .12), 0 1px 2px rgba(10, 20, 28, .06), 0 14px 28px -18px rgba(10, 20, 28, .45); }
+.hy-open { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; min-height: 0; padding: 14px; border: 0; border-radius: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease; }
+.hy-open:active { background: color-mix(in srgb, var(--surface) 92%, var(--ink)); }
+.hy-open > .svc-tile { align-self: start; }
+.hy-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hy-line { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 8px; }
+.hy-line .plate { flex: none; }
+.hy-line .plate { font-size: 13.5px; }
+.hy-line .plate span { padding: 4px 6px; }
+.hy-pill { padding: 4px 10px; border-radius: 999px; background: var(--lv-bg); color: var(--lv); font: 700 13px var(--f-body); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hy-gauge { position: relative; display: block; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--surface-2) 80%, var(--ink) 8%); overflow: hidden; }
+.hy-gauge i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--lv); transition: width 500ms var(--ease-out); }
+.hy-gauge.big { height: 10px; border-radius: 5px; }
+.hy-meta { font-size: 13px; line-height: 1.35; color: var(--ink-2); }
+.hy-meta b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.hy-rdv-line { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 4px 10px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font: 600 13px var(--f-body); }
+.hy-rdv-line .icon, .hy-warn .icon { width: 15px; height: 15px; flex: none; }
+.hy-warn { display: inline-flex; align-items: center; gap: 6px; font: 600 13px var(--f-body); color: var(--lv-urgent); }
+.hy-chev { width: 18px; height: 18px; color: var(--ink-2); opacity: .6; }
+.hy-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 56px 16px; text-align: center; color: var(--ink-2); }
+.hy-empty .svc-tile.lg { width: 76px; height: 76px; border-radius: 22px; margin-bottom: 6px; }
+.hy-empty .svc-tile.lg .svc-art { width: 56px; height: 56px; }
+.hy-empty b { font-size: 18px; color: var(--ink); letter-spacing: -.01em; }
+.hy-empty > span:not(.svc-tile) { max-width: 340px; font-size: 14px; line-height: 1.4; }
+.hy-empty .hy-btn { margin-top: 10px; }
+.hy-empty.small { padding: 32px 16px; }
+.hy-foot { max-width: 640px; margin: 24px 6px 0; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+/* Boutons */
+.hy-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 50px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--surface-2); color: var(--ink); font: 600 16px var(--f-body); text-align: center;
+  box-shadow: inset 0 1px 0 var(--tile-hi), 0 1px 1px rgba(10, 20, 28, .06), 0 0 0 .5px rgba(10, 20, 28, .06); transition: transform 140ms var(--ease-out), filter .15s; -webkit-tap-highlight-color: transparent; }
+.hy-btn .icon { width: 18px; height: 18px; stroke-width: 2.4; }
+.hy-btn.primary { color: var(--accent-ink); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 88%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 1px 2px rgba(10, 20, 28, .12), 0 6px 14px -8px color-mix(in srgb, var(--accent) 85%, transparent); }
+.hy-btn.danger { background: none; box-shadow: none; color: var(--danger); min-height: 44px; }
+.hy-btn.danger.confirm { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.hy-btn:hover { filter: brightness(1.04); }
+.hy-btn:active { transform: scale(.97); }
+.hy-btn:disabled { opacity: .6; }
+/* Feuille : fiche du véhicule et liste à coller */
+.hy-sheet, .hy-paste { display: flex; flex-direction: column; gap: 16px; }
+.hy-sh-hero { display: flex; align-items: center; gap: 14px; padding: 4px 4px 0; }
+.hy-sh-hero .svc-tile.lg { width: 64px; height: 64px; border-radius: 18px; }
+.hy-sh-hero .svc-tile.lg .svc-art { width: 48px; height: 48px; }
+.hy-sh-hero .plate { font-size: 16px; }
+.hy-sh-kind { margin: 0 0 6px; font: 600 12.5px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.hy-sh-gauge { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.hy-sh-days { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.hy-sh-days b { font: 700 40px/1 -apple-system, BlinkMacSystemFont, var(--f-body); letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--lv); }
+.hy-sh-days span:not(.hy-pill) { flex: 1; font-size: 15px; color: var(--ink-2); }
+.hy-sh-note { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); font-size: 14.5px; line-height: 1.4; color: var(--ink); }
+.hy-sh-note.warn { color: var(--lv-urgent); background: var(--lv-urgent-bg); box-shadow: none; }
+.hy-sh-note .icon { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+.hy-sh-info { margin: 0; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.hy-sh-info div { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 46px; padding: 8px 16px; }
+.hy-sh-info div + div::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--line-strong); }
+.hy-sh-info dt { font-size: 15px; color: var(--ink-2); }
+.hy-sh-info dd { margin: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.hy-sh-info dd small { font-size: 13px; color: var(--ink-2); }
+.hy-sh-acts { display: flex; flex-direction: column; gap: 10px; }
+.hy-paste textarea { min-height: 180px; border-radius: 14px; font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.hy-paste .hy-gsub { margin: 0; font-size: 14px; }
+body.team-sheet-open .toast { z-index: 45; }
+.hy-preview { min-height: 20px; margin: -6px 4px 0; font: 600 14px var(--f-body); color: var(--st-done); }
+@media (max-width: 640px) {
+  .hy-title { font-size: 32px; }
+  .hy-paste-btn { min-height: 34px; padding: 0 12px; font-size: 13px; }
+  .hy-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .hy-tile { padding: 10px 12px; border-radius: 14px; }
+  .hy-tile b { font-size: 26px; }
+  .hy-search { max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) { .hy-tile, .hy-btn, .hy-paste-btn, .hy-gauge i { transition: none; } .hy-tile:active, .hy-btn:active { transform: none; } }
 </style>
