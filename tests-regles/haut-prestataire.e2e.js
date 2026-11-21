@@ -132,7 +132,8 @@ async function seed(thumbs) {
     await p.screenshot({ path: `${OUT}/${name}-2-defile.png` });
     if (!BEFORE) {
       const top = await p.evaluate(() => document.querySelector('header.top').getBoundingClientRect().top);
-      if (top > 1) errors.push(name + ' : barre du haut pas fixe');
+      const scrolled = await p.evaluate(() => scrollY > 0); // page trop courte pour défiler (ordinateur) : rien à vérifier
+      if (scrolled && top > 1) errors.push(name + ' : barre du haut pas fixe');
       if (name.includes('tel')) { const nb = await p.evaluate(() => innerHeight - document.querySelector('nav.tabs').getBoundingClientRect().bottom); if (Math.abs(nb) > 1) errors.push(name + ' : barre du bas décrochée ' + nb); }
     }
     await ctx.close();
