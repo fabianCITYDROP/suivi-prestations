@@ -553,6 +553,34 @@ test("hayon: the provider's sheet is read line by line (plate + last control dat
   assert.equal(D.dateInText("le 3/4/26"), "2026-04-03");
 });
 
+test("hayon: a whole row of Maëva's sheet gives the last control, not the registration date", () => {
+  const sheet = "Immat\texploitant\tNuméro de série\tMec\tVéhicule\tMarque\tDate dernier contrôle\tProchain contrôle\tNb de jours\n" +
+    "GW404LM\tCITYDROP\t\t18/04/2024\t*MOV - H\t\t01/12/2025\t01/06/2026\t-175\t\tGARAGE\n" +
+    "GS775RV\tDRIVALIA\t\t\t\t\t02/12/2025\t02/06/2026\t-174\n" +
+    "GG586MC\tCITYDROP\t22010126\t23/05/2022\tMOV - H ABN\t\t11/09/2026\t11/03/2027\t108\n" +
+    "HJ844EV \u00a0\tCITYDROP\t\t17/02/2026\t\t\t24/09/2026\t24/03/2027\t121";
+  assert.deepEqual(D.parseHayonList(sheet), [
+    { plaque: "GW-404-LM", dernierControle: "2025-12-01" },
+    { plaque: "GS-775-RV", dernierControle: "2025-12-02" },
+    { plaque: "GG-586-MC", dernierControle: "2026-09-11" },
+    { plaque: "HJ-844-EV", dernierControle: "2026-09-24" },
+  ]);
+});
+
+test("hayon: a Metabase vehicle with a tailgate that is in no list shows up on its own, date unknown", () => {
+  const mb = D.parseMetabase({ donnees: JSON.stringify({
+    AB123CD: ["DAILY - H", "20HM3", "Saint-Cloud", "2026-11-21"], EF456GH: ["*MOV - H", "", "La Def", "2026-11-21"],
+    GH789IJ: ["MOV - 12", "12M3", "Aulnay", "2026-11-21"], KL321MN: ["MOV - H", "20HM3", "Aulnay", "2026-11-21"] }) });
+  assert.equal(D.metabaseHasHayon({ code: "MOV - HD", categorie: "12M3" }), false);
+  const rows = D.hayonFollowUp([{ plaque: "KL-321-MN", dernierControle: "2026-10-01" }], [], TODAY, mb);
+  assert.deepEqual(rows.map((r) => r.plaque), ["AB-123-CD", "EF-456-GH", "KL-321-MN"]);
+  assert.equal(rows[0].level, "inconnu");
+  assert.equal(rows[0].fromMetabase, true);
+  assert.equal(rows[1].metabaseCode, "MOV - H");
+  assert.equal(rows[2].fromMetabase, undefined); // already in the list: the list wins
+  assert.equal(D.hayonFollowUp([], [], TODAY).length, 0); // without Metabase, nothing added
+});
+
 test("recentWindowStart keeps 40 days (15 for the team), hayonWindowStart 240 days", () => {
   assert.equal(D.recentWindowStart("2026-11-19"), "2026-10-10");
   assert.equal(D.recentWindowStart("2026-01-05"), "2025-11-26");

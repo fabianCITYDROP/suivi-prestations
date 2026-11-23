@@ -4400,16 +4400,21 @@ window.SUIVI_FIREBASE_CONFIG = {
   const hayonAutoClose = (d, todayIso) => isBookedHayon(d) && ["envoyee", "confirmee"].includes(d.statut) && d.date < todayIso;
   const latest = (dates) => dates.filter(Boolean).sort().pop() || "";
 
-  function hayonFollowUp(hayons, demandes, todayIso) {
+  // Metabase shows a tailgate in the category (« 20HM3 ») or in the model code (« DAILY - H », « *MOV - H », « MOV - H ABN »).
+  const metabaseHasHayon = (mb) => !!mb && (metabaseCubage(mb.categorie).hayon || /-\s*H\b/.test(String(mb.code || "").toUpperCase()));
+  // metabase (optional, Map PLATEKEY → export entry): a vehicle with a tailgate that is in no list yet shows up on its own,
+  // with an unknown last control, so a new van is never forgotten (Fabian 2026-11-23). Nothing is written for it.
+  function hayonFollowUp(hayons, demandes, todayIso, metabase) {
     const vehicles = new Map();
     const entry = (plate) => {
       const key = plateKey(plate);
-      if (!vehicles.has(key)) vehicles.set(key, { plaque: normalizePlate(plate), base: null, requests: [] });
+      if (!vehicles.has(key)) vehicles.set(key, { plaque: normalizePlate(plate), base: null, requests: [], mb: null });
       return vehicles.get(key);
     };
     hayons.filter((h) => plateKey(h.plaque)).forEach((h) => (entry(h.plaque).base = h));
     demandes.filter((d) => isHayon(d) && plateKey(d.plaque)).forEach((d) => entry(d.plaque).requests.push(d));
-    return [...vehicles.values()].map(({ plaque, base, requests }) => {
+    if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && plateKey(key) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
+    return [...vehicles.values()].map(({ plaque, base, requests, mb }) => {
       const doneRequests = requests.filter((d) => hayonDone(d, todayIso));
       const lastControl = latest([base?.dernierControle, ...doneRequests.map((d) => d.date)]);
       const lastRequest = doneRequests.sort((a, b) => b.date.localeCompare(a.date))[0] || null;
@@ -4418,7 +4423,8 @@ window.SUIVI_FIREBASE_CONFIG = {
       const booked = requests.filter((d) => isBookedHayon(d) && !hayonDone(d, todayIso)).sort(byDateThenTime)[0] || null;
       const notDone = requests.filter((d) => d.nonFait && d.date > lastControl).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
       return { plaque, lastControl, lastRequest: lastRequest?.date === lastControl ? lastRequest : null, nextDue, daysLeft,
-        level: hayonLevel(daysLeft), booked, notDone, tooSoon: hayonTooSoonPair(requests), site: booked?.site || lastRequest?.site || "" };
+        level: hayonLevel(daysLeft), booked, notDone, tooSoon: hayonTooSoonPair(requests), site: booked?.site || lastRequest?.site || "",
+        ...(mb ? { fromMetabase: true, metabaseCode: String(mb.code || "").replace(/^\*+/, "").trim(), metabaseSite: mb.site || "" } : {}) };
     }).sort((a, b) => (a.daysLeft ?? -Infinity) - (b.daysLeft ?? -Infinity) || a.plaque.localeCompare(b.plaque));
   }
   // Two controls of the same vehicle less than a week apart: one is probably a mistake (it happened once, 2026-11).
@@ -4460,12 +4466,25 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (mo < 1 || mo > 12 || d < 1 || d > 31) return "";
     return `${y}-${pad2(mo)}-${pad2(d)}`;
   }
+  // A whole row of Maëva's sheet holds three dates: first registration, last control, next control (6 months later).
+  // When two dates of a line are about 6 months apart, the first of the two is the last control; otherwise the first date.
+  function lastControlInLine(rest) {
+    const dates = [];
+    const re = new RegExp(DATE_IN_TEXT.source, "g");
+    let m;
+    while ((m = re.exec(rest))) { const d = dateInText(m[0]); if (d) dates.push(d); }
+    for (let i = 0; i < dates.length - 1; i++) {
+      const gap = daysBetween(dates[i], dates[i + 1]);
+      if (gap >= 175 && gap <= 190) return dates[i];
+    }
+    return dates[0] || "";
+  }
   function parseHayonList(text) {
     const seen = new Map();
     String(text || "").replace(/\r/g, "").split("\n").forEach((line) => {
       const plate = platesInText(line)[0];
       if (!plate) return;
-      const date = dateInText(line.toUpperCase().replace(PLATE_IN_TEXT, " "));
+      const date = lastControlInLine(line.toUpperCase().replace(PLATE_IN_TEXT, " "));
       const previous = seen.get(plate);
       if (!previous || date > previous.dernierControle) seen.set(plate, { plaque: normalizePlate(plate), dernierControle: date });
     });
@@ -4685,7 +4704,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint,
     providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, providerSites, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
-    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
+    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, metabaseHasHayon, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
@@ -9398,7 +9417,8 @@ function page(texte) {
     return `<span class="hy-gauge${big ? " big" : ""}" role="img" aria-label="${esc(hayonDaysLabel(r))}"><i style="width:${pct}%"></i></span>`;
   };
   const hyPill = (r) => `<span class="hy-pill">${esc(hayonDaysLabel(r))}</span>`;
-  const hyRowByKey = (key) => D.hayonFollowUp(state.hayons, state.demandes, today()).find((r) => D.plateKey(r.plaque) === key);
+  const hyRows = () => D.hayonFollowUp(state.hayons, state.demandes, today(), state.metabase);
+  const hyRowByKey = (key) => hyRows().find((r) => D.plateKey(r.plaque) === key);
   function hayonCard(r) {
     const key = D.plateKey(r.plaque);
     const lines = [];
@@ -9410,7 +9430,7 @@ function page(texte) {
       <span class="hy-main">
         <span class="hy-line">${plateTag(r.plaque)}${hyPill(r)}</span>
         ${hyGauge(r)}
-        <span class="hy-meta">${r.nextDue ? `À refaire avant le <b>${esc(D.numericDate(r.nextDue))}</b>` : "Date du dernier contrôle inconnue"}</span>
+        <span class="hy-meta">${r.nextDue ? `À refaire avant le <b>${esc(D.numericDate(r.nextDue))}</b>` : r.fromMetabase ? "Nouveau dans Metabase · dernier contrôle inconnu" : "Date du dernier contrôle inconnue"}</span>
         ${lines.join("")}
       </span>
       <svg class="icon hy-chev" aria-hidden="true"><use href="#i-chev-r"/></svg></button></li>`;
@@ -9427,6 +9447,7 @@ function page(texte) {
     ];
     const notes = [];
     if (r.tooSoon) notes.push(`<p class="hy-sh-note warn">${icon("alert")}<span>Deux contrôles posés à ${plural(r.tooSoon.gap, "jour")} d'écart : le ${esc(D.shortDate(r.tooSoon.first.date))} et le ${esc(D.shortDate(r.tooSoon.second.date).replace(/\.$/, ""))}. L'un des deux est peut-être en trop.</span></p>`);
+    if (r.fromMetabase) notes.push(`<p class="hy-sh-note"><span>Ajouté tout seul : Metabase indique un hayon (${esc(r.metabaseCode || "hayon")}${r.metabaseSite ? `, ${esc(r.metabaseSite)}` : ""}). Pour démarrer ses 180 jours, colle sa date dans « Coller la liste » ou demande un contrôle.</span></p>`);
     if (r.notDone) notes.push(`<p class="hy-sh-note"><span>Le contrôle du ${esc(D.shortDate(r.notDone.date))} est marqué « pas fait » : le compteur reprend le contrôle d'avant.</span></p>`);
     const acts = [];
     if (r.booked) acts.push(`<button type="button" class="hy-btn primary" data-hy-act="open" data-id="${esc(r.booked.id)}">${icon("cal")}Voir le rendez-vous</button>`);
@@ -9456,7 +9477,7 @@ function page(texte) {
     r ? (teamSheet.body.innerHTML = hayonSheetHtml(r)) : teamSheet.close();
   }
   function renderHayon() {
-    const rows = D.hayonFollowUp(state.hayons, state.demandes, today());
+    const rows = hyRows();
     const urgent = rows.filter((r) => !r.booked && ["depasse", "urgent"].includes(r.level)).length;
     $("#hayonBadge").hidden = !urgent; $("#hayonBadge").textContent = urgent;
     $("#hyKicker").textContent = rows.length ? `${plural(rows.length, "véhicule")} · DHOLLIANDA` : "DHOLLIANDA · tous les 180 jours";
@@ -9491,7 +9512,7 @@ function page(texte) {
   function openHayonPaste() {
     hy.open = "paste";
     teamSheet.open("Coller la liste des hayons", `<div class="hy-paste">
-      <p class="hy-gsub">Copie les colonnes « immatriculation » et « date du dernier contrôle » du tableau du prestataire, puis colle-les ici. Une plaque déjà connue prend la date collée.</p>
+      <p class="hy-gsub">Copie les lignes du tableau du prestataire (tout le tableau de Maëva marche aussi), puis colle-les ici. Une plaque déjà connue prend la date collée.</p>
       <textarea id="hy-paste" placeholder="AB-123-CD&#9;12/05/2026&#10;EF-456-GH&#9;03/04/2026" aria-label="Liste des véhicules à hayon"></textarea>
       <p class="hy-preview" id="hy-preview" aria-live="polite"></p>
       <button type="button" class="hy-btn primary" id="hy-import">${icon("check")}Ajouter ces véhicules</button></div>`, { cls: "hy-sheet-b side-sheet", closed: () => (hy.open = null) });
@@ -9955,7 +9976,7 @@ function page(texte) {
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
       onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderPlanning(); renderFormSide(); },
       onRobot: (etat) => { state.robot = etat; renderRobot(); },
-      onMetabase: (doc) => { state.metabase = D.parseMetabase(doc); state.metabaseAt = doc?.majLe || ""; completeMailRequests(); renderFormSide(); },
+      onMetabase: (doc) => { state.metabase = D.parseMetabase(doc); state.metabaseAt = doc?.majLe || ""; completeMailRequests(); renderFormSide(); renderHayon(); },
       onGarages: (list) => { state.garages = D.normalizeGarages(list); completeMailRequests(); renderSettings(); if (!$("#ndSites")?.closest("[hidden]")) renderChoiceTiles(); },
       onDevices: (rows) => { state.alertDevices = rows; renderSettings(); },
       onError: (err) => {

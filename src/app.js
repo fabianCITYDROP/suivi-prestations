@@ -2921,7 +2921,8 @@
     return `<span class="hy-gauge${big ? " big" : ""}" role="img" aria-label="${esc(hayonDaysLabel(r))}"><i style="width:${pct}%"></i></span>`;
   };
   const hyPill = (r) => `<span class="hy-pill">${esc(hayonDaysLabel(r))}</span>`;
-  const hyRowByKey = (key) => D.hayonFollowUp(state.hayons, state.demandes, today()).find((r) => D.plateKey(r.plaque) === key);
+  const hyRows = () => D.hayonFollowUp(state.hayons, state.demandes, today(), state.metabase);
+  const hyRowByKey = (key) => hyRows().find((r) => D.plateKey(r.plaque) === key);
   function hayonCard(r) {
     const key = D.plateKey(r.plaque);
     const lines = [];
@@ -2933,7 +2934,7 @@
       <span class="hy-main">
         <span class="hy-line">${plateTag(r.plaque)}${hyPill(r)}</span>
         ${hyGauge(r)}
-        <span class="hy-meta">${r.nextDue ? `À refaire avant le <b>${esc(D.numericDate(r.nextDue))}</b>` : "Date du dernier contrôle inconnue"}</span>
+        <span class="hy-meta">${r.nextDue ? `À refaire avant le <b>${esc(D.numericDate(r.nextDue))}</b>` : r.fromMetabase ? "Nouveau dans Metabase · dernier contrôle inconnu" : "Date du dernier contrôle inconnue"}</span>
         ${lines.join("")}
       </span>
       <svg class="icon hy-chev" aria-hidden="true"><use href="#i-chev-r"/></svg></button></li>`;
@@ -2950,6 +2951,7 @@
     ];
     const notes = [];
     if (r.tooSoon) notes.push(`<p class="hy-sh-note warn">${icon("alert")}<span>Deux contrôles posés à ${plural(r.tooSoon.gap, "jour")} d'écart : le ${esc(D.shortDate(r.tooSoon.first.date))} et le ${esc(D.shortDate(r.tooSoon.second.date).replace(/\.$/, ""))}. L'un des deux est peut-être en trop.</span></p>`);
+    if (r.fromMetabase) notes.push(`<p class="hy-sh-note"><span>Ajouté tout seul : Metabase indique un hayon (${esc(r.metabaseCode || "hayon")}${r.metabaseSite ? `, ${esc(r.metabaseSite)}` : ""}). Pour démarrer ses 180 jours, colle sa date dans « Coller la liste » ou demande un contrôle.</span></p>`);
     if (r.notDone) notes.push(`<p class="hy-sh-note"><span>Le contrôle du ${esc(D.shortDate(r.notDone.date))} est marqué « pas fait » : le compteur reprend le contrôle d'avant.</span></p>`);
     const acts = [];
     if (r.booked) acts.push(`<button type="button" class="hy-btn primary" data-hy-act="open" data-id="${esc(r.booked.id)}">${icon("cal")}Voir le rendez-vous</button>`);
@@ -2979,7 +2981,7 @@
     r ? (teamSheet.body.innerHTML = hayonSheetHtml(r)) : teamSheet.close();
   }
   function renderHayon() {
-    const rows = D.hayonFollowUp(state.hayons, state.demandes, today());
+    const rows = hyRows();
     const urgent = rows.filter((r) => !r.booked && ["depasse", "urgent"].includes(r.level)).length;
     $("#hayonBadge").hidden = !urgent; $("#hayonBadge").textContent = urgent;
     $("#hyKicker").textContent = rows.length ? `${plural(rows.length, "véhicule")} · DHOLLIANDA` : "DHOLLIANDA · tous les 180 jours";
@@ -3014,7 +3016,7 @@
   function openHayonPaste() {
     hy.open = "paste";
     teamSheet.open("Coller la liste des hayons", `<div class="hy-paste">
-      <p class="hy-gsub">Copie les colonnes « immatriculation » et « date du dernier contrôle » du tableau du prestataire, puis colle-les ici. Une plaque déjà connue prend la date collée.</p>
+      <p class="hy-gsub">Copie les lignes du tableau du prestataire (tout le tableau de Maëva marche aussi), puis colle-les ici. Une plaque déjà connue prend la date collée.</p>
       <textarea id="hy-paste" placeholder="AB-123-CD&#9;12/05/2026&#10;EF-456-GH&#9;03/04/2026" aria-label="Liste des véhicules à hayon"></textarea>
       <p class="hy-preview" id="hy-preview" aria-live="polite"></p>
       <button type="button" class="hy-btn primary" id="hy-import">${icon("check")}Ajouter ces véhicules</button></div>`, { cls: "hy-sheet-b side-sheet", closed: () => (hy.open = null) });
@@ -3478,7 +3480,7 @@
       onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
       onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderPlanning(); renderFormSide(); },
       onRobot: (etat) => { state.robot = etat; renderRobot(); },
-      onMetabase: (doc) => { state.metabase = D.parseMetabase(doc); state.metabaseAt = doc?.majLe || ""; completeMailRequests(); renderFormSide(); },
+      onMetabase: (doc) => { state.metabase = D.parseMetabase(doc); state.metabaseAt = doc?.majLe || ""; completeMailRequests(); renderFormSide(); renderHayon(); },
       onGarages: (list) => { state.garages = D.normalizeGarages(list); completeMailRequests(); renderSettings(); if (!$("#ndSites")?.closest("[hidden]")) renderChoiceTiles(); },
       onDevices: (rows) => { state.alertDevices = rows; renderSettings(); },
       onError: (err) => {

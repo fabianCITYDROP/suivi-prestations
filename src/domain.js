@@ -881,16 +881,21 @@
   const hayonAutoClose = (d, todayIso) => isBookedHayon(d) && ["envoyee", "confirmee"].includes(d.statut) && d.date < todayIso;
   const latest = (dates) => dates.filter(Boolean).sort().pop() || "";
 
-  function hayonFollowUp(hayons, demandes, todayIso) {
+  // Metabase shows a tailgate in the category (« 20HM3 ») or in the model code (« DAILY - H », « *MOV - H », « MOV - H ABN »).
+  const metabaseHasHayon = (mb) => !!mb && (metabaseCubage(mb.categorie).hayon || /-\s*H\b/.test(String(mb.code || "").toUpperCase()));
+  // metabase (optional, Map PLATEKEY → export entry): a vehicle with a tailgate that is in no list yet shows up on its own,
+  // with an unknown last control, so a new van is never forgotten (Fabian 2026-11-23). Nothing is written for it.
+  function hayonFollowUp(hayons, demandes, todayIso, metabase) {
     const vehicles = new Map();
     const entry = (plate) => {
       const key = plateKey(plate);
-      if (!vehicles.has(key)) vehicles.set(key, { plaque: normalizePlate(plate), base: null, requests: [] });
+      if (!vehicles.has(key)) vehicles.set(key, { plaque: normalizePlate(plate), base: null, requests: [], mb: null });
       return vehicles.get(key);
     };
     hayons.filter((h) => plateKey(h.plaque)).forEach((h) => (entry(h.plaque).base = h));
     demandes.filter((d) => isHayon(d) && plateKey(d.plaque)).forEach((d) => entry(d.plaque).requests.push(d));
-    return [...vehicles.values()].map(({ plaque, base, requests }) => {
+    if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && plateKey(key) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
+    return [...vehicles.values()].map(({ plaque, base, requests, mb }) => {
       const doneRequests = requests.filter((d) => hayonDone(d, todayIso));
       const lastControl = latest([base?.dernierControle, ...doneRequests.map((d) => d.date)]);
       const lastRequest = doneRequests.sort((a, b) => b.date.localeCompare(a.date))[0] || null;
@@ -899,7 +904,8 @@
       const booked = requests.filter((d) => isBookedHayon(d) && !hayonDone(d, todayIso)).sort(byDateThenTime)[0] || null;
       const notDone = requests.filter((d) => d.nonFait && d.date > lastControl).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
       return { plaque, lastControl, lastRequest: lastRequest?.date === lastControl ? lastRequest : null, nextDue, daysLeft,
-        level: hayonLevel(daysLeft), booked, notDone, tooSoon: hayonTooSoonPair(requests), site: booked?.site || lastRequest?.site || "" };
+        level: hayonLevel(daysLeft), booked, notDone, tooSoon: hayonTooSoonPair(requests), site: booked?.site || lastRequest?.site || "",
+        ...(mb ? { fromMetabase: true, metabaseCode: String(mb.code || "").replace(/^\*+/, "").trim(), metabaseSite: mb.site || "" } : {}) };
     }).sort((a, b) => (a.daysLeft ?? -Infinity) - (b.daysLeft ?? -Infinity) || a.plaque.localeCompare(b.plaque));
   }
   // Two controls of the same vehicle less than a week apart: one is probably a mistake (it happened once, 2026-11).
@@ -941,12 +947,25 @@
     if (mo < 1 || mo > 12 || d < 1 || d > 31) return "";
     return `${y}-${pad2(mo)}-${pad2(d)}`;
   }
+  // A whole row of Maëva's sheet holds three dates: first registration, last control, next control (6 months later).
+  // When two dates of a line are about 6 months apart, the first of the two is the last control; otherwise the first date.
+  function lastControlInLine(rest) {
+    const dates = [];
+    const re = new RegExp(DATE_IN_TEXT.source, "g");
+    let m;
+    while ((m = re.exec(rest))) { const d = dateInText(m[0]); if (d) dates.push(d); }
+    for (let i = 0; i < dates.length - 1; i++) {
+      const gap = daysBetween(dates[i], dates[i + 1]);
+      if (gap >= 175 && gap <= 190) return dates[i];
+    }
+    return dates[0] || "";
+  }
   function parseHayonList(text) {
     const seen = new Map();
     String(text || "").replace(/\r/g, "").split("\n").forEach((line) => {
       const plate = platesInText(line)[0];
       if (!plate) return;
-      const date = dateInText(line.toUpperCase().replace(PLATE_IN_TEXT, " "));
+      const date = lastControlInLine(line.toUpperCase().replace(PLATE_IN_TEXT, " "));
       const previous = seen.get(plate);
       if (!previous || date > previous.dernierControle) seen.set(plate, { plaque: normalizePlate(plate), dernierControle: date });
     });
@@ -1166,7 +1185,7 @@
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint,
     providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, providerSites, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
-    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
+    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, metabaseHasHayon, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,

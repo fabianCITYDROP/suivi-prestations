@@ -38,6 +38,9 @@ async function seed() {
   await put('demandes/h2', { ...base, plaque: 'GL-310-CD', date: day(-9), statut: 'realisee', site: 'Gennevilliers' });
   await put('demandes/h3', { ...base, plaque: 'HB-550-TR', date: day(9), statut: 'envoyee', site: 'Gennevilliers' });
   await put('demandes/h4', { ...base, plaque: 'HB-550-TR', date: day(12), statut: 'envoyee', site: 'Gennevilliers' });
+  // Metabase : un véhicule neuf avec hayon (pas dans la liste) apparaît tout seul ; GA-731-PM est déjà dans la liste.
+  await put('metabase/flotte', { majLe: new Date().toISOString(), nb: 3, donnees: JSON.stringify({
+    HN587SX: ['DAILY - H', '20HM3', 'La Def', day(-1)], GA731PM: ['MAST - H', '20HM3', 'Saint-Cloud', day(-1)], GM100AB: ['MOV - 12', '12M3', 'Aulnay', day(-1)] }) });
   await signUp('fabian@city-drop.com');
 }
 
@@ -103,10 +106,18 @@ async function seed() {
       await p.click('.team-sheet .sheet-x'); await p.waitForTimeout(500);
       // Coller la liste
       await p.click('#hy-paste-open'); await p.waitForTimeout(600);
-      await p.fill('#hy-paste', 'GM-640-EF\t03/06/2026\nGN-205-XY\t28/05/2026'); await p.waitForTimeout(200); await s('4-coller-liste');
+      // Ligne entière du tableau de Maëva (mise en circulation, dernier contrôle, prochain) : c'est le dernier contrôle qui compte.
+      await p.fill('#hy-paste', 'GM640EF\tCITYDROP\t\t18/04/2024\t*MOV - H\t\t03/06/2026\t03/12/2026\t10\nGN-205-XY\t28/05/2026'); await p.waitForTimeout(200); await s('4-coller-liste');
       await p.click('#hy-import'); await p.waitForTimeout(900);
       doc = await get('hayons/GM640EF');
       if (doc.fields?.dernierControle?.stringValue !== '2026-06-03') errors.push('Liste collée non enregistrée');
+      // Véhicule neuf venu de Metabase : dans « À programmer », date inconnue, rien d'écrit dans la liste
+      const mbCard = await p.textContent('[data-hy-key="HN587SX"]').catch(() => '');
+      if (!/Nouveau dans Metabase/.test(mbCard || '')) errors.push('Véhicule Metabase absent : ' + mbCard);
+      if (await p.$('[data-hy-key="GM100AB"]')) errors.push('Véhicule sans hayon affiché');
+      await p.click('[data-hy-key="HN587SX"]'); await p.waitForTimeout(600); await s('4b-fiche-metabase');
+      if (!(await p.textContent('.team-sheet')).includes('Metabase indique un hayon')) errors.push('Fiche Metabase sans explication');
+      await p.click('.team-sheet .sheet-x'); await p.waitForTimeout(500);
       // Retirer (2 appuis)
       await p.click('[data-hy-key="GN205XY"]'); await p.waitForTimeout(600);
       await p.click('[data-hy-act="remove"]'); await p.waitForTimeout(200); await s('5-retirer-confirmer');
