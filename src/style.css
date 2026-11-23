@@ -1654,6 +1654,8 @@ body.team-sheet-open .lightbox { z-index: 50; }
 .ret-sh-info dd small { font-size: 13px; color: var(--ink-2); }
 .ret-sh-acts { display: flex; flex-direction: column; gap: 10px; }
 .ret-sh-acts .ret-btn { min-height: 50px; font-size: 16px; }
+.wash-sheet .seg { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+.wash-sheet .seg span { display: block; text-align: center; padding: 8px 14px; }
 @media (max-width: 640px) {
   .ret-title { font-size: 32px; }
   .ret-bell { min-height: 34px; padding: 0 12px; font-size: 13px; }

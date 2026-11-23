@@ -67,3 +67,24 @@ test("team: problem reports keep their own 40-day window when the requests windo
   assert.ok(db.listened.includes("date >= 2026-11-04"));
   assert.ok(db.listened.includes("at >= 2026-10-10"));
 });
+
+test("« Valider le lavage » écrit la demande acceptée et range le signalement ensemble", async () => {
+  const writes = [];
+  let n = 0;
+  const ref = (path) => ({ path, id: path.split("/").pop() });
+  const db = {
+    collection: (name) => ({ doc: () => ref(name + "/new" + ++n) }),
+    doc: (path) => ref(path),
+    batch: () => ({ set: (r, d) => writes.push(["set", r.path, d]), update: (r, d) => writes.push(["update", r.path, d]), commit: async () => {} }),
+  };
+  const store = createStore(db, { email: () => "micha@city-drop.com" });
+  const id = await store.validateWash({ id: "s9" }, { plaque: "GS-487-PR", service: "lavage", prestataire: "Du Sol au Toit", prestataireId: "du-sol-au-toit", date: "2026-11-23", signalementId: "s9" }, "micha@city-drop.com");
+  assert.equal(id, "new1");
+  const demande = writes.find((w) => w[1] === "demandes/new1")[2];
+  assert.equal(demande.statut, "confirmee");
+  assert.ok(demande.sentAt && demande.confirmedAt && !demande.doneAt);
+  assert.equal(demande.signalementId, "s9");
+  assert.deepEqual(writes.find((w) => w[1] === "signalements/s9").slice(0, 2), ["update", "signalements/s9"]);
+  assert.equal(writes.find((w) => w[1] === "signalements/s9")[2].statut, "traite");
+  assert.ok(writes.some((w) => w[1].startsWith("historique/")), "la création entre dans l'historique");
+});

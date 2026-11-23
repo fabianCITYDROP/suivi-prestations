@@ -436,7 +436,7 @@
     }
     function sentRow(p) {
       const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${miniIcons(p.quoi) ? `<span class="mini-arts">${miniIcons(p.quoi)}</span>` : ""}${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}${p.modifieAt ? " · modifié" : ""}</small></span>
-        <span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${p.statut === "traite" ? "Traité" : "Transmis"}</span>`;
+        <span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${D.washOfReport(p, state.demandes) ? "Lavage validé" : p.statut === "traite" ? "Traité" : "Transmis"}</span>`;
       return editable(p)
         ? `<li><button type="button" class="sent-row${fd().editId === p.id ? " current" : ""}" data-fedit="${esc(p.id)}" aria-label="Modifier ou supprimer le signalement ${esc(p.plaque)}">${body}${icon("chev-r")}</button></li>`
         : `<li><div class="sent-row">${body}<span></span></div></li>`;
