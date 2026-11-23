@@ -857,3 +857,24 @@ test("Metabase : une demande reçue par mail prend modèle, cubage, prix et site
   assert.equal(sansAnnee.modele, undefined); assert.equal(sansAnnee.cubage, 12); assert.equal(sansAnnee.prixHT, 360);
   assert.equal(D.mailCompletion({ ...mail, id: "m2", plaque: "EF-456-GH", ...sansAnnee }, ctx), null, "rien de plus une fois complétée");
 });
+
+test("« Valider le lavage » : un signalement « Véhicule sale » devient un lavage pour ce prestataire", () => {
+  const report = { id: "s9", source: "terrain", plaque: "gs487pr", quoi: ["Véhicule sale", "Pneu avant"], at: "2026-11-23T09:12:00.000Z", prestataireId: "du-sol-au-toit" };
+  assert.ok(D.isWashReport(report));
+  assert.ok(!D.isWashReport({ ...report, quoi: ["Pneu avant"] }));
+  assert.ok(!D.isWashReport({ ...report, source: undefined }), "un problème sur une demande n'est pas un lavage repéré");
+  const sites = [{ nom: "La Défense", adresse: "1 parvis" }];
+  const f = D.washFromReport(report, { providerName: "Du Sol au Toit", vehicle: { modele: "Movano", cubage: 12, siteMetabase: "La Défense" }, sites, date: "2026-11-24", formule: "interieur" });
+  assert.equal(f.service, "lavage"); assert.equal(f.formule, "interieur");
+  assert.equal(f.plaque, "GS-487-PR"); assert.equal(f.cubage, 12);
+  assert.equal(f.site, "La Défense"); assert.equal(f.adresse, "1 parvis");
+  assert.equal(f.date, "2026-11-24"); assert.equal(f.dateFin, "2026-11-24");
+  assert.equal(f.prestataire, "Du Sol au Toit"); assert.equal(f.signalementId, "s9");
+  assert.match(f.notes, /repéré par Du Sol au Toit le 23\/11\/2026/);
+  const inconnu = D.washFromReport(report, { providerName: "Khalid", vehicle: null, date: "2026-11-23", formule: "??" });
+  assert.equal(inconnu.site, ""); assert.equal(inconnu.formule, "complet");
+  assert.equal(D.washFromReport(report, { providerName: "K", vehicle: {}, sites, date: "2026-11-23", lastSite: "La Défense" }).adresse, "1 parvis");
+  const demandes = [{ id: "d1", signalementId: "s9", statut: "confirmee" }, { id: "d2", signalementId: "s8", statut: "annulee" }];
+  assert.equal(D.washOfReport(report, demandes).id, "d1");
+  assert.equal(D.washOfReport({ id: "s8" }, demandes), null, "un lavage annulé ne compte plus");
+});

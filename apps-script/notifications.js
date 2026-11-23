@@ -123,15 +123,16 @@ const jourCourt = (iso) => (iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '')
 const ligneDemande = (d) => [d.plaque, SERVICES_NOTIF[d.service] || d.service, d.site, jourCourt(d.date)].filter(Boolean).join(' · ');
 
 // demandes : modifiées depuis peu ; depuis : date d'installation (rien d'antérieur n'est annoncé).
-// Renvoie { prestataires: { id: { nouvelles: [], annulees: [] } }, equipe: [lignes], marques: [{ id, notifie }] }.
+// Renvoie { prestataires: { id: { nouvelles: [], valides: [], annulees: [] } }, equipe: [lignes], marques: [{ id, notifie }] }.
+// Un lavage validé par l'équipe à partir d'un signalement du prestataire (signalementId) est annoncé « Lavage validé ».
 function aAnnoncer(demandes, depuis) {
   const prestataires = {}, equipe = [], marques = [];
-  const pour = (id) => (prestataires[id] = prestataires[id] || { nouvelles: [], annulees: [] });
+  const pour = (id) => (prestataires[id] = prestataires[id] || { nouvelles: [], valides: [], annulees: [] });
   demandes.forEach((d) => {
     const avant = d.notifie || {};
     const apres = { ...avant };
     if (d.prestataireId && d.statut !== 'annulee' && (avant.demande !== d.prestataireId || avant.annulee) && (d.createdAt || '') >= depuis) {
-      pour(d.prestataireId).nouvelles.push(ligneDemande(d));
+      pour(d.prestataireId)[d.signalementId && !avant.demande ? 'valides' : 'nouvelles'].push(ligneDemande(d));
       apres.demande = d.prestataireId; apres.annulee = false;
     }
     if (d.statut === 'annulee' && avant.demande && !avant.annulee) {
@@ -165,11 +166,12 @@ function problemesAAnnoncer(signalements, dejaVus, depuis, maintenantIso, nomDe)
   return { lignes, vus };
 }
 const pluriel = (n, un, plusieurs) => (n > 1 ? n + ' ' + plusieurs : un);
-function messagePrestataire({ nouvelles, annulees }) {
+function messagePrestataire({ nouvelles, valides = [], annulees }) {
   const titres = [];
+  if (valides.length) titres.push(pluriel(valides.length, 'Lavage validé : vous pouvez le faire', 'lavages validés : vous pouvez les faire'));
   if (nouvelles.length) titres.push(pluriel(nouvelles.length, 'Nouvelle demande', 'nouvelles demandes'));
   if (annulees.length) titres.push(pluriel(annulees.length, 'Demande annulée', 'demandes annulées'));
-  const lignes = [...nouvelles, ...annulees.map((l) => 'Annulée : ' + l)];
+  const lignes = [...valides.map((l) => 'Validé : ' + l), ...nouvelles, ...annulees.map((l) => 'Annulée : ' + l)];
   return { titre: titres.join(' · '), texte: lignes.slice(0, 5).join('\n') + (lignes.length > 5 ? '\n…' : ''), url: './' };
 }
 // Les problèmes passent en premier : c'est ce qu'il faut voir d'abord.

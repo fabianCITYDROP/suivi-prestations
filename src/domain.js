@@ -785,6 +785,26 @@
     return { plaque: r.plaque, quoi: r.quoi, texte: r.texte, photo: fields.photo || "", modifieAt: nowIso };
   }
 
+  // « Véhicule sale » seen in passing by a washer: the team validates the wash in one tap. The request goes straight to
+  // that provider, already accepted (« confirmée »), for today or tomorrow; the provider then taps « fait » as usual.
+  // It keeps the report's id (signalementId): the provider's alert says « Lavage validé » and its report shows it.
+  const isWashReport = (s) => isFieldReport(s) && (s.quoi || []).includes("Véhicule sale");
+  // Site: Metabase's, else the one of the vehicle's last request (lastSite), else none (the team completes it).
+  function washFromReport(report, { providerName, vehicle, sites = [], date, formule = "complet", lastSite = "" }) {
+    const site = vehicle?.siteMetabase || lastSite || "";
+    return {
+      service: "lavage", formule: WASH_KINDS.some((k) => k.id === formule) ? formule : "complet",
+      plaque: normalizePlate(report.plaque), modele: vehicle?.modele || "", cubage: vehicle?.cubage ?? "",
+      site, adresse: site ? siteAddress(sites, site) : "",
+      date, dateFin: date, debut: DEFAULT_SLOT.debut, fin: DEFAULT_SLOT.fin,
+      prestataire: providerName, tache: "", groupe: "",
+      notes: `Lavage repéré par ${providerName} le ${numericDate(String(report.at || "").slice(0, 10))}, validé par City-Drop`,
+      signalementId: report.id,
+    };
+  }
+  // The wash the team validated from this report, if any (the provider sees « Lavage validé » on it).
+  const washOfReport = (report, demandes) => demandes.find((d) => d.signalementId && d.signalementId === report.id && d.statut !== "annulee") || null;
+
   // What a provider's answer writes. A "fait" or an acceptance also moves the request's status right away, so the
   // request is closed even when nobody of the team has the app open (the access rules allow exactly this).
   function answerPatch(d, retour, nowIso) {
@@ -1170,7 +1190,7 @@
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
-    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport, fieldNoteOf, fieldEditPatch,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport, fieldNoteOf, fieldEditPatch, isWashReport, washFromReport, washOfReport,
     TRASH_DAYS, trashPurgeDate, trashDaysLeft, groupTrash,
   };
 });
