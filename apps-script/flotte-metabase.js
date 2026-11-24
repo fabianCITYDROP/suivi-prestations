@@ -53,19 +53,24 @@ function vehiculesDeLExport(valeurs, aujourdhui) {
 // lignes = le CSV « Runners planning » joint au mail Metabase (Utilities.parseCsv), 1re ligne = titres.
 // Il a le modèle et la catégorie de CHAQUE véhicule, y compris les immobilisés que la feuille des Runners ne garde pas.
 // Renvoie { PLAQUE: [code, catégorie, matrice] } (les villes n'y sont que des numéros : le site vient de la feuille).
-// Matrice (facultative) = le modèle complet de Metabase, avec l'année quand il y en a une (« MAXUS 12m3 2025 »).
+// 3e valeur (facultative) = l'année de la version du modèle : celle de la matrice entretien (« Movano 2023 »),
+// sinon celle de la 1re mise en circulation (colonne « 1ere Mec », « 31/05/2023 »).
 function vehiculesDuCsv(lignes) {
   const titres = (lignes[0] || []).map((t) => String(t).replace(/^\uFEFF/, '').trim());
   const col = (fin) => titres.findIndex((t) => new RegExp('(^|→\\s*)' + fin + '$', 'i').test(t));
   const c = { plaque: col('Immatriculation'), modele: col('Modele'), categorie: col('Categorie') };
-  const iMatrice = col('Matrice');
+  // Matrice entretien du back-office (« Movano 2023 ») : n'importe quelle colonne dont le titre parle de matrice, sauf son ID
+  // (avec une jointure Metabase, le titre peut être « Cd Matrices - Matrice → Nom »).
+  const iMatrice = titres.findIndex((t) => /matrice/i.test(t) && !/\bid$/i.test(t));
+  const iMec = col('1ere Mec');
+  const annee = (l) => [iMatrice, iMec].map((i) => (i >= 0 ? (/\b(20\d\d)\b/.exec(String(l[i] || '')) || [])[1] : '')).find(Boolean) || '';
   if (Object.values(c).some((i) => i < 0)) throw new Error('CSV Metabase : colonnes Immatriculation/Modele/Categorie introuvables.');
   const sortie = {};
   lignes.slice(1).forEach((l) => {
     const cle = clePlaque(l[c.plaque]);
     const code = String(l[c.modele] || '').trim();
     const categorie = String(l[c.categorie] || '').trim();
-    const matrice = iMatrice >= 0 ? String(l[iMatrice] || '').trim().slice(0, 80) : '';
+    const matrice = annee(l);
     if (cle && code && categorie) sortie[cle] = [code, categorie, matrice];
   });
   return sortie;

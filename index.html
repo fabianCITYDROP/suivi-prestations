@@ -4087,9 +4087,13 @@ window.SUIVI_FIREBASE_CONFIG = {
   }
   const yearOf = (modele) => +modelYear(modele) || null;
   // The short Metabase code gives model and cubage but no year; the « Matrice » column, when exported, has it.
+  // Year = first registration year (Metabase « 1ere Mec »). The fleet lists model versions by launch year, so a Movano
+  // registered in 2026 is the « 2025 » version: take the newest version launched that year or before.
   function yearFromMatrice(base, cubage, matrice, fleet) {
-    const y = yearOf(matrice);
-    return y ? (fleet || []).find((f) => baseModel(f.modele) === base && +f.cubage === +cubage && yearOf(f.modele) === y) || null : null;
+    const y = +(/\b(20\d\d)\b/.exec(String(matrice || "")) || [])[1] || null;
+    if (!y) return null;
+    const versions = (fleet || []).filter((f) => baseModel(f.modele) === base && +f.cubage === +cubage && yearOf(f.modele) && yearOf(f.modele) <= y);
+    return versions.sort((a, b) => yearOf(b.modele) - yearOf(a.modele))[0] || null;
   }
   // Without it, when the fleet has the same model and cubage in several years
   // (Movano 12 m³ 2023 / 2025), take the year of the known vehicle registered closest to this plate; otherwise the newest.

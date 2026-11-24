@@ -897,6 +897,8 @@ test("Metabase avec la colonne Matrice : année exacte, plus d'estimation", () =
   const mb = D.parseMetabase({ donnees: JSON.stringify({ GP310FQ: ["MOV - 12", "12M3", "Saint-Cloud", "2026-11-25", "Opel Movano 12m3 2025"] }) });
   const v = D.knownVehicle("GP-310-FQ", new Map(), mb, D.DEFAULT_FLEET, []);
   assert.equal(v.modele, "Opel Movano 2025"); assert.equal(v.cubage, 12); assert.ok(!v.anneeEstimee);
+  const mec = (y) => D.knownVehicle("GP-310-FQ", new Map(), D.parseMetabase({ donnees: JSON.stringify({ GP310FQ: ["MOV - 12", "12M3", "", "2026-11-25", y] }) }), D.DEFAULT_FLEET, []).modele;
+  assert.equal(mec("2023"), "Opel Movano 2023"); assert.equal(mec("2024"), "Opel Movano 2023"); assert.equal(mec("2026"), "Opel Movano 2025");
   // A mail request may take this model: the year is not guessed.
   const p = D.mailCompletion({ source: "mail", plaque: "GP-310-FQ" }, { demandes: [], vehicleOf: () => v, providerNames: [], pricesOf: () => null });
   assert.equal(p.modele, "Opel Movano 2025");
