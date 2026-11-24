@@ -53,19 +53,21 @@ function vehiculesDeLExport(valeurs, aujourdhui) {
 // lignes = le CSV « Runners planning » joint au mail Metabase (Utilities.parseCsv), 1re ligne = titres.
 // Il a le modèle et la catégorie de CHAQUE véhicule, y compris les immobilisés que la feuille des Runners ne garde pas.
 // Renvoie { PLAQUE: [code, catégorie, matrice] } (les villes n'y sont que des numéros : le site vient de la feuille).
-// Matrice (facultative) = le modèle complet de Metabase, avec l'année quand il y en a une (« MAXUS 12m3 2025 »).
+// 3e valeur (facultative) = l'année du véhicule : colonne « 1ere Mec » (date de 1re mise en circulation, « 31/05/2023 »),
+// sinon colonne « Matrice » si elle contient une année.
 function vehiculesDuCsv(lignes) {
   const titres = (lignes[0] || []).map((t) => String(t).replace(/^\uFEFF/, '').trim());
   const col = (fin) => titres.findIndex((t) => new RegExp('(^|→\\s*)' + fin + '$', 'i').test(t));
   const c = { plaque: col('Immatriculation'), modele: col('Modele'), categorie: col('Categorie') };
-  const iMatrice = col('Matrice');
+  const iMec = col('1ere Mec'), iMatrice = col('Matrice');
+  const annee = (l) => [iMec, iMatrice].map((i) => (i >= 0 ? (/\b(20\d\d)\b/.exec(String(l[i] || '')) || [])[1] : '')).find(Boolean) || '';
   if (Object.values(c).some((i) => i < 0)) throw new Error('CSV Metabase : colonnes Immatriculation/Modele/Categorie introuvables.');
   const sortie = {};
   lignes.slice(1).forEach((l) => {
     const cle = clePlaque(l[c.plaque]);
     const code = String(l[c.modele] || '').trim();
     const categorie = String(l[c.categorie] || '').trim();
-    const matrice = iMatrice >= 0 ? String(l[iMatrice] || '').trim().slice(0, 80) : '';
+    const matrice = annee(l);
     if (cle && code && categorie) sortie[cle] = [code, categorie, matrice];
   });
   return sortie;
