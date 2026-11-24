@@ -52,37 +52,46 @@ function vehiculesDeLExport(valeurs, aujourdhui) {
 
 // lignes = le CSV « Runners planning » joint au mail Metabase (Utilities.parseCsv), 1re ligne = titres.
 // Il a le modèle et la catégorie de CHAQUE véhicule, y compris les immobilisés que la feuille des Runners ne garde pas.
-// Renvoie { PLAQUE: [code, catégorie] } (les villes n'y sont que des numéros : le site vient de la feuille).
+// Renvoie { PLAQUE: [code, catégorie, matrice] } (les villes n'y sont que des numéros : le site vient de la feuille).
+// Matrice (facultative) = le modèle complet de Metabase, avec l'année quand il y en a une (« MAXUS 12m3 2025 »).
 function vehiculesDuCsv(lignes) {
   const titres = (lignes[0] || []).map((t) => String(t).replace(/^\uFEFF/, '').trim());
   const col = (fin) => titres.findIndex((t) => new RegExp('(^|→\\s*)' + fin + '$', 'i').test(t));
   const c = { plaque: col('Immatriculation'), modele: col('Modele'), categorie: col('Categorie') };
+  const iMatrice = col('Matrice');
   if (Object.values(c).some((i) => i < 0)) throw new Error('CSV Metabase : colonnes Immatriculation/Modele/Categorie introuvables.');
   const sortie = {};
   lignes.slice(1).forEach((l) => {
     const cle = clePlaque(l[c.plaque]);
     const code = String(l[c.modele] || '').trim();
     const categorie = String(l[c.categorie] || '').trim();
-    if (cle && code && categorie) sortie[cle] = [code, categorie];
+    const matrice = iMatrice >= 0 ? String(l[iMatrice] || '').trim().slice(0, 80) : '';
+    if (cle && code && categorie) sortie[cle] = [code, categorie, matrice];
   });
   return sortie;
 }
 // Le CSV fait foi pour le modèle et la catégorie ; la feuille donne le site quand elle le connaît.
 function completerAvecCsv(nouveau, csv) {
   const sortie = { ...(nouveau || {}) };
-  Object.entries(csv || {}).forEach(([cle, [code, categorie]]) => { sortie[cle] = [code, categorie, (sortie[cle] || [])[2] || '']; });
+  Object.entries(csv || {}).forEach(([cle, [code, categorie, matrice]]) => {
+    sortie[cle] = [code, categorie, (sortie[cle] || [])[2] || ''];
+    if (matrice) sortie[cle][4] = matrice;
+  });
   return sortie;
 }
 
 const moinsJours = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 
-// ancien = { PLAQUE: [code, catégorie, site, vuLe] } déjà dans l'appli ; nouveau = vehiculesDeLExport(...).
+// ancien = { PLAQUE: [code, catégorie, site, vuLe, matrice?] } déjà dans l'appli ; nouveau = vehiculesDeLExport(...).
 // Les véhicules du jour sont ajoutés ou mis à jour ; les absents gardent leurs infos jusqu'à 60 jours sans être vus.
 function fusionnerFlotte(ancien, nouveau, aujourdhui, joursMax = FLOTTE_JOURS_ABSENT) {
   const limite = moinsJours(aujourdhui, joursMax);
   const sortie = {};
-  Object.entries(ancien || {}).forEach(([cle, v]) => { if (Array.isArray(v) && (v[3] || '') >= limite) sortie[cle] = v.slice(0, 4); });
-  Object.entries(nouveau || {}).forEach(([cle, v]) => { sortie[cle] = [v[0], v[1], v[2], aujourdhui]; });
+  Object.entries(ancien || {}).forEach(([cle, v]) => { if (Array.isArray(v) && (v[3] || '') >= limite) sortie[cle] = v.slice(0, 5); });
+  Object.entries(nouveau || {}).forEach(([cle, v]) => {
+    const matrice = v[4] || (sortie[cle] || [])[4] || ''; // une matrice connue n'est pas perdue un jour où le CSV manque
+    sortie[cle] = matrice ? [v[0], v[1], v[2], aujourdhui, matrice] : [v[0], v[1], v[2], aujourdhui];
+  });
   return Object.fromEntries(Object.keys(sortie).sort().map((k) => [k, sortie[k]]));
 }
 
@@ -118,8 +127,10 @@ function csvDuMail(props) {
   const messages = fils.flatMap((f) => f.getMessages()).sort((a, b) => b.getDate() - a.getDate());
   for (const m of messages) {
     if (de && !String(m.getFrom()).toLowerCase().includes(de.toLowerCase())) continue;
-    const pj = m.getAttachments().find((a) => /\.csv$/i.test(a.getName()));
-    if (pj) return vehiculesDuCsv(Utilities.parseCsv(pj.getDataAsString('UTF-8')));
+    // Le mail peut avoir plusieurs CSV : on prend le premier qui a les colonnes Immatriculation/Modele/Categorie.
+    for (const pj of m.getAttachments().filter((a) => /\.csv$/i.test(a.getName()))) {
+      try { return vehiculesDuCsv(Utilities.parseCsv(pj.getDataAsString('UTF-8'))); } catch (e) { /* fichier suivant */ }
+    }
   }
   console.warn('Pas de mail Metabase « Runners » récent dans la boîte du robot : feuille des Runners seule.');
   return {};

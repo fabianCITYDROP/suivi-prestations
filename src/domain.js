@@ -552,7 +552,7 @@
   function parseMetabase(doc) {
     try {
       const raw = JSON.parse(doc?.donnees || "{}");
-      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe]]) => [k, { code, categorie, site, vuLe }]));
+      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe, matrice]]) => [k, { code, categorie, site, vuLe, matrice: matrice || "" }]));
     } catch { return new Map(); }
   }
   // What the app knows about a plate: its own vehicle sheet first (chosen by the team), Metabase for the rest.
@@ -565,7 +565,12 @@
     return (pair(m[1]) * 676 + pair(m[3])) * 1000 + +m[2];
   }
   const yearOf = (modele) => +modelYear(modele) || null;
-  // Metabase gives model and cubage but no year. When the fleet has the same model and cubage in several years
+  // The short Metabase code gives model and cubage but no year; the « Matrice » column, when exported, has it.
+  function yearFromMatrice(base, cubage, matrice, fleet) {
+    const y = yearOf(matrice);
+    return y ? (fleet || []).find((f) => baseModel(f.modele) === base && +f.cubage === +cubage && yearOf(f.modele) === y) || null : null;
+  }
+  // Without it, when the fleet has the same model and cubage in several years
   // (Movano 12 m³ 2023 / 2025), take the year of the known vehicle registered closest to this plate; otherwise the newest.
   function guessYear(plate, base, cubage, fleet, vehicles) {
     const years = (fleet || []).filter((f) => baseModel(f.modele) === base && +f.cubage === +cubage && yearOf(f.modele));
@@ -585,6 +590,8 @@
     const mb = metabase?.get(plateKey(plate));
     if (!mb) return own || null;
     const m = metabaseModel(mb.code, mb.categorie, fleet);
+    const exact = !m.modele && m.base && m.cubage != null ? yearFromMatrice(m.base, m.cubage, mb.matrice, fleet) : null;
+    if (exact) Object.assign(m, { modele: exact.modele, cubage: exact.cubage });
     const guess = !m.modele && m.base && m.cubage != null ? guessYear(plate, m.base, m.cubage, fleet, vehicles) : null;
     if (guess) Object.assign(m, { modele: guess.modele, cubage: guess.cubage, anneeEstimee: true });
     const site = metabaseSite(mb.site, sites);
