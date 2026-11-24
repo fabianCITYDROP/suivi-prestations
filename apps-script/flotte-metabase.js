@@ -53,24 +53,20 @@ function vehiculesDeLExport(valeurs, aujourdhui) {
 // lignes = le CSV « Runners planning » joint au mail Metabase (Utilities.parseCsv), 1re ligne = titres.
 // Il a le modèle et la catégorie de CHAQUE véhicule, y compris les immobilisés que la feuille des Runners ne garde pas.
 // Renvoie { PLAQUE: [code, catégorie, matrice] } (les villes n'y sont que des numéros : le site vient de la feuille).
-// 3e valeur (facultative) = l'année de la version du modèle : celle de la matrice entretien (« Movano 2023 »),
-// sinon celle de la 1re mise en circulation (colonne « 1ere Mec », « 31/05/2023 »).
+// 3e valeur (facultative) = le Matrice ID du véhicule (colonne « Matrice ID » de Cd Vehicules, ex. « 27 ») :
+// même matrice = même version du modèle (Movano 12 m³ 2023 ou 2025), quelle que soit l'année de mise en circulation.
 function vehiculesDuCsv(lignes) {
   const titres = (lignes[0] || []).map((t) => String(t).replace(/^\uFEFF/, '').trim());
   const col = (fin) => titres.findIndex((t) => new RegExp('(^|→\\s*)' + fin + '$', 'i').test(t));
   const c = { plaque: col('Immatriculation'), modele: col('Modele'), categorie: col('Categorie') };
-  // Matrice entretien du back-office (« Movano 2023 ») : n'importe quelle colonne dont le titre parle de matrice, sauf son ID
-  // (avec une jointure Metabase, le titre peut être « Cd Matrices - Matrice → Nom »).
-  const iMatrice = titres.findIndex((t) => /matrice/i.test(t) && !/\bid$/i.test(t));
-  const iMec = col('1ere Mec');
-  const annee = (l) => [iMatrice, iMec].map((i) => (i >= 0 ? (/\b(20\d\d)\b/.exec(String(l[i] || '')) || [])[1] : '')).find(Boolean) || '';
+  const iMatrice = col('Matrice ID');
   if (Object.values(c).some((i) => i < 0)) throw new Error('CSV Metabase : colonnes Immatriculation/Modele/Categorie introuvables.');
   const sortie = {};
   lignes.slice(1).forEach((l) => {
     const cle = clePlaque(l[c.plaque]);
     const code = String(l[c.modele] || '').trim();
     const categorie = String(l[c.categorie] || '').trim();
-    const matrice = annee(l);
+    const matrice = iMatrice >= 0 ? String(l[iMatrice] || '').replace(/\D/g, '').slice(0, 6) : '';
     if (cle && code && categorie) sortie[cle] = [code, categorie, matrice];
   });
   return sortie;

@@ -893,13 +893,18 @@ test("Metabase sans année : année du véhicule connu immatriculé le plus prè
   assert.equal(p.modele, undefined); assert.equal(p.cubage, 12);
 });
 
-test("Metabase avec la colonne Matrice : année exacte, plus d'estimation", () => {
-  const mb = D.parseMetabase({ donnees: JSON.stringify({ GP310FQ: ["MOV - 12", "12M3", "Saint-Cloud", "2026-11-25", "Opel Movano 12m3 2025"] }) });
+test("Metabase avec le Matrice ID : même matrice = même version, quelle que soit l'année d'immatriculation", () => {
+  const mb = D.parseMetabase({ donnees: JSON.stringify({ GP310FQ: ["MOV - 12", "12M3", "Saint-Cloud", "2026-11-25", "27"],
+    AB123CD: ["MOV - 12", "12M3", "", "2026-11-25", "19"], XX111XX: ["MOV - 12", "12M3", "", "2026-11-25", "99"],
+    YY222YY: ["MOV - 12", "12M3", "", "2026-11-25", "99"] }) });
   const v = D.knownVehicle("GP-310-FQ", new Map(), mb, D.DEFAULT_FLEET, []);
   assert.equal(v.modele, "Opel Movano 2025"); assert.equal(v.cubage, 12); assert.ok(!v.anneeEstimee);
-  const mec = (y) => D.knownVehicle("GP-310-FQ", new Map(), D.parseMetabase({ donnees: JSON.stringify({ GP310FQ: ["MOV - 12", "12M3", "", "2026-11-25", y] }) }), D.DEFAULT_FLEET, []).modele;
-  assert.equal(mec("2023"), "Opel Movano 2023"); assert.equal(mec("2024"), "Opel Movano 2023"); assert.equal(mec("2026"), "Opel Movano 2025");
-  // A mail request may take this model: the year is not guessed.
+  assert.equal(D.knownVehicle("AB-123-CD", new Map(), mb, D.DEFAULT_FLEET, []).modele, "Opel Movano 2023");
+  // Unknown matrix 99: the model the team chose for another vehicle of the same matrix.
+  const own = new Map([["YY222YY", { plaque: "YY-222-YY", modele: "Opel Movano 2023", cubage: 12 }]]);
+  const x = D.knownVehicle("XX-111-XX", own, mb, D.DEFAULT_FLEET, []);
+  assert.equal(x.modele, "Opel Movano 2023"); assert.ok(!x.anneeEstimee);
+  // A mail request may take this model: it is not guessed.
   const p = D.mailCompletion({ source: "mail", plaque: "GP-310-FQ" }, { demandes: [], vehicleOf: () => v, providerNames: [], pricesOf: () => null });
   assert.equal(p.modele, "Opel Movano 2025");
   // Old 4-value entries still read.
