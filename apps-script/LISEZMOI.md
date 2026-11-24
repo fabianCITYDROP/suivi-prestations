@@ -9,11 +9,13 @@ la demande apparaît toute seule dans Suivi prestations (statut « Envoyée »).
 2. Toutes les 5 minutes, `import-mails.js` (Google Apps Script, gratuit) lit les nouveaux mails :
    il vérifie qu'ils viennent bien de gestion-flotte@city-drop.com **et** qu'ils sont signés city-drop.com (DKIM),
    puis lit plaque, créneau, kilométrage, interventions et nom du garage.
-3. Il crée la demande avec un compte « robot » qui ne peut **que** créer ce type de demande : il ne lit rien,
-   ne modifie rien, ne choisit ni prestataire ni prix (règles Firestore, testées).
-4. Dès qu'un membre de l'équipe ouvre l'appli, celle-ci complète la demande : prestataire (d'après le nom du garage),
+3. Il crée la demande avec un compte « robot » qui ne peut **que** créer ce type de demande : il ne choisit jamais de prix
+   (règles Firestore, testées). Si le garage du mail est rattaché dans Réglages › Garages des mails (seul réglage
+   qu'il peut lire), il pose tout de suite le prestataire et le site, puis lance les alertes : le prestataire est
+   prévenu dans les minutes qui suivent, même si personne de l'équipe n'a l'appli ouverte.
+4. Dès qu'un membre de l'équipe ouvre l'appli, celle-ci complète la demande : prestataire s'il manque (d'après le nom du garage),
    modèle et cubage connus pour la plaque (fiche véhicule, sinon export Metabase : voir LISEZMOI-flotte-metabase.md),
-   site (garage, sinon Metabase, sinon dernière demande de cette plaque), prix HT. Le prestataire la voit alors dans son écran.
+   adresse et site (garage, sinon Metabase, sinon dernière demande de cette plaque), prix HT.
 
 Une demande venue d'un mail porte un identifiant fait de la plaque et du début du créneau (ex. `mail-GS487PR-20261112-1830`).
 Ainsi :

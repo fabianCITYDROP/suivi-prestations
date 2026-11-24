@@ -135,3 +135,19 @@ test("la demande relue garde seulement statut, prestataire et réponse", () => {
     retour: { mapValue: { fields: { etat: { stringValue: "fait" } } } } }), { statut: "realisee", prestataire: "Khalid", retour: { etat: "fait" } });
   assert.deepEqual(M.lireFiche({ statut: { stringValue: "envoyee" } }), { statut: "envoyee", prestataire: "", retour: { etat: "" } });
 });
+
+test("le garage rattaché dans Réglages donne le prestataire et le site dès l'import", () => {
+  const champs = { liste: { arrayValue: { values: [
+    { mapValue: { fields: { garage: { stringValue: "Du Sol au Toit 78&92" }, prestataire: { stringValue: "Du Sol au Toit" }, site: { stringValue: "La Défense" } } } },
+    { mapValue: { fields: { garage: { stringValue: "DHOLLIANDA" }, prestataire: { stringValue: "DHOLLIANDA" }, site: { stringValue: "" } } } },
+    { mapValue: { fields: { garage: { stringValue: "Garage sans prestataire" }, prestataire: { stringValue: "" } } } },
+  ] } } };
+  const garages = M.lireGarages(champs);
+  assert.equal(garages.length, 2, "un garage sans prestataire ne compte pas");
+  assert.deepEqual(M.rattachement("du sol au toit 78&92 ", garages),
+    { prestataire: "Du Sol au Toit", prestataireId: "du-sol-au-toit", site: "La Défense", siteAuto: "garage" });
+  assert.deepEqual(M.rattachement("DHOLLIANDA", garages), { prestataire: "DHOLLIANDA", prestataireId: "dhollianda" }, "hayon : pas de site");
+  assert.deepEqual(M.rattachement("Allo Pare-Brise Lille", garages), {}, "garage pas encore rattaché : l'appli complète comme avant");
+  assert.deepEqual(M.lireGarages(undefined), []);
+  assert.equal(M.idPrestataire("Allo Pare-Brisé 78"), "allo-pare-brise-78", "même identifiant que l'appli");
+});
