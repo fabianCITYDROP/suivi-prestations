@@ -67,9 +67,10 @@ let failed = 0; const ok = (what, cond) => { console.log((cond ? '✔ ' : '✘ '
   await p.click('[data-nd-svc="pare-brise"]'); await p.waitForTimeout(250);
   // Plate typed key by key, cursor still in the field: model and cubage must fill without leaving it.
   await p.click('#f-plaque'); await p.keyboard.type('hk382ml', { delay: 40 }); await p.waitForTimeout(300);
+  ok('formulaire : cubage rempli même avec 2 années (Vivaro 5 m³)', /5 m³/.test(await p.$eval('#f-modele', (s) => s.value ? s.selectedOptions[0].textContent : '')));
   ok('formulaire : toujours dans le champ plaque', await p.evaluate(() => document.activeElement?.id === 'f-plaque'));
   const hint = await p.textContent('#vehHint');
-  ok('formulaire : phrase Metabase « ' + hint + ' »', /Metabase : Opel Vivaro · 5 m³ · Saint-Cloud/.test(hint));
+  ok('formulaire : phrase Metabase « ' + hint + ' »', /Metabase : Opel Vivaro 20\d\d – 5 m³ \(année estimée\) · Saint-Cloud/.test(hint));
   ok('formulaire : modèle Opel Vivaro choisi', (await p.inputValue('#f-base')) === 'Opel Vivaro');
   ok('formulaire : site Saint-Cloud rempli', (await p.inputValue('#f-site')) === 'Saint-Cloud');
   // Model changed by hand, then one more key in the plate: the hand choice stays.

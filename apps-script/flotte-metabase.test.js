@@ -39,8 +39,19 @@ test("CSV du mail Metabase : modèle et catégorie de chaque VU, immobilisés co
     ["404", "IMPRODUCTIF", "GM-149-EA", "MOV - 12", "12M3", "4"],
     ["405", "ROUTE", "HK-382-ML", "MOV - 17", "17M3", "1"],
     ["", "PROVINCE", "", "", "", ""]]);
-  assert.deepEqual(csv, { GM149EA: ["MOV - 12", "12M3"], HK382ML: ["MOV - 17", "17M3"] });
+  assert.deepEqual(csv, { GM149EA: ["MOV - 12", "12M3", ""], HK382ML: ["MOV - 17", "17M3", ""] });
   assert.deepEqual(F.completerAvecCsv({ HK382ML: ["MOV - 12", "12M3", "Paris-Centre"], ZZ999ZZ: ["VIVA - 6", "5M3", "Aulnay"] }, csv), {
     HK382ML: ["MOV - 17", "17M3", "Paris-Centre"], ZZ999ZZ: ["VIVA - 6", "5M3", "Aulnay"], GM149EA: ["MOV - 12", "12M3", ""] });
   assert.throws(() => F.vehiculesDuCsv([["a", "b"]]), /colonnes/);
+});
+
+test("Matrice (facultative) : lue dans le CSV, gardée dans la flotte, pas perdue un jour sans CSV", () => {
+  const T = ["Cd Vehicules - Vehicule → Immatriculation", "Cd Vehicules - Vehicule → Modele", "Cd Vehicules - Vehicule → Categorie", "Cd Vehicules - Vehicule → Matrice"];
+  const csv = F.vehiculesDuCsv([T, ["GP-310-FQ", "MOV - 12", "12M3", "Opel Movano 12m3 2023"], ["HN-388-MJ", "DAILY - H", "20HM3", ""]]);
+  assert.deepEqual(csv, { GP310FQ: ["MOV - 12", "12M3", "Opel Movano 12m3 2023"], HN388MJ: ["DAILY - H", "20HM3", ""] });
+  const jour1 = F.fusionnerFlotte({}, F.completerAvecCsv({ GP310FQ: ["MOV - 12", "12M3", "Saint-Cloud"] }, csv), "2026-11-25");
+  assert.deepEqual(jour1.GP310FQ, ["MOV - 12", "12M3", "Saint-Cloud", "2026-11-25", "Opel Movano 12m3 2023"]);
+  assert.deepEqual(jour1.HN388MJ, ["DAILY - H", "20HM3", "", "2026-11-25"]);
+  const jour2 = F.fusionnerFlotte(jour1, { GP310FQ: ["MOV - 12", "12M3", "La Def"] }, "2026-11-26"); // feuille seule
+  assert.deepEqual(jour2.GP310FQ, ["MOV - 12", "12M3", "La Def", "2026-11-26", "Opel Movano 12m3 2023"]);
 });

@@ -4017,7 +4017,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       if (p) patch.prestataire = p;
     }
     const vehicle = vehicleOf(d.plaque);
-    if (!d.modele && vehicle?.modele) { patch.modele = vehicle.modele; patch.cubage = vehicle.cubage ?? null; }
+    if (!d.modele && vehicle?.modele && !vehicle.anneeEstimee) { patch.modele = vehicle.modele; patch.cubage = vehicle.cubage ?? null; }
     else if (!d.modele && (d.cubage == null || d.cubage === "") && vehicle?.cubage != null) patch.cubage = vehicle.cubage; // Metabase without the year: the cubage gives the price
     const provider = d.prestataire || patch.prestataire || "";
     const bySite = rule?.site ? sites.find((s) => s.nom === rule.site) || null : siteFromGarage(d.garageMail, provider, sites);
@@ -4073,24 +4073,57 @@ window.SUIVI_FIREBASE_CONFIG = {
   function parseMetabase(doc) {
     try {
       const raw = JSON.parse(doc?.donnees || "{}");
-      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe]]) => [k, { code, categorie, site, vuLe }]));
+      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe, matrice]]) => [k, { code, categorie, site, vuLe, matrice: matrice || "" }]));
     } catch { return new Map(); }
   }
   // What the app knows about a plate: its own vehicle sheet first (chosen by the team), Metabase for the rest.
+  // French plates (AB-123-CD) are issued in order: digits first, then the right letters, then the left ones.
+  // So two plates close in this order were registered close in time.
+  function plateOrder(plate) {
+    const m = /^([A-Z]{2})(\d{3})([A-Z]{2})$/.exec(plateKey(plate));
+    if (!m) return null;
+    const pair = (l) => (l.charCodeAt(0) - 65) * 26 + (l.charCodeAt(1) - 65);
+    return (pair(m[1]) * 676 + pair(m[3])) * 1000 + +m[2];
+  }
+  const yearOf = (modele) => +modelYear(modele) || null;
+  // The short Metabase code gives model and cubage but no year; the « Matrice » column, when exported, has it.
+  function yearFromMatrice(base, cubage, matrice, fleet) {
+    const y = yearOf(matrice);
+    return y ? (fleet || []).find((f) => baseModel(f.modele) === base && +f.cubage === +cubage && yearOf(f.modele) === y) || null : null;
+  }
+  // Without it, when the fleet has the same model and cubage in several years
+  // (Movano 12 m³ 2023 / 2025), take the year of the known vehicle registered closest to this plate; otherwise the newest.
+  function guessYear(plate, base, cubage, fleet, vehicles) {
+    const years = (fleet || []).filter((f) => baseModel(f.modele) === base && +f.cubage === +cubage && yearOf(f.modele));
+    if (years.length < 2 || years.length !== (fleet || []).filter((f) => baseModel(f.modele) === base && +f.cubage === +cubage).length) return null;
+    const order = plateOrder(plate);
+    let nearest = null, gap = Infinity;
+    if (order != null) for (const v of vehicles?.values?.() || []) {
+      const y = yearOf(v.modele), o = plateOrder(v.plaque);
+      if (y && o != null && o !== order && Math.abs(o - order) < gap) { gap = Math.abs(o - order); nearest = y; }
+    }
+    const byYear = [...years].sort((a, b) => yearOf(b.modele) - yearOf(a.modele));
+    if (nearest == null) return byYear[0];
+    return byYear.reduce((best, f) => (Math.abs(yearOf(f.modele) - nearest) < Math.abs(yearOf(best.modele) - nearest) ? f : best));
+  }
   function knownVehicle(plate, vehicles, metabase, fleet, sites) {
     const own = vehicles?.get(plateKey(plate));
     const mb = metabase?.get(plateKey(plate));
     if (!mb) return own || null;
     const m = metabaseModel(mb.code, mb.categorie, fleet);
+    const exact = !m.modele && m.base && m.cubage != null ? yearFromMatrice(m.base, m.cubage, mb.matrice, fleet) : null;
+    if (exact) Object.assign(m, { modele: exact.modele, cubage: exact.cubage });
+    const guess = !m.modele && m.base && m.cubage != null ? guessYear(plate, m.base, m.cubage, fleet, vehicles) : null;
+    if (guess) Object.assign(m, { modele: guess.modele, cubage: guess.cubage, anneeEstimee: true });
     const site = metabaseSite(mb.site, sites);
-    const fromMb = { modele: m.modele, cubage: m.cubage, base: m.base, code: m.code, hayon: m.hayon, siteMetabase: site ? site.nom : "", villeMetabase: mb.site || "", metabase: true };
+    const fromMb = { modele: m.modele, cubage: m.cubage, base: m.base, code: m.code, hayon: m.hayon, anneeEstimee: !!m.anneeEstimee, siteMetabase: site ? site.nom : "", villeMetabase: mb.site || "", metabase: true };
     if (own?.modele) return { ...own, siteMetabase: fromMb.siteMetabase, villeMetabase: fromMb.villeMetabase, code: m.code };
     return { ...(own || { plaque: plate, photos: [] }), ...fromMb };
   }
   // One line for the form: « Metabase : MOV - 12 · 12 m³ · Saint-Cloud ».
   function metabaseHint(v) {
     if (!v?.code && !v?.villeMetabase) return "";
-    const what = v.modele ? fleetLabel(v) : [v.base || v.code, v.cubage ? v.cubage + " m³" : "", v.hayon ? "hayon" : ""].filter(Boolean).join(" · ");
+    const what = v.modele ? fleetLabel(v) + (v.anneeEstimee ? " (année estimée)" : "") : [v.base || v.code, v.cubage ? v.cubage + " m³" : "", v.hayon ? "hayon" : ""].filter(Boolean).join(" · ");
     return "Metabase : " + [what, v.siteMetabase || v.villeMetabase].filter(Boolean).join(" · ");
   }
 
@@ -4705,7 +4738,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     monthlyReport, invoiceLines, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_DAYS, TEAM_RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
-    metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint,
+    metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint, plateOrder, guessYear,
     providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, providerSites, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
