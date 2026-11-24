@@ -1364,6 +1364,14 @@
   }
   const groupMember = (main, extra) => ({ ...main, plaque: extra.plaque, modele: extra.modele, cubage: extra.cubage, debut: extra.debut, fin: extra.fin });
   $("#addVeh").onclick = () => { addExtraRow().querySelector(".x-plaque").focus(); renderFormSide(); };
+  $("#extraVeh").addEventListener("input", (e) => {
+    const input = e.target.closest(".x-plaque");
+    const vehicle = input && knownWhileTyping(input);
+    if (!vehicle) return;
+    const row = input.closest(".extra-veh");
+    pickKnownModel(row.querySelector(".x-base"), row.querySelector(".x-modele"), vehicle);
+    renderFormSide();
+  });
   $("#extraVeh").addEventListener("change", (e) => {
     const input = e.target.closest(".x-plaque");
     if (!input) return;
@@ -1390,6 +1398,7 @@
     (document.getElementById("svc-" + d.service) || document.getElementById("svc-pare-brise")).checked = true;
     $("#wash-" + D.washKindOf(d).id).checked = true;
     ["plaque", "adresse", "debut", "fin", "notes", "tache"].forEach((k) => (field(k).value = d[k] || ""));
+    field("plaque").dataset.filledKey = D.plateKey(d.plaque);
     setAvailability(d.date, d.dateFin);
     if (d.prestataire && !state.providers.includes(d.prestataire)) state.providers.push(d.prestataire);
     if (d.site && !siteNames().includes(d.site)) state.sites.push({ nom: d.site, adresse: "" });
@@ -1454,7 +1463,23 @@
     if (vehicle?.siteMetabase && !field("site").value) { field("site").value = vehicle.siteMetabase; field("adresse").value = D.siteAddress(state.sites, vehicle.siteMetabase); }
     renderFormSide();
   }
-  $("#form").addEventListener("input", (e) => { if (e.target.id !== "f-plaque") renderFormSide(); });
+  // As soon as the typed plate is a known vehicle (Metabase or already seen), fill model and cubage without waiting
+  // for the field to lose focus. Once per plate, so a model the user then changes by hand is not overwritten while typing.
+  function knownWhileTyping(input) {
+    const key = D.plateKey(input.value);
+    const vehicle = key ? knownOf(input.value) : null;
+    if (!vehicle || (!vehicle.modele && !vehicle.base) || input.dataset.filledKey === key) return null;
+    input.dataset.filledKey = key;
+    return vehicle;
+  }
+  $("#form").addEventListener("input", (e) => {
+    if (e.target.id !== "f-plaque") return renderFormSide();
+    const vehicle = knownWhileTyping(e.target);
+    if (!vehicle) return;
+    pickKnownModel(field("base"), field("modele"), vehicle);
+    if (vehicle.siteMetabase && !field("site").value) { field("site").value = vehicle.siteMetabase; field("adresse").value = D.siteAddress(state.sites, vehicle.siteMetabase); }
+    renderFormSide();
+  });
   $("#form").addEventListener("change", renderFormSide);
   field("prest").addEventListener("change", renderServiceChoice);
   $("#svcSeg").addEventListener("change", renderServiceChoice);
