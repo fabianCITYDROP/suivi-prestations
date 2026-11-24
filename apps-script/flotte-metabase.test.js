@@ -61,3 +61,11 @@ test("Année : colonne « 1ere Mec » de Metabase (date de 1re mise en circulati
   assert.deepEqual(F.vehiculesDuCsv([T, ["HK-382-ML", "MOV - 12", "12M3", "28/04/2026"], ["AA-001-AA", "MOV - 20", "20M3", ""]]),
     { HK382ML: ["MOV - 12", "12M3", "2026"], AA001AA: ["MOV - 20", "20M3", ""] });
 });
+
+test("Année : la matrice entretien (« Movano 2023 ») passe avant la 1re mise en circulation ; son ID est ignoré", () => {
+  const T = ["Cd Vehicules - Vehicule → Immatriculation", "Cd Vehicules - Vehicule → Modele", "Cd Vehicules - Vehicule → Categorie",
+    "Cd Vehicules - Vehicule → Matrice ID", "Cd Matrices - Matrice → Nom", "Cd Vehicules - Vehicule → 1ere Mec"];
+  assert.deepEqual(F.vehiculesDuCsv([T, ["HK-382-ML", "MOV - 12", "12M3", "27", "Movano 2025", "28/04/2026"],
+    ["GP-310-FQ", "MOV - 12", "12M3", "19", "", "31/05/2023"]]),
+    { HK382ML: ["MOV - 12", "12M3", "2025"], GP310FQ: ["MOV - 12", "12M3", "2023"] });
+});
