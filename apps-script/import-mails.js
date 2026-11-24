@@ -137,6 +137,30 @@ function lireFiche(champs) {
   return { statut: texte(champs && champs.statut), prestataire: texte(champs && champs.prestataire), retour: { etat: texte(retour.etat) } };
 }
 
+// ---------- prestataire du garage (Réglages › Garages des mails) ----------
+// Même identifiant que l'appli (providerId dans src/domain.js) : « Allo Pare-Brise » -> « allo-pare-brise ».
+const idPrestataire = (nom) => String(nom || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// config/garages au format REST -> [{ garage, prestataire, site }].
+function lireGarages(champs) {
+  const valeurs = (champs && champs.liste && champs.liste.arrayValue && champs.liste.arrayValue.values) || [];
+  const texte = (v) => (v && 'stringValue' in v ? v.stringValue.trim() : '');
+  return valeurs.map((v) => (v.mapValue && v.mapValue.fields) || {})
+    .map((f) => ({ garage: texte(f.garage), prestataire: texte(f.prestataire), site: texte(f.site) }))
+    .filter((g) => g.garage && g.prestataire);
+}
+// Le garage du mail rattaché dans Réglages donne le prestataire (et le site) dès l'import : le prestataire
+// est prévenu tout de suite, même si personne de l'équipe n'a l'appli ouverte. Sans règle : rien, l'appli complète.
+// L'adresse et le prix restent ajoutés par l'appli (siteAuto « garage » lui dit de compléter l'adresse).
+function rattachement(garageMail, garages) {
+  const cle = idPrestataire(garageMail);
+  const regle = cle && (garages || []).find((g) => idPrestataire(g.garage) === cle);
+  if (!regle) return {};
+  const lien = { prestataire: regle.prestataire.slice(0, 80), prestataireId: idPrestataire(regle.prestataire).slice(0, 80) };
+  if (regle.site) Object.assign(lien, { site: regle.site.slice(0, 80), siteAuto: 'garage' });
+  return lien;
+}
+
 // ---------- surveillance du robot (fonctions pures, testées) ----------
 // etat = ce que le robot retient d'un passage à l'autre : { passage, dernierMail, erreur, erreurDepuis, ecrit, alerte }.
 function etatSuivant(avant, maintenant, erreur, dernierMail) {
@@ -171,6 +195,7 @@ function importer() {
   const aVerifier = [];   // annulations que le robot n'a pas pu faire seul
   let dernierMail = null;
   let jeton = null;
+  let ajoutees = 0;
   try {
     const faits = JSON.parse(props.getProperty(DEJA_FAITS) || '[]');
     const aFaire = [];
@@ -184,8 +209,10 @@ function importer() {
     if (aFaire.length) {
       aFaire.sort((a, b) => a.m.getDate() - b.m.getDate()); // du plus ancien au plus récent : une annulation passe après son rendez-vous
       jeton = seConnecter(props);
+      const garages = garagesDeLAppli(jeton);
       aFaire.forEach(({ cle, m }) => {
-        const r = traiter(m, jeton);
+        const r = traiter(m, jeton, garages);
+        if (r === true) ajoutees++;
         if (r === true) faits.push(cle);
         else if (r && r.nonCompris) { faits.push(cle); nonCompris.push(r.nonCompris); }
         else if (r && r.aVerifier) { faits.push(cle); aVerifier.push(r.aVerifier); }
@@ -213,6 +240,10 @@ function importer() {
   if (alerte === 'reparti') apres.alerte = null;
   envoyerAlertes(props, alerte, apres, nonCompris, aVerifier);
   props.setProperty(ETAT, JSON.stringify(apres));
+  // Alerte au prestataire tout de suite (fichier notifications du même projet), sans attendre son passage de 5 minutes.
+  if (ajoutees && typeof verifierNotifications === 'function') {
+    try { verifierNotifications(); } catch (e) { console.warn('Alertes : ' + e.message + ' (le passage suivant réessaiera)'); }
+  }
   if (apres.erreur) throw new Error(apres.erreur); // l'exécution apparaît « Échec » dans Apps Script › Exécutions
 }
 
@@ -232,7 +263,7 @@ function envoyerAlertes(props, alerte, etat, nonCompris, aVerifier = []) {
 
 // Renvoie true quand le mail est réglé (même s'il est ignoré), { nonCompris: sujet } si personne ne l'a importé,
 // { erreur } pour réessayer au prochain passage.
-function traiter(m, jeton) {
+function traiter(m, jeton, garages) {
   if (!vientDeCityDrop(m.getRawContent())) { console.warn('Ignoré (pas signé City-Drop) : ' + m.getSubject()); return true; }
   const maintenant = new Date().toISOString();
   const annulation = lireAnnulation(m.getSubject(), m.getBody());
@@ -256,7 +287,7 @@ function traiter(m, jeton) {
   const demande = lireMail(m.getSubject(), m.getBody());
   if (!demande) { console.warn('Mail non compris, à saisir à la main : ' + m.getSubject()); return { nonCompris: m.getSubject() }; }
   const id = idDemande(demande);
-  const fiche = { ...demande, mailId: id, sentAt: maintenant, createdAt: maintenant, updatedAt: maintenant };
+  const fiche = { ...demande, ...rattachement(demande.garageMail, garages), mailId: id, sentAt: maintenant, createdAt: maintenant, updatedAt: maintenant };
   const r = firestore('post', '/demandes?documentId=' + id, jeton, versFirestore(fiche));
   const code = r.getResponseCode();
   if (code === 200) { console.log('Ajoutée : ' + demande.plaque + ' le ' + demande.date); return true; }
@@ -276,6 +307,17 @@ function firestore(methode, chemin, jeton, corps) {
   });
 }
 
+// Lus à chaque passage qui a des mails : une règle posée dans Réglages compte dès le mail suivant.
+// Si la lecture est refusée (règles Firestore pas encore republiées), le robot importe comme avant, sans prestataire.
+function garagesDeLAppli(jeton) {
+  try {
+    const r = UrlFetchApp.fetch(FIRESTORE + '/config/garages', { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + jeton } });
+    if (r.getResponseCode() === 200) return lireGarages(JSON.parse(r.getContentText()).fields);
+    if (r.getResponseCode() !== 404) console.warn('Garages illisibles (' + r.getResponseCode() + ') : republier les règles Firestore ?');
+  } catch (e) { console.warn('Garages illisibles : ' + e.message); }
+  return [];
+}
+
 function seConnecter(props) {
   const r = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + FIREBASE_CLE_WEB, {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
@@ -292,4 +334,4 @@ function installer() {
   importer();
 }
 
-if (typeof module === 'object' && module.exports) module.exports = { texteDuMail, lireMail, lireAnnulation, decisionAnnulation, lireFiche, idDemande, serviceDe, commentaireDe, vientDeCityDrop, versFirestore, etatSuivant, traceAEcrire, alerteAEnvoyer, champsTrace };
+if (typeof module === 'object' && module.exports) module.exports = { texteDuMail, lireMail, lireAnnulation, decisionAnnulation, lireFiche, idDemande, serviceDe, commentaireDe, idPrestataire, lireGarages, rattachement, vientDeCityDrop, versFirestore, etatSuivant, traceAEcrire, alerteAEnvoyer, champsTrace };
