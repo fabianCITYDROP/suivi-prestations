@@ -113,9 +113,11 @@ async function seed() {
       await p.click('#hy-import'); await p.waitForTimeout(900);
       doc = await get('hayons/GM640EF');
       if (doc.fields?.dernierControle?.stringValue !== '2026-06-03') errors.push('Liste collée non enregistrée');
-      // Véhicule neuf venu de Metabase : dans « À programmer », date inconnue, rien d'écrit dans la liste
-      const mbCard = await p.textContent('[data-hy-key="HN587SX"]').catch(() => '');
-      if (!/Nouveau dans Metabase/.test(mbCard || '')) errors.push('Véhicule Metabase absent : ' + mbCard);
+      // Véhicule neuf venu de Metabase : le compteur démarre aujourd'hui tout seul (date « auto »)
+      await p.waitForTimeout(1200);
+      let mbDoc = await get('hayons/HN587SX');
+      if (mbDoc.fields?.dernierControle?.stringValue !== day(0) || mbDoc.fields?.auto?.booleanValue !== true) errors.push('Date auto non posée : ' + JSON.stringify(mbDoc.fields || mbDoc.error));
+      if (!/Reste 180 jours/.test(await p.textContent('[data-hy-key="HN587SX"]').catch(() => ''))) errors.push('Compteur 180 jours absent');
       if (await p.$('[data-hy-key="GM100AB"]')) errors.push('Véhicule sans hayon affiché');
       if (await p.$('[data-hy-key="HN999ZZ"]')) errors.push('Véhicule inactif ajouté');
       if (!/En panne dans Metabase/.test(await p.textContent('[data-hy-key="HN588SX"]').catch(() => ''))) errors.push('Véhicule en panne absent');
@@ -123,7 +125,15 @@ async function seed() {
       if (!groups.some((g) => /Sortis de la flotte\s*1/.test(g))) errors.push('Groupe « Sortis de la flotte » absent : ' + groups.join(' | '));
       await s('4a-sortis-flotte', true);
       await p.click('[data-hy-key="HN587SX"]'); await p.waitForTimeout(600); await s('4b-fiche-metabase');
-      if (!(await p.textContent('.team-sheet')).includes('Metabase indique un hayon')) errors.push('Fiche Metabase sans explication');
+      if (!(await p.textContent('.team-sheet')).includes('Posée à son arrivée')) errors.push('Fiche : date auto non expliquée');
+      // Modifier la date
+      await p.click('[data-hy-act="date"]'); await p.waitForTimeout(300);
+      await p.fill('#hy-date', day(-100)); await s('4c-modifier-date');
+      await p.click('[data-hy-act="date-save"]'); await p.waitForTimeout(900);
+      mbDoc = await get('hayons/HN587SX');
+      if (mbDoc.fields?.dernierControle?.stringValue !== day(-100) || mbDoc.fields?.auto) errors.push('Date modifiée non enregistrée : ' + JSON.stringify(mbDoc.fields));
+      if (!(await p.textContent('.team-sheet')).match(/80\s*jours restants/)) errors.push('Fiche pas à jour après modification');
+      await s('4d-date-modifiee');
       await p.click('.team-sheet .sheet-x'); await p.waitForTimeout(500);
       // Retirer (2 appuis)
       await p.click('[data-hy-key="GN205XY"]'); await p.waitForTimeout(600);
