@@ -594,6 +594,15 @@ test("hayon: only vans active or broken down in the fleet are followed; an inact
   assert.equal(by["AB-123-CD"].horsFlotte, undefined);
 });
 
+test("hayon: a removed van stays out, even if Metabase still lists it with a tailgate; a new booking shows it again", () => {
+  const mb = D.parseMetabase({ donnees: JSON.stringify({ AB123CD: ["MOV - H", "20HM3", "", "2026-11-25", "", "P"], EF456GH: ["DAILY - H", "20HM3", "", "2026-11-25", "", "A"] }) });
+  const hayons = [{ plaque: "AB-123-CD", dernierControle: "", retire: true, retireLe: "2026-11-15" }, { plaque: "EF-456-GH", dernierControle: "2026-10-01", retire: true, retireLe: "2026-11-15" }];
+  const old = { id: "o", service: "hayon", plaque: "AB-123-CD", date: "2026-10-01", statut: "realisee" };
+  assert.deepEqual(D.hayonFollowUp(hayons, [old], TODAY, mb), []);
+  const fresh = { id: "n", service: "hayon", plaque: "EF-456-GH", date: "2026-11-20", statut: "envoyee" };
+  assert.deepEqual(D.hayonFollowUp(hayons, [old, fresh], TODAY, mb).map((r) => r.plaque), ["EF-456-GH"]);
+});
+
 test("recentWindowStart keeps 40 days (15 for the team), hayonWindowStart 240 days", () => {
   assert.equal(D.recentWindowStart("2026-11-19"), "2026-10-10");
   assert.equal(D.recentWindowStart("2026-01-05"), "2025-11-26");

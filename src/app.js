@@ -2975,7 +2975,7 @@
   }
   function hayonSheetHtml(r) {
     const key = D.plateKey(r.plaque);
-    const known = state.hayons.some((h) => D.plateKey(h.plaque) === key);
+    const known = true; // « Retirer » marche aussi pour un véhicule venu de Metabase (il ne revient pas)
     const recent = r.lastRequest && D.daysBetween(r.lastRequest.date, today()) <= 30;
     const info = [
       ["Dernier contrôle", r.lastControl ? D.numericDate(r.lastControl) : "Inconnu", r.lastRequest ? `Rendez-vous du ${D.shortDate(r.lastRequest.date)}` : r.lastControl ? "Liste du prestataire" : ""],
@@ -3094,7 +3094,12 @@
     }
     if (act === "remove" && r && requireStore()) {
       if (hy.removing !== key) { hy.removing = key; return refreshHayonSheet(); }
-      try { await state.store.deleteHayon(key); hy.removing = ""; teamSheet.close(); toast(`${r.plaque} retiré de la liste des hayons`); }
+      const previous = state.hayons.find((h) => D.plateKey(h.plaque) === key) || null;
+      const { id, ...before } = previous || {};
+      try {
+        await state.store.retireHayon(r.plaque, today()); hy.removing = ""; teamSheet.close();
+        toast(`${r.plaque} retiré des contrôles hayon`, { label: "Annuler", run: () => state.store.restoreHayon(r.plaque, previous ? before : null).catch(reportWriteError) });
+      }
       catch (err) { reportWriteError(err); }
     }
   }
