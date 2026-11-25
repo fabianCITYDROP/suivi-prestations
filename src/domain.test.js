@@ -584,7 +584,8 @@ test("problème sur un véhicule: the report carries the request, the plate and 
   const d = { id: "d1", plaque: "AB-123-CD", prestataireId: "allo" };
   const r = D.problemReport(d, { type: "pneu", texte: "  pneu avant gauche lisse " }, "allo@x.fr", "2026-11-18T10:00:00.000Z");
   assert.deepEqual(r, { demandeId: "d1", plaque: "AB-123-CD", prestataireId: "allo", type: "pneu", texte: "pneu avant gauche lisse", statut: "nouveau", at: "2026-11-18T10:00:00.000Z", par: "allo@x.fr" });
-  assert.equal(D.problemReport(d, { texte: "x", photo: "k1" }, "a", "t").photo, "k1");
+  assert.deepEqual(D.problemReport(d, { texte: "x", photos: ["k1", "k2", "k3", "k4"] }, "a", "t").photos, ["k1", "k2", "k3"], "3 photos at most");
+  assert.equal("photos" in D.problemReport(d, { texte: "x", photos: [] }, "a", "t"), false);
   // Just words now (type "autre" by default), and the words are required.
   assert.equal(D.problemReport(d, { texte: "rayure" }, "a", "t").type, "autre");
   assert.match(D.problemReport(d, { texte: " " }, "a", "t").error, /quelques mots/);
@@ -801,7 +802,28 @@ test("« Signaler » : Autre demande des mots, et on retrouve les mots pour modi
   assert.equal(D.fieldNoteOf({ quoi: ["Pneu avant"], texte: "Pneu avant" }), "");
   assert.equal(D.fieldNoteOf({ quoi: [], texte: "rétro" }), "rétro");
   const p = D.fieldEditPatch({ ...r, at: "t0" }, { plaque: "ef456gh", quoi: ["Véhicule sale"], texte: "" }, "t1");
-  assert.deepEqual(p, { plaque: "EF-456-GH", quoi: ["Véhicule sale"], texte: "Véhicule sale", photo: "", modifieAt: "t1" });
+  assert.deepEqual(p, { plaque: "EF-456-GH", quoi: ["Véhicule sale"], texte: "Véhicule sale", photos: [], modifieAt: "t1" });
+  // An older report with one photo: the edit moves it into the list and empties « photo ».
+  const old = D.fieldEditPatch({ ...r, at: "t0", photo: "k0" }, { plaque: "ef456gh", quoi: ["Véhicule sale"], photos: ["k0", "k1"] }, "t1");
+  assert.deepEqual([old.photos, old.photo], [["k0", "k1"], ""]);
+});
+
+test("photos des signalements : ancien et nouveau format, effacées 40 jours après « Traité »", () => {
+  assert.deepEqual(D.reportPhotos({ photo: "a" }), ["a"]);
+  assert.deepEqual(D.reportPhotos({ photo: "", photos: ["b", "c"] }), ["b", "c"]);
+  assert.deepEqual(D.reportPhotos({}), []);
+  assert.equal(D.photosLabel({ photos: ["b", "c"] }), " · 2 photos");
+  assert.equal(D.photosLabel({ photo: "a" }), " · avec photo");
+  assert.equal(D.photosLabel({ photos: [], photosEffacees: true }), " · photo effacée");
+  const now = "2026-11-25T10:00:00.000Z";
+  const list = [
+    { id: "old", statut: "traite", traiteAt: "2026-10-10T09:00:00.000Z", photos: ["x"] },
+    { id: "oldSingle", statut: "traite", traiteAt: "2026-09-01T09:00:00.000Z", photo: "y" },
+    { id: "recent", statut: "traite", traiteAt: "2026-10-20T09:00:00.000Z", photos: ["x"] },
+    { id: "open", statut: "nouveau", traiteAt: "", at: "2026-01-01T00:00:00.000Z", photos: ["x"] },
+    { id: "noPhoto", statut: "traite", traiteAt: "2026-09-01T09:00:00.000Z" },
+  ];
+  assert.deepEqual(D.photosToErase(list, now).map((s) => s.id), ["old", "oldSingle"]);
 });
 
 test("Nouvelle demande : seulement les sites donnés au prestataire, tous s'il n'en a aucun", () => {

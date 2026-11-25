@@ -311,48 +311,64 @@
       await writeWithHistory(demandeRef(demande.id), "update", patch, historyEntry(demande, "reponse", D.undoDoneChanges(note)));
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
-    // A problem seen on a vehicle: the photo (optional) goes in preuves/<key> like a proof, then the report itself.
-    async function reportProblem(demande, fields, photoFull) {
-      let photo = "";
-      if (photoFull) {
-        photo = `sig_${D.plateKey(demande.plaque)}_${Date.now().toString(36)}`;
-        await db.doc("preuves/" + photo).set({ prestataireId: demande.prestataireId, plaque: demande.plaque, data: photoFull, at: new Date().toISOString() });
-        photoCache.set("preuve:" + photo, photoFull);
+    // A problem seen on a vehicle: its photos (optional, up to 3) go in preuves/<key> like a proof, then the report itself.
+    async function savePhotos(prestataireId, plaque, fulls) {
+      const keys = [];
+      for (const [i, full] of (fulls || []).filter(Boolean).slice(0, D.MAX_REPORT_PHOTOS).entries()) {
+        const key = `sig_${D.plateKey(plaque)}_${Date.now().toString(36)}${i ? "_" + i : ""}`;
+        await db.doc("preuves/" + key).set({ prestataireId, plaque: D.normalizePlate(plaque), data: full, at: new Date().toISOString() });
+        photoCache.set("preuve:" + key, full);
+        keys.push(key);
       }
-      const report = D.problemReport(demande, { ...fields, photo }, fields.par, new Date().toISOString());
+      return keys;
+    }
+    // Photos no report points to any more are erased (best effort: the report is what matters).
+    const erasePhotos = (keys) => Promise.all((keys || []).map((k) => db.doc("preuves/" + k).delete().then(() => photoCache.delete("preuve:" + k), () => {})));
+    async function reportProblem(demande, fields, photoFulls = []) {
+      const photos = await savePhotos(demande.prestataireId, demande.plaque, photoFulls);
+      const report = D.problemReport(demande, { ...fields, photos }, fields.par, new Date().toISOString());
       if (report.error) throw { code: "invalid", message: report.error };
       await db.collection("signalements").doc().set(report);
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
     // Field report on any vehicle (« Signaler » tab), not tied to a request: same collection, same photo place.
-    async function reportField(prestataireId, fields, photoFull) {
-      let photo = "";
-      const plaque = D.normalizePlate(fields.plaque);
-      if (photoFull) {
-        photo = `sig_${D.plateKey(plaque)}_${Date.now().toString(36)}`;
-        await db.doc("preuves/" + photo).set({ prestataireId, plaque, data: photoFull, at: new Date().toISOString() });
-        photoCache.set("preuve:" + photo, photoFull);
-      }
-      const report = D.fieldReport({ ...fields, photo }, prestataireId, fields.par, new Date().toISOString());
+    async function reportField(prestataireId, fields, photoFulls = []) {
+      const photos = await savePhotos(prestataireId, fields.plaque, photoFulls);
+      const report = D.fieldReport({ ...fields, photos }, prestataireId, fields.par, new Date().toISOString());
       if (report.error) throw { code: "invalid", message: report.error };
       await db.collection("signalements").doc().set(report);
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
-    // Its author changes a « vu en passant » report until the team has handled it. A new photo replaces the old one.
-    async function updateField(report, fields, photoFull, keptPhoto) {
-      let photo = keptPhoto || "";
-      if (photoFull) {
-        photo = `sig_${D.plateKey(fields.plaque)}_${Date.now().toString(36)}`;
-        await db.doc("preuves/" + photo).set({ prestataireId: report.prestataireId, plaque: D.normalizePlate(fields.plaque), data: photoFull, at: new Date().toISOString() });
-        photoCache.set("preuve:" + photo, photoFull);
-      }
-      const patch = D.fieldEditPatch(report, { ...fields, photo }, new Date().toISOString());
+    // Its author changes a « vu en passant » report until the team has handled it: kept photos + new ones; removed ones are erased.
+    async function updateField(report, fields, photoFulls = [], keptKeys = []) {
+      const added = await savePhotos(report.prestataireId, fields.plaque, photoFulls.slice(0, D.MAX_REPORT_PHOTOS - keptKeys.length));
+      const patch = D.fieldEditPatch(report, { ...fields, photos: [...keptKeys, ...added] }, new Date().toISOString());
       if (patch.error) throw { code: "invalid", message: patch.error };
       await db.doc("signalements/" + report.id).update(patch);
+      await erasePhotos(D.reportPhotos(report).filter((k) => !keptKeys.includes(k)));
       changed();
     }
-    // Its author takes back a report sent by mistake (the access rules allow it until the team has handled it).
-    const deleteProblem = (id) => db.doc("signalements/" + id).delete();
+    // Its author takes back a report sent by mistake (the access rules allow it until the team has handled it); its photos go too.
+    async function deleteProblem(report) {
+      await db.doc("signalements/" + report.id).delete();
+      await erasePhotos(D.reportPhotos(report));
+    }
+    // Photos of reports handled more than 40 days ago are erased (the words stay). Run by the team app at opening, at most
+    // once a day per device; only the last 120 days of handled reports are looked at (an app opened at least once in that
+    // time catches every one). Refusals and failures are simply ignored.
+    async function purgeReportPhotos() {
+      const now = new Date().toISOString();
+      const from = D.addDays(now.slice(0, 10), -(D.PHOTO_KEEP_DAYS + 120));
+      const snap = await db.collection("signalements").where("traiteAt", ">=", from).where("traiteAt", "<", D.addDays(now.slice(0, 10), -D.PHOTO_KEEP_DAYS)).get().catch(() => null);
+      if (!snap) return 0;
+      const due = D.photosToErase(toRows(snap), now);
+      let done = 0;
+      for (const report of due) {
+        const ok = await db.doc("signalements/" + report.id).update({ photos: [], ...(report.photo ? { photo: "" } : {}), photosEffacees: true }).then(() => true, () => false);
+        if (ok) { await erasePhotos(D.reportPhotos(report)); done++; }
+      }
+      return done;
+    }
     const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
       handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
     // « Valider le lavage » on a « Véhicule sale » report: the wash request (already accepted) and the report marked
@@ -496,7 +512,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, markProblemHandled, validateWash, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, purgeReportPhotos, markProblemHandled, validateWash, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

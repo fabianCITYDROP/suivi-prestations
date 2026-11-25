@@ -219,11 +219,13 @@ service cloud.firestore {
         && d.donnees is string && d.donnees.size() <= 400000;
     }
 
-    // Proof photo taken by the provider when the job is done: the provider adds it, the team reads it.
+    // Photo of a problem report (sig_…), or older proof of a job done: the provider adds it, the team reads it.
+    // The provider may erase its own report photos (sent by mistake, or removed while changing a report).
     match /preuves/{proofKey} {
       allow read: if canReadAll() || (isProvider() && resource.data.prestataireId == account().prestataireId);
       allow create: if isAdmin() || (isProvider() && request.resource.data.prestataireId == account().prestataireId);
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || (isProvider() && proofKey.matches('sig_.*') && resource.data.prestataireId == account().prestataireId);
     }
 
     // Problem seen on a vehicle (shock, tyre, warning light…): the provider reports it on one of its own requests
@@ -236,27 +238,38 @@ service cloud.firestore {
       allow create: if isProvider() && validReport(request.resource.data);
       allow update: if (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'traiteAt', 'traitePar'])
                     && request.resource.data.statut in ['nouveau', 'traite'])
+                    // 40 days after « Traité » the team app erases the photos; the words stay.
+                    || (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photo', 'photos', 'photosEffacees'])
+                    && request.resource.data.photosEffacees == true && request.resource.data.photos == [] && request.resource.data.get('photo', '') == '')
                     // « Signaler »: its author changes a report seen in passing, until the team has handled it.
                     || (isProvider() && resource.data.get('source', '') == 'terrain' && resource.data.statut == 'nouveau'
                     && resource.data.par == email() && resource.data.prestataireId == account().prestataireId
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plaque', 'quoi', 'texte', 'photo', 'modifieAt'])
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plaque', 'quoi', 'texte', 'photo', 'photos', 'modifieAt'])
                     && validReport(request.resource.data) && request.resource.data.modifieAt is string && request.resource.data.modifieAt.size() <= 40);
       // Sent by mistake: its author deletes it, as long as the team has not handled it yet.
       allow delete: if isAdmin() || (isProvider() && resource.data.prestataireId == account().prestataireId
                     && resource.data.par == email() && resource.data.statut == 'nouveau');
     }
     function validReport(s) {
-      return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'statut', 'at', 'par', 'source', 'quoi', 'modifieAt'])
+      return s.keys().hasOnly(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'photo', 'photos', 'statut', 'at', 'par', 'source', 'quoi', 'modifieAt'])
         && s.keys().hasAll(['demandeId', 'plaque', 'prestataireId', 'type', 'texte', 'statut', 'at', 'par'])
         && s.prestataireId == account().prestataireId && s.par == email() && s.statut == 'nouveau'
         && s.type in ['choc', 'pneu', 'voyant', 'autre']
         && s.texte is string && s.texte.size() <= 500
         && s.at is string && s.at.size() <= 40
         && (!('photo' in s) || (s.photo is string && s.photo.size() <= 80))
+        && (!('photos' in s) || validPhotoKeys(s.photos))
         && s.demandeId is string && s.plaque is string
         && (validFieldReport(s) || (!('source' in s) && !('quoi' in s) && s.demandeId != ''
           && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.prestataireId == account().prestataireId
           && get(/databases/$(database)/documents/demandes/$(s.demandeId)).data.plaque == s.plaque));
+    }
+    // Up to 3 photo keys (the photos themselves are in preuves/).
+    function validPhotoKeys(l) {
+      return l is list && l.size() <= 3
+        && (l.size() < 1 || (l[0] is string && l[0].size() <= 80))
+        && (l.size() < 2 || (l[1] is string && l[1].size() <= 80))
+        && (l.size() < 3 || (l[2] is string && l[2].size() <= 80));
     }
     // « Signaler » tab: something seen on ANY vehicle, tied to no request. The provider still writes only under its own
     // name, can read back only its own reports, and never sees anything about the vehicle.

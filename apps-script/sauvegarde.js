@@ -8,6 +8,9 @@
 //   - un Google Sheet lisible (un onglet par collection, une ligne par document) ;
 //   - un fichier .json, copie exacte, qui sert à remettre une demande supprimée par erreur.
 // Les 12 dernières semaines sont gardées, les plus anciennes partent à la corbeille de Drive.
+// Les photos des signalements (collection « preuves ») ne sont PAS sauvegardées : elles sont lourdes (jusqu'à 1 Mo
+// chacune), effacées 40 jours après « Traité », et une page de 300 photos dépasserait la limite de 50 Mo de Google.
+// Les photos des pare-brise (collection « photos ») restent sauvegardées, lues 10 par 10.
 //
 // Aucun mot de passe ni clé ici : le script lit la base avec le compte Google qui l'exécute
 // (le propriétaire du projet Firebase). Il ne modifie jamais la base, sauf la fonction `restaurer`,
@@ -17,6 +20,8 @@ const PROJET = 'suivi-prestations';
 const FIRESTORE = 'https://firestore.googleapis.com/v1/projects/' + PROJET + '/databases/(default)/documents';
 const DOSSIER = 'Sauvegardes Suivi prestations';
 const SEMAINES_GARDEES = 12;
+const SANS_SAUVEGARDE = ['preuves'];
+const PAR_PAGE = { photos: 10 }; // documents lourds : lus par petites pages
 const CELLULE_MAX = 2000; // les photos (texte très long) ne sont pas recopiées dans le Sheet, seulement dans le .json
 
 // ---------- fonctions pures (testées dans sauvegarde.test.js) ----------
@@ -96,14 +101,14 @@ function collections() {
     (r.collectionIds || []).forEach((c) => ids.push(c));
     jeton = r.nextPageToken || '';
   } while (jeton);
-  return ids.sort();
+  return ids.filter((c) => SANS_SAUVEGARDE.indexOf(c) < 0).sort();
 }
 
 function documents(collection) {
   const docs = [];
   let jeton = '';
   do {
-    const r = appel(FIRESTORE + '/' + encodeURIComponent(collection) + '?pageSize=300' + (jeton ? '&pageToken=' + encodeURIComponent(jeton) : ''));
+    const r = appel(FIRESTORE + '/' + encodeURIComponent(collection) + '?pageSize=' + (PAR_PAGE[collection] || 300) + (jeton ? '&pageToken=' + encodeURIComponent(jeton) : ''));
     (r.documents || []).forEach((d) => docs.push(d));
     jeton = r.nextPageToken || '';
   } while (jeton);
