@@ -440,6 +440,10 @@
       }
     }
     const deleteHayon = (plate) => db.doc("hayons/" + D.plateKey(plate)).delete();
+    // « Retirer » keeps a small mark (retire) so a van that Metabase still lists with a tailgate does not come back the next morning.
+    // previous = the doc before, to put it back with « Annuler ».
+    const retireHayon = (plate, todayIso) => db.doc("hayons/" + D.plateKey(plate)).set({ plaque: D.normalizePlate(plate), dernierControle: "", retire: true, retireLe: todayIso, updatedAt: new Date().toISOString() });
+    const restoreHayon = (plate, previous) => previous ? db.doc("hayons/" + D.plateKey(plate)).set(previous) : deleteHayon(plate);
     // "Pas fait": the control did not happen, so it does not restart the 180 days. "Finalement fait" undoes it.
     function markHayonNotDone(demande, notDone) {
       const now = new Date().toISOString();
@@ -512,7 +516,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, purgeReportPhotos, markProblemHandled, validateWash, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, purgeReportPhotos, markProblemHandled, validateWash, saveHayons, deleteHayon, retireHayon, restoreHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };

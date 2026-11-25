@@ -977,9 +977,13 @@
       if (!vehicles.has(key)) vehicles.set(key, { plaque: normalizePlate(plate), base: null, requests: [], mb: null });
       return vehicles.get(key);
     };
-    hayons.filter((h) => plateKey(h.plaque)).forEach((h) => (entry(h.plaque).base = h));
-    demandes.filter((d) => isHayon(d) && plateKey(d.plaque)).forEach((d) => entry(d.plaque).requests.push(d));
-    if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && metabaseInFleet(mb) && plateKey(key) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
+    // Removed by the team (« Retirer », sold or returned van): hidden, and never brought back by Metabase.
+    // Only a tailgate control booked after the removal shows it again.
+    const retired = new Map(hayons.filter((h) => h.retire && plateKey(h.plaque)).map((h) => [plateKey(h.plaque), h.retireLe || ""]));
+    hayons.filter((h) => plateKey(h.plaque) && !h.retire).forEach((h) => (entry(h.plaque).base = h));
+    demandes.filter((d) => isHayon(d) && plateKey(d.plaque) && (!retired.has(plateKey(d.plaque)) || (d.date || "") > retired.get(plateKey(d.plaque))))
+      .forEach((d) => entry(d.plaque).requests.push(d));
+    if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && metabaseInFleet(mb) && plateKey(key) && !retired.has(plateKey(key)) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
     return [...vehicles.values()].map(({ plaque, base, requests, mb }) => {
       const known = metabase?.get(plateKey(plaque));
       const doneRequests = requests.filter((d) => hayonDone(d, todayIso));

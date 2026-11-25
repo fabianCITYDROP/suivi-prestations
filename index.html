@@ -4512,9 +4512,13 @@ window.SUIVI_FIREBASE_CONFIG = {
       if (!vehicles.has(key)) vehicles.set(key, { plaque: normalizePlate(plate), base: null, requests: [], mb: null });
       return vehicles.get(key);
     };
-    hayons.filter((h) => plateKey(h.plaque)).forEach((h) => (entry(h.plaque).base = h));
-    demandes.filter((d) => isHayon(d) && plateKey(d.plaque)).forEach((d) => entry(d.plaque).requests.push(d));
-    if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && metabaseInFleet(mb) && plateKey(key) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
+    // Removed by the team (« Retirer », sold or returned van): hidden, and never brought back by Metabase.
+    // Only a tailgate control booked after the removal shows it again.
+    const retired = new Map(hayons.filter((h) => h.retire && plateKey(h.plaque)).map((h) => [plateKey(h.plaque), h.retireLe || ""]));
+    hayons.filter((h) => plateKey(h.plaque) && !h.retire).forEach((h) => (entry(h.plaque).base = h));
+    demandes.filter((d) => isHayon(d) && plateKey(d.plaque) && (!retired.has(plateKey(d.plaque)) || (d.date || "") > retired.get(plateKey(d.plaque))))
+      .forEach((d) => entry(d.plaque).requests.push(d));
+    if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && metabaseInFleet(mb) && plateKey(key) && !retired.has(plateKey(key)) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
     return [...vehicles.values()].map(({ plaque, base, requests, mb }) => {
       const known = metabase?.get(plateKey(plaque));
       const doneRequests = requests.filter((d) => hayonDone(d, todayIso));
@@ -5259,6 +5263,10 @@ window.SUIVI_FIREBASE_CONFIG = {
       }
     }
     const deleteHayon = (plate) => db.doc("hayons/" + D.plateKey(plate)).delete();
+    // « Retirer » keeps a small mark (retire) so a van that Metabase still lists with a tailgate does not come back the next morning.
+    // previous = the doc before, to put it back with « Annuler ».
+    const retireHayon = (plate, todayIso) => db.doc("hayons/" + D.plateKey(plate)).set({ plaque: D.normalizePlate(plate), dernierControle: "", retire: true, retireLe: todayIso, updatedAt: new Date().toISOString() });
+    const restoreHayon = (plate, previous) => previous ? db.doc("hayons/" + D.plateKey(plate)).set(previous) : deleteHayon(plate);
     // "Pas fait": the control did not happen, so it does not restart the 180 days. "Finalement fait" undoes it.
     function markHayonNotDone(demande, notDone) {
       const now = new Date().toISOString();
@@ -5331,7 +5339,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, purgeReportPhotos, markProblemHandled, validateWash, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, purgeReportPhotos, markProblemHandled, validateWash, saveHayons, deleteHayon, retireHayon, restoreHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -9613,7 +9621,7 @@ function page(texte) {
   }
   function hayonSheetHtml(r) {
     const key = D.plateKey(r.plaque);
-    const known = state.hayons.some((h) => D.plateKey(h.plaque) === key);
+    const known = true; // « Retirer » marche aussi pour un véhicule venu de Metabase (il ne revient pas)
     const recent = r.lastRequest && D.daysBetween(r.lastRequest.date, today()) <= 30;
     const info = [
       ["Dernier contrôle", r.lastControl ? D.numericDate(r.lastControl) : "Inconnu", r.lastRequest ? `Rendez-vous du ${D.shortDate(r.lastRequest.date)}` : r.lastControl ? "Liste du prestataire" : ""],
@@ -9732,7 +9740,12 @@ function page(texte) {
     }
     if (act === "remove" && r && requireStore()) {
       if (hy.removing !== key) { hy.removing = key; return refreshHayonSheet(); }
-      try { await state.store.deleteHayon(key); hy.removing = ""; teamSheet.close(); toast(`${r.plaque} retiré de la liste des hayons`); }
+      const previous = state.hayons.find((h) => D.plateKey(h.plaque) === key) || null;
+      const { id, ...before } = previous || {};
+      try {
+        await state.store.retireHayon(r.plaque, today()); hy.removing = ""; teamSheet.close();
+        toast(`${r.plaque} retiré des contrôles hayon`, { label: "Annuler", run: () => state.store.restoreHayon(r.plaque, previous ? before : null).catch(reportWriteError) });
+      }
       catch (err) { reportWriteError(err); }
     }
   }

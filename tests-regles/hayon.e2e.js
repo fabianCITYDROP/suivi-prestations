@@ -130,7 +130,14 @@ async function seed() {
       await p.click('[data-hy-act="remove"]'); await p.waitForTimeout(200); await s('5-retirer-confirmer');
       await p.click('[data-hy-act="remove"]'); await p.waitForTimeout(900);
       doc = await get('hayons/GN205XY');
-      if (!doc.error) errors.push('Retirer non enregistré');
+      if (doc.fields?.retire?.booleanValue !== true) errors.push('Retirer non enregistré');
+      if (await p.$('[data-hy-key="GN205XY"]')) errors.push('Véhicule retiré encore affiché');
+      // Un véhicule venu de Metabase se retire aussi, et ne revient pas
+      await p.click('[data-hy-key="HN587SX"]'); await p.waitForTimeout(600);
+      await p.click('[data-hy-act="remove"]'); await p.waitForTimeout(200); await p.click('[data-hy-act="remove"]'); await p.waitForTimeout(900);
+      if (await p.$('[data-hy-key="HN587SX"]')) errors.push('Véhicule Metabase retiré encore affiché');
+      await p.click('#toast .toast-action'); await p.waitForTimeout(900);
+      if (!(await p.$('[data-hy-key="HN587SX"]'))) errors.push('Annuler (retirer) ne remet pas le véhicule');
       // Demander un contrôle : Nouvelle demande remplie
       await p.click('[data-hy-key="GA731PM"]'); await p.waitForTimeout(600); await s('6-fiche-depasse');
       await p.click('[data-hy-act="ask"]'); await p.waitForTimeout(700); await s('7-demande-remplie');
