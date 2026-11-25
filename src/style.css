@@ -795,6 +795,14 @@ body.sheet-open .sheet-scrim { opacity: 1; pointer-events: auto; }
 .sheet-photo { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--line) inset; }
 .sheet-photo img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; }
 .sheet-photo .ghost { margin-left: auto; }
+/* Up to 3 photos on a report: small squares, a round × in the corner takes one back. */
+.sheet-photos { display: flex; gap: 10px; margin-bottom: 10px; }
+.sheet-ph { position: relative; width: 72px; height: 72px; border-radius: 12px; background: var(--surface-2); box-shadow: 0 0 0 1px var(--line) inset; }
+.sheet-ph img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
+.sheet-ph-kept { display: grid; place-items: center; width: 100%; height: 100%; color: var(--ink-2); }
+.sheet-ph-kept .icon { width: 22px; height: 22px; }
+.sheet-ph-x { position: absolute; top: -8px; right: -8px; display: grid; place-items: center; width: 26px; height: 26px; min-height: 0; padding: 0; border: 2px solid var(--bg); border-radius: 50%; background: var(--ink); color: var(--bg); cursor: pointer; }
+.sheet-ph-x .icon { width: 13px; height: 13px; }
 .field-send, .field-actions .primary { width: 100%; min-height: 54px; font-size: 16.5px; font-weight: 600; border-radius: 14px; letter-spacing: -.005em; }
 .sent-title { margin-top: 6px; margin-bottom: -8px; }
 .presta-sheet .field-sent { border: 0; border-radius: 14px; box-shadow: 0 0 0 1px var(--line) inset; }
@@ -1644,6 +1652,12 @@ body.team-sheet-open .lightbox { z-index: 50; }
 .ret-sh-note cite { display: block; margin-top: 6px; font: 600 13px var(--f-body); font-style: normal; color: var(--ink-2); }
 .ret-sh-note cite::before { content: "— "; }
 .ret-sh-photo { position: relative; display: block; width: 100%; min-height: 0; padding: 0; border: 0; border-radius: 16px; overflow: hidden; background: none; cursor: zoom-in; }
+.ret-sh-photos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.ret-sh-photos.n3 { grid-template-columns: repeat(3, 1fr); }
+.ret-sh-photos .ret-thumb.big { aspect-ratio: 1; border-radius: 12px; }
+.ret-thumb-n { position: absolute; right: 3px; bottom: 3px; min-width: 18px; padding: 1px 5px; border-radius: 9px; background: rgba(0, 0, 0, .62); color: #fff; font-size: 11px; font-weight: 700; line-height: 16px; text-align: center; }
+.ret-sh-erased { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; color: var(--ink-2); }
+.ret-sh-erased .icon { width: 18px; height: 18px; }
 .ret-thumb.big { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 16px; }
 .ret-sh-zoom { position: absolute; right: 10px; bottom: 10px; padding: 5px 11px; border-radius: 999px; background: rgba(10, 20, 28, .55); color: #fff; font: 600 13px var(--f-body); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .ret-sh-info { margin: 0; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }

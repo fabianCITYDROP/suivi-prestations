@@ -106,6 +106,27 @@ test("les photos de preuve restent chez leur prestataire et l'équipe", async ()
   await assertSucceeds(getDoc(doc(as("jerome"), "preuves/p1")));
 });
 
+test("photos des signalements : jusqu'à 3, le prestataire efface les siennes, l'équipe les efface après 40 jours", async () => {
+  const khalid = as("khalid");
+  await assertSucceeds(setDoc(doc(khalid, "preuves/sig_ZZ1_a"), { prestataireId: KHALID, plaque: "ZZ-111-ZZ", data: "x" }));
+  await assertSucceeds(setDoc(doc(as("allo"), "preuves/sig_AA1_a"), { prestataireId: ALLO, plaque: "AA-111-AA", data: "x" }));
+  await assertFails(deleteDoc(doc(khalid, "preuves/sig_AA1_a")), "jamais la photo d'un autre");
+  await assertSucceeds(deleteDoc(doc(khalid, "preuves/sig_ZZ1_a")), "la photo de son signalement");
+  const field = { demandeId: "", source: "terrain", plaque: "ZZ-999-ZZ", prestataireId: KHALID, type: "autre", quoi: ["Carrosserie"],
+    texte: "Carrosserie", statut: "nouveau", at: "2026-11-20T10:00:00Z", par: people.khalid.email };
+  await assertSucceeds(setDoc(doc(khalid, "signalements/ph1"), { ...field, photos: ["sig_a", "sig_b", "sig_c"] }));
+  await assertFails(setDoc(doc(khalid, "signalements/ph2"), { ...field, photos: ["a", "b", "c", "d"] }), "4 photos : refusé");
+  await assertFails(setDoc(doc(khalid, "signalements/ph2"), { ...field, photos: [12] }));
+  await assertFails(setDoc(doc(khalid, "signalements/ph2"), { ...field, photos: "sig_a" }));
+  await assertSucceeds(updateDoc(doc(khalid, "signalements/ph1"), { photos: ["sig_a"], modifieAt: "2026-11-21T10:00:00Z" }), "il retire des photos en le modifiant");
+  await assertFails(updateDoc(doc(khalid, "signalements/ph1"), { photos: [], photosEffacees: true }), "le prestataire n'écrit pas « effacées »");
+  await assertSucceeds(updateDoc(doc(as("fabian"), "signalements/ph1"), { statut: "traite", traiteAt: "2026-10-01T10:00:00Z", traitePar: people.fabian.email }));
+  await assertFails(updateDoc(doc(as("jerome"), "signalements/ph1"), { photos: [], photosEffacees: true }), "lecture seule");
+  await assertFails(updateDoc(doc(as("fabian"), "signalements/ph1"), { photos: [], photosEffacees: true, texte: "x" }), "seulement les photos");
+  await assertFails(updateDoc(doc(as("fabian"), "signalements/ph1"), { photos: ["sig_z"], photosEffacees: true }));
+  await assertSucceeds(updateDoc(doc(as("fabian"), "signalements/ph1"), { photos: [], photosEffacees: true }), "l'équipe efface les photos, le texte reste");
+});
+
 test("Jérôme lit tout mais ne modifie rien", async () => {
   const db = as("jerome");
   await assertSucceeds(getDocs(collection(db, "demandes")));

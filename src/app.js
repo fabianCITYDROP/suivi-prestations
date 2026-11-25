@@ -212,10 +212,15 @@
   }
   // Each photo is one document: 256 KiB max inside claude.ai, 1 MiB on Firebase (the platform raises the limit).
   const MAX_PHOTO_CHARS = window.SUIVI_MAX_PHOTO_CHARS || 240000;
-  async function prepareImage(file) {
-    for (const [side, quality] of [[2400, 0.9], [2000, 0.86], [1600, 0.82], [1400, 0.72], [1000, 0.6], [800, 0.5]]) {
+  // Windshield photos keep as much detail as a document allows. A problem's photos ({ light: true }) only have to show
+  // a shock or a worn tyre: 1600 px at most and about 0.3 MB, so 3 of them take less room than one windshield photo.
+  const LIGHT_PHOTO_CHARS = 300000;
+  async function prepareImage(file, { light = false } = {}) {
+    const steps = light ? [[1600, 0.8], [1400, 0.75], [1200, 0.7], [1000, 0.6], [800, 0.5]] : [[2400, 0.9], [2000, 0.86], [1600, 0.82], [1400, 0.72], [1000, 0.6], [800, 0.5]];
+    const max = light ? Math.min(LIGHT_PHOTO_CHARS, MAX_PHOTO_CHARS) : MAX_PHOTO_CHARS;
+    for (const [side, quality] of steps) {
       const full = await shrinkImage(file, side, quality);
-      if (full.length <= MAX_PHOTO_CHARS) return { full, thumb: await shrinkImage(file, 360, 0.75) };
+      if (full.length <= max) return { full, thumb: await shrinkImage(file, 360, 0.75) };
     }
     throw new Error("too_big");
   }
@@ -309,7 +314,9 @@
     if ((el = target("[data-save-photo]"))) { saveBlob(singlePhotoJpeg(el.dataset.savePhoto), el.dataset.name); return; }
     if ((el = target("[data-zoom]"))) { const all = [...(el.parentElement?.querySelectorAll("[data-zoom]") || [])]; const list = all.length ? all : [el];
       viewer.open(list.map((x) => ({ key: x.dataset.zoom, thumb: x.getAttribute("src") || "" })), Math.max(0, list.indexOf(el))); }
-    if ((el = target("[data-proof]"))) viewer.open([{ key: el.dataset.proof, proof: true }], 0);
+    if ((el = target("[data-proof]"))) { // several photos of one report: swipe from one to the next
+      const keys = (el.dataset.proofSet || el.dataset.proof).split(",").filter(Boolean);
+      viewer.open(keys.map((key) => ({ key, proof: true })), Math.max(0, keys.indexOf(el.dataset.proof))); }
   }, true);
 
   // ================= photo en grand, plein écran (façon app Photos) =================
@@ -3250,7 +3257,7 @@
         : r.etat === "autre-date" ? [{ act: "accept", label: `Accepter le ${D.shortDate(r.date)}`, primary: true }, { act: "seen", label: "Vu" }]
         : RET_DECIDE.includes(r.etat) ? [{ act: "replan", label: "Replanifier", primary: true }, { act: "seen", label: "Vu" }]
         : [{ act: "seen", label: "Vu" }];
-      return { art: RET_ART[r.etat] || "ret-fait", kind: "Réponse à une demande", what, note: r.note || "", who: d.prestataire, plate: d.plaque, job, d, photo: r.preuve || "", acts,
+      return { art: RET_ART[r.etat] || "ret-fait", kind: "Réponse à une demande", what, note: r.note || "", who: d.prestataire, plate: d.plaque, job, d, photos: r.preuve ? [r.preuve] : [], acts,
         doneLine: done ? "Vu" : "" };
     }
     const p = it.p;
@@ -3258,7 +3265,7 @@
     const handledBy = done ? `Traité${p.traitePar ? " par " + p.traitePar.split("@")[0] : ""}${p.traiteAt ? " le " + atLabel(p.traiteAt) : ""}` : "";
     if (it.kind === "p") {
       const acts = done ? [{ act: "reopen", label: "Rouvrir" }] : [{ act: "handled", label: "Traité", primary: true, check: true }, ...(d ? [{ act: "open", label: "Ouvrir la demande" }] : [])];
-      return { art: "act-problem", kind: "Problème sur un véhicule", what: D.problemSummary(p), note: "", who, plate: p.plaque, job, d, photo: p.photo || "", acts, doneLine: handledBy };
+      return { art: "act-problem", kind: "Problème sur un véhicule", what: D.problemSummary(p), note: "", who, plate: p.plaque, job, d, photos: D.reportPhotos(p), erased: !!p.photosEffacees, acts, doneLine: handledBy };
     }
     const ticks = ticksOf(p);
     const tickText = ticks.join(", ");
@@ -3267,7 +3274,7 @@
       : canValidateWash(p) ? [{ act: "wash", label: "Valider le lavage", primary: true, check: true }, { act: "new", label: "Créer une demande", sheetOnly: true }, { act: "handled", label: "Traité" }]
       : [{ act: "new", label: "Créer une demande", primary: true, plus: true }, { act: "handled", label: "Traité" }];
     return { art: ticks.find((q) => self.IssueArt?.has(q)) || "Autre", kind: "Vu en passant", what: ticks.length ? ticks.join(", ") : "Autre", note: ticks.length ? words : "", noteIsText: !ticks.length,
-      extraArts: ticks.slice(1).filter((q) => self.IssueArt?.has(q)), who, plate: p.plaque, job: "", d: null, photo: p.photo || "", acts, doneLine: handledBy,
+      extraArts: ticks.slice(1).filter((q) => self.IssueArt?.has(q)), who, plate: p.plaque, job: "", d: null, photos: D.reportPhotos(p), erased: !!p.photosEffacees, acts, doneLine: handledBy,
       edited: p.modifieAt ? `modifié le ${atLabel(p.modifieAt)}` : "", whatOverride: !ticks.length ? words || p.texte : "" };
   }
   // « Véhicule sale » from a washer: the team can validate the wash at once (see D.washFromReport).
@@ -3330,7 +3337,8 @@
   const retBtn = (a, key) => `<button type="button" class="ret-btn${a.primary ? " primary" : ""}" data-ret-act="${a.act}" data-key="${esc(key)}">${a.check ? icon("check") : a.plus ? icon("plus") : ""}${esc(a.label)}</button>`;
   function retCard(it) {
     const v = retView(it);
-    const thumb = v.photo ? `<span class="ret-thumb" data-thumb="${esc(v.photo)}">${ret.thumbs.get(v.photo) ? `<img src="${ret.thumbs.get(v.photo)}" alt="">` : ""}${icon("image")}</span>` : "";
+    const first = v.photos[0];
+    const thumb = first ? `<span class="ret-thumb" data-thumb="${esc(first)}">${ret.thumbs.get(first) ? `<img src="${ret.thumbs.get(first)}" alt="">` : ""}${icon("image")}${v.photos.length > 1 ? `<span class="ret-thumb-n">${v.photos.length}</span>` : ""}</span>` : "";
     const meta = [v.who, v.job, v.d && D.siteOf(v.d)].filter(Boolean).join(" · ");
     const acts = state.canWrite ? v.acts.filter((a) => (!["open", "replan"].includes(a.act) || v.d) && !a.sheetOnly) : [];
     const done = isRetDone(it);
@@ -3395,6 +3403,13 @@
       }).catch(() => {});
     });
   }
+  // One photo: large. Two or three: side by side. Each opens full screen, and the others follow with a swipe.
+  function retSheetPhotos(v) {
+    if (!v.photos.length) return v.erased ? `<p class="ret-sh-erased">${icon("image")}Photo effacée 40 jours après « Traité »</p>` : "";
+    const set = v.photos.join(",");
+    const one = (k, i) => `<button type="button" class="ret-sh-photo" data-proof="${esc(k)}" data-proof-set="${esc(set)}" aria-label="Voir la photo ${i + 1} en grand"><span class="ret-thumb big" data-thumb="${esc(k)}">${ret.thumbs.get(k) ? `<img src="${ret.thumbs.get(k)}" alt="">` : ""}${icon("image")}</span>${v.photos.length === 1 ? `<span class="ret-sh-zoom">Agrandir</span>` : ""}</button>`;
+    return v.photos.length === 1 ? one(v.photos[0], 0) : `<div class="ret-sh-photos n${v.photos.length}">${v.photos.map(one).join("")}</div>`;
+  }
   function retSheetHtml(it) {
     const v = retView(it);
     const d = v.d;
@@ -3415,7 +3430,7 @@
         <div><b class="ret-sh-what">${esc(v.whatOverride || v.what)}</b>
         ${v.extraArts?.length ? `<span class="ret-minis">${[v.art, ...v.extraArts].map((q) => retArt(q, "mini-art")).join("")}</span>` : ""}</div></div>
       ${v.note ? `<blockquote class="ret-sh-note">${esc(v.note)}<cite>${esc(v.who)}</cite></blockquote>` : ""}
-      ${v.photo ? `<button type="button" class="ret-sh-photo" data-proof="${esc(v.photo)}" aria-label="Voir la photo en grand"><span class="ret-thumb big" data-thumb="${esc(v.photo)}">${ret.thumbs.get(v.photo) ? `<img src="${ret.thumbs.get(v.photo)}" alt="">` : ""}${icon("image")}</span><span class="ret-sh-zoom">Agrandir</span></button>` : ""}
+      ${retSheetPhotos(v)}
       <dl class="ret-sh-info">${rows.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join("")}</dl>
       ${acts.length ? `<div class="ret-sh-acts">${acts.map((a) => retBtn(a, it.key)).join("")}</div>` : ""}
     </div>`;
@@ -3540,6 +3555,12 @@
     if (!$("#view-corbeille").hidden) openTrash();
     // Erase for good what has spent 20 days in the trash: done by the team app itself, no paid server needed.
     else if (state.canWrite) setTimeout(() => state.store.purgeTrash().catch(() => {}), 5000);
+    // Photos of problems handled 40 days ago are erased (the words stay): at most once a day on this device.
+    if (state.canWrite) setTimeout(() => {
+      let last = ""; try { last = localStorage.getItem("suivi.photosPurge") || ""; } catch {}
+      if (last === today()) return;
+      state.store.purgeReportPhotos().then(() => { try { localStorage.setItem("suivi.photosPurge", today()); } catch {} }).catch(() => {});
+    }, 8000);
   }
   function startProviderMode(account) {
     state.providerMode = true;

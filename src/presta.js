@@ -4,7 +4,7 @@
 // 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), closed with "Prestation réalisée".
 // 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
 // 4. "Faits": history and counts.
-// On any accepted vehicle (and for 7 days once done), the provider can report a problem seen on it: a few words, an optional photo.
+// On any accepted vehicle (and for 7 days once done), the provider can report a problem seen on it: a few words, up to 3 photos.
 // For 10 minutes after « Prestation réalisée », the provider can take it back (wrong vehicle): it goes back to its list.
 // To add something, it simply reports again.
 // 5. "Signaler" (+): what the provider saw on ANY vehicle, even one it was not sent to (dirty, windscreen, tyres…),
@@ -104,7 +104,7 @@
     }
     // Problems already reported on this request: the provider sees the team got them, and does not send them twice.
     function problemLines(d) {
-      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${p.photo ? " · avec photo" : ""}</small></span>${deleteReportBtn(p)}</div>`).join("");
+      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${D.photosLabel(p)}</small></span>${deleteReportBtn(p)}</div>`).join("");
     }
     function answerLine(d) {
       const r = d.retour;
@@ -146,7 +146,7 @@
         : `<input class="sheet-input" data-note value="${esc(dr.note || "")}" placeholder="${a.ph}" maxlength="${D.PROBLEM_TEXT_MAX}">`}</label>`;
       const veh = `<div class="act-veh">${serviceTile(d, "svc-tile sm")}<span>${plateTag(d.plaque)}<small>${esc([D.vehicleLabel(d), D.jobLabel(d)].filter(Boolean).join(" · "))}</small></span></div>`;
       let fields = "";
-      if (kind === "problem") fields = `<label class="sheet-group"><span class="sheet-label">Qu'est-ce qui ne va pas ?</span><textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(dr.note || "")}</textarea></label>${photoPicker()}`;
+      if (kind === "problem") fields = `<label class="sheet-group"><span class="sheet-label">Qu'est-ce qui ne va pas ?</span><textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(dr.note || "")}</textarea></label>${photosPicker(dr.photos || [], dr.photoBusy, "photo")}`;
       else if (kind === "date") fields = `<fieldset class="sheet-group day-set"><legend class="sheet-label">Nouvelle date</legend>
           <div class="day-chips">${nextDays(4).map((iso) => `<button type="button" class="day-chip" data-day="${iso}" aria-pressed="${dr.date === iso}">${esc(dayChip(iso))}</button>`).join("")}</div>
           <div class="day-row"><label><span>Autre jour</span><input type="date" class="sheet-input" data-date data-keep="adate" min="${today()}" value="${esc(dr.date || "")}"></label>
@@ -156,11 +156,23 @@
       return `<div class="act-sheet" data-asheet>${back}${veh}${fields}
         ${state.busy.has(d.id) ? busyLine : `<button type="button" class="primary big field-send${kind === "done" ? " ok" : ""}" data-asend>${kind === "done" ? icon("check") : ""}${a.btn}</button>`}</div>`;
     }
-    function photoPicker() {
-      const ph = state.draft.photo;
-      if (state.draft.photoBusy) return `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`;
-      if (ph) return `<div class="sheet-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer</button></div>`;
-      return `<label class="sheet-photo-add">${icon("camera")}<span>Ajouter une photo</span><small>facultatif</small><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
+    // Up to 3 photos: the ones chosen (× takes one back), then « Ajouter » while there is room.
+    // list: {full, thumb} just taken, or {key} already sent (a report being changed). kind: "photo" | "fphoto".
+    function photosPicker(list, busy, kind) {
+      const max = D.MAX_REPORT_PHOTOS;
+      const tiles = list.map((ph, i) => `<span class="sheet-ph">${ph.thumb ? `<img src="${safeImageSrc(ph.thumb)}" alt="Photo ${i + 1}">` : `<span class="sheet-ph-kept">${icon("image")}</span>`}<button type="button" class="sheet-ph-x" data-${kind}-remove="${i}" aria-label="Retirer la photo ${i + 1}">${icon("x")}</button></span>`).join("");
+      const add = busy ? `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`
+        : list.length < max ? `<label class="sheet-photo-add">${icon("camera")}<span>${list.length ? "Ajouter une photo" : "Ajouter des photos"}</span><small>${list.length ? `${list.length} sur ${max}` : `facultatif · ${max} max`}</small><input type="file" accept="image/*" multiple data-${kind} hidden></label>` : "";
+      return (tiles ? `<div class="sheet-photos">${tiles}</div>` : "") + add;
+    }
+    // The chosen files, made light, added after the ones already there (never more than 3).
+    async function addPhotos(files, list, setBusy) {
+      const room = D.MAX_REPORT_PHOTOS - list.length;
+      if ([...files].length > room) toast(`${D.MAX_REPORT_PHOTOS} photos au maximum`);
+      setBusy(true); render();
+      try { for (const file of [...files].slice(0, Math.max(0, room))) list.push(await prepareImage(file, { light: true })); }
+      catch { toast("Photo illisible : essaie avec une autre"); }
+      finally { setBusy(false); render(); }
     }
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
 
@@ -400,7 +412,7 @@
     // ---------- « Signaler »: field reports on any vehicle ----------
     // One vehicle at a time: « Envoyer » clears the form for the next one (several vehicles = several quick sends).
     // A report of the list is touched to change or delete it, until the team has handled it.
-    const emptyField = () => ({ plaque: "", quoi: [], texte: "", photo: null, photoKey: "", photoBusy: false, editId: null });
+    const emptyField = () => ({ plaque: "", quoi: [], texte: "", photos: [], photoBusy: false, editId: null });
     const fd = () => (state.fd ||= emptyField());
     const editable = (p) => p.statut !== "traite" && p.par === email;
     // One drawn icon per anomaly (same 24px grid and stroke as the app's icons): quicker to spot than words.
@@ -408,14 +420,12 @@
     const issueIcon = (q) => self.IssueArt?.art(q) || "";
     const miniIcons = (quoi) => (quoi || []).filter((q) => self.IssueArt?.has(q)).slice(0, 4).map((q) => self.IssueArt.art(q, "mini-art")).join("");
     // Le bouton reste gris tant qu'il manque l'immatriculation ou un choix ; un appui explique quand même ce qui manque.
-    const fieldReady = () => { const r = fd(); return !D.fieldReport({ ...r, photo: r.photo ? "new" : r.photoKey }, account.prestataireId, email, "").error; };
+    const fieldReady = () => !D.fieldReport({ ...fd(), photos: [] }, account.prestataireId, email, "").error;
     const syncSend = () => sheetEl.querySelector("[data-fsend]")?.setAttribute("aria-disabled", String(!fieldReady()));
     const sheetTitle = () => (fd().editId ? "Modifier le signalement" : "Signaler une anomalie");
     function sheetBody() {
       const r = fd(), editing = !!r.editId;
-      const photo = r.photoBusy ? `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`
-        : r.photo || r.photoKey ? `<div class="sheet-photo">${r.photo ? `<img src="${safeImageSrc(r.photo.thumb)}" alt="Photo">` : `<span class="photo-kept">${icon("image")}Photo jointe</span>`}<button type="button" class="ghost" data-fphoto-remove>${icon("x")}Retirer</button></div>`
-        : `<label class="sheet-photo-add">${icon("camera")}<span>Ajouter une photo</span><small>facultatif</small><input type="file" accept="image/*" capture="environment" data-fphoto hidden></label>`;
+      const photo = photosPicker(r.photos, r.photoBusy, "fphoto");
       const del = state.pdelArmed === r.editId
         ? `<button type="button" class="field-del armed" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer ?</button>`
         : `<button type="button" class="field-del" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer</button>`;
@@ -435,7 +445,7 @@
         ${mine.length && !editing ? `<h3 class="sheet-label sent-title">Signalements récents</h3><ul class="field-sent">${mine.map(sentRow).join("")}</ul>` : ""}`;
     }
     function sentRow(p) {
-      const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${miniIcons(p.quoi) ? `<span class="mini-arts">${miniIcons(p.quoi)}</span>` : ""}${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}${p.modifieAt ? " · modifié" : ""}</small></span>
+      const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${miniIcons(p.quoi) ? `<span class="mini-arts">${miniIcons(p.quoi)}</span>` : ""}${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${D.photosLabel(p)}${p.modifieAt ? " · modifié" : ""}</small></span>
         <span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${D.washOfReport(p, state.demandes) ? "Lavage validé" : p.statut === "traite" ? "Traité" : "Transmis"}</span>`;
       return editable(p)
         ? `<li><button type="button" class="sent-row${fd().editId === p.id ? " current" : ""}" data-fedit="${esc(p.id)}" aria-label="Modifier ou supprimer le signalement ${esc(p.plaque)}">${body}${icon("chev-r")}</button></li>`
@@ -443,14 +453,14 @@
     }
     async function sendField() {
       const r = fd();
-      const photo = r.photo ? "new" : r.photoKey;
-      const check = D.fieldReport({ ...r, photo }, account.prestataireId, email, "");
+      const check = D.fieldReport({ ...r, photos: [] }, account.prestataireId, email, "");
       if (check.error) return toast(check.error);
       state.fieldBusy = true; render();
       try {
         const fields = { plaque: r.plaque, quoi: r.quoi, texte: r.texte, par: email };
-        if (r.editId) { await store.updateField(state.problems.find((p) => p.id === r.editId), fields, r.photo?.full, r.photoKey); toast(`Signalement ${D.normalizePlate(r.plaque)} modifié`); }
-        else { await store.reportField(account.prestataireId, fields, r.photo?.full); sentFlash(D.normalizePlate(r.plaque)); }
+        const fresh = r.photos.filter((ph) => ph.full).map((ph) => ph.full);
+        if (r.editId) { await store.updateField(state.problems.find((p) => p.id === r.editId), fields, fresh, r.photos.filter((ph) => ph.key).map((ph) => ph.key)); toast(`Signalement ${D.normalizePlate(r.plaque)} modifié`); }
+        else { await store.reportField(account.prestataireId, fields, fresh); sentFlash(D.normalizePlate(r.plaque)); }
         state.fd = emptyField();
         sheetEl.querySelector(".sheet-b").scrollTop = 0;
       } catch (err) {
@@ -471,23 +481,22 @@
     function editField(id) {
       const p = state.problems.find((x) => x.id === id);
       if (!p || !editable(p)) return;
-      state.fd = { ...emptyField(), editId: p.id, plaque: p.plaque, quoi: [...(p.quoi || [])], texte: D.fieldNoteOf(p), photoKey: p.photo || "" };
+      state.fd = { ...emptyField(), editId: p.id, plaque: p.plaque, quoi: [...(p.quoi || [])], texte: D.fieldNoteOf(p), photos: D.reportPhotos(p).map((key) => ({ key, thumb: thumbOf(key) })) };
       state.pdelArmed = null; render();
+      // Photos sent from another phone: read once (one read each) so the provider sees which one to take back.
+      const form = state.fd;
+      form.photos.filter((ph) => !ph.thumb).forEach((ph) => store.loadProof(ph.key).then((src) => { if (src && state.fd === form) { ph.thumb = src; render(); } }).catch(() => {}));
       sheetEl.querySelector(".sheet-b").scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     }
     async function deleteReport(id) {
       if (state.pdelArmed !== id) { state.pdelArmed = id; render(); return; }
       state.pdelArmed = null; state.busy.add("pdel:" + id); state.fieldBusy = state.fd?.editId === id; render();
-      try { await store.deleteProblem(id); toast("Signalement supprimé"); if (state.fd?.editId === id) state.fd = emptyField(); }
+      try { await store.deleteProblem(state.problems.find((p) => p.id === id) || { id }); toast("Signalement supprimé"); if (state.fd?.editId === id) state.fd = emptyField(); }
       catch (err) { toast(err?.code === "permission-denied" ? "Déjà vu par l'équipe : appelle-la pour corriger" : "Suppression impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete("pdel:" + id); state.fieldBusy = false; render(); }
     }
-    async function addFieldPhoto(file) {
-      const r = fd(); r.photoBusy = true; render();
-      try { r.photo = await prepareImage(file); r.photoKey = ""; }
-      catch { toast("Photo illisible : essaie avec une autre"); }
-      finally { r.photoBusy = false; render(); }
-    }
+    // A photo sent from this phone is still in memory: its small version is shown while the report is changed.
+    const thumbOf = (key) => store.cachedPhoto?.("preuve:" + key) || "";
 
     const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
@@ -614,22 +623,16 @@
       const draft = { ...typed, note };
       state.busy.add(d.id); state.openForm = null; render();
       try {
-        await store.reportProblem(d, { texte: note, par: email }, draft.photo?.full);
+        await store.reportProblem(d, { texte: note, par: email }, (draft.photos || []).map((ph) => ph.full));
         state.draft = {}; toast("Problème envoyé à l'équipe, merci !");
       } catch { state.openForm = "problem:" + d.id; state.draft = draft; openSheet("act"); toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
-    async function addPhoto(file) {
-      state.draft.photoBusy = true; render();
-      try { state.draft.photo = await prepareImage(file); }
-      catch { toast("Photo illisible : essaie avec une autre"); }
-      finally { state.draft.photoBusy = false; render(); }
-    }
 
     view.addEventListener("change", (e) => {
-      if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]);
+      if (e.target.matches("[data-photo]") && e.target.files.length) addPhotos(e.target.files, (state.draft.photos ||= []), (v) => { state.draft.photoBusy = v; });
       if (e.target.matches("[data-month]")) { closeSheet(); showMonth(e.target.value); }
-      if (e.target.matches("[data-fphoto]") && e.target.files[0]) addFieldPhoto(e.target.files[0]);
+      if (e.target.matches("[data-fphoto]") && e.target.files.length) { const r = fd(); addPhotos(e.target.files, r.photos, (v) => { r.photoBusy = v; }); }
       if (e.target.matches("[data-fplate]")) { fd().plaque = D.normalizePlate(fd().plaque); e.target.value = fd().plaque; } // AB123CD -> AB-123-CD
     });
     // An older month's report: only that month is read (free plan's daily reads), then it stays loaded.
@@ -663,7 +666,7 @@
         render(); state.popQ = null;
         if (q === "Autre" && r.quoi.includes("Autre")) sheetEl.querySelector("[data-ftext]")?.focus({ preventScroll: true });
       }
-      else if ((b = el("[data-fphoto-remove]"))) { fd().photo = null; fd().photoKey = ""; render(); }
+      else if ((b = el("[data-fphoto-remove]"))) { fd().photos.splice(Number(b.dataset.fphotoRemove), 1); render(); }
       else if ((b = el("[data-fsend]"))) sendField();
       else if ((b = el("[data-fedit]"))) editField(b.dataset.fedit);
       else if ((b = el("[data-fcancel]"))) { state.fd = emptyField(); state.pdelArmed = null; render(); }
@@ -683,7 +686,7 @@
         if (b.dataset.act === "problem") setTimeout(() => sheetEl.querySelector("textarea[data-note]")?.focus({ preventScroll: true }), 380);
       }
       else if ((b = el("[data-day]"))) { state.draft.date = b.dataset.day; render(); }
-      else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
+      else if ((b = el("[data-photo-remove]"))) { (state.draft.photos || []).splice(Number(b.dataset.photoRemove), 1); render(); }
       else if ((b = el("[data-asend]"))) sendAct();
     });
     // The sheet's main button. « Prestation réalisée »: the card shows a green tick, then leaves the list.

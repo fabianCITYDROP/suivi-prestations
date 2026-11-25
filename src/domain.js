@@ -766,7 +766,8 @@
     return null;
   }
   // ---------- problems seen on a vehicle (collection "signalements", written by the provider) ----------
-  // {demandeId, plaque, prestataireId, type, texte, photo?, statut "nouveau"|"traite", at, par, traiteAt?, traitePar?}
+  // {demandeId, plaque, prestataireId, type, texte, photos?: [key…], statut "nouveau"|"traite", at, par, traiteAt?, traitePar?}
+  // (older reports carry a single photo key in « photo »; reportPhotos reads both).
   // A provider often sees a shock, a worn tyre or a warning light before City-Drop does: one tap tells the team.
   const PROBLEMS = [
     { id: "choc", label: "Choc / carrosserie" },
@@ -780,14 +781,26 @@
   const problemSummary = (s) => (!s.type || s.type === "autre") && s.texte ? s.texte : [problemOf(s.type)?.label || "Problème", s.texte].filter(Boolean).join(" – ");
   // The document a provider writes: a few words (required) and an optional photo. Returns {error} when the words are missing.
   // The provider no longer picks a type (Fabian, 2026-11-19: « juste écrire »): new reports are type "autre".
-  function problemReport(demande, { type = "autre", texte, photo } = {}, email, nowIso) {
+  function problemReport(demande, { type = "autre", texte, photos = [] } = {}, email, nowIso) {
     const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
     if (!problemOf(type)) return { error: "Type de problème inconnu" };
     if (!text) return { error: "Dis en quelques mots ce que tu as vu" };
     return {
       demandeId: demande.id, plaque: demande.plaque, prestataireId: demande.prestataireId,
-      type, texte: text, ...(photo ? { photo } : {}), statut: "nouveau", at: nowIso, par: email,
+      type, texte: text, ...photosField(photos), statut: "nouveau", at: nowIso, par: email,
     };
+  }
+  // Photos of a report (2026-11-25, Fabian): up to 3, lighter than the windshield photos, and erased
+  // PHOTO_KEEP_DAYS after the team marked the report « Traité » (the free plan holds 1 GB in all). The words stay.
+  const MAX_REPORT_PHOTOS = 3;
+  const PHOTO_KEEP_DAYS = 40;
+  const reportPhotos = (s) => (Array.isArray(s?.photos) ? s.photos.filter(Boolean) : s?.photo ? [s.photo] : []);
+  const photosField = (photos) => { const list = (photos || []).filter(Boolean).slice(0, MAX_REPORT_PHOTOS); return list.length ? { photos: list } : {}; };
+  const photosLabel = (s) => { const n = reportPhotos(s).length; return n ? ` · ${n > 1 ? n + " photos" : "avec photo"}` : s?.photosEffacees ? " · photo effacée" : ""; };
+  // Reports handled more than PHOTO_KEEP_DAYS ago that still have photos: their photos can go.
+  function photosToErase(list, nowIso) {
+    const limit = addDays(nowIso.slice(0, 10), -PHOTO_KEEP_DAYS);
+    return list.filter((s) => s.statut === "traite" && s.traiteAt && s.traiteAt.slice(0, 10) < limit && reportPhotos(s).length);
   }
   // Problems can still be reported on a vehicle done in the last days (the provider may notice it afterwards).
   const PROBLEM_AFTER_DONE_DAYS = 7;
@@ -799,14 +812,14 @@
   const problemsOfPlate = (list, plate) => list.filter((s) => plateKey(s.plaque) === plateKey(plate)).sort(byNewest);
 
   // ---------- field reports (« Signaler » tab): a provider walking by tells the team what it saw on ANY vehicle ----------
-  // Same collection as above, with no request: {demandeId: "", source: "terrain", plaque, quoi: [...], texte, photo?, …}.
+  // Same collection as above, with no request: {demandeId: "", source: "terrain", plaque, quoi: [...], texte, photos?, …}.
   // Several vehicles are sent at once, one report each. Ticks are quicker than typing on a parking lot.
   // 8 choices so they sit in an even 2-column grid; « Autre » needs a few words.
   const FIELD_ISSUES = ["Pare-brise", "Véhicule sale", "Pneu avant", "Pneu arrière", "Rétro cassé", "Carrosserie", "Voyant allumé", "Autre"];
   const isFieldReport = (s) => s.source === "terrain";
   const fieldPlateOk = (plate) => { const k = plateKey(plate); return k.length >= 5 && k.length <= 10; };
   const fieldTicksText = (ticks) => ticks.filter((q) => q !== "Autre").join(", ");
-  function fieldReport({ plaque, quoi = [], texte = "", photo } = {}, prestataireId, email, nowIso) {
+  function fieldReport({ plaque, quoi = [], texte = "", photos = [] } = {}, prestataireId, email, nowIso) {
     const plate = normalizePlate(plaque);
     const ticks = FIELD_ISSUES.filter((q) => quoi.includes(q));
     const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
@@ -815,7 +828,7 @@
     if (!ticks.length && !text) return { error: `Cochez au moins une anomalie pour ${plate}, ou ajoutez une précision` };
     if (ticks.includes("Autre") && !text) return { error: "« Autre » : précisez l'anomalie" };
     return { demandeId: "", source: "terrain", plaque: plate, prestataireId, type: "autre", quoi: ticks,
-      texte: [fieldTicksText(ticks), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...(photo ? { photo } : {}),
+      texte: [fieldTicksText(ticks), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...photosField(photos),
       statut: "nouveau", at: nowIso, par: email };
   }
   // The words the provider typed, without the ticks in front (to edit a report).
@@ -827,9 +840,10 @@
   }
   // What an edit may change (the access rules allow only these, while the team has not handled it).
   function fieldEditPatch(report, fields, nowIso) {
-    const r = fieldReport({ ...fields, photo: fields.photo }, report.prestataireId, report.par, report.at);
+    const r = fieldReport(fields, report.prestataireId, report.par, report.at);
     if (r.error) return r;
-    return { plaque: r.plaque, quoi: r.quoi, texte: r.texte, photo: fields.photo || "", modifieAt: nowIso };
+    // « photo » (one key, older reports) is emptied: the list is the only place left.
+    return { plaque: r.plaque, quoi: r.quoi, texte: r.texte, photos: r.photos || [], ...(report.photo ? { photo: "" } : {}), modifieAt: nowIso };
   }
 
   // « Véhicule sale » seen in passing by a washer: the team validates the wash in one tap. The request goes straight to
@@ -1256,7 +1270,7 @@
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
-    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport, fieldNoteOf, fieldEditPatch, isWashReport, washFromReport, washOfReport,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, MAX_REPORT_PHOTOS, PHOTO_KEEP_DAYS, reportPhotos, photosLabel, photosToErase, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport, fieldNoteOf, fieldEditPatch, isWashReport, washFromReport, washOfReport,
     TRASH_DAYS, trashPurgeDate, trashDaysLeft, groupTrash,
   };
 });

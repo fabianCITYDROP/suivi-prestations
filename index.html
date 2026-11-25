@@ -841,6 +841,14 @@ body.sheet-open .sheet-scrim { opacity: 1; pointer-events: auto; }
 .sheet-photo { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--line) inset; }
 .sheet-photo img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; }
 .sheet-photo .ghost { margin-left: auto; }
+/* Up to 3 photos on a report: small squares, a round × in the corner takes one back. */
+.sheet-photos { display: flex; gap: 10px; margin-bottom: 10px; }
+.sheet-ph { position: relative; width: 72px; height: 72px; border-radius: 12px; background: var(--surface-2); box-shadow: 0 0 0 1px var(--line) inset; }
+.sheet-ph img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
+.sheet-ph-kept { display: grid; place-items: center; width: 100%; height: 100%; color: var(--ink-2); }
+.sheet-ph-kept .icon { width: 22px; height: 22px; }
+.sheet-ph-x { position: absolute; top: -8px; right: -8px; display: grid; place-items: center; width: 26px; height: 26px; min-height: 0; padding: 0; border: 2px solid var(--bg); border-radius: 50%; background: var(--ink); color: var(--bg); cursor: pointer; }
+.sheet-ph-x .icon { width: 13px; height: 13px; }
 .field-send, .field-actions .primary { width: 100%; min-height: 54px; font-size: 16.5px; font-weight: 600; border-radius: 14px; letter-spacing: -.005em; }
 .sent-title { margin-top: 6px; margin-bottom: -8px; }
 .presta-sheet .field-sent { border: 0; border-radius: 14px; box-shadow: 0 0 0 1px var(--line) inset; }
@@ -1690,6 +1698,12 @@ body.team-sheet-open .lightbox { z-index: 50; }
 .ret-sh-note cite { display: block; margin-top: 6px; font: 600 13px var(--f-body); font-style: normal; color: var(--ink-2); }
 .ret-sh-note cite::before { content: "— "; }
 .ret-sh-photo { position: relative; display: block; width: 100%; min-height: 0; padding: 0; border: 0; border-radius: 16px; overflow: hidden; background: none; cursor: zoom-in; }
+.ret-sh-photos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.ret-sh-photos.n3 { grid-template-columns: repeat(3, 1fr); }
+.ret-sh-photos .ret-thumb.big { aspect-ratio: 1; border-radius: 12px; }
+.ret-thumb-n { position: absolute; right: 3px; bottom: 3px; min-width: 18px; padding: 1px 5px; border-radius: 9px; background: rgba(0, 0, 0, .62); color: #fff; font-size: 11px; font-weight: 700; line-height: 16px; text-align: center; }
+.ret-sh-erased { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; color: var(--ink-2); }
+.ret-sh-erased .icon { width: 18px; height: 18px; }
 .ret-thumb.big { width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 16px; }
 .ret-sh-zoom { position: absolute; right: 10px; bottom: 10px; padding: 5px 11px; border-radius: 999px; background: rgba(10, 20, 28, .55); color: #fff; font: 600 13px var(--f-body); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .ret-sh-info { margin: 0; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
@@ -4287,7 +4301,8 @@ window.SUIVI_FIREBASE_CONFIG = {
     return null;
   }
   // ---------- problems seen on a vehicle (collection "signalements", written by the provider) ----------
-  // {demandeId, plaque, prestataireId, type, texte, photo?, statut "nouveau"|"traite", at, par, traiteAt?, traitePar?}
+  // {demandeId, plaque, prestataireId, type, texte, photos?: [key…], statut "nouveau"|"traite", at, par, traiteAt?, traitePar?}
+  // (older reports carry a single photo key in « photo »; reportPhotos reads both).
   // A provider often sees a shock, a worn tyre or a warning light before City-Drop does: one tap tells the team.
   const PROBLEMS = [
     { id: "choc", label: "Choc / carrosserie" },
@@ -4301,14 +4316,26 @@ window.SUIVI_FIREBASE_CONFIG = {
   const problemSummary = (s) => (!s.type || s.type === "autre") && s.texte ? s.texte : [problemOf(s.type)?.label || "Problème", s.texte].filter(Boolean).join(" – ");
   // The document a provider writes: a few words (required) and an optional photo. Returns {error} when the words are missing.
   // The provider no longer picks a type (Fabian, 2026-11-19: « juste écrire »): new reports are type "autre".
-  function problemReport(demande, { type = "autre", texte, photo } = {}, email, nowIso) {
+  function problemReport(demande, { type = "autre", texte, photos = [] } = {}, email, nowIso) {
     const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
     if (!problemOf(type)) return { error: "Type de problème inconnu" };
     if (!text) return { error: "Dis en quelques mots ce que tu as vu" };
     return {
       demandeId: demande.id, plaque: demande.plaque, prestataireId: demande.prestataireId,
-      type, texte: text, ...(photo ? { photo } : {}), statut: "nouveau", at: nowIso, par: email,
+      type, texte: text, ...photosField(photos), statut: "nouveau", at: nowIso, par: email,
     };
+  }
+  // Photos of a report (2026-11-25, Fabian): up to 3, lighter than the windshield photos, and erased
+  // PHOTO_KEEP_DAYS after the team marked the report « Traité » (the free plan holds 1 GB in all). The words stay.
+  const MAX_REPORT_PHOTOS = 3;
+  const PHOTO_KEEP_DAYS = 40;
+  const reportPhotos = (s) => (Array.isArray(s?.photos) ? s.photos.filter(Boolean) : s?.photo ? [s.photo] : []);
+  const photosField = (photos) => { const list = (photos || []).filter(Boolean).slice(0, MAX_REPORT_PHOTOS); return list.length ? { photos: list } : {}; };
+  const photosLabel = (s) => { const n = reportPhotos(s).length; return n ? ` · ${n > 1 ? n + " photos" : "avec photo"}` : s?.photosEffacees ? " · photo effacée" : ""; };
+  // Reports handled more than PHOTO_KEEP_DAYS ago that still have photos: their photos can go.
+  function photosToErase(list, nowIso) {
+    const limit = addDays(nowIso.slice(0, 10), -PHOTO_KEEP_DAYS);
+    return list.filter((s) => s.statut === "traite" && s.traiteAt && s.traiteAt.slice(0, 10) < limit && reportPhotos(s).length);
   }
   // Problems can still be reported on a vehicle done in the last days (the provider may notice it afterwards).
   const PROBLEM_AFTER_DONE_DAYS = 7;
@@ -4320,14 +4347,14 @@ window.SUIVI_FIREBASE_CONFIG = {
   const problemsOfPlate = (list, plate) => list.filter((s) => plateKey(s.plaque) === plateKey(plate)).sort(byNewest);
 
   // ---------- field reports (« Signaler » tab): a provider walking by tells the team what it saw on ANY vehicle ----------
-  // Same collection as above, with no request: {demandeId: "", source: "terrain", plaque, quoi: [...], texte, photo?, …}.
+  // Same collection as above, with no request: {demandeId: "", source: "terrain", plaque, quoi: [...], texte, photos?, …}.
   // Several vehicles are sent at once, one report each. Ticks are quicker than typing on a parking lot.
   // 8 choices so they sit in an even 2-column grid; « Autre » needs a few words.
   const FIELD_ISSUES = ["Pare-brise", "Véhicule sale", "Pneu avant", "Pneu arrière", "Rétro cassé", "Carrosserie", "Voyant allumé", "Autre"];
   const isFieldReport = (s) => s.source === "terrain";
   const fieldPlateOk = (plate) => { const k = plateKey(plate); return k.length >= 5 && k.length <= 10; };
   const fieldTicksText = (ticks) => ticks.filter((q) => q !== "Autre").join(", ");
-  function fieldReport({ plaque, quoi = [], texte = "", photo } = {}, prestataireId, email, nowIso) {
+  function fieldReport({ plaque, quoi = [], texte = "", photos = [] } = {}, prestataireId, email, nowIso) {
     const plate = normalizePlate(plaque);
     const ticks = FIELD_ISSUES.filter((q) => quoi.includes(q));
     const text = String(texte || "").trim().slice(0, PROBLEM_TEXT_MAX);
@@ -4336,7 +4363,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (!ticks.length && !text) return { error: `Cochez au moins une anomalie pour ${plate}, ou ajoutez une précision` };
     if (ticks.includes("Autre") && !text) return { error: "« Autre » : précisez l'anomalie" };
     return { demandeId: "", source: "terrain", plaque: plate, prestataireId, type: "autre", quoi: ticks,
-      texte: [fieldTicksText(ticks), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...(photo ? { photo } : {}),
+      texte: [fieldTicksText(ticks), text].filter(Boolean).join(" – ").slice(0, PROBLEM_TEXT_MAX), ...photosField(photos),
       statut: "nouveau", at: nowIso, par: email };
   }
   // The words the provider typed, without the ticks in front (to edit a report).
@@ -4348,9 +4375,10 @@ window.SUIVI_FIREBASE_CONFIG = {
   }
   // What an edit may change (the access rules allow only these, while the team has not handled it).
   function fieldEditPatch(report, fields, nowIso) {
-    const r = fieldReport({ ...fields, photo: fields.photo }, report.prestataireId, report.par, report.at);
+    const r = fieldReport(fields, report.prestataireId, report.par, report.at);
     if (r.error) return r;
-    return { plaque: r.plaque, quoi: r.quoi, texte: r.texte, photo: fields.photo || "", modifieAt: nowIso };
+    // « photo » (one key, older reports) is emptied: the list is the only place left.
+    return { plaque: r.plaque, quoi: r.quoi, texte: r.texte, photos: r.photos || [], ...(report.photo ? { photo: "" } : {}), modifieAt: nowIso };
   }
 
   // « Véhicule sale » seen in passing by a washer: the team validates the wash in one tap. The request goes straight to
@@ -4777,7 +4805,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
-    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport, fieldNoteOf, fieldEditPatch, isWashReport, washFromReport, washOfReport,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, MAX_REPORT_PHOTOS, PHOTO_KEEP_DAYS, reportPhotos, photosLabel, photosToErase, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport, fieldNoteOf, fieldEditPatch, isWashReport, washFromReport, washOfReport,
     TRASH_DAYS, trashPurgeDate, trashDaysLeft, groupTrash,
   };
 });
@@ -5096,48 +5124,64 @@ window.SUIVI_FIREBASE_CONFIG = {
       await writeWithHistory(demandeRef(demande.id), "update", patch, historyEntry(demande, "reponse", D.undoDoneChanges(note)));
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
-    // A problem seen on a vehicle: the photo (optional) goes in preuves/<key> like a proof, then the report itself.
-    async function reportProblem(demande, fields, photoFull) {
-      let photo = "";
-      if (photoFull) {
-        photo = `sig_${D.plateKey(demande.plaque)}_${Date.now().toString(36)}`;
-        await db.doc("preuves/" + photo).set({ prestataireId: demande.prestataireId, plaque: demande.plaque, data: photoFull, at: new Date().toISOString() });
-        photoCache.set("preuve:" + photo, photoFull);
+    // A problem seen on a vehicle: its photos (optional, up to 3) go in preuves/<key> like a proof, then the report itself.
+    async function savePhotos(prestataireId, plaque, fulls) {
+      const keys = [];
+      for (const [i, full] of (fulls || []).filter(Boolean).slice(0, D.MAX_REPORT_PHOTOS).entries()) {
+        const key = `sig_${D.plateKey(plaque)}_${Date.now().toString(36)}${i ? "_" + i : ""}`;
+        await db.doc("preuves/" + key).set({ prestataireId, plaque: D.normalizePlate(plaque), data: full, at: new Date().toISOString() });
+        photoCache.set("preuve:" + key, full);
+        keys.push(key);
       }
-      const report = D.problemReport(demande, { ...fields, photo }, fields.par, new Date().toISOString());
+      return keys;
+    }
+    // Photos no report points to any more are erased (best effort: the report is what matters).
+    const erasePhotos = (keys) => Promise.all((keys || []).map((k) => db.doc("preuves/" + k).delete().then(() => photoCache.delete("preuve:" + k), () => {})));
+    async function reportProblem(demande, fields, photoFulls = []) {
+      const photos = await savePhotos(demande.prestataireId, demande.plaque, photoFulls);
+      const report = D.problemReport(demande, { ...fields, photos }, fields.par, new Date().toISOString());
       if (report.error) throw { code: "invalid", message: report.error };
       await db.collection("signalements").doc().set(report);
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
     // Field report on any vehicle (« Signaler » tab), not tied to a request: same collection, same photo place.
-    async function reportField(prestataireId, fields, photoFull) {
-      let photo = "";
-      const plaque = D.normalizePlate(fields.plaque);
-      if (photoFull) {
-        photo = `sig_${D.plateKey(plaque)}_${Date.now().toString(36)}`;
-        await db.doc("preuves/" + photo).set({ prestataireId, plaque, data: photoFull, at: new Date().toISOString() });
-        photoCache.set("preuve:" + photo, photoFull);
-      }
-      const report = D.fieldReport({ ...fields, photo }, prestataireId, fields.par, new Date().toISOString());
+    async function reportField(prestataireId, fields, photoFulls = []) {
+      const photos = await savePhotos(prestataireId, fields.plaque, photoFulls);
+      const report = D.fieldReport({ ...fields, photos }, prestataireId, fields.par, new Date().toISOString());
       if (report.error) throw { code: "invalid", message: report.error };
       await db.collection("signalements").doc().set(report);
       changed(); // the alert script looks at once: the team is told even with the app closed
     }
-    // Its author changes a « vu en passant » report until the team has handled it. A new photo replaces the old one.
-    async function updateField(report, fields, photoFull, keptPhoto) {
-      let photo = keptPhoto || "";
-      if (photoFull) {
-        photo = `sig_${D.plateKey(fields.plaque)}_${Date.now().toString(36)}`;
-        await db.doc("preuves/" + photo).set({ prestataireId: report.prestataireId, plaque: D.normalizePlate(fields.plaque), data: photoFull, at: new Date().toISOString() });
-        photoCache.set("preuve:" + photo, photoFull);
-      }
-      const patch = D.fieldEditPatch(report, { ...fields, photo }, new Date().toISOString());
+    // Its author changes a « vu en passant » report until the team has handled it: kept photos + new ones; removed ones are erased.
+    async function updateField(report, fields, photoFulls = [], keptKeys = []) {
+      const added = await savePhotos(report.prestataireId, fields.plaque, photoFulls.slice(0, D.MAX_REPORT_PHOTOS - keptKeys.length));
+      const patch = D.fieldEditPatch(report, { ...fields, photos: [...keptKeys, ...added] }, new Date().toISOString());
       if (patch.error) throw { code: "invalid", message: patch.error };
       await db.doc("signalements/" + report.id).update(patch);
+      await erasePhotos(D.reportPhotos(report).filter((k) => !keptKeys.includes(k)));
       changed();
     }
-    // Its author takes back a report sent by mistake (the access rules allow it until the team has handled it).
-    const deleteProblem = (id) => db.doc("signalements/" + id).delete();
+    // Its author takes back a report sent by mistake (the access rules allow it until the team has handled it); its photos go too.
+    async function deleteProblem(report) {
+      await db.doc("signalements/" + report.id).delete();
+      await erasePhotos(D.reportPhotos(report));
+    }
+    // Photos of reports handled more than 40 days ago are erased (the words stay). Run by the team app at opening, at most
+    // once a day per device; only the last 120 days of handled reports are looked at (an app opened at least once in that
+    // time catches every one). Refusals and failures are simply ignored.
+    async function purgeReportPhotos() {
+      const now = new Date().toISOString();
+      const from = D.addDays(now.slice(0, 10), -(D.PHOTO_KEEP_DAYS + 120));
+      const snap = await db.collection("signalements").where("traiteAt", ">=", from).where("traiteAt", "<", D.addDays(now.slice(0, 10), -D.PHOTO_KEEP_DAYS)).get().catch(() => null);
+      if (!snap) return 0;
+      const due = D.photosToErase(toRows(snap), now);
+      let done = 0;
+      for (const report of due) {
+        const ok = await db.doc("signalements/" + report.id).update({ photos: [], ...(report.photo ? { photo: "" } : {}), photosEffacees: true }).then(() => true, () => false);
+        if (ok) { await erasePhotos(D.reportPhotos(report)); done++; }
+      }
+      return done;
+    }
     const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
       handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
     // « Valider le lavage » on a « Véhicule sale » report: the wash request (already accepted) and the report marked
@@ -5281,7 +5325,7 @@ window.SUIVI_FIREBASE_CONFIG = {
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, markProblemHandled, validateWash, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, purgeReportPhotos, markProblemHandled, validateWash, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
@@ -5794,7 +5838,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
 // 2. "Aujourd'hui": accepted vehicles on site today (multi-day windows included), closed with "Prestation réalisée".
 // 3. "À venir": accepted vehicles of the next days, searchable; one can be done early if the vehicle is already there.
 // 4. "Faits": history and counts.
-// On any accepted vehicle (and for 7 days once done), the provider can report a problem seen on it: a few words, an optional photo.
+// On any accepted vehicle (and for 7 days once done), the provider can report a problem seen on it: a few words, up to 3 photos.
 // For 10 minutes after « Prestation réalisée », the provider can take it back (wrong vehicle): it goes back to its list.
 // To add something, it simply reports again.
 // 5. "Signaler" (+): what the provider saw on ANY vehicle, even one it was not sent to (dirty, windscreen, tyres…),
@@ -5894,7 +5938,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     }
     // Problems already reported on this request: the provider sees the team got them, and does not send them twice.
     function problemLines(d) {
-      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${p.photo ? " · avec photo" : ""}</small></span>${deleteReportBtn(p)}</div>`).join("");
+      return D.problemsOfRequest(state.problems, d.id).map((p) => `<div class="job-problem">${icon("alert")}<span><b>Problème signalé :</b> ${esc(D.problemSummary(p))}<small>${p.statut === "traite" ? "Vu par l'équipe" : "Envoyé à l'équipe"}${D.photosLabel(p)}</small></span>${deleteReportBtn(p)}</div>`).join("");
     }
     function answerLine(d) {
       const r = d.retour;
@@ -5936,7 +5980,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
         : `<input class="sheet-input" data-note value="${esc(dr.note || "")}" placeholder="${a.ph}" maxlength="${D.PROBLEM_TEXT_MAX}">`}</label>`;
       const veh = `<div class="act-veh">${serviceTile(d, "svc-tile sm")}<span>${plateTag(d.plaque)}<small>${esc([D.vehicleLabel(d), D.jobLabel(d)].filter(Boolean).join(" · "))}</small></span></div>`;
       let fields = "";
-      if (kind === "problem") fields = `<label class="sheet-group"><span class="sheet-label">Qu'est-ce qui ne va pas ?</span><textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(dr.note || "")}</textarea></label>${photoPicker()}`;
+      if (kind === "problem") fields = `<label class="sheet-group"><span class="sheet-label">Qu'est-ce qui ne va pas ?</span><textarea class="sheet-input" data-note rows="3" maxlength="${D.PROBLEM_TEXT_MAX}" placeholder="Ex. impact sur l'aile avant droite, pneu arrière gauche à plat, voyant moteur allumé">${esc(dr.note || "")}</textarea></label>${photosPicker(dr.photos || [], dr.photoBusy, "photo")}`;
       else if (kind === "date") fields = `<fieldset class="sheet-group day-set"><legend class="sheet-label">Nouvelle date</legend>
           <div class="day-chips">${nextDays(4).map((iso) => `<button type="button" class="day-chip" data-day="${iso}" aria-pressed="${dr.date === iso}">${esc(dayChip(iso))}</button>`).join("")}</div>
           <div class="day-row"><label><span>Autre jour</span><input type="date" class="sheet-input" data-date data-keep="adate" min="${today()}" value="${esc(dr.date || "")}"></label>
@@ -5946,11 +5990,23 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       return `<div class="act-sheet" data-asheet>${back}${veh}${fields}
         ${state.busy.has(d.id) ? busyLine : `<button type="button" class="primary big field-send${kind === "done" ? " ok" : ""}" data-asend>${kind === "done" ? icon("check") : ""}${a.btn}</button>`}</div>`;
     }
-    function photoPicker() {
-      const ph = state.draft.photo;
-      if (state.draft.photoBusy) return `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`;
-      if (ph) return `<div class="sheet-photo"><img src="${safeImageSrc(ph.thumb)}" alt="Photo du problème"><button type="button" class="ghost" data-photo-remove>${icon("x")}Retirer</button></div>`;
-      return `<label class="sheet-photo-add">${icon("camera")}<span>Ajouter une photo</span><small>facultatif</small><input type="file" accept="image/*" capture="environment" data-photo hidden></label>`;
+    // Up to 3 photos: the ones chosen (× takes one back), then « Ajouter » while there is room.
+    // list: {full, thumb} just taken, or {key} already sent (a report being changed). kind: "photo" | "fphoto".
+    function photosPicker(list, busy, kind) {
+      const max = D.MAX_REPORT_PHOTOS;
+      const tiles = list.map((ph, i) => `<span class="sheet-ph">${ph.thumb ? `<img src="${safeImageSrc(ph.thumb)}" alt="Photo ${i + 1}">` : `<span class="sheet-ph-kept">${icon("image")}</span>`}<button type="button" class="sheet-ph-x" data-${kind}-remove="${i}" aria-label="Retirer la photo ${i + 1}">${icon("x")}</button></span>`).join("");
+      const add = busy ? `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`
+        : list.length < max ? `<label class="sheet-photo-add">${icon("camera")}<span>${list.length ? "Ajouter une photo" : "Ajouter des photos"}</span><small>${list.length ? `${list.length} sur ${max}` : `facultatif · ${max} max`}</small><input type="file" accept="image/*" multiple data-${kind} hidden></label>` : "";
+      return (tiles ? `<div class="sheet-photos">${tiles}</div>` : "") + add;
+    }
+    // The chosen files, made light, added after the ones already there (never more than 3).
+    async function addPhotos(files, list, setBusy) {
+      const room = D.MAX_REPORT_PHOTOS - list.length;
+      if ([...files].length > room) toast(`${D.MAX_REPORT_PHOTOS} photos au maximum`);
+      setBusy(true); render();
+      try { for (const file of [...files].slice(0, Math.max(0, room))) list.push(await prepareImage(file, { light: true })); }
+      catch { toast("Photo illisible : essaie avec une autre"); }
+      finally { setBusy(false); render(); }
     }
     const busyLine = `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Envoi en cours…</p>`;
 
@@ -6190,7 +6246,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     // ---------- « Signaler »: field reports on any vehicle ----------
     // One vehicle at a time: « Envoyer » clears the form for the next one (several vehicles = several quick sends).
     // A report of the list is touched to change or delete it, until the team has handled it.
-    const emptyField = () => ({ plaque: "", quoi: [], texte: "", photo: null, photoKey: "", photoBusy: false, editId: null });
+    const emptyField = () => ({ plaque: "", quoi: [], texte: "", photos: [], photoBusy: false, editId: null });
     const fd = () => (state.fd ||= emptyField());
     const editable = (p) => p.statut !== "traite" && p.par === email;
     // One drawn icon per anomaly (same 24px grid and stroke as the app's icons): quicker to spot than words.
@@ -6198,14 +6254,12 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     const issueIcon = (q) => self.IssueArt?.art(q) || "";
     const miniIcons = (quoi) => (quoi || []).filter((q) => self.IssueArt?.has(q)).slice(0, 4).map((q) => self.IssueArt.art(q, "mini-art")).join("");
     // Le bouton reste gris tant qu'il manque l'immatriculation ou un choix ; un appui explique quand même ce qui manque.
-    const fieldReady = () => { const r = fd(); return !D.fieldReport({ ...r, photo: r.photo ? "new" : r.photoKey }, account.prestataireId, email, "").error; };
+    const fieldReady = () => !D.fieldReport({ ...fd(), photos: [] }, account.prestataireId, email, "").error;
     const syncSend = () => sheetEl.querySelector("[data-fsend]")?.setAttribute("aria-disabled", String(!fieldReady()));
     const sheetTitle = () => (fd().editId ? "Modifier le signalement" : "Signaler une anomalie");
     function sheetBody() {
       const r = fd(), editing = !!r.editId;
-      const photo = r.photoBusy ? `<p class="job-busy"><span class="spinner" aria-hidden="true"></span>Préparation de la photo…</p>`
-        : r.photo || r.photoKey ? `<div class="sheet-photo">${r.photo ? `<img src="${safeImageSrc(r.photo.thumb)}" alt="Photo">` : `<span class="photo-kept">${icon("image")}Photo jointe</span>`}<button type="button" class="ghost" data-fphoto-remove>${icon("x")}Retirer</button></div>`
-        : `<label class="sheet-photo-add">${icon("camera")}<span>Ajouter une photo</span><small>facultatif</small><input type="file" accept="image/*" capture="environment" data-fphoto hidden></label>`;
+      const photo = photosPicker(r.photos, r.photoBusy, "fphoto");
       const del = state.pdelArmed === r.editId
         ? `<button type="button" class="field-del armed" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer ?</button>`
         : `<button type="button" class="field-del" data-pdel="${esc(r.editId)}">${icon("trash")}Supprimer</button>`;
@@ -6225,7 +6279,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
         ${mine.length && !editing ? `<h3 class="sheet-label sent-title">Signalements récents</h3><ul class="field-sent">${mine.map(sentRow).join("")}</ul>` : ""}`;
     }
     function sentRow(p) {
-      const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${miniIcons(p.quoi) ? `<span class="mini-arts">${miniIcons(p.quoi)}</span>` : ""}${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${p.photo ? " · avec photo" : ""}${p.modifieAt ? " · modifié" : ""}</small></span>
+      const body = `${plateTag(p.plaque)}<span class="sent-text"><b>${miniIcons(p.quoi) ? `<span class="mini-arts">${miniIcons(p.quoi)}</span>` : ""}${esc(D.problemSummary(p))}</b><small>${esc(cap(D.shortDate(p.at.slice(0, 10))))}${D.photosLabel(p)}${p.modifieAt ? " · modifié" : ""}</small></span>
         <span class="seen-pill${p.statut === "traite" ? " ok" : ""}">${D.washOfReport(p, state.demandes) ? "Lavage validé" : p.statut === "traite" ? "Traité" : "Transmis"}</span>`;
       return editable(p)
         ? `<li><button type="button" class="sent-row${fd().editId === p.id ? " current" : ""}" data-fedit="${esc(p.id)}" aria-label="Modifier ou supprimer le signalement ${esc(p.plaque)}">${body}${icon("chev-r")}</button></li>`
@@ -6233,14 +6287,14 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     }
     async function sendField() {
       const r = fd();
-      const photo = r.photo ? "new" : r.photoKey;
-      const check = D.fieldReport({ ...r, photo }, account.prestataireId, email, "");
+      const check = D.fieldReport({ ...r, photos: [] }, account.prestataireId, email, "");
       if (check.error) return toast(check.error);
       state.fieldBusy = true; render();
       try {
         const fields = { plaque: r.plaque, quoi: r.quoi, texte: r.texte, par: email };
-        if (r.editId) { await store.updateField(state.problems.find((p) => p.id === r.editId), fields, r.photo?.full, r.photoKey); toast(`Signalement ${D.normalizePlate(r.plaque)} modifié`); }
-        else { await store.reportField(account.prestataireId, fields, r.photo?.full); sentFlash(D.normalizePlate(r.plaque)); }
+        const fresh = r.photos.filter((ph) => ph.full).map((ph) => ph.full);
+        if (r.editId) { await store.updateField(state.problems.find((p) => p.id === r.editId), fields, fresh, r.photos.filter((ph) => ph.key).map((ph) => ph.key)); toast(`Signalement ${D.normalizePlate(r.plaque)} modifié`); }
+        else { await store.reportField(account.prestataireId, fields, fresh); sentFlash(D.normalizePlate(r.plaque)); }
         state.fd = emptyField();
         sheetEl.querySelector(".sheet-b").scrollTop = 0;
       } catch (err) {
@@ -6261,23 +6315,22 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
     function editField(id) {
       const p = state.problems.find((x) => x.id === id);
       if (!p || !editable(p)) return;
-      state.fd = { ...emptyField(), editId: p.id, plaque: p.plaque, quoi: [...(p.quoi || [])], texte: D.fieldNoteOf(p), photoKey: p.photo || "" };
+      state.fd = { ...emptyField(), editId: p.id, plaque: p.plaque, quoi: [...(p.quoi || [])], texte: D.fieldNoteOf(p), photos: D.reportPhotos(p).map((key) => ({ key, thumb: thumbOf(key) })) };
       state.pdelArmed = null; render();
+      // Photos sent from another phone: read once (one read each) so the provider sees which one to take back.
+      const form = state.fd;
+      form.photos.filter((ph) => !ph.thumb).forEach((ph) => store.loadProof(ph.key).then((src) => { if (src && state.fd === form) { ph.thumb = src; render(); } }).catch(() => {}));
       sheetEl.querySelector(".sheet-b").scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     }
     async function deleteReport(id) {
       if (state.pdelArmed !== id) { state.pdelArmed = id; render(); return; }
       state.pdelArmed = null; state.busy.add("pdel:" + id); state.fieldBusy = state.fd?.editId === id; render();
-      try { await store.deleteProblem(id); toast("Signalement supprimé"); if (state.fd?.editId === id) state.fd = emptyField(); }
+      try { await store.deleteProblem(state.problems.find((p) => p.id === id) || { id }); toast("Signalement supprimé"); if (state.fd?.editId === id) state.fd = emptyField(); }
       catch (err) { toast(err?.code === "permission-denied" ? "Déjà vu par l'équipe : appelle-la pour corriger" : "Suppression impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete("pdel:" + id); state.fieldBusy = false; render(); }
     }
-    async function addFieldPhoto(file) {
-      const r = fd(); r.photoBusy = true; render();
-      try { r.photo = await prepareImage(file); r.photoKey = ""; }
-      catch { toast("Photo illisible : essaie avec une autre"); }
-      finally { r.photoBusy = false; render(); }
-    }
+    // A photo sent from this phone is still in memory: its small version is shown while the report is changed.
+    const thumbOf = (key) => store.cachedPhoto?.("preuve:" + key) || "";
 
     const TAB_BODY = { validate: validateTab, today: todayTab, upcoming: upcomingTab, done: doneTab };
 
@@ -6404,22 +6457,16 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
       const draft = { ...typed, note };
       state.busy.add(d.id); state.openForm = null; render();
       try {
-        await store.reportProblem(d, { texte: note, par: email }, draft.photo?.full);
+        await store.reportProblem(d, { texte: note, par: email }, (draft.photos || []).map((ph) => ph.full));
         state.draft = {}; toast("Problème envoyé à l'équipe, merci !");
       } catch { state.openForm = "problem:" + d.id; state.draft = draft; openSheet("act"); toast("Envoi impossible : vérifie ta connexion et réessaie"); }
       finally { state.busy.delete(d.id); render(); }
     }
-    async function addPhoto(file) {
-      state.draft.photoBusy = true; render();
-      try { state.draft.photo = await prepareImage(file); }
-      catch { toast("Photo illisible : essaie avec une autre"); }
-      finally { state.draft.photoBusy = false; render(); }
-    }
 
     view.addEventListener("change", (e) => {
-      if (e.target.matches("[data-photo]") && e.target.files[0]) addPhoto(e.target.files[0]);
+      if (e.target.matches("[data-photo]") && e.target.files.length) addPhotos(e.target.files, (state.draft.photos ||= []), (v) => { state.draft.photoBusy = v; });
       if (e.target.matches("[data-month]")) { closeSheet(); showMonth(e.target.value); }
-      if (e.target.matches("[data-fphoto]") && e.target.files[0]) addFieldPhoto(e.target.files[0]);
+      if (e.target.matches("[data-fphoto]") && e.target.files.length) { const r = fd(); addPhotos(e.target.files, r.photos, (v) => { r.photoBusy = v; }); }
       if (e.target.matches("[data-fplate]")) { fd().plaque = D.normalizePlate(fd().plaque); e.target.value = fd().plaque; } // AB123CD -> AB-123-CD
     });
     // An older month's report: only that month is read (free plan's daily reads), then it stays loaded.
@@ -6453,7 +6500,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
         render(); state.popQ = null;
         if (q === "Autre" && r.quoi.includes("Autre")) sheetEl.querySelector("[data-ftext]")?.focus({ preventScroll: true });
       }
-      else if ((b = el("[data-fphoto-remove]"))) { fd().photo = null; fd().photoKey = ""; render(); }
+      else if ((b = el("[data-fphoto-remove]"))) { fd().photos.splice(Number(b.dataset.fphotoRemove), 1); render(); }
       else if ((b = el("[data-fsend]"))) sendField();
       else if ((b = el("[data-fedit]"))) editField(b.dataset.fedit);
       else if ((b = el("[data-fcancel]"))) { state.fd = emptyField(); state.pdelArmed = null; render(); }
@@ -6473,7 +6520,7 @@ ${lin("ora", [[0, "#ffd08a"], [0.5, "#f59e1b"], [1, "#c46d00"]])}
         if (b.dataset.act === "problem") setTimeout(() => sheetEl.querySelector("textarea[data-note]")?.focus({ preventScroll: true }), 380);
       }
       else if ((b = el("[data-day]"))) { state.draft.date = b.dataset.day; render(); }
-      else if ((b = el("[data-photo-remove]"))) { state.draft.photo = null; render(); }
+      else if ((b = el("[data-photo-remove]"))) { (state.draft.photos || []).splice(Number(b.dataset.photoRemove), 1); render(); }
       else if ((b = el("[data-asend]"))) sendAct();
     });
     // The sheet's main button. « Prestation réalisée »: the card shows a green tick, then leaves the list.
@@ -6797,10 +6844,15 @@ function page(texte) {
   }
   // Each photo is one document: 256 KiB max inside claude.ai, 1 MiB on Firebase (the platform raises the limit).
   const MAX_PHOTO_CHARS = window.SUIVI_MAX_PHOTO_CHARS || 240000;
-  async function prepareImage(file) {
-    for (const [side, quality] of [[2400, 0.9], [2000, 0.86], [1600, 0.82], [1400, 0.72], [1000, 0.6], [800, 0.5]]) {
+  // Windshield photos keep as much detail as a document allows. A problem's photos ({ light: true }) only have to show
+  // a shock or a worn tyre: 1600 px at most and about 0.3 MB, so 3 of them take less room than one windshield photo.
+  const LIGHT_PHOTO_CHARS = 300000;
+  async function prepareImage(file, { light = false } = {}) {
+    const steps = light ? [[1600, 0.8], [1400, 0.75], [1200, 0.7], [1000, 0.6], [800, 0.5]] : [[2400, 0.9], [2000, 0.86], [1600, 0.82], [1400, 0.72], [1000, 0.6], [800, 0.5]];
+    const max = light ? Math.min(LIGHT_PHOTO_CHARS, MAX_PHOTO_CHARS) : MAX_PHOTO_CHARS;
+    for (const [side, quality] of steps) {
       const full = await shrinkImage(file, side, quality);
-      if (full.length <= MAX_PHOTO_CHARS) return { full, thumb: await shrinkImage(file, 360, 0.75) };
+      if (full.length <= max) return { full, thumb: await shrinkImage(file, 360, 0.75) };
     }
     throw new Error("too_big");
   }
@@ -6894,7 +6946,9 @@ function page(texte) {
     if ((el = target("[data-save-photo]"))) { saveBlob(singlePhotoJpeg(el.dataset.savePhoto), el.dataset.name); return; }
     if ((el = target("[data-zoom]"))) { const all = [...(el.parentElement?.querySelectorAll("[data-zoom]") || [])]; const list = all.length ? all : [el];
       viewer.open(list.map((x) => ({ key: x.dataset.zoom, thumb: x.getAttribute("src") || "" })), Math.max(0, list.indexOf(el))); }
-    if ((el = target("[data-proof]"))) viewer.open([{ key: el.dataset.proof, proof: true }], 0);
+    if ((el = target("[data-proof]"))) { // several photos of one report: swipe from one to the next
+      const keys = (el.dataset.proofSet || el.dataset.proof).split(",").filter(Boolean);
+      viewer.open(keys.map((key) => ({ key, proof: true })), Math.max(0, keys.indexOf(el.dataset.proof))); }
   }, true);
 
   // ================= photo en grand, plein écran (façon app Photos) =================
@@ -9835,7 +9889,7 @@ function page(texte) {
         : r.etat === "autre-date" ? [{ act: "accept", label: `Accepter le ${D.shortDate(r.date)}`, primary: true }, { act: "seen", label: "Vu" }]
         : RET_DECIDE.includes(r.etat) ? [{ act: "replan", label: "Replanifier", primary: true }, { act: "seen", label: "Vu" }]
         : [{ act: "seen", label: "Vu" }];
-      return { art: RET_ART[r.etat] || "ret-fait", kind: "Réponse à une demande", what, note: r.note || "", who: d.prestataire, plate: d.plaque, job, d, photo: r.preuve || "", acts,
+      return { art: RET_ART[r.etat] || "ret-fait", kind: "Réponse à une demande", what, note: r.note || "", who: d.prestataire, plate: d.plaque, job, d, photos: r.preuve ? [r.preuve] : [], acts,
         doneLine: done ? "Vu" : "" };
     }
     const p = it.p;
@@ -9843,7 +9897,7 @@ function page(texte) {
     const handledBy = done ? `Traité${p.traitePar ? " par " + p.traitePar.split("@")[0] : ""}${p.traiteAt ? " le " + atLabel(p.traiteAt) : ""}` : "";
     if (it.kind === "p") {
       const acts = done ? [{ act: "reopen", label: "Rouvrir" }] : [{ act: "handled", label: "Traité", primary: true, check: true }, ...(d ? [{ act: "open", label: "Ouvrir la demande" }] : [])];
-      return { art: "act-problem", kind: "Problème sur un véhicule", what: D.problemSummary(p), note: "", who, plate: p.plaque, job, d, photo: p.photo || "", acts, doneLine: handledBy };
+      return { art: "act-problem", kind: "Problème sur un véhicule", what: D.problemSummary(p), note: "", who, plate: p.plaque, job, d, photos: D.reportPhotos(p), erased: !!p.photosEffacees, acts, doneLine: handledBy };
     }
     const ticks = ticksOf(p);
     const tickText = ticks.join(", ");
@@ -9852,7 +9906,7 @@ function page(texte) {
       : canValidateWash(p) ? [{ act: "wash", label: "Valider le lavage", primary: true, check: true }, { act: "new", label: "Créer une demande", sheetOnly: true }, { act: "handled", label: "Traité" }]
       : [{ act: "new", label: "Créer une demande", primary: true, plus: true }, { act: "handled", label: "Traité" }];
     return { art: ticks.find((q) => self.IssueArt?.has(q)) || "Autre", kind: "Vu en passant", what: ticks.length ? ticks.join(", ") : "Autre", note: ticks.length ? words : "", noteIsText: !ticks.length,
-      extraArts: ticks.slice(1).filter((q) => self.IssueArt?.has(q)), who, plate: p.plaque, job: "", d: null, photo: p.photo || "", acts, doneLine: handledBy,
+      extraArts: ticks.slice(1).filter((q) => self.IssueArt?.has(q)), who, plate: p.plaque, job: "", d: null, photos: D.reportPhotos(p), erased: !!p.photosEffacees, acts, doneLine: handledBy,
       edited: p.modifieAt ? `modifié le ${atLabel(p.modifieAt)}` : "", whatOverride: !ticks.length ? words || p.texte : "" };
   }
   // « Véhicule sale » from a washer: the team can validate the wash at once (see D.washFromReport).
@@ -9915,7 +9969,8 @@ function page(texte) {
   const retBtn = (a, key) => `<button type="button" class="ret-btn${a.primary ? " primary" : ""}" data-ret-act="${a.act}" data-key="${esc(key)}">${a.check ? icon("check") : a.plus ? icon("plus") : ""}${esc(a.label)}</button>`;
   function retCard(it) {
     const v = retView(it);
-    const thumb = v.photo ? `<span class="ret-thumb" data-thumb="${esc(v.photo)}">${ret.thumbs.get(v.photo) ? `<img src="${ret.thumbs.get(v.photo)}" alt="">` : ""}${icon("image")}</span>` : "";
+    const first = v.photos[0];
+    const thumb = first ? `<span class="ret-thumb" data-thumb="${esc(first)}">${ret.thumbs.get(first) ? `<img src="${ret.thumbs.get(first)}" alt="">` : ""}${icon("image")}${v.photos.length > 1 ? `<span class="ret-thumb-n">${v.photos.length}</span>` : ""}</span>` : "";
     const meta = [v.who, v.job, v.d && D.siteOf(v.d)].filter(Boolean).join(" · ");
     const acts = state.canWrite ? v.acts.filter((a) => (!["open", "replan"].includes(a.act) || v.d) && !a.sheetOnly) : [];
     const done = isRetDone(it);
@@ -9980,6 +10035,13 @@ function page(texte) {
       }).catch(() => {});
     });
   }
+  // One photo: large. Two or three: side by side. Each opens full screen, and the others follow with a swipe.
+  function retSheetPhotos(v) {
+    if (!v.photos.length) return v.erased ? `<p class="ret-sh-erased">${icon("image")}Photo effacée 40 jours après « Traité »</p>` : "";
+    const set = v.photos.join(",");
+    const one = (k, i) => `<button type="button" class="ret-sh-photo" data-proof="${esc(k)}" data-proof-set="${esc(set)}" aria-label="Voir la photo ${i + 1} en grand"><span class="ret-thumb big" data-thumb="${esc(k)}">${ret.thumbs.get(k) ? `<img src="${ret.thumbs.get(k)}" alt="">` : ""}${icon("image")}</span>${v.photos.length === 1 ? `<span class="ret-sh-zoom">Agrandir</span>` : ""}</button>`;
+    return v.photos.length === 1 ? one(v.photos[0], 0) : `<div class="ret-sh-photos n${v.photos.length}">${v.photos.map(one).join("")}</div>`;
+  }
   function retSheetHtml(it) {
     const v = retView(it);
     const d = v.d;
@@ -10000,7 +10062,7 @@ function page(texte) {
         <div><b class="ret-sh-what">${esc(v.whatOverride || v.what)}</b>
         ${v.extraArts?.length ? `<span class="ret-minis">${[v.art, ...v.extraArts].map((q) => retArt(q, "mini-art")).join("")}</span>` : ""}</div></div>
       ${v.note ? `<blockquote class="ret-sh-note">${esc(v.note)}<cite>${esc(v.who)}</cite></blockquote>` : ""}
-      ${v.photo ? `<button type="button" class="ret-sh-photo" data-proof="${esc(v.photo)}" aria-label="Voir la photo en grand"><span class="ret-thumb big" data-thumb="${esc(v.photo)}">${ret.thumbs.get(v.photo) ? `<img src="${ret.thumbs.get(v.photo)}" alt="">` : ""}${icon("image")}</span><span class="ret-sh-zoom">Agrandir</span></button>` : ""}
+      ${retSheetPhotos(v)}
       <dl class="ret-sh-info">${rows.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join("")}</dl>
       ${acts.length ? `<div class="ret-sh-acts">${acts.map((a) => retBtn(a, it.key)).join("")}</div>` : ""}
     </div>`;
@@ -10125,6 +10187,12 @@ function page(texte) {
     if (!$("#view-corbeille").hidden) openTrash();
     // Erase for good what has spent 20 days in the trash: done by the team app itself, no paid server needed.
     else if (state.canWrite) setTimeout(() => state.store.purgeTrash().catch(() => {}), 5000);
+    // Photos of problems handled 40 days ago are erased (the words stay): at most once a day on this device.
+    if (state.canWrite) setTimeout(() => {
+      let last = ""; try { last = localStorage.getItem("suivi.photosPurge") || ""; } catch {}
+      if (last === today()) return;
+      state.store.purgeReportPhotos().then(() => { try { localStorage.setItem("suivi.photosPurge", today()); } catch {} }).catch(() => {});
+    }, 8000);
   }
   function startProviderMode(account) {
     state.providerMode = true;
