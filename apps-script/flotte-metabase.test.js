@@ -39,9 +39,9 @@ test("CSV du mail Metabase : modèle et catégorie de chaque VU, immobilisés co
     ["404", "IMPRODUCTIF", "GM-149-EA", "MOV - 12", "12M3", "4"],
     ["405", "ROUTE", "HK-382-ML", "MOV - 17", "17M3", "1"],
     ["", "PROVINCE", "", "", "", ""]]);
-  assert.deepEqual(csv, { GM149EA: ["MOV - 12", "12M3", ""], HK382ML: ["MOV - 17", "17M3", ""] });
+  assert.deepEqual(csv, { GM149EA: ["MOV - 12", "12M3", "", "P"], HK382ML: ["MOV - 17", "17M3", "", "A"] }); // sous-statut 4 = en panne, 1 = actif
   assert.deepEqual(F.completerAvecCsv({ HK382ML: ["MOV - 12", "12M3", "Paris-Centre"], ZZ999ZZ: ["VIVA - 6", "5M3", "Aulnay"] }, csv), {
-    HK382ML: ["MOV - 17", "17M3", "Paris-Centre"], ZZ999ZZ: ["VIVA - 6", "5M3", "Aulnay"], GM149EA: ["MOV - 12", "12M3", ""] });
+    HK382ML: ["MOV - 17", "17M3", "Paris-Centre", "", "", "A"], ZZ999ZZ: ["VIVA - 6", "5M3", "Aulnay"], GM149EA: ["MOV - 12", "12M3", "", "", "", "P"] });
   assert.throws(() => F.vehiculesDuCsv([["a", "b"]]), /colonnes/);
 });
 
@@ -56,3 +56,21 @@ test("Matrice ID (facultatif) : lue dans le CSV, gardée dans la flotte, pas per
   assert.deepEqual(jour2.GP310FQ, ["MOV - 12", "12M3", "La Def", "2026-11-26", "19"]);
 });
 
+
+test("État du véhicule : actif au planning, en panne, inactif (sorti de la flotte) ; gardé un jour sans CSV", () => {
+  const T = ["Vehicule ID", "Statut", "Cd Vehicules - Vehicule → Immatriculation", "Cd Vehicules - Vehicule → Modele", "Cd Vehicules - Vehicule → Categorie",
+    "Cd Vehicules - Vehicule → Sous Statut", "Cd Vehicules - Vehicule → Statut"];
+  const csv = F.vehiculesDuCsv([T,
+    ["1", "ROUTE", "HN-515-TH", "DAILY - H", "20HM3", "1", "false"],
+    ["2", "IMPRODUCTIF", "GG-606-MC", "MOV - H", "20HM3", "4", "false"],
+    ["3", "IMPRODUCTIF", "GS-241-SC", "M20H-DVL", "20HM3", "4", "true"],
+    ["4", "ROUTE", "TE-111-ST", "MOV - 12", "12M3", "5", "false"]]);
+  assert.deepEqual(csv, { HN515TH: ["DAILY - H", "20HM3", "", "A"], GG606MC: ["MOV - H", "20HM3", "", "P"], GS241SC: ["M20H-DVL", "20HM3", "", "I"], TE111ST: ["MOV - 12", "12M3", "", "X"] });
+  // Sans la colonne « → Statut » : le « Statut » de la réservation n'est pas pris pour celui du véhicule.
+  assert.deepEqual(F.vehiculesDuCsv([T.slice(0, 6), ["3", "true", "GS-241-SC", "M20H-DVL", "20HM3", "4"]]).GS241SC, ["M20H-DVL", "20HM3", "", "P"]);
+  const jour1 = F.fusionnerFlotte({}, F.completerAvecCsv({ HN515TH: ["DAILY - H", "20HM3", "Rouen"] }, csv), "2026-11-26");
+  assert.deepEqual(jour1.HN515TH, ["DAILY - H", "20HM3", "Rouen", "2026-11-26", "", "A"]);
+  assert.deepEqual(jour1.GS241SC, ["M20H-DVL", "20HM3", "", "2026-11-26", "", "I"]);
+  const jour2 = F.fusionnerFlotte(jour1, { HN515TH: ["DAILY - H", "20HM3", "La Def"] }, "2026-11-27"); // feuille seule
+  assert.deepEqual(jour2.HN515TH, ["DAILY - H", "20HM3", "La Def", "2026-11-27", "", "A"]);
+});

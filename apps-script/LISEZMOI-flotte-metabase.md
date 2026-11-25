@@ -45,3 +45,12 @@ Propriété facultative `METABASE_EXPEDITEUR` : n'accepter ce mail que de cette 
 
 Apps Script › Exécutions montre l'erreur de `synchroFlotte` (Google envoie aussi un mail d'échec au propriétaire du script).
 Les infos déjà dans l'appli restent : on perd seulement la mise à jour du jour.
+
+## État du véhicule (actif, en panne, inactif) — 25/11/2026
+
+Le robot lit aussi dans le CSV l'état de chaque véhicule : sous-statut 1 = actif au planning, 4 = en panne,
+et la colonne **« Cd Vehicules - Vehicule → Statut »** à vrai = inactif (sorti de la flotte).
+Les contrôles hayon ne suivent que les véhicules actifs ou en panne ; un véhicule de la liste devenu inactif passe
+dans « Sortis de la flotte » (rien n'est effacé tout seul).
+Pour que les inactifs soient reconnus, cocher la colonne « Statut » de Cd Vehicules dans la question Metabase
+« Runners planning » (comme « Matrice ID »). Sans elle, un inactif encore présent dans l'export compte comme en panne.

@@ -581,6 +581,19 @@ test("hayon: a Metabase vehicle with a tailgate that is in no list shows up on i
   assert.equal(D.hayonFollowUp([], [], TODAY).length, 0); // without Metabase, nothing added
 });
 
+test("hayon: only vans active or broken down in the fleet are followed; an inactive one leaves the list", () => {
+  const mb = D.parseMetabase({ donnees: JSON.stringify({
+    AB123CD: ["DAILY - H", "20HM3", "Rouen", "2026-11-25", "", "A"], EF456GH: ["MOV - H", "20HM3", "", "2026-11-25", "", "P"],
+    GH789IJ: ["M20H-DVL", "20HM3", "", "2026-11-25", "", "I"], KL321MN: ["MOV - H", "20HM3", "", "2026-11-25", "", "I"],
+    MN111OP: ["DAILY - H", "20HM3", "", "2026-11-25"] }) });
+  const rows = D.hayonFollowUp([{ plaque: "KL-321-MN", dernierControle: "2026-10-01" }], [], TODAY, mb);
+  const by = Object.fromEntries(rows.map((r) => [r.plaque, r]));
+  assert.deepEqual(Object.keys(by).sort(), ["AB-123-CD", "EF-456-GH", "KL-321-MN", "MN-111-OP"]); // GH (inactif, pas dans la liste) : ignoré
+  assert.equal(by["EF-456-GH"].enPanne, true);
+  assert.equal(by["KL-321-MN"].horsFlotte, true); // dans la liste mais sorti de la flotte : signalé, pas effacé
+  assert.equal(by["AB-123-CD"].horsFlotte, undefined);
+});
+
 test("recentWindowStart keeps 40 days (15 for the team), hayonWindowStart 240 days", () => {
   assert.equal(D.recentWindowStart("2026-11-19"), "2026-10-10");
   assert.equal(D.recentWindowStart("2026-01-05"), "2025-11-26");

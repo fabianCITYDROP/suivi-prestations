@@ -55,11 +55,21 @@ function vehiculesDeLExport(valeurs, aujourdhui) {
 // Renvoie { PLAQUE: [code, catégorie, matrice] } (les villes n'y sont que des numéros : le site vient de la feuille).
 // 3e valeur (facultative) = le Matrice ID du véhicule (colonne « Matrice ID » de Cd Vehicules, ex. « 27 ») :
 // même matrice = même version du modèle (Movano 12 m³ 2023 ou 2025), quelle que soit l'année de mise en circulation.
+// 4e valeur (facultative) = l'état du véhicule dans la flotte (Fabian 2026-11-25) :
+// « A » actif au planning (sous-statut 1), « P » en panne (sous-statut 4), « I » inactif = sorti de la flotte
+// (colonne « Cd Vehicules - Vehicule → Statut » à vrai), « X » autre sous-statut. Vide si le CSV ne le dit pas.
+function etatVehicule(statutVehicule, sousStatut) {
+  if (String(statutVehicule || '').trim().toLowerCase() === 'true') return 'I';
+  const s = String(sousStatut || '').replace(/\D/g, '');
+  return s === '1' ? 'A' : s === '4' ? 'P' : s ? 'X' : '';
+}
 function vehiculesDuCsv(lignes) {
   const titres = (lignes[0] || []).map((t) => String(t).replace(/^\uFEFF/, '').trim());
   const col = (fin) => titres.findIndex((t) => new RegExp('(^|→\\s*)' + fin + '$', 'i').test(t));
   const c = { plaque: col('Immatriculation'), modele: col('Modele'), categorie: col('Categorie') };
   const iMatrice = col('Matrice ID');
+  const iSous = col('Sous Statut');
+  const iStatutVu = titres.findIndex((t) => /→\s*Statut$/i.test(t)); // celui du véhicule, pas le « Statut » de la réservation
   if (Object.values(c).some((i) => i < 0)) throw new Error('CSV Metabase : colonnes Immatriculation/Modele/Categorie introuvables.');
   const sortie = {};
   lignes.slice(1).forEach((l) => {
@@ -67,31 +77,33 @@ function vehiculesDuCsv(lignes) {
     const code = String(l[c.modele] || '').trim();
     const categorie = String(l[c.categorie] || '').trim();
     const matrice = iMatrice >= 0 ? String(l[iMatrice] || '').replace(/\D/g, '').slice(0, 6) : '';
-    if (cle && code && categorie) sortie[cle] = [code, categorie, matrice];
+    const etat = etatVehicule(iStatutVu >= 0 ? l[iStatutVu] : '', iSous >= 0 ? l[iSous] : '');
+    if (cle && code && categorie) sortie[cle] = etat ? [code, categorie, matrice, etat] : [code, categorie, matrice];
   });
   return sortie;
 }
 // Le CSV fait foi pour le modèle et la catégorie ; la feuille donne le site quand elle le connaît.
 function completerAvecCsv(nouveau, csv) {
   const sortie = { ...(nouveau || {}) };
-  Object.entries(csv || {}).forEach(([cle, [code, categorie, matrice]]) => {
-    sortie[cle] = [code, categorie, (sortie[cle] || [])[2] || ''];
-    if (matrice) sortie[cle][4] = matrice;
+  Object.entries(csv || {}).forEach(([cle, [code, categorie, matrice, etat]]) => {
+    const site = (sortie[cle] || [])[2] || '';
+    sortie[cle] = etat ? [code, categorie, site, '', matrice || '', etat] : matrice ? [code, categorie, site, '', matrice] : [code, categorie, site];
   });
   return sortie;
 }
 
 const moinsJours = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 
-// ancien = { PLAQUE: [code, catégorie, site, vuLe, matrice?] } déjà dans l'appli ; nouveau = vehiculesDeLExport(...).
+// ancien = { PLAQUE: [code, catégorie, site, vuLe, matrice?, état?] } déjà dans l'appli ; nouveau = vehiculesDeLExport(...).
 // Les véhicules du jour sont ajoutés ou mis à jour ; les absents gardent leurs infos jusqu'à 60 jours sans être vus.
 function fusionnerFlotte(ancien, nouveau, aujourdhui, joursMax = FLOTTE_JOURS_ABSENT) {
   const limite = moinsJours(aujourdhui, joursMax);
   const sortie = {};
-  Object.entries(ancien || {}).forEach(([cle, v]) => { if (Array.isArray(v) && (v[3] || '') >= limite) sortie[cle] = v.slice(0, 5); });
+  Object.entries(ancien || {}).forEach(([cle, v]) => { if (Array.isArray(v) && (v[3] || '') >= limite) sortie[cle] = v.slice(0, 6); });
   Object.entries(nouveau || {}).forEach(([cle, v]) => {
     const matrice = v[4] || (sortie[cle] || [])[4] || ''; // une matrice connue n'est pas perdue un jour où le CSV manque
-    sortie[cle] = matrice ? [v[0], v[1], v[2], aujourdhui, matrice] : [v[0], v[1], v[2], aujourdhui];
+    const etat = v[5] || (sortie[cle] || [])[5] || '';    // pareil pour l'état (actif, en panne, inactif)
+    sortie[cle] = etat ? [v[0], v[1], v[2], aujourdhui, matrice, etat] : matrice ? [v[0], v[1], v[2], aujourdhui, matrice] : [v[0], v[1], v[2], aujourdhui];
   });
   return Object.fromEntries(Object.keys(sortie).sort().map((k) => [k, sortie[k]]));
 }
@@ -144,4 +156,4 @@ function installerFlotte() {
   synchroFlotte();
 }
 
-if (typeof module === 'object' && module.exports) module.exports = { vehiculesDeLExport, vehiculesDuCsv, completerAvecCsv, fusionnerFlotte, clePlaque };
+if (typeof module === 'object' && module.exports) module.exports = { vehiculesDeLExport, vehiculesDuCsv, etatVehicule, completerAvecCsv, fusionnerFlotte, clePlaque };

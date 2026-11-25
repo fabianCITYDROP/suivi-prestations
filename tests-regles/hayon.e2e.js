@@ -40,7 +40,9 @@ async function seed() {
   await put('demandes/h4', { ...base, plaque: 'HB-550-TR', date: day(12), statut: 'envoyee', site: 'Gennevilliers' });
   // Metabase : un véhicule neuf avec hayon (pas dans la liste) apparaît tout seul ; GA-731-PM est déjà dans la liste.
   await put('metabase/flotte', { majLe: new Date().toISOString(), nb: 3, donnees: JSON.stringify({
-    HN587SX: ['DAILY - H', '20HM3', 'La Def', day(-1)], GA731PM: ['MAST - H', '20HM3', 'Saint-Cloud', day(-1)], GM100AB: ['MOV - 12', '12M3', 'Aulnay', day(-1)] }) });
+    HN587SX: ['DAILY - H', '20HM3', 'La Def', day(-1)], GA731PM: ['MAST - H', '20HM3', 'Saint-Cloud', day(-1)], GM100AB: ['MOV - 12', '12M3', 'Aulnay', day(-1)],
+    // État (Fabian 25/11) : GK-777-AB est dans la liste mais inactif (sorti de la flotte) ; HN-999-ZZ inactif et pas dans la liste.
+    GK777AB: ['MOV - H', '20HM3', '', day(-1), '', 'I'], HN999ZZ: ['DAILY - H', '20HM3', '', day(-1), '', 'I'], HN588SX: ['DAILY - H', '20HM3', 'Aulnay', day(-1), '', 'P'] }) });
   await signUp('fabian@city-drop.com');
 }
 
@@ -115,6 +117,11 @@ async function seed() {
       const mbCard = await p.textContent('[data-hy-key="HN587SX"]').catch(() => '');
       if (!/Nouveau dans Metabase/.test(mbCard || '')) errors.push('Véhicule Metabase absent : ' + mbCard);
       if (await p.$('[data-hy-key="GM100AB"]')) errors.push('Véhicule sans hayon affiché');
+      if (await p.$('[data-hy-key="HN999ZZ"]')) errors.push('Véhicule inactif ajouté');
+      if (!/En panne dans Metabase/.test(await p.textContent('[data-hy-key="HN588SX"]').catch(() => ''))) errors.push('Véhicule en panne absent');
+      const groups = await p.$$eval('.hy-gh', (h) => h.map((x) => x.textContent));
+      if (!groups.some((g) => /Sortis de la flotte\s*1/.test(g))) errors.push('Groupe « Sortis de la flotte » absent : ' + groups.join(' | '));
+      await s('4a-sortis-flotte', true);
       await p.click('[data-hy-key="HN587SX"]'); await p.waitForTimeout(600); await s('4b-fiche-metabase');
       if (!(await p.textContent('.team-sheet')).includes('Metabase indique un hayon')) errors.push('Fiche Metabase sans explication');
       await p.click('.team-sheet .sheet-x'); await p.waitForTimeout(500);
