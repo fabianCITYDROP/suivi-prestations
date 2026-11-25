@@ -431,11 +431,13 @@
     // ----- tailgate controls: hayons/<PLATEKEY> {plaque, dernierControle} -----
     async function saveHayons(list) {
       const now = new Date().toISOString();
-      const write = (h) => db.doc("hayons/" + D.plateKey(h.plaque)).set({ plaque: h.plaque, dernierControle: h.dernierControle || "", updatedAt: now });
+      // auto = date posée toute seule à l'arrivée du véhicule (Metabase) ; une date collée ou corrigée l'enlève.
+      const docOf = (h) => ({ plaque: h.plaque, dernierControle: h.dernierControle || "", updatedAt: now, ...(h.auto ? { auto: true } : {}) });
+      const write = (h) => db.doc("hayons/" + D.plateKey(h.plaque)).set(docOf(h));
       if (!db.batch) { for (const h of list) await write(h); return; }
       for (let i = 0; i < list.length; i += 400) {
         const batch = db.batch();
-        list.slice(i, i + 400).forEach((h) => batch.set(db.doc("hayons/" + D.plateKey(h.plaque)), { plaque: h.plaque, dernierControle: h.dernierControle || "", updatedAt: now }));
+        list.slice(i, i + 400).forEach((h) => batch.set(db.doc("hayons/" + D.plateKey(h.plaque)), docOf(h)));
         await batch.commit();
       }
     }

@@ -603,6 +603,14 @@ test("hayon: a removed van stays out, even if Metabase still lists it with a tai
   assert.deepEqual(D.hayonFollowUp(hayons, [old, fresh], TODAY, mb).map((r) => r.plaque), ["EF-456-GH"]);
 });
 
+test("hayon: a new Metabase van without any date starts its 180 days today (auto), and shows it", () => {
+  const mb = D.parseMetabase({ donnees: JSON.stringify({ AB123CD: ["DAILY - H", "20HM3", "", "2026-11-25", "", "A"], EF456GH: ["DAILY - H", "20HM3", "", "2026-11-25", "", "A"] }) });
+  const rows = D.hayonFollowUp([{ plaque: "EF-456-GH", dernierControle: "2026-11-01", auto: true }], [], TODAY, mb);
+  assert.deepEqual(D.hayonsToStart(rows, TODAY), [{ plaque: "AB-123-CD", dernierControle: TODAY, auto: true }]);
+  assert.equal(rows.find((r) => r.plaque === "EF-456-GH").dateAuto, true);
+  assert.equal(rows.find((r) => r.plaque === "EF-456-GH").daysLeft, 163);
+});
+
 test("recentWindowStart keeps 40 days (15 for the team), hayonWindowStart 240 days", () => {
   assert.equal(D.recentWindowStart("2026-11-19"), "2026-10-10");
   assert.equal(D.recentWindowStart("2026-01-05"), "2025-11-26");

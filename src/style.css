@@ -2611,4 +2611,9 @@ body.presta-mode .theme-btn + .power-btn { margin-left: -2px; }
 .theme-btn:has(+ .power-btn.armed) { display: none; }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .25s; }
 @media (prefers-reduced-motion: reduce) { .theme-btn, .theme-btn .icon { transition: none; } }
+/* Contrôles hayon : modifier la date du dernier contrôle dans la fiche (2026-11-25) */
+.hy-date-edit { display: grid; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 .5px rgba(10, 20, 28, .08); }
+.hy-date-edit label { font: 600 14px var(--f-body); color: var(--ink-2); }
+.hy-date-edit input { min-height: 46px; padding: 0 12px; border: 0; border-radius: 12px; background: var(--surface-2); color: var(--ink); font: 500 17px var(--f-body); }
+.hy-date-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 </style>

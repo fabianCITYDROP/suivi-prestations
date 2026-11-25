@@ -2927,7 +2927,7 @@
   }
   // Page « Contrôles hayon » façon iPhone (2026-11-21) : compteurs qui filtrent, véhicules groupés par ce qu'il faut faire
   // (à programmer, rendez-vous posés, à jour), jauge des jours restants, fiche du véhicule en feuille, liste à coller en feuille.
-  const hy = { filter: "", open: null, removing: "" };
+  const hy = { filter: "", open: null, removing: "", editing: "" };
   const HY_GROUPS = [
     { id: "todo", title: "À programmer", sub: "Pas de rendez-vous et échéance dans 30 jours ou moins.", test: (r) => !r.booked && ["depasse", "urgent", "bientot", "inconnu"].includes(r.level) },
     { id: "rdv", title: "Rendez-vous posés", sub: "", test: (r) => !!r.booked },
@@ -2978,7 +2978,7 @@
     const known = true; // « Retirer » marche aussi pour un véhicule venu de Metabase (il ne revient pas)
     const recent = r.lastRequest && D.daysBetween(r.lastRequest.date, today()) <= 30;
     const info = [
-      ["Dernier contrôle", r.lastControl ? D.numericDate(r.lastControl) : "Inconnu", r.lastRequest ? `Rendez-vous du ${D.shortDate(r.lastRequest.date)}` : r.lastControl ? "Liste du prestataire" : ""],
+      ["Dernier contrôle", r.lastControl ? D.numericDate(r.lastControl) : "Inconnu", r.lastRequest ? `Rendez-vous du ${D.shortDate(r.lastRequest.date)}` : r.dateAuto ? "Posée à son arrivée, à corriger si besoin" : r.lastControl ? "Liste du prestataire" : ""],
       ["À refaire avant", r.nextDue ? D.numericDate(r.nextDue) : "—", ""],
       ["Rendez-vous", r.booked ? slotOf(r.booked) : "Aucun", r.booked?.site || ""],
       ...(r.site && !r.booked ? [["Site", r.site, ""]] : []),
@@ -2993,6 +2993,10 @@
     else if (state.canWrite) acts.push(`<button type="button" class="hy-btn primary" data-hy-act="ask">${icon("plus")}Demander un contrôle</button>`);
     if (state.canWrite && recent) acts.push(`<button type="button" class="hy-btn" data-hy-act="notdone" data-id="${esc(r.lastRequest.id)}">Le contrôle du ${esc(D.shortDate(r.lastRequest.date))} n'a pas eu lieu</button>`);
     if (state.canWrite && r.notDone && !r.booked) acts.push(`<button type="button" class="hy-btn" data-hy-act="done" data-id="${esc(r.notDone.id)}">${icon("check")}Finalement fait</button>`);
+    if (state.canWrite) acts.push(hy.editing === key
+      ? `<div class="hy-date-edit"><label for="hy-date">Date du dernier contrôle</label><input type="date" id="hy-date" value="${esc(r.lastControl || today())}" max="${esc(today())}">
+          <div class="hy-date-btns"><button type="button" class="hy-btn" data-hy-act="date-cancel">Annuler</button><button type="button" class="hy-btn primary" data-hy-act="date-save">${icon("check")}Enregistrer</button></div></div>`
+      : `<button type="button" class="hy-btn" data-hy-act="date">${icon("cal")}Modifier la date du dernier contrôle</button>`);
     acts.push(`<button type="button" class="hy-btn" data-hy-act="history">Historique de la plaque</button>`);
     if (state.canWrite && known) acts.push(`<button type="button" class="hy-btn danger${hy.removing === key ? " confirm" : ""}" data-hy-act="remove">${icon("x")}${hy.removing === key ? "Retirer vraiment ?" : "Retirer de la liste des hayons"}</button>`);
     return `<div class="hy-sheet lv-${r.level}">
@@ -3007,7 +3011,7 @@
     const r = hyRowByKey(key);
     if (!r) return teamSheet.close();
     hy.open = key;
-    teamSheet.open("Contrôle hayon", hayonSheetHtml(r), { cls: "hy-sheet-b side-sheet", closed: () => { hy.open = null; hy.removing = ""; } });
+    teamSheet.open("Contrôle hayon", hayonSheetHtml(r), { cls: "hy-sheet-b side-sheet", closed: () => { hy.open = null; hy.removing = ""; hy.editing = ""; } });
   }
   function refreshHayonSheet() {
     if (!teamSheet.isOpen || !hy.open) return;
@@ -3015,8 +3019,18 @@
     const r = hyRowByKey(hy.open);
     r ? (teamSheet.body.innerHTML = hayonSheetHtml(r)) : teamSheet.close();
   }
+  // Véhicule neuf venu de Metabase sans aucune date : le compteur démarre le jour de son arrivée (une seule écriture).
+  const startingHayons = new Set();
+  function startNewHayons(all) {
+    if (!state.canWrite || !state.store || !state.hayonsLoaded || !state.metabase.size) return;
+    const list = D.hayonsToStart(all, today()).filter((h) => !startingHayons.has(h.plaque));
+    if (!list.length) return;
+    list.forEach((h) => startingHayons.add(h.plaque));
+    state.store.saveHayons(list).catch(() => list.forEach((h) => startingHayons.delete(h.plaque)));
+  }
   function renderHayon() {
     const all = hyRows();
+    startNewHayons(all);
     // Inactifs dans Metabase (sortis de la flotte) : plus suivis, juste listés à part pour pouvoir les retirer.
     const rows = all.filter((r) => !r.horsFlotte), gone = all.filter((r) => r.horsFlotte);
     const urgent = rows.filter((r) => !r.booked && ["depasse", "urgent"].includes(r.level)).length;
@@ -3080,6 +3094,21 @@
     const act = b.dataset.hyAct, key = hy.open, r = key && key !== "paste" ? hyRowByKey(key) : null;
     if (act === "open") { teamSheet.close(); return openDemande(b.dataset.id); }
     if (act === "ask" && r) { teamSheet.close(); return newHayonFor(r.plaque); }
+    if (act === "date" && r) { hy.editing = key; refreshHayonSheet(); return setTimeout(() => $("#hy-date")?.focus(), 50); }
+    if (act === "date-cancel") { hy.editing = ""; return refreshHayonSheet(); }
+    if (act === "date-save" && r && requireStore()) {
+      const value = $("#hy-date")?.value || "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value > today()) return toast("Choisis une date passée ou d'aujourd'hui");
+      const previous = state.hayons.find((h) => D.plateKey(h.plaque) === key) || null;
+      const { id, ...before } = previous || {};
+      b.disabled = true;
+      try {
+        await state.store.saveHayons([{ plaque: r.plaque, dernierControle: value }]); hy.editing = "";
+        toast(`Dernier contrôle de ${r.plaque} : ${D.numericDate(value)}`, { label: "Annuler", run: () => state.store.restoreHayon(r.plaque, previous ? before : null).catch(reportWriteError) });
+      } catch (err) { reportWriteError(err); }
+      finally { b.disabled = false; refreshHayonSheet(); }
+      return;
+    }
     if (act === "history" && r) { teamSheet.close(); $("#q").value = r.plaque; show("historique"); return renderHistory(); }
     if ((act === "notdone" || act === "done") && requireStore()) {
       const missed = act === "notdone", d = demandeById(b.dataset.id);
@@ -3596,7 +3625,7 @@
       onSettings: (settings) => { applySettings(settings); completeMailRequests(); renderAll(); },
       onProviders: (rows) => { state.providerDocs = new Map(rows.map((p) => [p.id, p])); renderServiceChoice(); completeMailRequests(); renderAll(); },
       onAccounts: (rows) => { state.accounts = rows; renderSettings(); },
-      onHayons: (rows) => { state.hayons = rows; renderHayon(); renderFormSide(); },
+      onHayons: (rows) => { state.hayons = rows; state.hayonsLoaded = true; renderHayon(); renderFormSide(); },
       onProblems: (rows) => { followProblems(rows); state.problems = rows; renderAnswers(); renderPlanning(); renderFormSide(); },
       onRobot: (etat) => { state.robot = etat; renderRobot(); },
       onMetabase: (doc) => { state.metabase = D.parseMetabase(doc); state.metabaseAt = doc?.majLe || ""; completeMailRequests(); renderFormSide(); renderHayon(); },
