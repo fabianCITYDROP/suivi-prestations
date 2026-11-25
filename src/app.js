@@ -2961,6 +2961,8 @@
     if (r.booked) lines.push(`<span class="hy-rdv-line">${icon("cal")}RDV ${esc(slotOf(r.booked))}${r.booked.site ? ` · ${esc(r.booked.site)}` : ""}</span>`);
     if (r.tooSoon) lines.push(`<span class="hy-warn">${icon("alert")}Deux contrôles à ${plural(r.tooSoon.gap, "jour")} d'écart</span>`);
     if (r.notDone) lines.push(`<span class="hy-meta">Pas fait le ${esc(D.shortDate(r.notDone.date))}</span>`);
+    if (r.enPanne) lines.push(`<span class="hy-meta">En panne dans Metabase</span>`);
+    if (r.horsFlotte) lines.push(`<span class="hy-meta">Inactif dans Metabase</span>`);
     return `<li class="hy-card lv-${r.level}"><button type="button" class="hy-open" data-hy-key="${esc(key)}">
       ${hyArt("svc-hayon")}
       <span class="hy-main">
@@ -2983,6 +2985,7 @@
     ];
     const notes = [];
     if (r.tooSoon) notes.push(`<p class="hy-sh-note warn">${icon("alert")}<span>Deux contrôles posés à ${plural(r.tooSoon.gap, "jour")} d'écart : le ${esc(D.shortDate(r.tooSoon.first.date))} et le ${esc(D.shortDate(r.tooSoon.second.date).replace(/\.$/, ""))}. L'un des deux est peut-être en trop.</span></p>`);
+    if (r.horsFlotte) notes.push(`<p class="hy-sh-note"><span>Inactif dans Metabase : sorti de la flotte, il n'est plus suivi. Tu peux le retirer de la liste.</span></p>`);
     if (r.fromMetabase) notes.push(`<p class="hy-sh-note"><span>Ajouté tout seul : Metabase indique un hayon (${esc(r.metabaseCode || "hayon")}${r.metabaseSite ? `, ${esc(r.metabaseSite)}` : ""}). Pour démarrer ses 180 jours, colle sa date dans « Coller la liste » ou demande un contrôle.</span></p>`);
     if (r.notDone) notes.push(`<p class="hy-sh-note"><span>Le contrôle du ${esc(D.shortDate(r.notDone.date))} est marqué « pas fait » : le compteur reprend le contrôle d'avant.</span></p>`);
     const acts = [];
@@ -3013,7 +3016,9 @@
     r ? (teamSheet.body.innerHTML = hayonSheetHtml(r)) : teamSheet.close();
   }
   function renderHayon() {
-    const rows = hyRows();
+    const all = hyRows();
+    // Inactifs dans Metabase (sortis de la flotte) : plus suivis, juste listés à part pour pouvoir les retirer.
+    const rows = all.filter((r) => !r.horsFlotte), gone = all.filter((r) => r.horsFlotte);
     const urgent = rows.filter((r) => !r.booked && ["depasse", "urgent"].includes(r.level)).length;
     $("#hayonBadge").hidden = !urgent; $("#hayonBadge").textContent = urgent;
     $("#hyKicker").textContent = rows.length ? `${plural(rows.length, "véhicule")} · DHOLLIANDA` : "DHOLLIANDA · tous les 180 jours";
@@ -3040,6 +3045,8 @@
           return `<section class="hy-group"><h2 class="hy-gh">${esc(g.title)} <em>${list.length}</em></h2>${g.sub && g.id === "todo" ? `<p class="hy-gsub">${esc(g.sub)}</p>` : ""}<ul class="hy-cards">${list.map(hayonCard).join("")}</ul></section>`;
         }).join("");
     }
+    const goneShown = tile ? [] : gone.filter((r) => D.matchesSearch([r.plaque], query));
+    if (goneShown.length) html += `<section class="hy-group"><h2 class="hy-gh">Sortis de la flotte <em>${goneShown.length}</em></h2><p class="hy-gsub">Inactifs dans Metabase : plus suivis. Tu peux les retirer de la liste.</p><ul class="hy-cards">${goneShown.map(hayonCard).join("")}</ul></section>`;
     $("#hy-list").innerHTML = html;
     refreshHayonSheet();
   }

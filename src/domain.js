@@ -552,7 +552,7 @@
   function parseMetabase(doc) {
     try {
       const raw = JSON.parse(doc?.donnees || "{}");
-      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe, matrice]]) => [k, { code, categorie, site, vuLe, matrice: String(matrice || "") }]));
+      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe, matrice, etat]]) => [k, { code, categorie, site, vuLe, matrice: String(matrice || ""), etat: String(etat || "") }]));
     } catch { return new Map(); }
   }
   // What the app knows about a plate: its own vehicle sheet first (chosen by the team), Metabase for the rest.
@@ -964,6 +964,10 @@
 
   // Metabase shows a tailgate in the category (« 20HM3 ») or in the model code (« DAILY - H », « *MOV - H », « MOV - H ABN »).
   const metabaseHasHayon = (mb) => !!mb && (metabaseCubage(mb.categorie).hayon || /-\s*H\b/.test(String(mb.code || "").toUpperCase()));
+  // État dans la flotte (robot, CSV Metabase) : A actif au planning, P en panne, I inactif (sorti de la flotte), X autre.
+  // Only active and broken-down vans are followed (Fabian 2026-11-25): a new van is always in one of these two.
+  // Unknown state (older export) = followed, as before.
+  const metabaseInFleet = (mb) => !mb?.etat || mb.etat === "A" || mb.etat === "P";
   // metabase (optional, Map PLATEKEY → export entry): a vehicle with a tailgate that is in no list yet shows up on its own,
   // with an unknown last control, so a new van is never forgotten (Fabian 2026-11-23). Nothing is written for it.
   function hayonFollowUp(hayons, demandes, todayIso, metabase) {
@@ -975,8 +979,9 @@
     };
     hayons.filter((h) => plateKey(h.plaque)).forEach((h) => (entry(h.plaque).base = h));
     demandes.filter((d) => isHayon(d) && plateKey(d.plaque)).forEach((d) => entry(d.plaque).requests.push(d));
-    if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && plateKey(key) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
+    if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && metabaseInFleet(mb) && plateKey(key) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
     return [...vehicles.values()].map(({ plaque, base, requests, mb }) => {
+      const known = metabase?.get(plateKey(plaque));
       const doneRequests = requests.filter((d) => hayonDone(d, todayIso));
       const lastControl = latest([base?.dernierControle, ...doneRequests.map((d) => d.date)]);
       const lastRequest = doneRequests.sort((a, b) => b.date.localeCompare(a.date))[0] || null;
@@ -986,7 +991,8 @@
       const notDone = requests.filter((d) => d.nonFait && d.date > lastControl).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
       return { plaque, lastControl, lastRequest: lastRequest?.date === lastControl ? lastRequest : null, nextDue, daysLeft,
         level: hayonLevel(daysLeft), booked, notDone, tooSoon: hayonTooSoonPair(requests), site: booked?.site || lastRequest?.site || "",
-        ...(mb ? { fromMetabase: true, metabaseCode: String(mb.code || "").replace(/^\*+/, "").trim(), metabaseSite: mb.site || "" } : {}) };
+        ...(mb ? { fromMetabase: true, metabaseCode: String(mb.code || "").replace(/^\*+/, "").trim(), metabaseSite: mb.site || "" } : {}),
+        ...(known && !metabaseInFleet(known) ? { horsFlotte: true } : {}), ...(known?.etat === "P" ? { enPanne: true } : {}) };
     }).sort((a, b) => (a.daysLeft ?? -Infinity) - (b.daysLeft ?? -Infinity) || a.plaque.localeCompare(b.plaque));
   }
   // Two controls of the same vehicle less than a week apart: one is probably a mistake (it happened once, 2026-11).
@@ -1266,7 +1272,7 @@
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint, plateOrder, guessYear,
     providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, providerSites, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
-    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, metabaseHasHayon, dateInText,
+    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, metabaseHasHayon, metabaseInFleet, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,

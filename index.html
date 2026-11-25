@@ -4087,7 +4087,7 @@ window.SUIVI_FIREBASE_CONFIG = {
   function parseMetabase(doc) {
     try {
       const raw = JSON.parse(doc?.donnees || "{}");
-      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe, matrice]]) => [k, { code, categorie, site, vuLe, matrice: String(matrice || "") }]));
+      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe, matrice, etat]]) => [k, { code, categorie, site, vuLe, matrice: String(matrice || ""), etat: String(etat || "") }]));
     } catch { return new Map(); }
   }
   // What the app knows about a plate: its own vehicle sheet first (chosen by the team), Metabase for the rest.
@@ -4499,6 +4499,10 @@ window.SUIVI_FIREBASE_CONFIG = {
 
   // Metabase shows a tailgate in the category (« 20HM3 ») or in the model code (« DAILY - H », « *MOV - H », « MOV - H ABN »).
   const metabaseHasHayon = (mb) => !!mb && (metabaseCubage(mb.categorie).hayon || /-\s*H\b/.test(String(mb.code || "").toUpperCase()));
+  // État dans la flotte (robot, CSV Metabase) : A actif au planning, P en panne, I inactif (sorti de la flotte), X autre.
+  // Only active and broken-down vans are followed (Fabian 2026-11-25): a new van is always in one of these two.
+  // Unknown state (older export) = followed, as before.
+  const metabaseInFleet = (mb) => !mb?.etat || mb.etat === "A" || mb.etat === "P";
   // metabase (optional, Map PLATEKEY → export entry): a vehicle with a tailgate that is in no list yet shows up on its own,
   // with an unknown last control, so a new van is never forgotten (Fabian 2026-11-23). Nothing is written for it.
   function hayonFollowUp(hayons, demandes, todayIso, metabase) {
@@ -4510,8 +4514,9 @@ window.SUIVI_FIREBASE_CONFIG = {
     };
     hayons.filter((h) => plateKey(h.plaque)).forEach((h) => (entry(h.plaque).base = h));
     demandes.filter((d) => isHayon(d) && plateKey(d.plaque)).forEach((d) => entry(d.plaque).requests.push(d));
-    if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && plateKey(key) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
+    if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && metabaseInFleet(mb) && plateKey(key) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
     return [...vehicles.values()].map(({ plaque, base, requests, mb }) => {
+      const known = metabase?.get(plateKey(plaque));
       const doneRequests = requests.filter((d) => hayonDone(d, todayIso));
       const lastControl = latest([base?.dernierControle, ...doneRequests.map((d) => d.date)]);
       const lastRequest = doneRequests.sort((a, b) => b.date.localeCompare(a.date))[0] || null;
@@ -4521,7 +4526,8 @@ window.SUIVI_FIREBASE_CONFIG = {
       const notDone = requests.filter((d) => d.nonFait && d.date > lastControl).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
       return { plaque, lastControl, lastRequest: lastRequest?.date === lastControl ? lastRequest : null, nextDue, daysLeft,
         level: hayonLevel(daysLeft), booked, notDone, tooSoon: hayonTooSoonPair(requests), site: booked?.site || lastRequest?.site || "",
-        ...(mb ? { fromMetabase: true, metabaseCode: String(mb.code || "").replace(/^\*+/, "").trim(), metabaseSite: mb.site || "" } : {}) };
+        ...(mb ? { fromMetabase: true, metabaseCode: String(mb.code || "").replace(/^\*+/, "").trim(), metabaseSite: mb.site || "" } : {}),
+        ...(known && !metabaseInFleet(known) ? { horsFlotte: true } : {}), ...(known?.etat === "P" ? { enPanne: true } : {}) };
     }).sort((a, b) => (a.daysLeft ?? -Infinity) - (b.daysLeft ?? -Infinity) || a.plaque.localeCompare(b.plaque));
   }
   // Two controls of the same vehicle less than a week apart: one is probably a mistake (it happened once, 2026-11).
@@ -4801,7 +4807,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint, plateOrder, guessYear,
     providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, providerSites, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
-    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, metabaseHasHayon, dateInText,
+    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, metabaseHasHayon, metabaseInFleet, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
@@ -9593,6 +9599,8 @@ function page(texte) {
     if (r.booked) lines.push(`<span class="hy-rdv-line">${icon("cal")}RDV ${esc(slotOf(r.booked))}${r.booked.site ? ` · ${esc(r.booked.site)}` : ""}</span>`);
     if (r.tooSoon) lines.push(`<span class="hy-warn">${icon("alert")}Deux contrôles à ${plural(r.tooSoon.gap, "jour")} d'écart</span>`);
     if (r.notDone) lines.push(`<span class="hy-meta">Pas fait le ${esc(D.shortDate(r.notDone.date))}</span>`);
+    if (r.enPanne) lines.push(`<span class="hy-meta">En panne dans Metabase</span>`);
+    if (r.horsFlotte) lines.push(`<span class="hy-meta">Inactif dans Metabase</span>`);
     return `<li class="hy-card lv-${r.level}"><button type="button" class="hy-open" data-hy-key="${esc(key)}">
       ${hyArt("svc-hayon")}
       <span class="hy-main">
@@ -9615,6 +9623,7 @@ function page(texte) {
     ];
     const notes = [];
     if (r.tooSoon) notes.push(`<p class="hy-sh-note warn">${icon("alert")}<span>Deux contrôles posés à ${plural(r.tooSoon.gap, "jour")} d'écart : le ${esc(D.shortDate(r.tooSoon.first.date))} et le ${esc(D.shortDate(r.tooSoon.second.date).replace(/\.$/, ""))}. L'un des deux est peut-être en trop.</span></p>`);
+    if (r.horsFlotte) notes.push(`<p class="hy-sh-note"><span>Inactif dans Metabase : sorti de la flotte, il n'est plus suivi. Tu peux le retirer de la liste.</span></p>`);
     if (r.fromMetabase) notes.push(`<p class="hy-sh-note"><span>Ajouté tout seul : Metabase indique un hayon (${esc(r.metabaseCode || "hayon")}${r.metabaseSite ? `, ${esc(r.metabaseSite)}` : ""}). Pour démarrer ses 180 jours, colle sa date dans « Coller la liste » ou demande un contrôle.</span></p>`);
     if (r.notDone) notes.push(`<p class="hy-sh-note"><span>Le contrôle du ${esc(D.shortDate(r.notDone.date))} est marqué « pas fait » : le compteur reprend le contrôle d'avant.</span></p>`);
     const acts = [];
@@ -9645,7 +9654,9 @@ function page(texte) {
     r ? (teamSheet.body.innerHTML = hayonSheetHtml(r)) : teamSheet.close();
   }
   function renderHayon() {
-    const rows = hyRows();
+    const all = hyRows();
+    // Inactifs dans Metabase (sortis de la flotte) : plus suivis, juste listés à part pour pouvoir les retirer.
+    const rows = all.filter((r) => !r.horsFlotte), gone = all.filter((r) => r.horsFlotte);
     const urgent = rows.filter((r) => !r.booked && ["depasse", "urgent"].includes(r.level)).length;
     $("#hayonBadge").hidden = !urgent; $("#hayonBadge").textContent = urgent;
     $("#hyKicker").textContent = rows.length ? `${plural(rows.length, "véhicule")} · DHOLLIANDA` : "DHOLLIANDA · tous les 180 jours";
@@ -9672,6 +9683,8 @@ function page(texte) {
           return `<section class="hy-group"><h2 class="hy-gh">${esc(g.title)} <em>${list.length}</em></h2>${g.sub && g.id === "todo" ? `<p class="hy-gsub">${esc(g.sub)}</p>` : ""}<ul class="hy-cards">${list.map(hayonCard).join("")}</ul></section>`;
         }).join("");
     }
+    const goneShown = tile ? [] : gone.filter((r) => D.matchesSearch([r.plaque], query));
+    if (goneShown.length) html += `<section class="hy-group"><h2 class="hy-gh">Sortis de la flotte <em>${goneShown.length}</em></h2><p class="hy-gsub">Inactifs dans Metabase : plus suivis. Tu peux les retirer de la liste.</p><ul class="hy-cards">${goneShown.map(hayonCard).join("")}</ul></section>`;
     $("#hy-list").innerHTML = html;
     refreshHayonSheet();
   }
