@@ -869,7 +869,7 @@ test("Metabase : la fiche véhicule choisie par l'équipe passe avant l'export",
   assert.equal(D.knownVehicle("AB-123-CD", own, MB, D.DEFAULT_FLEET, SITES).modele, "Citroën Jumper");
   const v = D.knownVehicle("ef-456-gh", new Map(), MB, D.DEFAULT_FLEET, SITES);
   assert.equal(v.cubage, 12); assert.equal(v.siteMetabase, "Saint-Cloud"); assert.equal(v.metabase, true);
-  assert.equal(D.metabaseHint(v), "Metabase : Opel Movano · 12 m³ · Saint-Cloud");
+  assert.equal(D.metabaseHint(v), "Metabase : Opel Movano 2025 – 12 m³ (année estimée) · Saint-Cloud");
   assert.equal(D.knownVehicle("ZZ-999-ZZ", new Map(), MB, D.DEFAULT_FLEET, SITES), null);
 });
 
@@ -884,4 +884,57 @@ test("Metabase : une demande reçue par mail prend modèle, cubage, prix et site
   const sansAnnee = D.mailCompletion({ ...mail, id: "m2", plaque: "EF-456-GH" }, ctx);
   assert.equal(sansAnnee.modele, undefined); assert.equal(sansAnnee.cubage, 12); assert.equal(sansAnnee.prixHT, 360);
   assert.equal(D.mailCompletion({ ...mail, id: "m2", plaque: "EF-456-GH", ...sansAnnee }, ctx), null, "rien de plus une fois complétée");
+});
+
+test("« Valider le lavage » : un signalement « Véhicule sale » devient un lavage pour ce prestataire", () => {
+  const report = { id: "s9", source: "terrain", plaque: "gs487pr", quoi: ["Véhicule sale", "Pneu avant"], at: "2026-11-23T09:12:00.000Z", prestataireId: "du-sol-au-toit" };
+  assert.ok(D.isWashReport(report));
+  assert.ok(!D.isWashReport({ ...report, quoi: ["Pneu avant"] }));
+  assert.ok(!D.isWashReport({ ...report, source: undefined }), "un problème sur une demande n'est pas un lavage repéré");
+  const sites = [{ nom: "La Défense", adresse: "1 parvis" }];
+  const f = D.washFromReport(report, { providerName: "Du Sol au Toit", vehicle: { modele: "Movano", cubage: 12, siteMetabase: "La Défense" }, sites, date: "2026-11-24", formule: "interieur" });
+  assert.equal(f.service, "lavage"); assert.equal(f.formule, "interieur");
+  assert.equal(f.plaque, "GS-487-PR"); assert.equal(f.cubage, 12);
+  assert.equal(f.site, "La Défense"); assert.equal(f.adresse, "1 parvis");
+  assert.equal(f.date, "2026-11-24"); assert.equal(f.dateFin, "2026-11-24");
+  assert.equal(f.prestataire, "Du Sol au Toit"); assert.equal(f.signalementId, "s9");
+  assert.match(f.notes, /repéré par Du Sol au Toit le 23\/11\/2026/);
+  const inconnu = D.washFromReport(report, { providerName: "Khalid", vehicle: null, date: "2026-11-23", formule: "??" });
+  assert.equal(inconnu.site, ""); assert.equal(inconnu.formule, "complet");
+  assert.equal(D.washFromReport(report, { providerName: "K", vehicle: {}, sites, date: "2026-11-23", lastSite: "La Défense" }).adresse, "1 parvis");
+  const demandes = [{ id: "d1", signalementId: "s9", statut: "confirmee" }, { id: "d2", signalementId: "s8", statut: "annulee" }];
+  assert.equal(D.washOfReport(report, demandes).id, "d1");
+  assert.equal(D.washOfReport({ id: "s8" }, demandes), null, "un lavage annulé ne compte plus");
+});
+
+test("Metabase sans année : année du véhicule connu immatriculé le plus près, sinon la plus récente", () => {
+  const MB = new Map([["GP310FQ", { code: "MOV - 12", categorie: "12M3", site: "Saint-Cloud" }]]);
+  const own = new Map([["GN702QF", { plaque: "GN-702-QF", modele: "Opel Movano 2023", cubage: 17 }],
+    ["HK100AA", { plaque: "HK-100-AA", modele: "Opel Movano 2025", cubage: 12 }]]);
+  const v = D.knownVehicle("GP-310-FQ", own, MB, D.DEFAULT_FLEET, []);
+  assert.equal(v.modele, "Opel Movano 2023"); assert.equal(v.cubage, 12); assert.ok(v.anneeEstimee);
+  assert.match(D.metabaseHint(v), /Opel Movano 2023 – 12 m³ \(année estimée\)/);
+  assert.equal(D.knownVehicle("GP-310-FQ", new Map(), MB, D.DEFAULT_FLEET, []).modele, "Opel Movano 2025");
+  assert.ok(D.plateOrder("GN-702-QF") < D.plateOrder("GP-310-FQ"));
+  // A mail request is not written with a guessed year: only the cubage (for the price).
+  const p = D.mailCompletion({ source: "mail", plaque: "GP-310-FQ" }, { demandes: [], vehicleOf: () => v, providerNames: [], pricesOf: () => null });
+  assert.equal(p.modele, undefined); assert.equal(p.cubage, 12);
+});
+
+test("Metabase avec le Matrice ID : même matrice = même version, quelle que soit l'année d'immatriculation", () => {
+  const mb = D.parseMetabase({ donnees: JSON.stringify({ GP310FQ: ["MOV - 12", "12M3", "Saint-Cloud", "2026-11-25", "27"],
+    AB123CD: ["MOV - 12", "12M3", "", "2026-11-25", "19"], XX111XX: ["MOV - 12", "12M3", "", "2026-11-25", "99"],
+    YY222YY: ["MOV - 12", "12M3", "", "2026-11-25", "99"] }) });
+  const v = D.knownVehicle("GP-310-FQ", new Map(), mb, D.DEFAULT_FLEET, []);
+  assert.equal(v.modele, "Opel Movano 2025"); assert.equal(v.cubage, 12); assert.ok(!v.anneeEstimee);
+  assert.equal(D.knownVehicle("AB-123-CD", new Map(), mb, D.DEFAULT_FLEET, []).modele, "Opel Movano 2023");
+  // Unknown matrix 99: the model the team chose for another vehicle of the same matrix.
+  const own = new Map([["YY222YY", { plaque: "YY-222-YY", modele: "Opel Movano 2023", cubage: 12 }]]);
+  const x = D.knownVehicle("XX-111-XX", own, mb, D.DEFAULT_FLEET, []);
+  assert.equal(x.modele, "Opel Movano 2023"); assert.ok(!x.anneeEstimee);
+  // A mail request may take this model: it is not guessed.
+  const p = D.mailCompletion({ source: "mail", plaque: "GP-310-FQ" }, { demandes: [], vehicleOf: () => v, providerNames: [], pricesOf: () => null });
+  assert.equal(p.modele, "Opel Movano 2025");
+  // Old 4-value entries still read.
+  assert.equal(D.parseMetabase({ donnees: JSON.stringify({ AB123CD: ["MOV - 17", "17M3", "La Def", "2026-11-21"] }) }).get("AB123CD").matrice, "");
 });

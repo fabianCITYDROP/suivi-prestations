@@ -496,7 +496,7 @@
       if (p) patch.prestataire = p;
     }
     const vehicle = vehicleOf(d.plaque);
-    if (!d.modele && vehicle?.modele) { patch.modele = vehicle.modele; patch.cubage = vehicle.cubage ?? null; }
+    if (!d.modele && vehicle?.modele && !vehicle.anneeEstimee) { patch.modele = vehicle.modele; patch.cubage = vehicle.cubage ?? null; }
     else if (!d.modele && (d.cubage == null || d.cubage === "") && vehicle?.cubage != null) patch.cubage = vehicle.cubage; // Metabase without the year: the cubage gives the price
     const provider = d.prestataire || patch.prestataire || "";
     const bySite = rule?.site ? sites.find((s) => s.nom === rule.site) || null : siteFromGarage(d.garageMail, provider, sites);
@@ -552,24 +552,71 @@
   function parseMetabase(doc) {
     try {
       const raw = JSON.parse(doc?.donnees || "{}");
-      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe]]) => [k, { code, categorie, site, vuLe }]));
+      return new Map(Object.entries(raw).filter(([, v]) => Array.isArray(v)).map(([k, [code, categorie, site, vuLe, matrice]]) => [k, { code, categorie, site, vuLe, matrice: String(matrice || "") }]));
     } catch { return new Map(); }
   }
   // What the app knows about a plate: its own vehicle sheet first (chosen by the team), Metabase for the rest.
+  // French plates (AB-123-CD) are issued in order: digits first, then the right letters, then the left ones.
+  // So two plates close in this order were registered close in time.
+  function plateOrder(plate) {
+    const m = /^([A-Z]{2})(\d{3})([A-Z]{2})$/.exec(plateKey(plate));
+    if (!m) return null;
+    const pair = (l) => (l.charCodeAt(0) - 65) * 26 + (l.charCodeAt(1) - 65);
+    return (pair(m[1]) * 676 + pair(m[3])) * 1000 + +m[2];
+  }
+  const yearOf = (modele) => +modelYear(modele) || null;
+  // The short Metabase code gives model and cubage but no year; the « Matrice » column, when exported, has it.
+  // Metabase « Matrice ID » = the back-office maintenance matrix (« Movano 2023 »): same ID, same model version,
+  // whatever the registration year. Known IDs (Cd Vehicules export of 2026-11-24) → version year in the fleet list.
+  const MATRICE_ANNEES = { 3: 2023, 26: 2025, 19: 2023, 27: 2025, 20: 2023, 22: 2024, 32: 2026 };
+  // 1) the model the team already chose for another vehicle of the same matrix, 2) the table above.
+  function modelFromMatrice(plate, base, cubage, matriceId, fleet, vehicles, metabase) {
+    if (!matriceId) return null;
+    const same = (f) => f && baseModel(f.modele) === base && +f.cubage === +cubage && fleetIndex(fleet, f) >= 0;
+    const votes = new Map();
+    for (const [k, mb] of metabase || []) {
+      if (k === plateKey(plate) || mb.matrice !== matriceId) continue;
+      const v = vehicles?.get(k);
+      if (same(v)) votes.set(v.modele, (votes.get(v.modele) || 0) + 1);
+    }
+    const best = [...votes].sort((a, b) => b[1] - a[1])[0];
+    if (best) return (fleet || []).find((f) => f.modele === best[0] && +f.cubage === +cubage) || null;
+    const y = MATRICE_ANNEES[+matriceId];
+    return y ? (fleet || []).find((f) => same(f) && yearOf(f.modele) === y) || null : null;
+  }
+  // Without it, when the fleet has the same model and cubage in several years
+  // (Movano 12 m³ 2023 / 2025), take the year of the known vehicle registered closest to this plate; otherwise the newest.
+  function guessYear(plate, base, cubage, fleet, vehicles) {
+    const years = (fleet || []).filter((f) => baseModel(f.modele) === base && +f.cubage === +cubage && yearOf(f.modele));
+    if (years.length < 2 || years.length !== (fleet || []).filter((f) => baseModel(f.modele) === base && +f.cubage === +cubage).length) return null;
+    const order = plateOrder(plate);
+    let nearest = null, gap = Infinity;
+    if (order != null) for (const v of vehicles?.values?.() || []) {
+      const y = yearOf(v.modele), o = plateOrder(v.plaque);
+      if (y && o != null && o !== order && Math.abs(o - order) < gap) { gap = Math.abs(o - order); nearest = y; }
+    }
+    const byYear = [...years].sort((a, b) => yearOf(b.modele) - yearOf(a.modele));
+    if (nearest == null) return byYear[0];
+    return byYear.reduce((best, f) => (Math.abs(yearOf(f.modele) - nearest) < Math.abs(yearOf(best.modele) - nearest) ? f : best));
+  }
   function knownVehicle(plate, vehicles, metabase, fleet, sites) {
     const own = vehicles?.get(plateKey(plate));
     const mb = metabase?.get(plateKey(plate));
     if (!mb) return own || null;
     const m = metabaseModel(mb.code, mb.categorie, fleet);
+    const exact = !m.modele && m.base && m.cubage != null ? modelFromMatrice(plate, m.base, m.cubage, mb.matrice, fleet, vehicles, metabase) : null;
+    if (exact) Object.assign(m, { modele: exact.modele, cubage: exact.cubage });
+    const guess = !m.modele && m.base && m.cubage != null ? guessYear(plate, m.base, m.cubage, fleet, vehicles) : null;
+    if (guess) Object.assign(m, { modele: guess.modele, cubage: guess.cubage, anneeEstimee: true });
     const site = metabaseSite(mb.site, sites);
-    const fromMb = { modele: m.modele, cubage: m.cubage, base: m.base, code: m.code, hayon: m.hayon, siteMetabase: site ? site.nom : "", villeMetabase: mb.site || "", metabase: true };
+    const fromMb = { modele: m.modele, cubage: m.cubage, base: m.base, code: m.code, hayon: m.hayon, anneeEstimee: !!m.anneeEstimee, siteMetabase: site ? site.nom : "", villeMetabase: mb.site || "", metabase: true };
     if (own?.modele) return { ...own, siteMetabase: fromMb.siteMetabase, villeMetabase: fromMb.villeMetabase, code: m.code };
     return { ...(own || { plaque: plate, photos: [] }), ...fromMb };
   }
   // One line for the form: « Metabase : MOV - 12 · 12 m³ · Saint-Cloud ».
   function metabaseHint(v) {
     if (!v?.code && !v?.villeMetabase) return "";
-    const what = v.modele ? fleetLabel(v) : [v.base || v.code, v.cubage ? v.cubage + " m³" : "", v.hayon ? "hayon" : ""].filter(Boolean).join(" · ");
+    const what = v.modele ? fleetLabel(v) + (v.anneeEstimee ? " (année estimée)" : "") : [v.base || v.code, v.cubage ? v.cubage + " m³" : "", v.hayon ? "hayon" : ""].filter(Boolean).join(" · ");
     return "Metabase : " + [what, v.siteMetabase || v.villeMetabase].filter(Boolean).join(" · ");
   }
 
@@ -784,6 +831,26 @@
     if (r.error) return r;
     return { plaque: r.plaque, quoi: r.quoi, texte: r.texte, photo: fields.photo || "", modifieAt: nowIso };
   }
+
+  // « Véhicule sale » seen in passing by a washer: the team validates the wash in one tap. The request goes straight to
+  // that provider, already accepted (« confirmée »), for today or tomorrow; the provider then taps « fait » as usual.
+  // It keeps the report's id (signalementId): the provider's alert says « Lavage validé » and its report shows it.
+  const isWashReport = (s) => isFieldReport(s) && (s.quoi || []).includes("Véhicule sale");
+  // Site: Metabase's, else the one of the vehicle's last request (lastSite), else none (the team completes it).
+  function washFromReport(report, { providerName, vehicle, sites = [], date, formule = "complet", lastSite = "" }) {
+    const site = vehicle?.siteMetabase || lastSite || "";
+    return {
+      service: "lavage", formule: WASH_KINDS.some((k) => k.id === formule) ? formule : "complet",
+      plaque: normalizePlate(report.plaque), modele: vehicle?.modele || "", cubage: vehicle?.cubage ?? "",
+      site, adresse: site ? siteAddress(sites, site) : "",
+      date, dateFin: date, debut: DEFAULT_SLOT.debut, fin: DEFAULT_SLOT.fin,
+      prestataire: providerName, tache: "", groupe: "",
+      notes: `Lavage repéré par ${providerName} le ${numericDate(String(report.at || "").slice(0, 10))}, validé par City-Drop`,
+      signalementId: report.id,
+    };
+  }
+  // The wash the team validated from this report, if any (the provider sees « Lavage validé » on it).
+  const washOfReport = (report, demandes) => demandes.find((d) => d.signalementId && d.signalementId === report.id && d.statut !== "annulee") || null;
 
   // What a provider's answer writes. A "fait" or an acceptance also moves the request's status right away, so the
   // request is closed even when nobody of the team has the app open (the access rules allow exactly this).
@@ -1183,13 +1250,13 @@
     monthlyReport, invoiceLines, monthlySummaryMessage, EXPORT_HEADER, exportRow, toTsv, toCsv,
     matchesSearch, RECENT_DAYS, TEAM_RECENT_DAYS, HAYON_WINDOW_DAYS, OLDEST_DAY, monthStart, nextMonthStart, recentWindowStart, hayonWindowStart, olderPart, mergeSlices,
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
-    metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint,
+    metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint, plateOrder, guessYear,
     providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, providerSites, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
     HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, metabaseHasHayon, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
-    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport, fieldNoteOf, fieldEditPatch,
+    PROBLEMS, PROBLEM_TEXT_MAX, problemOf, problemSummary, problemReport, PROBLEM_AFTER_DONE_DAYS, canReportAfterDone, openProblems, handledProblems, problemsOfRequest, problemsOfPlate, FIELD_ISSUES, isFieldReport, fieldReport, fieldNoteOf, fieldEditPatch, isWashReport, washFromReport, washOfReport,
     TRASH_DAYS, trashPurgeDate, trashDaysLeft, groupTrash,
   };
 });

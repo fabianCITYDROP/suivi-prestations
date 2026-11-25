@@ -1364,6 +1364,14 @@
   }
   const groupMember = (main, extra) => ({ ...main, plaque: extra.plaque, modele: extra.modele, cubage: extra.cubage, debut: extra.debut, fin: extra.fin });
   $("#addVeh").onclick = () => { addExtraRow().querySelector(".x-plaque").focus(); renderFormSide(); };
+  $("#extraVeh").addEventListener("input", (e) => {
+    const input = e.target.closest(".x-plaque");
+    const vehicle = input && knownWhileTyping(input);
+    if (!vehicle) return;
+    const row = input.closest(".extra-veh");
+    pickKnownModel(row.querySelector(".x-base"), row.querySelector(".x-modele"), vehicle);
+    renderFormSide();
+  });
   $("#extraVeh").addEventListener("change", (e) => {
     const input = e.target.closest(".x-plaque");
     if (!input) return;
@@ -1390,6 +1398,7 @@
     (document.getElementById("svc-" + d.service) || document.getElementById("svc-pare-brise")).checked = true;
     $("#wash-" + D.washKindOf(d).id).checked = true;
     ["plaque", "adresse", "debut", "fin", "notes", "tache"].forEach((k) => (field(k).value = d[k] || ""));
+    field("plaque").dataset.filledKey = D.plateKey(d.plaque);
     setAvailability(d.date, d.dateFin);
     if (d.prestataire && !state.providers.includes(d.prestataire)) state.providers.push(d.prestataire);
     if (d.site && !siteNames().includes(d.site)) state.sites.push({ nom: d.site, adresse: "" });
@@ -1454,7 +1463,23 @@
     if (vehicle?.siteMetabase && !field("site").value) { field("site").value = vehicle.siteMetabase; field("adresse").value = D.siteAddress(state.sites, vehicle.siteMetabase); }
     renderFormSide();
   }
-  $("#form").addEventListener("input", (e) => { if (e.target.id !== "f-plaque") renderFormSide(); });
+  // As soon as the typed plate is a known vehicle (Metabase or already seen), fill model and cubage without waiting
+  // for the field to lose focus. Once per plate, so a model the user then changes by hand is not overwritten while typing.
+  function knownWhileTyping(input) {
+    const key = D.plateKey(input.value);
+    const vehicle = key ? knownOf(input.value) : null;
+    if (!vehicle || (!vehicle.modele && !vehicle.base) || input.dataset.filledKey === key) return null;
+    input.dataset.filledKey = key;
+    return vehicle;
+  }
+  $("#form").addEventListener("input", (e) => {
+    if (e.target.id !== "f-plaque") return renderFormSide();
+    const vehicle = knownWhileTyping(e.target);
+    if (!vehicle) return;
+    pickKnownModel(field("base"), field("modele"), vehicle);
+    if (vehicle.siteMetabase && !field("site").value) { field("site").value = vehicle.siteMetabase; field("adresse").value = D.siteAddress(state.sites, vehicle.siteMetabase); }
+    renderFormSide();
+  });
   $("#form").addEventListener("change", renderFormSide);
   field("prest").addEventListener("change", renderServiceChoice);
   $("#svcSeg").addEventListener("change", renderServiceChoice);
@@ -3238,17 +3263,76 @@
     const ticks = ticksOf(p);
     const tickText = ticks.join(", ");
     const words = p.texte && p.texte !== tickText ? p.texte.replace(tickText + " – ", "") : "";
-    const acts = done ? [{ act: "reopen", label: "Rouvrir" }] : [{ act: "new", label: "Créer une demande", primary: true, plus: true }, { act: "handled", label: "Traité" }];
+    const acts = done ? [{ act: "reopen", label: "Rouvrir" }]
+      : canValidateWash(p) ? [{ act: "wash", label: "Valider le lavage", primary: true, check: true }, { act: "new", label: "Créer une demande", sheetOnly: true }, { act: "handled", label: "Traité" }]
+      : [{ act: "new", label: "Créer une demande", primary: true, plus: true }, { act: "handled", label: "Traité" }];
     return { art: ticks.find((q) => self.IssueArt?.has(q)) || "Autre", kind: "Vu en passant", what: ticks.length ? ticks.join(", ") : "Autre", note: ticks.length ? words : "", noteIsText: !ticks.length,
       extraArts: ticks.slice(1).filter((q) => self.IssueArt?.has(q)), who, plate: p.plaque, job: "", d: null, photo: p.photo || "", acts, doneLine: handledBy,
       edited: p.modifieAt ? `modifié le ${atLabel(p.modifieAt)}` : "", whatOverride: !ticks.length ? words || p.texte : "" };
+  }
+  // « Véhicule sale » from a washer: the team can validate the wash at once (see D.washFromReport).
+  const providerOfReport = (p) => state.providerDocs.get(p.prestataireId);
+  const canValidateWash = (p) => D.isWashReport(p) && !!providerOfReport(p)?.nom && D.offers(providerOfReport(p), "lavage", providerOfReport(p).nom);
+  function washFields(p, day, formule) {
+    const name = providerOfReport(p).nom;
+    const last = state.demandes.filter((d) => D.plateKey(d.plaque) === D.plateKey(p.plaque) && d.site && d.site !== D.NO_SITE).sort(D.byDateThenTime).at(-1);
+    const fields = D.washFromReport(p, { providerName: name, vehicle: knownOf(p.plaque), sites: state.sites, date: day, formule, lastSite: last?.site || "" });
+    return { ...fields, prestataireId: p.prestataireId, prixHT: D.priceFor(pricesOf(p.prestataireId), fields) };
+  }
+  const washChoice = () => ({ day: document.querySelector('.wash-sheet input[name="washDay"]:checked')?.value || today(),
+    formule: document.querySelector('.wash-sheet input[name="washKind"]:checked')?.value || "complet" });
+  const washPrice = (f) => (f.prixHT != null ? D.euros(f.prixHT) + " HT" : "Sans prix");
+  function washSheetHtml(it) {
+    const p = it.p;
+    const f = washFields(p, today(), "complet");
+    const seg = (name, items) => `<div class="seg" role="radiogroup">${items.map(([v, label], i) => `<label><input type="radio" name="${name}" value="${v}"${i ? "" : " checked"}><span>${esc(label)}</span></label>`).join("")}</div>`;
+    const rows = [
+      ["Véhicule", `${plateTag(f.plaque)}${f.modele ? `<small>${esc(D.vehicleLabel(f))}</small>` : ""}`],
+      ["Prestataire", esc(f.prestataire)],
+      ["Site", esc(f.site || D.NO_SITE)],
+      ["Prix", `<span data-wash-price>${esc(washPrice(f))}</span>`],
+    ];
+    return `<div class="ret-sheet wash-sheet" data-wash-key="${esc(it.key)}">
+      <dl class="ret-sh-info">${rows.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join("")}</dl>
+      <div class="wash-pick"><p class="sheet-label">Quand</p>${seg("washDay", [[today(), "Aujourd'hui"], [D.addDays(today(), 1), "Demain"]])}</div>
+      <div class="wash-pick"><p class="sheet-label">Lavage</p>${seg("washKind", D.WASH_KINDS.map((k) => [k.id, k.label.replace("Lavage ", "")]).map(([v, l]) => [v, l.charAt(0).toUpperCase() + l.slice(1)]))}</div>
+      <div class="ret-sh-acts">${retBtn({ act: "wash-ok", label: "Valider le lavage", primary: true, check: true }, it.key)}</div>
+    </div>`;
+  }
+  function openWashSheet(key) {
+    const it = retItem(key); if (!it) return;
+    ret.open = key;
+    teamSheet.open("Valider le lavage", washSheetHtml(it), { cls: "ret-sheet-b", closed: () => (ret.open = null) });
+  }
+  teamSheet.body.addEventListener("change", (e) => {
+    const sheet = e.target.closest(".wash-sheet"); if (!sheet) return;
+    const it = retItem(sheet.dataset.washKey); if (!it) return;
+    const { day, formule } = washChoice();
+    const price = sheet.querySelector("[data-wash-price]");
+    if (price) price.textContent = washPrice(washFields(it.p, day, formule));
+  });
+  async function validateWash(it) {
+    const p = it.p;
+    const { day, formule } = washChoice();
+    const fields = washFields(p, day, formule);
+    const same = D.existingDuplicate(fields, state.demandes);
+    if (same) { toast(`${fields.plaque} a déjà un lavage le ${D.shortDate(same.date)} (${D.statusOf(same.statut).label.toLowerCase()}) : ouvre-le plutôt`); return; }
+    teamSheet.close();
+    if (ret.tab === "todo") await retLeave(it.key);
+    try {
+      await state.store.validateWash(p, fields, state.userEmail);
+      toast(`Lavage validé pour ${fields.plaque} ${day === today() ? "aujourd'hui" : "demain"} : ${fields.prestataire} est prévenu`);
+    } catch (err) {
+      const card = document.querySelector(`#retList .ret-card[data-ret="${CSS.escape(it.key)}"]`);
+      retBack(card); reportWriteError(err);
+    }
   }
   const retBtn = (a, key) => `<button type="button" class="ret-btn${a.primary ? " primary" : ""}" data-ret-act="${a.act}" data-key="${esc(key)}">${a.check ? icon("check") : a.plus ? icon("plus") : ""}${esc(a.label)}</button>`;
   function retCard(it) {
     const v = retView(it);
     const thumb = v.photo ? `<span class="ret-thumb" data-thumb="${esc(v.photo)}">${ret.thumbs.get(v.photo) ? `<img src="${ret.thumbs.get(v.photo)}" alt="">` : ""}${icon("image")}</span>` : "";
     const meta = [v.who, v.job, v.d && D.siteOf(v.d)].filter(Boolean).join(" · ");
-    const acts = state.canWrite ? v.acts.filter((a) => !["open", "replan"].includes(a.act) || v.d) : [];
+    const acts = state.canWrite ? v.acts.filter((a) => (!["open", "replan"].includes(a.act) || v.d) && !a.sheetOnly) : [];
     const done = isRetDone(it);
     // 2026-11-21 : fiche courte. Le logo du type de prestation (pare-brise, lavage, intervention, hayon) se repère d'un coup d'œil ;
     // dans « À traiter », le petit logo de la réponse (absent, autre date…) reste en pastille dans le coin.
@@ -3356,6 +3440,8 @@
     const { d, p } = it;
     if (act === "replan" || act === "open") { teamSheet.close(); return openDemande(d.id); }
     if (act === "new") { teamSheet.close(); return newDemandeFor({ plaque: p.plaque }); }
+    if (act === "wash") return openWashSheet(key);
+    if (act === "wash-ok") { if (requireStore()) await validateWash(it); return; }
     if (!requireStore()) return;
     const plate = d?.plaque || p?.plaque;
     const fromSheet = teamSheet.isOpen; teamSheet.close();

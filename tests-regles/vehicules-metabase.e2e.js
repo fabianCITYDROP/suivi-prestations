@@ -65,11 +65,23 @@ let failed = 0; const ok = (what, cond) => { console.log((cond ? '✔ ' : '✘ '
 
   await p.click('#newOnDay'); await p.waitForTimeout(700);
   await p.click('[data-nd-svc="pare-brise"]'); await p.waitForTimeout(250);
-  await p.fill('#f-plaque', 'hk382ml'); await p.press('#f-plaque', 'Tab'); await p.waitForTimeout(500);
+  // Plate typed key by key, cursor still in the field: model and cubage must fill without leaving it.
+  await p.click('#f-plaque'); await p.keyboard.type('hk382ml', { delay: 40 }); await p.waitForTimeout(300);
+  ok('formulaire : cubage rempli même avec 2 années (Vivaro 5 m³)', /5 m³/.test(await p.$eval('#f-modele', (s) => s.value ? s.selectedOptions[0].textContent : '')));
+  ok('formulaire : toujours dans le champ plaque', await p.evaluate(() => document.activeElement?.id === 'f-plaque'));
   const hint = await p.textContent('#vehHint');
-  ok('formulaire : phrase Metabase « ' + hint + ' »', /Metabase : Opel Vivaro · 5 m³ · Saint-Cloud/.test(hint));
+  ok('formulaire : phrase Metabase « ' + hint + ' »', /Metabase : Opel Vivaro 20\d\d – 5 m³ \(année estimée\) · Saint-Cloud/.test(hint));
   ok('formulaire : modèle Opel Vivaro choisi', (await p.inputValue('#f-base')) === 'Opel Vivaro');
   ok('formulaire : site Saint-Cloud rempli', (await p.inputValue('#f-site')) === 'Saint-Cloud');
+  // Model changed by hand, then one more key in the plate: the hand choice stays.
+  await p.selectOption('#f-base', 'Opel Movano'); await p.press('#f-plaque', 'End'); await p.waitForTimeout(150);
+  ok('formulaire : choix manuel gardé', (await p.inputValue('#f-base')) === 'Opel Movano');
+  await p.selectOption('#f-base', 'Opel Vivaro'); await p.waitForTimeout(150);
+  // Second vehicle at the same place: fills as soon as typed too.
+  await p.click('#addVeh'); await p.waitForTimeout(200);
+  await p.keyboard.type('GS-487-PR', { delay: 40 }); await p.waitForTimeout(300);
+  ok('véhicule 2 : Opel Movano rempli en tapant', (await p.inputValue('.extra-veh .x-base')) === 'Opel Movano');
+  ok('véhicule 2 : cubage 17', /17/.test(await p.$eval('.extra-veh .x-modele', (s) => s.selectedOptions[0]?.textContent || '')));
   await p.locator('#vehHint').scrollIntoViewIfNeeded(); await p.waitForTimeout(300);
   await p.screenshot({ path: `${OUT}/plaque-metabase-telephone.png` });
   ok('aucune erreur de page', !errors.length); if (errors.length) console.log(errors.join('\n'));

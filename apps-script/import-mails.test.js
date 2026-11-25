@@ -114,3 +114,40 @@ test("le « Commentaire : » du mail devient la remarque que voit le prestataire
   assert.ok(!("notes" in M.lireMail("Prise de rendez-vous GS-487-PR", CORPS)), "pas de commentaire = rien");
   assert.equal(M.commentaireDe("Commentaire : " + "x".repeat(800)).length, 500);
 });
+
+test("une annulation n'annule que ce qui n'est pas encore fait, et prévient sinon", () => {
+  const a = M.lireAnnulation("Annulation de rendez-vous", ANNULATION);
+  assert.deepEqual(M.decisionAnnulation(a, { statut: "envoyee", retour: { etat: "" } }), { annuler: true, alerte: null });
+  assert.deepEqual(M.decisionAnnulation(a, { statut: "confirmee", retour: { etat: "confirme" } }), { annuler: true, alerte: null });
+  assert.deepEqual(M.decisionAnnulation(a, { statut: "annulee", retour: { etat: "" } }), { annuler: false, alerte: null });
+  const introuvable = M.decisionAnnulation(a, null);
+  assert.equal(introuvable.annuler, false);
+  assert.match(introuvable.alerte.sujet, /à faire à la main : GM-961-LC/);
+  assert.match(introuvable.alerte.texte, /07\/10\/2026 à 08:00/);
+  const faite = M.decisionAnnulation(a, { statut: "realisee", prestataire: "Du Sol au Toit", retour: { etat: "fait" } });
+  assert.equal(faite.annuler, false);
+  assert.match(faite.alerte.texte, /Du Sol au Toit l'a déjà marqué fait/);
+  assert.equal(M.decisionAnnulation(a, { statut: "confirmee", retour: { etat: "fait" } }).annuler, false, "fait mais statut pas encore suivi");
+});
+
+test("la demande relue garde seulement statut, prestataire et réponse", () => {
+  assert.deepEqual(M.lireFiche({ statut: { stringValue: "realisee" }, prestataire: { stringValue: "Khalid" }, plaque: { stringValue: "X" },
+    retour: { mapValue: { fields: { etat: { stringValue: "fait" } } } } }), { statut: "realisee", prestataire: "Khalid", retour: { etat: "fait" } });
+  assert.deepEqual(M.lireFiche({ statut: { stringValue: "envoyee" } }), { statut: "envoyee", prestataire: "", retour: { etat: "" } });
+});
+
+test("le garage rattaché dans Réglages donne le prestataire et le site dès l'import", () => {
+  const champs = { liste: { arrayValue: { values: [
+    { mapValue: { fields: { garage: { stringValue: "Du Sol au Toit 78&92" }, prestataire: { stringValue: "Du Sol au Toit" }, site: { stringValue: "La Défense" } } } },
+    { mapValue: { fields: { garage: { stringValue: "DHOLLIANDA" }, prestataire: { stringValue: "DHOLLIANDA" }, site: { stringValue: "" } } } },
+    { mapValue: { fields: { garage: { stringValue: "Garage sans prestataire" }, prestataire: { stringValue: "" } } } },
+  ] } } };
+  const garages = M.lireGarages(champs);
+  assert.equal(garages.length, 2, "un garage sans prestataire ne compte pas");
+  assert.deepEqual(M.rattachement("du sol au toit 78&92 ", garages),
+    { prestataire: "Du Sol au Toit", prestataireId: "du-sol-au-toit", site: "La Défense", siteAuto: "garage" });
+  assert.deepEqual(M.rattachement("DHOLLIANDA", garages), { prestataire: "DHOLLIANDA", prestataireId: "dhollianda" }, "hayon : pas de site");
+  assert.deepEqual(M.rattachement("Allo Pare-Brise Lille", garages), {}, "garage pas encore rattaché : l'appli complète comme avant");
+  assert.deepEqual(M.lireGarages(undefined), []);
+  assert.equal(M.idPrestataire("Allo Pare-Brisé 78"), "allo-pare-brise-78", "même identifiant que l'appli");
+});

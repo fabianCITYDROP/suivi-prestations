@@ -66,7 +66,7 @@ const base = { id: "d1", plaque: "GS-487-PR", service: "lavage", site: "Saint-Cl
 
 test("une nouvelle demande est annoncée une seule fois à son prestataire", () => {
   const a = N.aAnnoncer([base], DEPUIS);
-  assert.deepEqual(a.prestataires, { khalid: { nouvelles: ["GS-487-PR · Lavage · Saint-Cloud · 20/11"], annulees: [] } });
+  assert.deepEqual(a.prestataires, { khalid: { nouvelles: ["GS-487-PR · Lavage · Saint-Cloud · 20/11"], valides: [], annulees: [] } });
   assert.deepEqual(a.marques, [{ id: "d1", notifie: { demande: "khalid", annulee: false } }]);
   const encore = N.aAnnoncer([{ ...base, notifie: a.marques[0].notifie }], DEPUIS);
   assert.deepEqual(encore.prestataires, {});
@@ -199,4 +199,13 @@ test("rappel du matin : chaque prestataire ne reçoit que ses véhicules", () =>
   for (const etat of ["autre-date", "absent", "refuse"]) {
     assert.deepEqual(N.rappelsPrestataires([{ ...k1, retour: { etat, at: "2026-11-18T10:00:00.000Z" } }], auj, maintenant), {}, etat + " : déjà répondu, l'équipe s'en charge");
   }
+});
+
+test("un lavage validé depuis un signalement est annoncé « Lavage validé » à son prestataire", () => {
+  const a = N.aAnnoncer([{ ...base, statut: "confirmee", signalementId: "s9" }], DEPUIS);
+  assert.deepEqual(a.prestataires.khalid, { nouvelles: [], valides: ["GS-487-PR · Lavage · Saint-Cloud · 20/11"], annulees: [] });
+  const m = N.messagePrestataire(a.prestataires.khalid);
+  assert.equal(m.titre, "Lavage validé : vous pouvez le faire");
+  assert.equal(m.texte, "Validé : GS-487-PR · Lavage · Saint-Cloud · 20/11");
+  assert.equal(N.messagePrestataire({ nouvelles: ["A"], valides: ["B", "C"], annulees: [] }).titre, "2 lavages validés : vous pouvez les faire · Nouvelle demande");
 });

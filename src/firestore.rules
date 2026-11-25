@@ -6,7 +6,8 @@ rules_version = '2';
 //   prestataire : sees only the requests of its own provider, and can only answer them (field "retour"); a "fait" or
 //                 an acceptance also moves the request's status, so it is closed even when nobody of the team is online.
 //                 For 10 minutes after its « fait », the provider who tapped it can take it back (wrong vehicle).
-//   robot       : the Apps Script of the team (mail import + alerts). Can create a request read from a City-Drop mail,
+//   robot       : the Apps Script of the team (mail import + alerts). Can create a request read from a City-Drop mail
+//                 (linked to the provider of its garage, read from config/garages),
 //                 cancel it, or re-plan it after a cancellation; reads the requests, the reported problems and the alert subscriptions to
 //                 send alerts, only writes the "notifie" mark (what was already announced) on other requests,
 //                 leaves its trace in robot/etat, and copies the Metabase vehicles once a day into metabase/flotte.
@@ -81,16 +82,27 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notifie'])
         && n is map && n.keys().hasOnly(['demande', 'annulee', 'retour']);
     }
-    // A request read from a City-Drop mail: only these fields, already sent to the garage, not yet linked to a provider
-    // (the team app links it, adds site, model and price). The id is fixed by the mail, so a mail is never imported twice.
+    // A request read from a City-Drop mail: only these fields, already sent to the garage. When the mail's garage is set in
+    // Réglages › Garages des mails, the robot links it to that provider (and site) at once, so the provider is alerted even
+    // when nobody of the team has the app open; otherwise the team app links it. Never a price: the team app adds model,
+    // address and price. The id is fixed by the mail, so a mail is never imported twice.
     function validMailRequest(d) {
       return d.keys().hasOnly(['source', 'mailId', 'statut', 'service', 'plaque', 'modeleMail', 'km', 'date', 'debut', 'dateFin', 'fin',
-                               'tache', 'garageMail', 'notes', 'sentAt', 'createdAt', 'updatedAt'])
+                               'tache', 'garageMail', 'notes', 'sentAt', 'createdAt', 'updatedAt',
+                               'prestataire', 'prestataireId', 'site', 'siteAuto'])
+        && validMailLink(d)
         && d.source == 'mail' && d.statut == 'envoyee' && d['service'] in ['pare-brise', 'lavage', 'intervention', 'hayon']
         && d.plaque is string && d.plaque.size() > 0 && d.plaque.size() <= 20
         && d.garageMail is string && d.garageMail.size() <= 80
         && d.tache is string && d.tache.size() <= 500
         && (!('notes' in d) || (d.notes is string && d.notes.size() <= 500));
+    }
+    function validMailLink(d) {
+      return (!('prestataire' in d) || (d.prestataire is string && d.prestataire.size() > 0 && d.prestataire.size() <= 80
+                                         && d.prestataireId is string && d.prestataireId.matches('^[a-z0-9-]{1,80}$')))
+        && (!('prestataireId' in d) || 'prestataire' in d)
+        && (!('site' in d) || (d.site is string && d.site.size() <= 80 && d.get('siteAuto', '') == 'garage' && 'prestataire' in d))
+        && (!('siteAuto' in d) || 'site' in d);
     }
     // "Annulation de rendez-vous" mail: only the status changes.
     function robotCancels() {
@@ -101,7 +113,9 @@ service cloud.firestore {
     function robotReplans() {
       return resource.data.statut == 'annulee' && request.resource.data.statut == 'envoyee'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'mailId', 'source', 'service', 'plaque', 'modeleMail', 'km',
-             'date', 'debut', 'dateFin', 'fin', 'tache', 'garageMail', 'notes', 'sentAt', 'updatedAt'])
+             'date', 'debut', 'dateFin', 'fin', 'tache', 'garageMail', 'notes', 'sentAt', 'updatedAt',
+             'prestataire', 'prestataireId', 'site', 'siteAuto'])
+        && validMailLink(request.resource.data)
         && (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 500))
         && request.resource.data.plaque == resource.data.plaque && request.resource.data.date == resource.data.date;
     }
@@ -273,7 +287,8 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     match /config/{doc} {
-      allow read: if canReadAll();
+      // The robot reads only the garages list (garage -> provider + site), to link a mail request at once.
+      allow read: if canReadAll() || (isRobot() && doc == 'garages');
       allow write: if isAdmin();
     }
   }

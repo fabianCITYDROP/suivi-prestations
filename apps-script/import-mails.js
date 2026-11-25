@@ -4,7 +4,8 @@
 // (mode d'emploi : apps-script/LISEZMOI.md). Toutes les 5 minutes, le script lit les mails
 // envoyés par gestion-flotte@city-drop.com, vérifie qu'ils viennent bien de City-Drop (signature
 // DKIM), en sort la plaque, le créneau, les interventions et le garage, puis crée la demande dans
-// l'appli avec un compte « robot » qui ne peut QUE créer ces demandes : il ne lit rien.
+// l'appli avec un compte « robot ». Pour un mail d'annulation, il relit d'abord la demande : il ne l'annule pas si le
+// prestataire l'a déjà faite, et prévient l'équipe quand il ne la trouve pas.
 //
 // S'il s'arrête, personne ne le verrait : il laisse donc une trace dans l'appli (robot/etat) au moins toutes les
 // 30 minutes, et l'appli affiche un bandeau rouge quand cette trace vieillit. Quand il le peut, il envoie aussi
@@ -92,6 +93,24 @@ function lireAnnulation(sujet, html) {
 // l'annulation retrouve ainsi la bonne demande sans rien lire dans l'appli.
 const idDemande = (d) => ['mail', d.plaque.replace(/[^A-Z0-9]/gi, '').toUpperCase(), d.date.replace(/-/g, ''), d.debut.replace(':', '')].join('-');
 
+// Que faire d'une annulation, d'après la demande telle qu'elle est dans l'appli (null = pas trouvée) ?
+// Une demande déjà faite par le prestataire n'est pas annulée : City-Drop s'est sans doute trompé ou a écrit trop tard,
+// quelqu'un doit regarder. Dans les deux cas où rien n'est annulé, l'équipe reçoit un mail (ALERTE_EMAIL).
+function decisionAnnulation(annulation, fiche) {
+  const quand = jourFr(annulation.date) + ' à ' + annulation.debut;
+  if (!fiche) return { annuler: false, alerte: { sujet: 'Annulation City-Drop à faire à la main : ' + annulation.plaque,
+    texte: 'City-Drop annule le rendez-vous de ' + annulation.plaque + ' du ' + quand + ', mais le robot ne trouve pas cette demande dans l\'appli '
+      + '(saisie à la main, ou créneau changé).\n\nSi elle existe dans l\'appli, ouvre-la et appuie sur « Annuler la demande ».' } };
+  if (fiche.statut === 'annulee') return { annuler: false, alerte: null };
+  const faite = fiche.statut === 'realisee' || (fiche.retour && fiche.retour.etat === 'fait');
+  if (faite) return { annuler: false, alerte: { sujet: 'Annulation City-Drop sur une prestation déjà faite : ' + annulation.plaque,
+    texte: 'City-Drop annule le rendez-vous de ' + annulation.plaque + ' du ' + quand + ', mais ' + (fiche.prestataire || 'le prestataire')
+      + ' l\'a déjà marqué fait dans l\'appli. Le robot ne l\'a pas annulé : elle reste comptée.\n\nÀ vérifier avec City-Drop et le prestataire ; '
+      + 'si elle n\'a vraiment pas été faite, ouvre-la dans l\'appli et appuie sur « Annuler la demande ».' } };
+  return { annuler: true, alerte: null };
+}
+const jourFr = (iso) => iso.split('-').reverse().join('/');
+
 // Le mail doit être signé par city-drop.com (DKIM) et venir de l'adresse de la gestion de flotte.
 function vientDeCityDrop(brut) {
   const entete = String(brut).split(/\r?\n\r?\n/)[0];
@@ -109,6 +128,37 @@ function versFirestore(demande) {
     else champs[k] = { stringValue: String(v) };
   });
   return { fields: champs };
+}
+
+// Les seuls champs utiles d'une demande lue dans l'appli (format REST de Firestore).
+function lireFiche(champs) {
+  const texte = (v) => (v && 'stringValue' in v ? v.stringValue : '');
+  const retour = champs && champs.retour && champs.retour.mapValue ? champs.retour.mapValue.fields || {} : {};
+  return { statut: texte(champs && champs.statut), prestataire: texte(champs && champs.prestataire), retour: { etat: texte(retour.etat) } };
+}
+
+// ---------- prestataire du garage (Réglages › Garages des mails) ----------
+// Même identifiant que l'appli (providerId dans src/domain.js) : « Allo Pare-Brise » -> « allo-pare-brise ».
+const idPrestataire = (nom) => String(nom || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// config/garages au format REST -> [{ garage, prestataire, site }].
+function lireGarages(champs) {
+  const valeurs = (champs && champs.liste && champs.liste.arrayValue && champs.liste.arrayValue.values) || [];
+  const texte = (v) => (v && 'stringValue' in v ? v.stringValue.trim() : '');
+  return valeurs.map((v) => (v.mapValue && v.mapValue.fields) || {})
+    .map((f) => ({ garage: texte(f.garage), prestataire: texte(f.prestataire), site: texte(f.site) }))
+    .filter((g) => g.garage && g.prestataire);
+}
+// Le garage du mail rattaché dans Réglages donne le prestataire (et le site) dès l'import : le prestataire
+// est prévenu tout de suite, même si personne de l'équipe n'a l'appli ouverte. Sans règle : rien, l'appli complète.
+// L'adresse et le prix restent ajoutés par l'appli (siteAuto « garage » lui dit de compléter l'adresse).
+function rattachement(garageMail, garages) {
+  const cle = idPrestataire(garageMail);
+  const regle = cle && (garages || []).find((g) => idPrestataire(g.garage) === cle);
+  if (!regle) return {};
+  const lien = { prestataire: regle.prestataire.slice(0, 80), prestataireId: idPrestataire(regle.prestataire).slice(0, 80) };
+  if (regle.site) Object.assign(lien, { site: regle.site.slice(0, 80), siteAuto: 'garage' });
+  return lien;
 }
 
 // ---------- surveillance du robot (fonctions pures, testées) ----------
@@ -142,8 +192,10 @@ function importer() {
   const maintenant = new Date();
   const erreurs = [];
   const nonCompris = [];
+  const aVerifier = [];   // annulations que le robot n'a pas pu faire seul
   let dernierMail = null;
   let jeton = null;
+  let ajoutees = 0;
   try {
     const faits = JSON.parse(props.getProperty(DEJA_FAITS) || '[]');
     const aFaire = [];
@@ -157,10 +209,13 @@ function importer() {
     if (aFaire.length) {
       aFaire.sort((a, b) => a.m.getDate() - b.m.getDate()); // du plus ancien au plus récent : une annulation passe après son rendez-vous
       jeton = seConnecter(props);
+      const garages = garagesDeLAppli(jeton);
       aFaire.forEach(({ cle, m }) => {
-        const r = traiter(m, jeton);
+        const r = traiter(m, jeton, garages);
+        if (r === true) ajoutees++;
         if (r === true) faits.push(cle);
         else if (r && r.nonCompris) { faits.push(cle); nonCompris.push(r.nonCompris); }
+        else if (r && r.aVerifier) { faits.push(cle); aVerifier.push(r.aVerifier); }
         else erreurs.push(r && r.erreur ? r.erreur : 'erreur inconnue');
       });
       props.setProperty(DEJA_FAITS, JSON.stringify(faits.slice(-300)));
@@ -183,12 +238,16 @@ function importer() {
   const alerte = alerteAEnvoyer(avant, apres, maintenant);
   if (alerte === 'panne') apres.alerte = maintenant.toISOString();
   if (alerte === 'reparti') apres.alerte = null;
-  envoyerAlertes(props, alerte, apres, nonCompris);
+  envoyerAlertes(props, alerte, apres, nonCompris, aVerifier);
   props.setProperty(ETAT, JSON.stringify(apres));
+  // Alerte au prestataire tout de suite (fichier notifications du même projet), sans attendre son passage de 5 minutes.
+  if (ajoutees && typeof verifierNotifications === 'function') {
+    try { verifierNotifications(); } catch (e) { console.warn('Alertes : ' + e.message + ' (le passage suivant réessaiera)'); }
+  }
   if (apres.erreur) throw new Error(apres.erreur); // l'exécution apparaît « Échec » dans Apps Script › Exécutions
 }
 
-function envoyerAlertes(props, alerte, etat, nonCompris) {
+function envoyerAlertes(props, alerte, etat, nonCompris, aVerifier = []) {
   const a = props.getProperty('ALERTE_EMAIL');
   if (!a) return;
   const envoyer = (sujet, texte) => { try { MailApp.sendEmail(a, sujet, texte + '\n\n— Le robot des mails de Suivi prestations'); } catch (e) { console.error('Alerte non envoyée : ' + e.message); } };
@@ -199,27 +258,36 @@ function envoyerAlertes(props, alerte, etat, nonCompris) {
   if (alerte === 'reparti') envoyer('✅ Robot des mails reparti', 'Le robot importe de nouveau les mails City-Drop. Rien à faire.');
   nonCompris.forEach((sujet) => envoyer('Mail City-Drop non compris : ' + sujet,
     'Le robot n\'a pas su lire ce mail : « ' + sujet + ' ». Cette demande n\'est pas dans l\'appli, saisis-la à la main.'));
+  aVerifier.forEach((a) => envoyer(a.sujet, a.texte));
 }
 
 // Renvoie true quand le mail est réglé (même s'il est ignoré), { nonCompris: sujet } si personne ne l'a importé,
 // { erreur } pour réessayer au prochain passage.
-function traiter(m, jeton) {
+function traiter(m, jeton, garages) {
   if (!vientDeCityDrop(m.getRawContent())) { console.warn('Ignoré (pas signé City-Drop) : ' + m.getSubject()); return true; }
   const maintenant = new Date().toISOString();
   const annulation = lireAnnulation(m.getSubject(), m.getBody());
   if (annulation) {
-    const r = firestore('patch', '/demandes/' + idDemande(annulation) + '?currentDocument.exists=true&' + masque(['statut', 'annuleeAt', 'updatedAt']),
+    const chemin = '/demandes/' + idDemande(annulation);
+    const lu = UrlFetchApp.fetch(FIRESTORE + chemin, { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + jeton } });
+    if (lu.getResponseCode() !== 200 && lu.getResponseCode() !== 404) {
+      const erreur = 'Lecture refusée (' + lu.getResponseCode() + ') pour l\'annulation de ' + annulation.plaque; console.error(erreur); return { erreur };
+    }
+    const fiche = lu.getResponseCode() === 200 ? lireFiche(JSON.parse(lu.getContentText()).fields) : null;
+    const choix = decisionAnnulation(annulation, fiche);
+    if (choix.alerte) { console.warn(choix.alerte.sujet); return { aVerifier: choix.alerte }; }
+    if (!choix.annuler) { console.log('Déjà annulée : ' + annulation.plaque + ' du ' + annulation.date); return true; }
+    const r = firestore('patch', chemin + '?currentDocument.exists=true&' + masque(['statut', 'annuleeAt', 'updatedAt']),
       jeton, versFirestore({ statut: 'annulee', annuleeAt: maintenant, updatedAt: maintenant }));
     const code = r.getResponseCode();
-    if (code === 200) console.log('Annulée : ' + annulation.plaque + ' du ' + annulation.date);
-    else if (code === 404 || code === 400) console.warn('Annulation sans demande importée (à annuler à la main si besoin) : ' + annulation.plaque + ' du ' + annulation.date);
-    else { const erreur = 'Annulation refusée (' + code + ') : ' + r.getContentText().slice(0, 200); console.error(erreur); return { erreur }; }
+    if (code !== 200) { const erreur = 'Annulation refusée (' + code + ') : ' + r.getContentText().slice(0, 200); console.error(erreur); return { erreur }; }
+    console.log('Annulée : ' + annulation.plaque + ' du ' + annulation.date);
     return true;
   }
   const demande = lireMail(m.getSubject(), m.getBody());
   if (!demande) { console.warn('Mail non compris, à saisir à la main : ' + m.getSubject()); return { nonCompris: m.getSubject() }; }
   const id = idDemande(demande);
-  const fiche = { ...demande, mailId: id, sentAt: maintenant, createdAt: maintenant, updatedAt: maintenant };
+  const fiche = { ...demande, ...rattachement(demande.garageMail, garages), mailId: id, sentAt: maintenant, createdAt: maintenant, updatedAt: maintenant };
   const r = firestore('post', '/demandes?documentId=' + id, jeton, versFirestore(fiche));
   const code = r.getResponseCode();
   if (code === 200) { console.log('Ajoutée : ' + demande.plaque + ' le ' + demande.date); return true; }
@@ -239,6 +307,17 @@ function firestore(methode, chemin, jeton, corps) {
   });
 }
 
+// Lus à chaque passage qui a des mails : une règle posée dans Réglages compte dès le mail suivant.
+// Si la lecture est refusée (règles Firestore pas encore republiées), le robot importe comme avant, sans prestataire.
+function garagesDeLAppli(jeton) {
+  try {
+    const r = UrlFetchApp.fetch(FIRESTORE + '/config/garages', { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + jeton } });
+    if (r.getResponseCode() === 200) return lireGarages(JSON.parse(r.getContentText()).fields);
+    if (r.getResponseCode() !== 404) console.warn('Garages illisibles (' + r.getResponseCode() + ') : republier les règles Firestore ?');
+  } catch (e) { console.warn('Garages illisibles : ' + e.message); }
+  return [];
+}
+
 function seConnecter(props) {
   const r = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + FIREBASE_CLE_WEB, {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
@@ -255,4 +334,4 @@ function installer() {
   importer();
 }
 
-if (typeof module === 'object' && module.exports) module.exports = { texteDuMail, lireMail, lireAnnulation, idDemande, serviceDe, commentaireDe, vientDeCityDrop, versFirestore, etatSuivant, traceAEcrire, alerteAEnvoyer, champsTrace };
+if (typeof module === 'object' && module.exports) module.exports = { texteDuMail, lireMail, lireAnnulation, decisionAnnulation, lireFiche, idDemande, serviceDe, commentaireDe, idPrestataire, lireGarages, rattachement, vientDeCityDrop, versFirestore, etatSuivant, traceAEcrire, alerteAEnvoyer, champsTrace };

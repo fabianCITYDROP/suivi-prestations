@@ -48,11 +48,11 @@ test("l'équipe CityDrop voit et modifie tout", async () => {
   await assertSucceeds(setDoc(doc(db, "config/garages"), { liste: [{ garage: "Du sol au toit", prestataire: "Khalid", site: "La Défense" }] }));
 });
 
-test("les garages des mails : seule l'équipe les modifie", async () => {
-  for (const who of ["khalid", "robot"]) {
-    await assertFails(getDoc(doc(as(who), "config/garages")));
-    await assertFails(setDoc(doc(as(who), "config/garages"), { liste: [] }));
-  }
+test("les garages des mails : seule l'équipe les modifie, le robot les lit", async () => {
+  for (const who of ["khalid", "robot"]) await assertFails(setDoc(doc(as(who), "config/garages"), { liste: [] }));
+  await assertFails(getDoc(doc(as("khalid"), "config/garages")));
+  await assertSucceeds(getDoc(doc(as("robot"), "config/garages")), "le robot lit le prestataire de chaque garage");
+  await assertFails(getDoc(doc(as("robot"), "config/reglages")), "mais rien d'autre dans les réglages");
 });
 
 test("Khalid ne voit ni les demandes ni les tarifs d'Allo Pare-Brise", async () => {
@@ -153,6 +153,17 @@ test("le robot des mails ajoute une demande lue dans un mail, une seule fois", a
   await assertFails(setDoc(doc(db, "demandes/mail-e"), { ...mail, notes: 12 }), "commentaire en texte seulement");
 });
 
+test("le robot rattache la demande du mail au prestataire (et au site) de son garage", async () => {
+  const db = as("robot");
+  const lien = { prestataire: "Du Sol au Toit", prestataireId: "du-sol-au-toit", site: "La Défense", siteAuto: "garage" };
+  await assertSucceeds(setDoc(doc(db, "demandes/mail-l1"), { ...mail, ...lien }));
+  await assertSucceeds(setDoc(doc(db, "demandes/mail-l2"), { ...mail, prestataire: "DHOLLIANDA", prestataireId: "dhollianda" }), "hayon : pas de site");
+  await assertFails(setDoc(doc(db, "demandes/mail-l3"), { ...mail, ...lien, prestataireId: "Pas Un Id!" }));
+  await assertFails(setDoc(doc(db, "demandes/mail-l4"), { ...mail, ...lien, siteAuto: "plaque" }), "un site posé par le robot vient du garage");
+  await assertFails(setDoc(doc(db, "demandes/mail-l5"), { ...mail, site: "La Défense", siteAuto: "garage" }), "pas de site sans prestataire");
+  await assertFails(setDoc(doc(db, "demandes/mail-l6"), { ...mail, ...lien, adresse: "1 rue X" }), "l'adresse reste à l'appli");
+});
+
 test("le robot lit les demandes (pour les alertes) mais ne peut rien changer d'autre", async () => {
   const db = as("robot");
   await assertSucceeds(getDoc(doc(db, "demandes/d1")));
@@ -166,7 +177,8 @@ test("le robot lit les demandes (pour les alertes) mais ne peut rien changer d'a
   await assertFails(updateDoc(doc(db, "demandes/d1"), { statut: "annulee" }));
   await assertFails(deleteDoc(doc(db, "demandes/d1")));
   await assertFails(setDoc(doc(db, "comptes", people.robot.email), { role: "admin" }));
-  await assertFails(setDoc(doc(db, "demandes/m2"), { ...mail, prestataireId: ALLO, prixHT: 1 }), "ne choisit ni prestataire ni prix");
+  await assertFails(setDoc(doc(db, "demandes/m2"), { ...mail, prestataire: "Allo", prestataireId: ALLO, prixHT: 1 }), "ne choisit jamais le prix");
+  await assertFails(setDoc(doc(db, "demandes/m2b"), { ...mail, prestataireId: ALLO }), "un identifiant sans nom de prestataire");
   await assertFails(setDoc(doc(db, "demandes/m3"), { ...mail, statut: "realisee" }), "ne marque rien comme fait");
   await assertFails(setDoc(doc(db, "demandes/m4"), { ...mail, source: "app" }));
   await assertFails(setDoc(doc(db, "demandes/m5"), { ...mail, retour: { etat: "fait" } }));

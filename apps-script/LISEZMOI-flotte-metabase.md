@@ -22,6 +22,10 @@ La feuille des Runners ne garde pas le modèle des véhicules immobilisés (IMPR
 Le CSV « Runners planning » joint au mail Metabase, lui, a le modèle et la catégorie de chaque véhicule (~570).
 Si la boîte du robot reçoit ce mail (abonnement Metabase), le robot le lit chaque matin : le CSV fait foi pour
 modèle et cubage, la feuille donne le site. Sans mail récent, il continue avec la feuille seule.
+Si la question Metabase a aussi la colonne **Matrice ID** (Cd Vehicules), le robot la garde : même matrice = même version
+du modèle (Movano 12 m³ 2023 ou 2025), quelle que soit l'année d'immatriculation. L'appli prend la version déjà choisie
+par l'équipe pour un autre VU de la même matrice, sinon sa table connue (19 = Movano 12 m³ 2023, 27 = Movano 12 m³ 2025…).
+Ajouter cette colonne ne change rien pour les Runners (leur script lit les colonnes par leur nom).
 Propriété facultative `METABASE_EXPEDITEUR` : n'accepter ce mail que de cette adresse (conseillé une fois connue).
 
 ## Mise en place (une seule fois, dans cet ordre)

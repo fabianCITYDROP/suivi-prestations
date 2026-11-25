@@ -355,6 +355,26 @@
     const deleteProblem = (id) => db.doc("signalements/" + id).delete();
     const markProblemHandled = (report, email, handled = true) => db.doc("signalements/" + report.id).update(
       handled ? { statut: "traite", traiteAt: new Date().toISOString(), traitePar: email || "" } : { statut: "nouveau", traiteAt: "", traitePar: "" });
+    // « Valider le lavage » on a « Véhicule sale » report: the wash request (already accepted) and the report marked
+    // handled are written together, so a report never stays open with its wash already planned (or the reverse).
+    async function validateWash(report, fields, email) {
+      const ref = db.collection("demandes").doc();
+      const now = new Date().toISOString();
+      const data = { ...fields, statut: "confirmee", ...D.statusTimestamps(null, "confirmee", now), createdAt: now, updatedAt: now };
+      const entry = historyEntry({ id: ref.id, plaque: fields.plaque }, "creation", D.changesBetween({}, data).filter((c) => c.apres !== ""));
+      const handled = { statut: "traite", traiteAt: now, traitePar: email || "" };
+      const write = async (withHistory) => {
+        const batch = db.batch();
+        batch.set(ref, data);
+        batch.update(db.doc("signalements/" + report.id), handled);
+        if (withHistory && entry) batch.set(db.collection("historique").doc(), entry);
+        await batch.commit();
+      };
+      try { await write(true); }
+      catch (err) { if (err?.code === "permission-denied") await write(false); else throw err; }
+      changed(); // the alert script looks at once: the provider is told even with the app closed
+      return ref.id;
+    }
     async function loadProof(key) {
       const cacheKey = "preuve:" + key;
       if (!photoCache.has(cacheKey)) {
@@ -476,7 +496,7 @@
       return photoCache.get(key);
     }
 
-    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, markProblemHandled, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
+    return { onChange, getAlertSettings, saveAlertSettings, saveDevice, loadDemandesBetween, loadDemandesOfPlate, olderOnDemand: () => !!demandesFeed && !demandesFeed.everything, loadHistory, reportProblem, reportField, updateField, deleteProblem, markProblemHandled, validateWash, saveHayons, deleteHayon, markHayonNotDone, subscribeProvider, loadProviderMonth, getProvider, answer, undoDone, loadProof, applyAnswer, markAnswerSeen, markAnswerUnseen, completeDemande, acceptProposedDate, saveProvider, saveAccount, deleteAccount, getAccount, linkRequests, subscribe, saveDemande, setStatus, deleteDemande, loadTrash, restoreDemandes, purgeTrash, saveSettings, saveGarages, saveVehicle, updateVehicleModel, addPhoto, removePhoto, addModelPhoto, removeModelPhoto, loadPhoto, cachedPhoto: (k) => photoCache.get(k) };
   }
 
   return { createStore, MAX_PHOTOS_PER_VEHICLE };
