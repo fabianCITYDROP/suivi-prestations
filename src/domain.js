@@ -28,6 +28,10 @@
     if (value === undefined && flag === "lavage") return !providerDoc?.hayon;
     return !!value;
   };
+  // « Sans confirmation » (Réglages, Fabian 2026-11-26): the provider never confirms anything in the app (DHOLLIANDA).
+  // A sent request is « OK confirmé » at once, counts as done once its slot is over, and a City-Drop cancellation mail
+  // cancels it even after that. Never set: on for the tailgate provider, off for the others.
+  const confirmsAlone = (providerDoc) => (providerDoc?.sansConfirmation === undefined ? !!providerDoc?.hayon : !!providerDoc.sansConfirmation);
   const servicesFor = (providerDoc, name) => SERVICES.filter((s) => !s.onRequest || offers(providerDoc, s.onRequest, name)).map((s) => s.id);
   const STATUSES = [
     { id: "a_envoyer", label: "À envoyer" },
@@ -957,9 +961,17 @@
   const daysBetween = (fromIso, toIso) => Math.round((parseIsoDate(toIso) - parseIsoDate(fromIso)) / 86400000);
   const hayonLevel = (daysLeft) => (daysLeft == null ? "inconnu" : HAYON_LEVELS.find((l) => daysLeft <= l.upTo).id);
   const isBookedHayon = (d) => isHayon(d) && !!d.date && d.statut !== "annulee";
-  const hayonDone = (d, todayIso) => isBookedHayon(d) && (d.statut === "realisee" || d.date < todayIso);
-  // What the team app writes on its own: a sent or confirmed control whose day has passed is done.
-  const hayonAutoClose = (d, todayIso) => isBookedHayon(d) && ["envoyee", "confirmee"].includes(d.statut) && d.date < todayIso;
+  // « now » is "YYYY-MM-DDTHH:MM" (local time), or a bare day meaning its first minute. A slot is over at its end time
+  // (19h30 by default), on its last day: a control booked today until 19h30 counts as done from 19h30 (Fabian 2026-11-26).
+  const stampOf = (now) => (String(now).length > 10 ? String(now).slice(0, 16) : now + "T00:00");
+  const slotOver = (d, now) => !!d.date && `${lastDay(d)}T${d.fin || "23:59"}` <= stampOf(now);
+  const hayonDone = (d, now) => isBookedHayon(d) && (d.statut === "realisee" || slotOver(d, now));
+  // What the team app writes on its own: a sent or confirmed control whose slot is over is done.
+  const hayonAutoClose = (d, now) => isBookedHayon(d) && ["envoyee", "confirmee"].includes(d.statut) && slotOver(d, now);
+  // Same for every request of a « sans confirmation » provider, and a sent one is confirmed at once.
+  const autoConfirms = (d, providerDoc) => d.statut === "envoyee" && confirmsAlone(providerDoc);
+  const autoCloses = (d, now, providerDoc) => hayonAutoClose(d, now)
+    || (confirmsAlone(providerDoc) && ["envoyee", "confirmee"].includes(d.statut) && slotOver(d, now));
   const latest = (dates) => dates.filter(Boolean).sort().pop() || "";
 
   // Metabase shows a tailgate in the category (« 20HM3 ») or in the model code (« DAILY - H », « *MOV - H », « MOV - H ABN »).
@@ -970,7 +982,8 @@
   const metabaseInFleet = (mb) => !mb?.etat || mb.etat === "A" || mb.etat === "P";
   // metabase (optional, Map PLATEKEY → export entry): a vehicle with a tailgate that is in no list yet shows up on its own,
   // with an unknown last control, so a new van is never forgotten (Fabian 2026-11-23). Nothing is written for it.
-  function hayonFollowUp(hayons, demandes, todayIso, metabase) {
+  function hayonFollowUp(hayons, demandes, now, metabase) {
+    const todayIso = String(now).slice(0, 10);
     const vehicles = new Map();
     const entry = (plate) => {
       const key = plateKey(plate);
@@ -986,12 +999,12 @@
     if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && metabaseInFleet(mb) && plateKey(key) && !retired.has(plateKey(key)) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
     return [...vehicles.values()].map(({ plaque, base, requests, mb }) => {
       const known = metabase?.get(plateKey(plaque));
-      const doneRequests = requests.filter((d) => hayonDone(d, todayIso));
+      const doneRequests = requests.filter((d) => hayonDone(d, now));
       const lastControl = latest([base?.dernierControle, ...doneRequests.map((d) => d.date)]);
       const lastRequest = doneRequests.sort((a, b) => b.date.localeCompare(a.date))[0] || null;
       const nextDue = lastControl ? addDays(lastControl, HAYON_CYCLE_DAYS) : "";
       const daysLeft = nextDue ? daysBetween(todayIso, nextDue) : null;
-      const booked = requests.filter((d) => isBookedHayon(d) && !hayonDone(d, todayIso)).sort(byDateThenTime)[0] || null;
+      const booked = requests.filter((d) => isBookedHayon(d) && !hayonDone(d, now)).sort(byDateThenTime)[0] || null;
       const notDone = requests.filter((d) => d.nonFait && d.date > lastControl).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
       return { plaque, lastControl, lastRequest: lastRequest?.date === lastControl ? lastRequest : null, nextDue, daysLeft,
         level: hayonLevel(daysLeft), booked, notDone, tooSoon: hayonTooSoonPair(requests), site: booked?.site || lastRequest?.site || "",
@@ -1282,7 +1295,7 @@
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint, plateOrder, guessYear,
     providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, providerSites, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
-    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, metabaseHasHayon, metabaseInFleet, hayonsToStart, dateInText,
+    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, confirmsAlone, slotOver, autoConfirms, autoCloses, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, metabaseHasHayon, metabaseInFleet, hayonsToStart, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,

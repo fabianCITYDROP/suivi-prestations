@@ -530,6 +530,36 @@ test("hayon: only sent or confirmed controls whose day has passed are closed aut
   assert.equal(D.hayonAutoClose(demande({ date: "2026-11-17" }), TODAY), false);
 });
 
+test("hayon: a control counts as done once its slot is over, not before (19h30 by default)", () => {
+  const today = hayon({ id: "t", date: "2026-11-26", debut: "08:30", fin: "19:30" });
+  assert.equal(D.hayonDone(today, "2026-11-26T19:29"), false);
+  assert.equal(D.hayonDone(today, "2026-11-26T19:30"), true);
+  assert.equal(D.hayonAutoClose(today, "2026-11-26T20:00"), true);
+  assert.equal(D.hayonDone({ ...today, statut: "annulee" }, "2026-11-27T08:00"), false);
+  const before = D.hayonFollowUp([], [today], "2026-11-26T12:00");
+  assert.equal(before[0].booked.id, "t");
+  const after = D.hayonFollowUp([], [today], "2026-11-26T19:45");
+  assert.equal(after[0].booked, null);
+  assert.equal(after[0].lastControl, "2026-11-26");
+  assert.equal(after[0].daysLeft, 180);
+});
+
+test("sans confirmation: on by default for the tailgate provider only, switchable in Réglages", () => {
+  assert.equal(D.confirmsAlone({ nom: "DHOLLIANDA", hayon: true }), true);
+  assert.equal(D.confirmsAlone({ nom: "DHOLLIANDA", hayon: true, sansConfirmation: false }), false);
+  assert.equal(D.confirmsAlone({ nom: "Khalid", lavage: true }), false);
+  assert.equal(D.confirmsAlone({ nom: "Nouveau", sansConfirmation: true }), true);
+  assert.equal(D.confirmsAlone(undefined), false);
+  const alone = { sansConfirmation: true }, asks = { lavage: true };
+  const wash = demande({ service: "lavage", date: "2026-11-26", fin: "18:00" });
+  assert.equal(D.autoConfirms(wash, alone), true);
+  assert.equal(D.autoConfirms(wash, asks), false);
+  assert.equal(D.autoConfirms({ ...wash, statut: "a_envoyer" }, alone), false);
+  assert.equal(D.autoCloses({ ...wash, statut: "confirmee" }, "2026-11-26T18:00", alone), true);
+  assert.equal(D.autoCloses({ ...wash, statut: "confirmee" }, "2026-11-26T17:59", alone), false);
+  assert.equal(D.autoCloses({ ...wash, statut: "confirmee" }, "2026-11-27T08:00", asks), false);
+});
+
 test("hayon: warns when the same vehicle is booked twice within a week, or long before it is due", () => {
   const existing = [hayon({ id: "a", date: "2026-11-12" })];
   const [close] = D.hayonWarnings(hayon({ date: "2026-11-15" }), existing, [], TODAY);

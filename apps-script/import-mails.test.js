@@ -130,10 +130,19 @@ test("une annulation n'annule que ce qui n'est pas encore fait, et prévient sin
   assert.equal(M.decisionAnnulation(a, { statut: "confirmee", retour: { etat: "fait" } }).annuler, false, "fait mais statut pas encore suivi");
 });
 
-test("la demande relue garde seulement statut, prestataire et réponse", () => {
+test("contrôle hayon ou prestataire sans confirmation : l'annulation l'annule même compté fait", () => {
+  const a = { plaque: "GW-748-AV", date: "2026-11-26", debut: "08:30" };
+  assert.deepEqual(M.decisionAnnulation(a, { statut: "realisee", service: "hayon", retour: { etat: "" } }), { annuler: true, alerte: null });
+  assert.deepEqual(M.decisionAnnulation(a, { statut: "realisee", service: "lavage", sansConfirmation: true, retour: { etat: "" } }), { annuler: true, alerte: null });
+  assert.deepEqual(M.decisionAnnulation(a, { statut: "annulee", service: "hayon", retour: { etat: "" } }), { annuler: false, alerte: null });
+  assert.equal(M.decisionAnnulation(a, { statut: "realisee", service: "lavage", retour: { etat: "fait" } }).annuler, false);
+});
+
+test("la demande relue garde seulement statut, prestataire, service, sans confirmation et réponse", () => {
   assert.deepEqual(M.lireFiche({ statut: { stringValue: "realisee" }, prestataire: { stringValue: "Khalid" }, plaque: { stringValue: "X" },
-    retour: { mapValue: { fields: { etat: { stringValue: "fait" } } } } }), { statut: "realisee", prestataire: "Khalid", retour: { etat: "fait" } });
-  assert.deepEqual(M.lireFiche({ statut: { stringValue: "envoyee" } }), { statut: "envoyee", prestataire: "", retour: { etat: "" } });
+    retour: { mapValue: { fields: { etat: { stringValue: "fait" } } } } }), { statut: "realisee", prestataire: "Khalid", service: "", sansConfirmation: false, retour: { etat: "fait" } });
+  assert.deepEqual(M.lireFiche({ statut: { stringValue: "envoyee" }, service: { stringValue: "hayon" }, sansConfirmation: { booleanValue: true } }),
+    { statut: "envoyee", prestataire: "", service: "hayon", sansConfirmation: true, retour: { etat: "" } });
 });
 
 test("le garage rattaché dans Réglages donne le prestataire et le site dès l'import", () => {

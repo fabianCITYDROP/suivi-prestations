@@ -94,7 +94,7 @@ function lireAnnulation(sujet, html) {
 const idDemande = (d) => ['mail', d.plaque.replace(/[^A-Z0-9]/gi, '').toUpperCase(), d.date.replace(/-/g, ''), d.debut.replace(':', '')].join('-');
 
 // Que faire d'une annulation, d'après la demande telle qu'elle est dans l'appli (null = pas trouvée) ?
-// Une demande déjà faite par le prestataire n'est pas annulée : City-Drop s'est sans doute trompé ou a écrit trop tard,
+// Une demande déjà faite par un prestataire qui répond dans l'appli n'est pas annulée : City-Drop s'est sans doute trompé ou a écrit trop tard,
 // quelqu'un doit regarder. Dans les deux cas où rien n'est annulé, l'équipe reçoit un mail (ALERTE_EMAIL).
 function decisionAnnulation(annulation, fiche) {
   const quand = jourFr(annulation.date) + ' à ' + annulation.debut;
@@ -102,6 +102,9 @@ function decisionAnnulation(annulation, fiche) {
     texte: 'City-Drop annule le rendez-vous de ' + annulation.plaque + ' du ' + quand + ', mais le robot ne trouve pas cette demande dans l\'appli '
       + '(saisie à la main, ou créneau changé).\n\nSi elle existe dans l\'appli, ouvre-la et appuie sur « Annuler la demande ».' } };
   if (fiche.statut === 'annulee') return { annuler: false, alerte: null };
+  // Contrôle hayon, ou prestataire « Sans confirmation » (Réglages) : personne ne le confirme ni ne dit « fait », l'appli le
+  // compte fait une fois le créneau passé. Une annulation l'annule quand même : il n'est pas compté (Fabian 2026-11-26).
+  if (fiche.service === 'hayon' || fiche.sansConfirmation) return { annuler: true, alerte: null };
   const faite = fiche.statut === 'realisee' || (fiche.retour && fiche.retour.etat === 'fait');
   if (faite) return { annuler: false, alerte: { sujet: 'Annulation City-Drop sur une prestation déjà faite : ' + annulation.plaque,
     texte: 'City-Drop annule le rendez-vous de ' + annulation.plaque + ' du ' + quand + ', mais ' + (fiche.prestataire || 'le prestataire')
@@ -134,7 +137,8 @@ function versFirestore(demande) {
 function lireFiche(champs) {
   const texte = (v) => (v && 'stringValue' in v ? v.stringValue : '');
   const retour = champs && champs.retour && champs.retour.mapValue ? champs.retour.mapValue.fields || {} : {};
-  return { statut: texte(champs && champs.statut), prestataire: texte(champs && champs.prestataire), retour: { etat: texte(retour.etat) } };
+  return { statut: texte(champs && champs.statut), prestataire: texte(champs && champs.prestataire), service: texte(champs && champs.service),
+    sansConfirmation: !!(champs && champs.sansConfirmation && champs.sansConfirmation.booleanValue), retour: { etat: texte(retour.etat) } };
 }
 
 // ---------- prestataire du garage (Réglages › Garages des mails) ----------
