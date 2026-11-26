@@ -443,8 +443,9 @@
     }
     const deleteHayon = (plate) => db.doc("hayons/" + D.plateKey(plate)).delete();
     // « Retirer » keeps a small mark (retire) so a van that Metabase still lists with a tailgate does not come back the next morning.
-    // previous = the doc before, to put it back with « Annuler ».
-    const retireHayon = (plate, todayIso) => db.doc("hayons/" + D.plateKey(plate)).set({ plaque: D.normalizePlate(plate), dernierControle: "", retire: true, retireLe: todayIso, updatedAt: new Date().toISOString() });
+    // The last control date is kept (merge): if the van comes back (new booking, removed by mistake), its date is still there
+    // (GG-593-MC lost its 09/06/2026 this way, 2026-11-26). previous = the doc before, to put it back with « Annuler ».
+    const retireHayon = (plate, todayIso) => db.doc("hayons/" + D.plateKey(plate)).set({ plaque: D.normalizePlate(plate), retire: true, retireLe: todayIso, updatedAt: new Date().toISOString() }, { merge: true });
     const restoreHayon = (plate, previous) => previous ? db.doc("hayons/" + D.plateKey(plate)).set(previous) : deleteHayon(plate);
     // "Pas fait": the control did not happen, so it does not restart the 180 days. "Finalement fait" undoes it.
     function markHayonNotDone(demande, notDone) {
