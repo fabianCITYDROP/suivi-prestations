@@ -996,6 +996,8 @@
     hayons.filter((h) => plateKey(h.plaque) && !h.retire).forEach((h) => (entry(h.plaque).base = h));
     demandes.filter((d) => isHayon(d) && plateKey(d.plaque) && (!retired.has(plateKey(d.plaque)) || (d.date || "") > retired.get(plateKey(d.plaque))))
       .forEach((d) => entry(d.plaque).requests.push(d));
+    // A removed van that comes back with a new booking keeps its last known control date.
+    hayons.filter((h) => h.retire && vehicles.has(plateKey(h.plaque))).forEach((h) => (vehicles.get(plateKey(h.plaque)).base = h));
     if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && metabaseInFleet(mb) && plateKey(key) && !retired.has(plateKey(key)) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
     return [...vehicles.values()].map(({ plaque, base, requests, mb }) => {
       const known = metabase?.get(plateKey(plaque));

@@ -633,6 +633,16 @@ test("hayon: a removed van stays out, even if Metabase still lists it with a tai
   assert.deepEqual(D.hayonFollowUp(hayons, [old, fresh], TODAY, mb).map((r) => r.plaque), ["EF-456-GH"]);
 });
 
+test("hayon: a removed van that comes back with a booking keeps its last control date (GG-593-MC, 2026-11-26)", () => {
+  const hayons = [{ plaque: "GG-593-MC", dernierControle: "2026-06-09", retire: true, retireLe: "2026-11-25" }];
+  const rdv = { id: "r", service: "hayon", plaque: "GG-593-MC", date: "2026-11-30", statut: "confirmee" };
+  const [row] = D.hayonFollowUp(hayons, [rdv], TODAY);
+  assert.equal(row.lastControl, "2026-06-09");
+  assert.equal(row.nextDue, "2026-12-06");
+  assert.equal(row.booked.id, "r");
+  assert.deepEqual(D.hayonFollowUp(hayons, [], TODAY), []); // sans RDV, il reste retiré
+});
+
 test("hayon: a new Metabase van without any date starts its 180 days today (auto), and shows it", () => {
   const mb = D.parseMetabase({ donnees: JSON.stringify({ AB123CD: ["DAILY - H", "20HM3", "", "2026-11-25", "", "A"], EF456GH: ["DAILY - H", "20HM3", "", "2026-11-25", "", "A"] }) });
   const rows = D.hayonFollowUp([{ plaque: "EF-456-GH", dernierControle: "2026-11-01", auto: true }], [], TODAY, mb);
