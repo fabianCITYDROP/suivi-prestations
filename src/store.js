@@ -156,7 +156,7 @@
 
     async function setStatus(demande, status, opts = {}) {
       const now = new Date().toISOString();
-      await writeWithHistory(demandeRef(demande.id), "update", { statut: status, ...D.statusTimestamps(demande, status, now), updatedAt: now },
+      await writeWithHistory(demandeRef(demande.id), "update", { statut: status, ...D.statusTimestamps(demande, status, now), ...(opts.fields || {}), updatedAt: now },
         historyEntry(demande, "statut", D.changesBetween(demande, { statut: status }), opts));
       changed();
     }

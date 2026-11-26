@@ -41,6 +41,7 @@
     ? `\n\nRéponds directement sur l'appli : ${location.origin}${location.pathname}` : "";
   const pricesOf = (providerId) => state.providerDocs.get(providerId)?.tarifs || [];
   const today = () => D.toIsoDate(new Date());
+  const nowStamp = () => { const t = new Date(); return `${D.toIsoDate(t)}T${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`; };
   const siteNames = () => state.sites.map((s) => s.nom);
   const defaultProvider = () => state.providers[0] || "";
   // Older requests (before state.recentFrom) are read only when a page shows their period.
@@ -2576,6 +2577,9 @@
     return ["Prestataire", `<div class="rg-sheet">
       <div class="rg-hero">${rgIco(offers[0]?.art || "svc-intervention", "lg")}<div><b>${esc(p)}</b><small>${i === 0 ? "Choisi par défaut dans une nouvelle demande" : "Prestataire"}</small>${st ? `<small class="rg-sub-st"><i class="rg-dot ${RG_TONE[st.level]}" aria-hidden="true"></i>${esc(st.level === "on" ? "Reçoit les alertes" : st.level === "nobody" ? "Aucun compte dans l'appli" : st.level === "stale" ? "Alertes à vérifier" : "Alertes pas activées")}</small>` : ""}</div></div>
       ${rgSection("Ce qu'il fait", flags, "Une prestation décochée ne peut jamais lui être envoyée.")}
+      ${rgSection("Confirmation", `<label class="rg-row rg-switchrow"><span class="rg-txt"><b>Sans confirmation</b><small>Confirmée dès l'envoi, faite après le créneau</small></span>
+        <input type="checkbox" role="switch" class="rg-switch" data-prov-alone="1" data-prov="${esc(p)}" ${D.confirmsAlone(doc) ? "checked" : ""} ${w ? "" : "disabled"} aria-label="${esc(p)} : sans confirmation"></label>`,
+        "Pour un prestataire qui ne confirme rien dans l'appli. Un mail d'annulation de City-Drop l'annule quand même, même après le créneau : elle n'est alors pas comptée.")}
       ${rgSection("Tarifs hors taxe", `<div id="t-list">${priceRows}</div>`, "Le prix est figé sur chaque demande quand elle est enregistrée : changer un tarif ne modifie pas les demandes déjà faites. Cubage vide = toutes tailles.")}
       ${rgForm(`<select id="t-svc" aria-label="Prestation">${kinds.map(([value, line]) => `<option value="${value}">${esc(D.jobLabel(line))}</option>`).join("")}</select>
         <div class="rg-form-line"><input id="t-min" type="number" min="0" inputmode="numeric" placeholder="de m³" aria-label="Cubage minimum"><input id="t-max" type="number" min="0" inputmode="numeric" placeholder="à m³" aria-label="Cubage maximum"><input id="t-prix" inputmode="decimal" placeholder="€ HT" aria-label="Prix hors taxe"></div>
@@ -2871,6 +2875,14 @@
   document.addEventListener("change", async (e) => {
     if (!inRg(e.target)) return;
     if (e.target.id === "a-role") return syncAccountRole();
+    const alone = e.target.closest("[data-prov-alone]");
+    if (alone) {
+      if (!requireStore()) return;
+      const nom = alone.dataset.prov;
+      try { await state.store.saveProvider(D.providerId(nom), { nom, sansConfirmation: alone.checked }); toast(alone.checked ? `${nom} : confirmé d'office, fait après le créneau` : `${nom} doit de nouveau confirmer`); closePastHayons(state.demandes); }
+      catch (err) { alone.checked = !alone.checked; reportWriteError(err); }
+      return;
+    }
     const box = e.target.closest("[data-prov-flag]");
     if (box) {
       if (!requireStore()) return;
@@ -2915,16 +2927,28 @@
       state.store.completeDemande(d, patch).catch(() => {}).finally(() => completing.delete(d.id));
     });
   }
-  // ================= tailgate controls (hayon) =================
-  // A sent control whose day has passed is done: the provider never reports it, so the team app closes it.
+  // ================= tailgate controls (hayon) and providers « sans confirmation » =================
+  // A sent control whose slot is over is done: the provider never reports it, so the team app closes it.
+  // A provider set « Sans confirmation » in Réglages (DHOLLIANDA) is never asked: its sent requests are confirmed at once
+  // and closed once their slot is over. The mark sansConfirmation tells the mail robot that a later cancellation mail
+  // must still cancel it (Fabian 2026-11-26).
   const closingHayons = new Set();
+  const providerDocOf = (d) => state.providerDocs.get(d.prestataireId || D.providerId(d.prestataire));
   function closePastHayons(rows) {
-    if (!state.canWrite) return;
-    rows.filter((d) => D.hayonAutoClose(d, today()) && !closingHayons.has(d.id)).forEach((d) => {
+    if (!state.canWrite || !state.store) return;
+    const now = nowStamp();
+    rows.forEach((d) => {
+      if (closingHayons.has(d.id)) return;
+      const doc = providerDocOf(d);
+      const status = D.autoCloses(d, now, doc) ? "realisee" : D.autoConfirms(d, doc) ? "confirmee" : null;
+      if (!status) return;
       closingHayons.add(d.id);
-      state.store.setStatus(d, "realisee", { auto: true }).catch(() => {}).finally(() => closingHayons.delete(d.id));
+      const fields = D.confirmsAlone(doc) ? { sansConfirmation: true } : {};
+      state.store.setStatus(d, status, { auto: true, fields }).catch(() => {}).finally(() => closingHayons.delete(d.id));
     });
   }
+  // A slot can end while the page stays open (19h30): look again every 5 minutes.
+  setInterval(() => { if (!state.demandes.length) return; closePastHayons(state.demandes); if (baseView === "hayon") renderHayon(); }, 5 * 60000);
   // Page « Contrôles hayon » façon iPhone (2026-11-21) : compteurs qui filtrent, véhicules groupés par ce qu'il faut faire
   // (à programmer, rendez-vous posés, à jour), jauge des jours restants, fiche du véhicule en feuille, liste à coller en feuille.
   const hy = { filter: "", open: null, removing: "", editing: "" };
@@ -2953,7 +2977,7 @@
     return `<span class="hy-gauge${big ? " big" : ""}" role="img" aria-label="${esc(hayonDaysLabel(r))}"><i style="width:${pct}%"></i></span>`;
   };
   const hyPill = (r) => `<span class="hy-pill">${esc(hayonDaysLabel(r))}</span>`;
-  const hyRows = () => D.hayonFollowUp(state.hayons, state.demandes, today(), state.metabase);
+  const hyRows = () => D.hayonFollowUp(state.hayons, state.demandes, nowStamp(), state.metabase);
   const hyRowByKey = (key) => hyRows().find((r) => D.plateKey(r.plaque) === key);
   function hayonCard(r) {
     const key = D.plateKey(r.plaque);

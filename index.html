@@ -3308,7 +3308,7 @@ body.presta-mode .brand-word, body:not(.presta-mode) .brand-word { font-size: 17
     <div class="hy-tiles" id="hy-kpis"></div>
     <label class="hy-search"><svg class="icon"><use href="#i-search"/></svg><input type="search" id="hy-q" placeholder="Rechercher une plaque" aria-label="Rechercher une plaque"></label>
     <div id="hy-list"></div>
-    <p class="hy-foot">Les rendez-vous arrivent tout seuls avec les mails. Dès que le jour d'un rendez-vous est passé, le contrôle compte comme fait et le compteur repart pour 180 jours, sauf si tu le marques « Pas fait ».</p>
+    <p class="hy-foot">Les rendez-vous arrivent tout seuls avec les mails. Dès que le créneau d'un rendez-vous est passé (19h30 par défaut), le contrôle compte comme fait et le compteur repart pour 180 jours, sauf si tu le marques « Pas fait » ou si un mail d'annulation arrive.</p>
   </section>
 
   <!-- BILAN -->
@@ -3568,6 +3568,10 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (value === undefined && flag === "lavage") return !providerDoc?.hayon;
     return !!value;
   };
+  // « Sans confirmation » (Réglages, Fabian 2026-11-26): the provider never confirms anything in the app (DHOLLIANDA).
+  // A sent request is « OK confirmé » at once, counts as done once its slot is over, and a City-Drop cancellation mail
+  // cancels it even after that. Never set: on for the tailgate provider, off for the others.
+  const confirmsAlone = (providerDoc) => (providerDoc?.sansConfirmation === undefined ? !!providerDoc?.hayon : !!providerDoc.sansConfirmation);
   const servicesFor = (providerDoc, name) => SERVICES.filter((s) => !s.onRequest || offers(providerDoc, s.onRequest, name)).map((s) => s.id);
   const STATUSES = [
     { id: "a_envoyer", label: "À envoyer" },
@@ -4497,9 +4501,17 @@ window.SUIVI_FIREBASE_CONFIG = {
   const daysBetween = (fromIso, toIso) => Math.round((parseIsoDate(toIso) - parseIsoDate(fromIso)) / 86400000);
   const hayonLevel = (daysLeft) => (daysLeft == null ? "inconnu" : HAYON_LEVELS.find((l) => daysLeft <= l.upTo).id);
   const isBookedHayon = (d) => isHayon(d) && !!d.date && d.statut !== "annulee";
-  const hayonDone = (d, todayIso) => isBookedHayon(d) && (d.statut === "realisee" || d.date < todayIso);
-  // What the team app writes on its own: a sent or confirmed control whose day has passed is done.
-  const hayonAutoClose = (d, todayIso) => isBookedHayon(d) && ["envoyee", "confirmee"].includes(d.statut) && d.date < todayIso;
+  // « now » is "YYYY-MM-DDTHH:MM" (local time), or a bare day meaning its first minute. A slot is over at its end time
+  // (19h30 by default), on its last day: a control booked today until 19h30 counts as done from 19h30 (Fabian 2026-11-26).
+  const stampOf = (now) => (String(now).length > 10 ? String(now).slice(0, 16) : now + "T00:00");
+  const slotOver = (d, now) => !!d.date && `${lastDay(d)}T${d.fin || "23:59"}` <= stampOf(now);
+  const hayonDone = (d, now) => isBookedHayon(d) && (d.statut === "realisee" || slotOver(d, now));
+  // What the team app writes on its own: a sent or confirmed control whose slot is over is done.
+  const hayonAutoClose = (d, now) => isBookedHayon(d) && ["envoyee", "confirmee"].includes(d.statut) && slotOver(d, now);
+  // Same for every request of a « sans confirmation » provider, and a sent one is confirmed at once.
+  const autoConfirms = (d, providerDoc) => d.statut === "envoyee" && confirmsAlone(providerDoc);
+  const autoCloses = (d, now, providerDoc) => hayonAutoClose(d, now)
+    || (confirmsAlone(providerDoc) && ["envoyee", "confirmee"].includes(d.statut) && slotOver(d, now));
   const latest = (dates) => dates.filter(Boolean).sort().pop() || "";
 
   // Metabase shows a tailgate in the category (« 20HM3 ») or in the model code (« DAILY - H », « *MOV - H », « MOV - H ABN »).
@@ -4510,7 +4522,8 @@ window.SUIVI_FIREBASE_CONFIG = {
   const metabaseInFleet = (mb) => !mb?.etat || mb.etat === "A" || mb.etat === "P";
   // metabase (optional, Map PLATEKEY → export entry): a vehicle with a tailgate that is in no list yet shows up on its own,
   // with an unknown last control, so a new van is never forgotten (Fabian 2026-11-23). Nothing is written for it.
-  function hayonFollowUp(hayons, demandes, todayIso, metabase) {
+  function hayonFollowUp(hayons, demandes, now, metabase) {
+    const todayIso = String(now).slice(0, 10);
     const vehicles = new Map();
     const entry = (plate) => {
       const key = plateKey(plate);
@@ -4526,12 +4539,12 @@ window.SUIVI_FIREBASE_CONFIG = {
     if (metabase) metabase.forEach((mb, key) => { if (metabaseHasHayon(mb) && metabaseInFleet(mb) && plateKey(key) && !retired.has(plateKey(key)) && !vehicles.has(plateKey(key))) entry(key).mb = mb; });
     return [...vehicles.values()].map(({ plaque, base, requests, mb }) => {
       const known = metabase?.get(plateKey(plaque));
-      const doneRequests = requests.filter((d) => hayonDone(d, todayIso));
+      const doneRequests = requests.filter((d) => hayonDone(d, now));
       const lastControl = latest([base?.dernierControle, ...doneRequests.map((d) => d.date)]);
       const lastRequest = doneRequests.sort((a, b) => b.date.localeCompare(a.date))[0] || null;
       const nextDue = lastControl ? addDays(lastControl, HAYON_CYCLE_DAYS) : "";
       const daysLeft = nextDue ? daysBetween(todayIso, nextDue) : null;
-      const booked = requests.filter((d) => isBookedHayon(d) && !hayonDone(d, todayIso)).sort(byDateThenTime)[0] || null;
+      const booked = requests.filter((d) => isBookedHayon(d) && !hayonDone(d, now)).sort(byDateThenTime)[0] || null;
       const notDone = requests.filter((d) => d.nonFait && d.date > lastControl).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
       return { plaque, lastControl, lastRequest: lastRequest?.date === lastControl ? lastRequest : null, nextDue, daysLeft,
         level: hayonLevel(daysLeft), booked, notDone, tooSoon: hayonTooSoonPair(requests), site: booked?.site || lastRequest?.site || "",
@@ -4822,7 +4835,7 @@ window.SUIVI_FIREBASE_CONFIG = {
     providerId, ROLES, roleOf, emailKey, isEmail, VAT_RATE, withVat, euros, priceFor, priceLineLabel, KNOWN_PRICES, missingKnownPrices, providerFields, accessMigration,
     metabaseCubage, metabaseModel, metabaseSite, parseMetabase, knownVehicle, metabaseHint, plateOrder, guessYear,
     providerFromGarage, mailCompletion, normalizeGarages, garageRuleOf, siteFromGarage, providerSites, garageList, mailMarkers, robotHealth, ROBOT_LATE_MINUTES, ROBOT_QUIET_DAYS,
-    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, metabaseHasHayon, metabaseInFleet, hayonsToStart, dateInText,
+    HAYON_CYCLE_DAYS, HAYON_LEVELS, isHayon, daysBetween, hayonLevel, hayonDone, hayonAutoClose, confirmsAlone, slotOver, autoConfirms, autoCloses, hayonFollowUp, hayonTooSoon, hayonWarnings, parseHayonList, metabaseHasHayon, metabaseInFleet, hayonsToStart, dateInText,
     HISTORY_FIELDS, changesBetween, answerChanges, historyValue, historyLines, historyWhen,
     ANSWERS, answerOf, isForProvider, isAccepted, isLate, providerLists, providerCounts, answerSummary, statusFromAnswer, answerPatch, unseenAnswers, seenAnswers,
     UNDO_DONE_MINUTES, UNDO_DONE_LABEL, undoDoneLeftMs, canUndoDone, undoDonePatch, undoDoneChanges,
@@ -4990,7 +5003,7 @@ window.SUIVI_FIREBASE_CONFIG = {
 
     async function setStatus(demande, status, opts = {}) {
       const now = new Date().toISOString();
-      await writeWithHistory(demandeRef(demande.id), "update", { statut: status, ...D.statusTimestamps(demande, status, now), updatedAt: now },
+      await writeWithHistory(demandeRef(demande.id), "update", { statut: status, ...D.statusTimestamps(demande, status, now), ...(opts.fields || {}), updatedAt: now },
         historyEntry(demande, "statut", D.changesBetween(demande, { statut: status }), opts));
       changed();
     }
@@ -6700,6 +6713,7 @@ function page(texte) {
     ? `\n\nRéponds directement sur l'appli : ${location.origin}${location.pathname}` : "";
   const pricesOf = (providerId) => state.providerDocs.get(providerId)?.tarifs || [];
   const today = () => D.toIsoDate(new Date());
+  const nowStamp = () => { const t = new Date(); return `${D.toIsoDate(t)}T${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`; };
   const siteNames = () => state.sites.map((s) => s.nom);
   const defaultProvider = () => state.providers[0] || "";
   // Older requests (before state.recentFrom) are read only when a page shows their period.
@@ -9235,6 +9249,9 @@ function page(texte) {
     return ["Prestataire", `<div class="rg-sheet">
       <div class="rg-hero">${rgIco(offers[0]?.art || "svc-intervention", "lg")}<div><b>${esc(p)}</b><small>${i === 0 ? "Choisi par défaut dans une nouvelle demande" : "Prestataire"}</small>${st ? `<small class="rg-sub-st"><i class="rg-dot ${RG_TONE[st.level]}" aria-hidden="true"></i>${esc(st.level === "on" ? "Reçoit les alertes" : st.level === "nobody" ? "Aucun compte dans l'appli" : st.level === "stale" ? "Alertes à vérifier" : "Alertes pas activées")}</small>` : ""}</div></div>
       ${rgSection("Ce qu'il fait", flags, "Une prestation décochée ne peut jamais lui être envoyée.")}
+      ${rgSection("Confirmation", `<label class="rg-row rg-switchrow"><span class="rg-txt"><b>Sans confirmation</b><small>Confirmée dès l'envoi, faite après le créneau</small></span>
+        <input type="checkbox" role="switch" class="rg-switch" data-prov-alone="1" data-prov="${esc(p)}" ${D.confirmsAlone(doc) ? "checked" : ""} ${w ? "" : "disabled"} aria-label="${esc(p)} : sans confirmation"></label>`,
+        "Pour un prestataire qui ne confirme rien dans l'appli. Un mail d'annulation de City-Drop l'annule quand même, même après le créneau : elle n'est alors pas comptée.")}
       ${rgSection("Tarifs hors taxe", `<div id="t-list">${priceRows}</div>`, "Le prix est figé sur chaque demande quand elle est enregistrée : changer un tarif ne modifie pas les demandes déjà faites. Cubage vide = toutes tailles.")}
       ${rgForm(`<select id="t-svc" aria-label="Prestation">${kinds.map(([value, line]) => `<option value="${value}">${esc(D.jobLabel(line))}</option>`).join("")}</select>
         <div class="rg-form-line"><input id="t-min" type="number" min="0" inputmode="numeric" placeholder="de m³" aria-label="Cubage minimum"><input id="t-max" type="number" min="0" inputmode="numeric" placeholder="à m³" aria-label="Cubage maximum"><input id="t-prix" inputmode="decimal" placeholder="€ HT" aria-label="Prix hors taxe"></div>
@@ -9530,6 +9547,14 @@ function page(texte) {
   document.addEventListener("change", async (e) => {
     if (!inRg(e.target)) return;
     if (e.target.id === "a-role") return syncAccountRole();
+    const alone = e.target.closest("[data-prov-alone]");
+    if (alone) {
+      if (!requireStore()) return;
+      const nom = alone.dataset.prov;
+      try { await state.store.saveProvider(D.providerId(nom), { nom, sansConfirmation: alone.checked }); toast(alone.checked ? `${nom} : confirmé d'office, fait après le créneau` : `${nom} doit de nouveau confirmer`); closePastHayons(state.demandes); }
+      catch (err) { alone.checked = !alone.checked; reportWriteError(err); }
+      return;
+    }
     const box = e.target.closest("[data-prov-flag]");
     if (box) {
       if (!requireStore()) return;
@@ -9574,16 +9599,28 @@ function page(texte) {
       state.store.completeDemande(d, patch).catch(() => {}).finally(() => completing.delete(d.id));
     });
   }
-  // ================= tailgate controls (hayon) =================
-  // A sent control whose day has passed is done: the provider never reports it, so the team app closes it.
+  // ================= tailgate controls (hayon) and providers « sans confirmation » =================
+  // A sent control whose slot is over is done: the provider never reports it, so the team app closes it.
+  // A provider set « Sans confirmation » in Réglages (DHOLLIANDA) is never asked: its sent requests are confirmed at once
+  // and closed once their slot is over. The mark sansConfirmation tells the mail robot that a later cancellation mail
+  // must still cancel it (Fabian 2026-11-26).
   const closingHayons = new Set();
+  const providerDocOf = (d) => state.providerDocs.get(d.prestataireId || D.providerId(d.prestataire));
   function closePastHayons(rows) {
-    if (!state.canWrite) return;
-    rows.filter((d) => D.hayonAutoClose(d, today()) && !closingHayons.has(d.id)).forEach((d) => {
+    if (!state.canWrite || !state.store) return;
+    const now = nowStamp();
+    rows.forEach((d) => {
+      if (closingHayons.has(d.id)) return;
+      const doc = providerDocOf(d);
+      const status = D.autoCloses(d, now, doc) ? "realisee" : D.autoConfirms(d, doc) ? "confirmee" : null;
+      if (!status) return;
       closingHayons.add(d.id);
-      state.store.setStatus(d, "realisee", { auto: true }).catch(() => {}).finally(() => closingHayons.delete(d.id));
+      const fields = D.confirmsAlone(doc) ? { sansConfirmation: true } : {};
+      state.store.setStatus(d, status, { auto: true, fields }).catch(() => {}).finally(() => closingHayons.delete(d.id));
     });
   }
+  // A slot can end while the page stays open (19h30): look again every 5 minutes.
+  setInterval(() => { if (!state.demandes.length) return; closePastHayons(state.demandes); if (baseView === "hayon") renderHayon(); }, 5 * 60000);
   // Page « Contrôles hayon » façon iPhone (2026-11-21) : compteurs qui filtrent, véhicules groupés par ce qu'il faut faire
   // (à programmer, rendez-vous posés, à jour), jauge des jours restants, fiche du véhicule en feuille, liste à coller en feuille.
   const hy = { filter: "", open: null, removing: "", editing: "" };
@@ -9612,7 +9649,7 @@ function page(texte) {
     return `<span class="hy-gauge${big ? " big" : ""}" role="img" aria-label="${esc(hayonDaysLabel(r))}"><i style="width:${pct}%"></i></span>`;
   };
   const hyPill = (r) => `<span class="hy-pill">${esc(hayonDaysLabel(r))}</span>`;
-  const hyRows = () => D.hayonFollowUp(state.hayons, state.demandes, today(), state.metabase);
+  const hyRows = () => D.hayonFollowUp(state.hayons, state.demandes, nowStamp(), state.metabase);
   const hyRowByKey = (key) => hyRows().find((r) => D.plateKey(r.plaque) === key);
   function hayonCard(r) {
     const key = D.plateKey(r.plaque);
